@@ -44,6 +44,8 @@ services:
       BOOTSTRAP_LOG=/paperclip/instances/default/bootstrap-invite.log;
       BOOTSTRAP_URL_FILE=/paperclip/instances/default/bootstrap-invite-url.txt;
       mkdir -p /paperclip/instances/default/logs;
+      node /lzcapp/pkg/content/bootstrap-ui/server.mjs &
+      SERVER_PID=$$!;
       for i in $(seq 1 60); do
       node -e "const net=require(\"net\"); const s=net.createConnection({host:\"postgres\",port:5432},()=>{s.end();process.exit(0)}); s.on(\"error\",()=>process.exit(1)); setTimeout(()=>process.exit(1),1000)" &&
       break; sleep 2; done;
@@ -59,7 +61,7 @@ services:
       "$$BOOTSTRAP_LOG" | tail -n 1 || true)";
       if [ -n "$$invite_url" ]; then printf "%s\n" "$$invite_url" | tee
       "$$BOOTSTRAP_URL_FILE"; fi;
-      exec node /lzcapp/pkg/content/bootstrap-ui/server.mjs'
+      wait $$SERVER_PID'
     environment:
       - PORT=8080
       - DATABASE_URL=postgres://paperclip:paperclip@postgres:5432/paperclip
