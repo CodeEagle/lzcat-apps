@@ -19,10 +19,6 @@ services:
     image: registry.lazycat.cloud/invokerlaw/codeeagle/paperclip:1fd9b4c0d9b93986
     depends_on:
       - postgres
-    setup_script: |
-      mkdir -p /paperclip/instances/default/logs
-      mkdir -p /paperclip/instances/default
-      chown -R 1000:1000 /paperclip
     environment:
       - DATABASE_URL=postgres://paperclip:paperclip@postgres:5432/paperclip
       - HOST=0.0.0.0

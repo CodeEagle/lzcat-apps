@@ -17,5 +17,5 @@
     "bootstrap-ui"
   ],
   "dependencies": [],
-  "overlay_paths": []
+  "overlay_paths": ["lazycat"]
 }
