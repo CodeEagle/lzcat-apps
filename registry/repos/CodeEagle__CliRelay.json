@@ -1,0 +1,19 @@
+{
+  "repo": "CodeEagle/CliRelay",
+  "enabled": true,
+  "upstream_repo": "kittors/CliRelay",
+  "check_strategy": "github_tag",
+  "build_strategy": "target_repo_dockerfile",
+  "publish_to_store": false,
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "custom",
+  "dockerfile_path": "Dockerfile",
+  "build_context": ".",
+  "service_port": 8317,
+  "service_cmd": [],
+  "image_targets": [
+    "clirelay"
+  ],
+  "dependencies": []
+}

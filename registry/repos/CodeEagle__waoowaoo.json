@@ -1,0 +1,17 @@
+{
+  "repo": "CodeEagle/waoowaoo",
+  "enabled": true,
+  "upstream_repo": "waoowaooAI/waoowaoo",
+  "check_strategy": "github_release",
+  "build_strategy": "upstream_dockerfile",
+  "publish_to_store": false,
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "custom",
+  "service_port": 3000,
+  "service_cmd": [],
+  "image_targets": [
+    "waoowaoo"
+  ],
+  "dependencies": []
+}

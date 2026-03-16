@@ -1,0 +1,20 @@
+{
+  "repo": "CodeEagle/chatgpt-on-wechat-lazycat",
+  "enabled": true,
+  "upstream_repo": "zhayujie/chatgpt-on-wechat",
+  "check_strategy": "github_release",
+  "build_strategy": "official_image",
+  "publish_to_store": false,
+  "official_image_registry": "docker.io/zhayujie/chatgpt-on-wechat",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "simple",
+  "service_port": 9899,
+  "service_cmd": [
+    "python",
+    "app.py"
+  ],
+  "image_targets": [
+    "chatgpt-on-wechat"
+  ],
+  "dependencies": []
+}

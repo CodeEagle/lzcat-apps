@@ -1,0 +1,115 @@
+name: Update CliRelay Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: "Force build even if no new version"
+        required: false
+        default: false
+        type: boolean
+      target_version:
+        description: "Target version to build (tag or commit)"
+        required: false
+        default: ""
+        type: string
+      publish_to_store:
+        description: "Publish to LazyCat App Store"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  UPSTREAM_REPO: kittors/CliRelay
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get target version
+        id: get-version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET_VERSION="${{ inputs.target_version }}"
+
+          if [ -n "$TARGET_VERSION" ]; then
+            SOURCE_VERSION="$TARGET_VERSION"
+          else
+            SOURCE_VERSION=$(gh api "repos/${{ env.UPSTREAM_REPO }}/tags?per_page=20" --jq '.[].name' 2>/dev/null | while read -r tag; do
+              norm="${tag#v}"
+              if [[ "$norm" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "$tag"
+                break
+              fi
+            done)
+          fi
+
+          if [ -z "$SOURCE_VERSION" ]; then
+            echo "Failed to determine target version"
+            exit 1
+          fi
+
+          BUILD_VERSION="${SOURCE_VERSION#v}"
+          echo "source_version=$SOURCE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_version=$BUILD_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check if update needed
+        id: check-update
+        run: |
+          CURRENT_VERSION=$(grep '^version:' lzc-manifest.yml | head -1 | awk '{print $2}')
+          TARGET_VERSION="${{ inputs.target_version }}"
+          FORCE_BUILD="${{ inputs.force_build }}"
+          BUILD_VERSION="${{ steps.get-version.outputs.build_version }}"
+
+          echo "Current version: $CURRENT_VERSION"
+          echo "Target version: $BUILD_VERSION"
+
+          if [ -n "$TARGET_VERSION" ]; then
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
+          elif [ "$FORCE_BUILD" = "true" ]; then
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
+          elif [ "$CURRENT_VERSION" != "$BUILD_VERSION" ]; then
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "update_needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Clone upstream source code
+        if: steps.check-update.outputs.update_needed == 'true'
+        run: |
+          SOURCE_VERSION="${{ steps.get-version.outputs.source_version }}"
+
+          git clone --depth 1 --branch "$SOURCE_VERSION" "https://github.com/${{ env.UPSTREAM_REPO }}.git" /tmp/clirelay-source
+
+      - name: Build and push image to ghcr.io
+        if: steps.check-update.outputs.update_needed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd /tmp/clirelay-source
+
+          SOURCE_VERSION="${{ steps.get-version.outputs.source_version }}"
+          BUILD_VERSION="${{ steps.get-version.outputs.build_version }}"
+          UPSTREAM_COMMIT=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(git log -1 --format=%cI)
+
+          GHCR_IMAGE="ghcr.io/${{ github.repository_owner }}/clirelay:${SOURCE_VERSION}"
+          GHCR_IMAGE=$(echo "$GHCR_IMAGE" | tr '[:upper:]' '[:lower:]')
+
+          docker build \
+            --build-arg VERSION="$BUILD_VERSION" \
+            --build-arg COMMIT="$UPSTREAM_COMMIT" \
+            --build-arg BUILD_DATE="$BUILD_DATE" \
+            -t "$GHCR_IMAGE" .
+
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
+          docker push "$GHCR_IMAGE"
+
+          echo "Built and pushed image: $GHCR_IMAGE"

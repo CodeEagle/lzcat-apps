@@ -1,0 +1,22 @@
+{
+  "repos": [
+    "CodeEagle__Airi.json",
+    "CodeEagle__autoclip.json",
+    "CodeEagle__chatgpt-on-wechat-lazycat.json",
+    "CodeEagle__CliRelay.json",
+    "CodeEagle__airflow.json",
+    "CodeEagle__cmms.json",
+    "CodeEagle__cutia.json",
+    "CodeEagle__ebook2audiobook.json",
+    "CodeEagle__Edit-Banana.json",
+    "CodeEagle__GitNexus.json",
+    "CodeEagle__Higress.json",
+    "CodeEagle__markitdown.json",
+    "CodeEagle__Moltis.json",
+    "CodeEagle__OpenFang.json",
+    "CodeEagle__paperclip.json",
+    "CodeEagle__remodex-relay.json",
+    "CodeEagle__TaoYuan.json",
+    "CodeEagle__waoowaoo.json"
+  ]
+}

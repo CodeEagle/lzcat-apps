@@ -1,0 +1,98 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.paperclip
+version: 0.3.1
+min_os_version: 1.3.8
+name: Paperclip
+description: (LazyCat Auto-build) Open-source orchestration for zero-human companies
+license: MIT
+homepage: https://paperclip.ing
+author: paperclipai
+application:
+  subdomain: paperclip
+  public_path:
+    - /
+  upstreams:
+    - location: /
+      backend: http://bootstrap-ui:8080/
+services:
+  paperclip:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/paperclip:1fd9b4c0d9b93986
+    depends_on:
+      - postgres
+    setup_script: |
+      mkdir -p /paperclip/instances/default/logs
+      mkdir -p /paperclip/instances/default
+      chown -R 1000:1000 /paperclip
+    environment:
+      - DATABASE_URL=postgres://paperclip:paperclip@postgres:5432/paperclip
+      - HOST=0.0.0.0
+      - PORT=3100
+      - SERVE_UI=true
+      - PAPERCLIP_HOME=/paperclip
+      - PAPERCLIP_DEPLOYMENT_MODE=authenticated
+      - PAPERCLIP_DEPLOYMENT_EXPOSURE=private
+      - BETTER_AUTH_SECRET=paperclip-lazycat-auth-secret
+      - PAPERCLIP_PUBLIC_URL=https://${LAZYCAT_APP_DOMAIN}
+      - PAPERCLIP_BOOTSTRAP_INVITE_PATH=/paperclip/instances/default/bootstrap-invite-url.txt
+      - OPENAI_API_KEY
+      - ANTHROPIC_API_KEY
+    binds:
+      - /lzcapp/var/data:/paperclip
+  bootstrap-ui:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/paperclip:1fd9b4c0d9b93986
+    depends_on:
+      - paperclip
+      - postgres
+    command: >-
+      /bin/bash -lc 'CONFIG_PATH=/paperclip/instances/default/config.json;
+      BOOTSTRAP_LOG=/paperclip/instances/default/bootstrap-invite.log;
+      BOOTSTRAP_URL_FILE=/paperclip/instances/default/bootstrap-invite-url.txt;
+      mkdir -p /paperclip/instances/default/logs;
+      for i in $(seq 1 60); do
+      node -e "const net=require(\"net\"); const s=net.createConnection({host:\"postgres\",port:5432},()=>{s.end();process.exit(0)}); s.on(\"error\",()=>process.exit(1)); setTimeout(()=>process.exit(1),1000)" &&
+      break; sleep 2; done;
+      if [ ! -f "$$CONFIG_PATH" ]; then timeout 60s pnpm paperclipai onboard --yes --data-dir "$$PAPERCLIP_HOME"
+      >"$$BOOTSTRAP_LOG" 2>&1 || true; else : >"$$BOOTSTRAP_LOG"; fi;
+      if ! grep -q "/invite/pcp_bootstrap_" "$$BOOTSTRAP_LOG" 2>/dev/null; then
+      if timeout 20s pnpm paperclipai auth bootstrap-ceo --data-dir "$$PAPERCLIP_HOME"
+      --base-url "$$PAPERCLIP_PUBLIC_URL" >>"$$BOOTSTRAP_LOG" 2>&1; then
+      true; else status=$$?; [ "$$status" = "124" ] || echo
+      "bootstrap-ceo exited with status $$status" >>"$$BOOTSTRAP_LOG"; fi; fi;
+      cat "$$BOOTSTRAP_LOG";
+      invite_url="$$(grep -o "https\\?://[^[:space:]]*/invite/pcp_bootstrap_[[:alnum:]]*"
+      "$$BOOTSTRAP_LOG" | tail -n 1 || true)";
+      if [ -n "$$invite_url" ]; then printf "%s\n" "$$invite_url" | tee
+      "$$BOOTSTRAP_URL_FILE"; fi;
+      exec node /lzcapp/pkg/content/bootstrap-ui/server.mjs'
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgres://paperclip:paperclip@postgres:5432/paperclip
+      - PAPERCLIP_HOME=/paperclip
+      - PAPERCLIP_DEPLOYMENT_MODE=authenticated
+      - PAPERCLIP_DEPLOYMENT_EXPOSURE=private
+      - BETTER_AUTH_SECRET=paperclip-lazycat-auth-secret
+      - PAPERCLIP_PUBLIC_URL=https://${LAZYCAT_APP_DOMAIN}
+      - PAPERCLIP_INTERNAL_URL=http://paperclip:3100
+      - PAPERCLIP_BOOTSTRAP_INVITE_PATH=/paperclip/instances/default/bootstrap-invite-url.txt
+    binds:
+      - /lzcapp/var/data:/paperclip
+  postgres:
+    image: registry.lazycat.cloud/invokerlaw/library/postgres:d0ff70664cf393ab
+    environment:
+      - POSTGRES_USER=paperclip
+      - POSTGRES_PASSWORD=paperclip
+      - POSTGRES_DB=paperclip
+    binds:
+      - /lzcapp/var/db/paperclip/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperclip -d paperclip"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+locales:
+  en:
+    name: Paperclip
+    description: (LazyCat Auto-build) Open-source orchestration for zero-human companies
+  zh:
+    name: Paperclip
+    description: （懒猫微服自动构建）面向零人类公司的开源智能体编排平台

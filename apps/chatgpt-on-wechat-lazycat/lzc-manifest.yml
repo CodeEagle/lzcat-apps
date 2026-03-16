@@ -1,0 +1,63 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.chatgpt-on-wechat-lazycat
+version: 2.0.2
+min_os_version: 1.3.8
+name: ChatGPT-on-WeChat
+description: (LazyCat Auto-build) AI 聊天机器人 - 支持微信/飞书/钉钉/Web 控制台
+license: MIT
+homepage: https://github.com/zhayujie/chatgpt-on-wechat
+author: zhayujie
+application:
+  subdomain: chatgpt-on-wechat
+  public_path:
+    - /
+  upstreams:
+    - location: /
+      backend: http://chatgpt-on-wechat:9899/
+services:
+  chatgpt-on-wechat:
+    image: registry.lazycat.cloud/invokerlaw/zhayujie/chatgpt-on-wechat:25d1b65b3f7a5473
+    environment:
+      # 必需配置 - Mock 值，启动后需要用户在设置中配置
+      - OPEN_AI_API_KEY
+
+      # 渠道配置
+      - CHANNEL_TYPE=web
+      - MODEL=chatgpt
+
+      # OpenAI 兼容配置
+      - OPEN_AI_API_BASE=https://api.openai.com/v1
+
+      # 可选配置
+      - PROXY
+      - CONVERSATION_MAX_TOKENS=4096
+      - CHARACTER_DESC=你是一个智能助手
+
+      # LinkAI 配置（可选）
+      - USE_LINKAI=false
+      - LINKAI_API_KEY
+      - LINKAI_APP_CODE
+
+      # 其他模型 API Keys（根据需要配置）
+      - CLAUDE_API_KEY
+      - GEMINI_API_KEY
+      - DASHSCOPE_API_KEY
+      - ZHIPU_AI_API_KEY
+      - MOONSHOT_API_KEY
+      - MINIMAX_API_KEY
+    binds:
+      # 配置目录持久化
+      - /lzcapp/var/config:/lzcapp/config
+      # Agent 工作空间 - 存储 memory、skills 等
+      - /lzcapp/var/workspace:/root/cow
+      # 应用数据目录
+      - /lzcapp/var/data:/app/tmp
+    setup_script: |
+      sh /lzcapp/pkg/content/cleanup-legacy-config.sh
+locales:
+  en:
+    name: ChatGPT-on-WeChat
+    description: (LazyCat) AI chatbot supporting WeChat/Feishu/Dingtalk/Web
+  zh:
+    name: ChatGPT-on-WeChat
+    description: （懒猫）支持微信/飞书/钉钉/Web 的 AI 聊天机器人

@@ -1,0 +1,1 @@
+import{c as o}from"./useGameStore-DQu3gLOA.js";const a=o("arrow-down-to-line",[["path",{d:"M12 17V3",key:"1cwfxf"}],["path",{d:"m6 11 6 6 6-6",key:"12ii2o"}],["path",{d:"M19 21H5",key:"150jfl"}]]);const r=o("arrow-down",[["path",{d:"M12 5v14",key:"s699le"}],["path",{d:"m19 12-7 7-7-7",key:"1idqje"}]]);export{r as A,a};

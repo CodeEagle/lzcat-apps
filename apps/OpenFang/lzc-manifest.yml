@@ -1,0 +1,168 @@
+lzc-sdk-version: '0.1'
+package: com.selfstudio.openfang
+version: 0.3.45
+min_os_version: 1.3.8
+name: OpenFang
+description: (LazyCat Auto-build) Open-source Agent Operating System - autonomous agents that work for you
+license: MIT
+homepage: https://openfang.sh
+author: RightNow-AI
+application:
+  subdomain: openfang
+  public_path:
+    - /
+  upstreams:
+    - location: /
+      backend: http://openfang:4200/
+services:
+  openfang:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/openfang:296c78aa8a9f49b4
+    setup_script: |
+      # 创建数据目录并设置权限
+      mkdir -p /root/.openfang
+      mkdir -p /root/.openfang/data
+
+      CONFIG_FILE="/root/.openfang/config.toml"
+      API_KEY_FILE="/root/.openfang/.api_key"
+
+      # 读取现有 API Key
+      API_KEY=""
+      if [ -f "$API_KEY_FILE" ]; then
+        API_KEY=$(cat "$API_KEY_FILE")
+      fi
+
+      # 如果为空或只有 "of_"，重新生成
+      if [ -z "$API_KEY" ] || [ "$API_KEY" = "of_" ]; then
+        TS=$(date +%s 2>/dev/null || echo "$(date +%Y%m%d%H%M%S)")
+        RAND=$(head -c 4 /dev/urandom 2>/dev/null | od -A n -t x1 2>/dev/null | tr -d ' \n' || echo "a1b2")
+        API_KEY="of_${TS}${RAND}"
+        echo "$API_KEY" > "$API_KEY_FILE"
+      fi
+
+      echo ""
+      echo "=========================================="
+      echo "OpenFang API Key: $API_KEY"
+      echo "=========================================="
+      echo ""
+
+      # 自动检测 LLM Provider
+      PROVIDER="anthropic"
+      MODEL="claude-sonnet-4-20250514"
+      API_KEY_ENV="ANTHROPIC_API_KEY"
+
+      if [ -n "$ANTHROPIC_API_KEY" ]; then
+        PROVIDER="anthropic"
+        MODEL="claude-sonnet-4-20250514"
+        API_KEY_ENV="ANTHROPIC_API_KEY"
+      elif [ -n "$OPENAI_API_KEY" ]; then
+        PROVIDER="openai"
+        MODEL="gpt-4o"
+        API_KEY_ENV="OPENAI_API_KEY"
+      elif [ -n "$OPENROUTER_API_KEY" ]; then
+        PROVIDER="openrouter"
+        MODEL="openrouter/free"
+        API_KEY_ENV="OPENROUTER_API_KEY"
+      elif [ -n "$GEMINI_API_KEY" ]; then
+        PROVIDER="gemini"
+        MODEL="gemini-2.0-flash"
+        API_KEY_ENV="GEMINI_API_KEY"
+      elif [ -n "$GOOGLE_API_KEY" ]; then
+        PROVIDER="gemini"
+        MODEL="gemini-2.0-flash"
+        API_KEY_ENV="GOOGLE_API_KEY"
+      elif [ -n "$GROQ_API_KEY" ]; then
+        PROVIDER="groq"
+        MODEL="llama-3.3-70b-versatile"
+        API_KEY_ENV="GROQ_API_KEY"
+      elif [ -n "$DEEPSEEK_API_KEY" ]; then
+        PROVIDER="deepseek"
+        MODEL="deepseek-chat"
+        API_KEY_ENV="DEEPSEEK_API_KEY"
+      elif [ -n "$TOGETHER_API_KEY" ]; then
+        PROVIDER="together"
+        MODEL="meta-llama/Llama-3.3-70B-Instruct-Turbo"
+        API_KEY_ENV="TOGETHER_API_KEY"
+      elif [ -n "$MISTRAL_API_KEY" ]; then
+        PROVIDER="mistral"
+        MODEL="mistral-large-latest"
+        API_KEY_ENV="MISTRAL_API_KEY"
+      elif [ -n "$FIREWORKS_API_KEY" ]; then
+        PROVIDER="fireworks"
+        MODEL="accounts/fireworks/models/llama-v3p3-70b-instruct"
+        API_KEY_ENV="FIREWORKS_API_KEY"
+      elif [ -n "$OLLAMA_BASE_URL" ]; then
+        PROVIDER="ollama"
+        MODEL="llama3.2"
+        API_KEY_ENV=""
+      elif [ -n "$VLLM_BASE_URL" ]; then
+        PROVIDER="vllm"
+        MODEL=""
+        API_KEY_ENV=""
+      elif [ -n "$LMSTUDIO_BASE_URL" ]; then
+        PROVIDER="lmstudio"
+        MODEL=""
+        API_KEY_ENV=""
+      fi
+
+      echo "Detected LLM Provider: $PROVIDER"
+
+      # 创建配置文件
+      echo "api_key = \"$API_KEY\"" > "$CONFIG_FILE"
+      echo 'api_listen = "0.0.0.0:4200"' >> "$CONFIG_FILE"
+      echo "" >> "$CONFIG_FILE"
+      echo "[default_model]" >> "$CONFIG_FILE"
+      echo "provider = \"$PROVIDER\"" >> "$CONFIG_FILE"
+      echo "model = \"$MODEL\"" >> "$CONFIG_FILE"
+      if [ -n "$API_KEY_ENV" ]; then
+        echo "api_key_env = \"$API_KEY_ENV\"" >> "$CONFIG_FILE"
+      fi
+      echo "" >> "$CONFIG_FILE"
+      echo "[network]" >> "$CONFIG_FILE"
+      echo 'listen_addr = "0.0.0.0:4200"' >> "$CONFIG_FILE"
+    environment:
+      # OpenFang 配置
+      - OPENFANG_HOME
+      - RUST_LOG
+
+      # LLM Provider API Keys - 至少配置一个
+      - ANTHROPIC_API_KEY
+      - GEMINI_API_KEY
+      - GOOGLE_API_KEY
+      - OPENAI_API_KEY
+      - GROQ_API_KEY
+      - DEEPSEEK_API_KEY
+      - OPENROUTER_API_KEY
+      - TOGETHER_API_KEY
+      - MISTRAL_API_KEY
+      - FIREWORKS_API_KEY
+
+      # Local LLM Providers
+      - OLLAMA_BASE_URL
+      - VLLM_BASE_URL
+      - LMSTUDIO_BASE_URL
+
+      # Channel Tokens
+      - TELEGRAM_BOT_TOKEN
+      - DISCORD_BOT_TOKEN
+      - SLACK_BOT_TOKEN
+      - SLACK_APP_TOKEN
+      - WHATSAPP_TOKEN
+      - WHATSAPP_PHONE_ID
+      - SIGNAL_CLI_PATH
+      - SIGNAL_PHONE_NUMBER
+      - MATRIX_HOMESERVER
+      - MATRIX_ACCESS_TOKEN
+      - EMAIL_IMAP_HOST
+      - EMAIL_SMTP_HOST
+      - EMAIL_USERNAME
+      - EMAIL_PASSWORD
+    binds:
+      - /lzcapp/var/config:/root/.openfang
+      - /lzcapp/var/data:/root/.openfang/data
+locales:
+  en:
+    name: OpenFang
+    description: (LazyCat Auto-build) Open-source Agent Operating System - autonomous agents that work for you
+  zh:
+    name: OpenFang
+    description: （懒猫微服自动构建）开源 Agent 操作系统 - 自主代理为你工作

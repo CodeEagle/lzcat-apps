@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Remodex Relay Status</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      color: #fff;
+    }
+
+    .container {
+      max-width: 800px;
+      width: 100%;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      background: linear-gradient(90deg, #00d9ff, #00ff88);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 30px;
+    }
+
+    .lang-switch {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .lang-btn {
+      padding: 8px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: transparent;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .lang-btn.active {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: #00d9ff;
+    }
+
+    .lang-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .info-section {
+      margin-bottom: 30px;
+    }
+
+    .info-label {
+      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 8px;
+    }
+
+    .info-value {
+      font-size: 1.1rem;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 12px 16px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .info-value code {
+      flex: 1;
+      min-width: 0;
+      word-break: break-all;
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 480px) {
+      .info-value {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .info-value code {
+        width: 100%;
+        margin-bottom: 10px;
+      }
+
+      .copy-btn {
+        width: 100%;
+      }
+    }
+
+    .copy-btn {
+      padding: 8px 16px;
+      background: linear-gradient(90deg, #00d9ff, #00ff88);
+      border: none;
+      border-radius: 6px;
+      color: #1a1a2e;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      white-space: nowrap;
+    }
+
+    .copy-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 217, 255, 0.4);
+    }
+
+    .copy-btn:active {
+      transform: translateY(0);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .stat-card {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: bold;
+      background: linear-gradient(90deg, #00d9ff, #00ff88);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 5px;
+    }
+
+    .description {
+      line-height: 1.8;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .description ul {
+      margin: 15px 0 15px 25px;
+    }
+
+    .description li {
+      margin-bottom: 8px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: rgba(0, 255, 136, 0.9);
+      color: #1a1a2e;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: transform 0.3s;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #00ff88;
+      margin-right: 8px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="lang-switch">
+        <button class="lang-btn active" data-lang="en">English</button>
+        <button class="lang-btn" data-lang="zh">中文</button>
+      </div>
+
+      <h1 id="title">Remodex Relay</h1>
+      <p class="subtitle" id="subtitle">WebSocket Relay Service for Remodex Pairing</p>
+
+      <div class="info-section">
+        <div class="info-label" id="relay-label">Relay Address</div>
+        <div class="info-value">
+          <code id="relay-address">export REMODEX_RELAY="ws://localhost:3000/relay/relay" && remodex up</code>
+          <button class="copy-btn" id="copy-btn" data-copy="ws://localhost:3000/relay/">Copy</button>
+        </div>
+      </div>
+
+
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-value" id="active-sessions">0</div>
+          <div class="stat-label" id="sessions-label">Active Sessions</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="sessions-with-mac">0</div>
+          <div class="stat-label" id="mac-label">Sessions with Mac</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="total-clients">0</div>
+          <div class="stat-label" id="clients-label">Total Clients</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-bottom: 15px;" id="about-title">About This Service</h2>
+      <div class="description" id="description">
+        <p>This is a WebSocket relay service used by the Remodex pairing flow. It enables secure communication between
+          your Mac and iPhone for the Remodex application.</p>
+
+        <h3 style="margin: 20px 0 10px;" id="what-it-does">What It Does</h3>
+        <ul>
+          <li>Accepts WebSocket connections at <code>/relay/{sessionId}</code></li>
+          <li>Pairs one Mac host with one live iPhone client for a session</li>
+          <li>Forwards secure control messages and encrypted payloads between Mac and iPhone</li>
+          <li>Logs only connection metadata and payload sizes, not plaintext prompts or responses</li>
+          <li>Exposes lightweight stats for a health endpoint</li>
+        </ul>
+
+        <h3 style="margin: 20px 0 10px;" id="what-it-does-not">What It Does Not Do</h3>
+        <ul>
+          <li>It does not run Codex</li>
+          <li>It does not execute git commands</li>
+          <li>It does not contain your repository checkout</li>
+          <li>It does not persist the local workspace on the server</li>
+        </ul>
+
+        <h3 style="margin: 20px 0 10px;" id="security">Security Model</h3>
+        <p>Remodex uses the relay as a transport hop, not as a trusted application server. The pairing QR gives the
+          iPhone the bridge identity public key plus short-lived session details. The iPhone and bridge perform a signed
+          handshake, derive shared AES-256-GCM keys with X25519 + HKDF-SHA256, and then encrypt application payloads end
+          to end.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Copied!</div>
+
+  <script>
+    const translations = {
+      en: {
+        title: 'Remodex Relay',
+        subtitle: 'WebSocket Relay Service for Remodex Pairing',
+        'relay-label': 'Usage',
+        'copy-btn': 'Copy',
+        'about-title': 'About This Service',
+        'what-it-does': 'What It Does',
+        'what-it-does-not': 'What It Does Not Do',
+        'security': 'Security Model',
+        'sessions-label': 'Active Sessions',
+        'mac-label': 'Sessions with Mac',
+        'clients-label': 'Total Clients',
+        'toast': 'Copied!',
+        'description': `
+          <p>This is a WebSocket relay service used by the Remodex pairing flow. It enables secure communication between your Mac and iPhone for the Remodex application.</p>
+
+          <h3 style="margin: 20px 0 10px;">What It Does</h3>
+          <ul>
+            <li>Accepts WebSocket connections at <code>/relay/{sessionId}</code></li>
+            <li>Pairs one Mac host with one live iPhone client for a session</li>
+            <li>Forwards secure control messages and encrypted payloads between Mac and iPhone</li>
+            <li>Logs only connection metadata and payload sizes, not plaintext prompts or responses</li>
+            <li>Exposes lightweight stats for a health endpoint</li>
+          </ul>
+
+          <h3 style="margin: 20px 0 10px;">What It Does Not Do</h3>
+          <ul>
+            <li>It does not run Codex</li>
+            <li>It does not execute git commands</li>
+            <li>It does not contain your repository checkout</li>
+            <li>It does not persist the local workspace on the server</li>
+          </ul>
+
+          <h3 style="margin: 20px 0 10px;">Security Model</h3>
+          <p>Remodex uses the relay as a transport hop, not as a trusted application server. The pairing QR gives the iPhone the bridge identity public key plus short-lived session details. The iPhone and bridge perform a signed handshake, derive shared AES-256-GCM keys with X25519 + HKDF-SHA256, and then encrypt application payloads end to end.</p>
+        `
+      },
+      zh: {
+        title: 'Remodex Relay',
+        subtitle: 'Remodex 配对的 WebSocket 中继服务',
+        'relay-label': '使用方法',
+        'copy-btn': '复制',
+        'about-title': '关于本服务',
+        'what-it-does': '功能特性',
+        'what-it-does-not': '非功能范围',
+        'security': '安全模型',
+        'sessions-label': '活动会话',
+        'mac-label': 'Mac 连接会话',
+        'clients-label': '客户端总数',
+        'toast': '已复制!',
+        'description': `
+          <p>这是一个 WebSocket 中继服务，用于 Remodex 配对流程。它支持您的 Mac 和 iPhone 之间进行安全通信，以配合 Remodex 应用程序使用。</p>
+
+          <h3 style="margin: 20px 0 10px;">功能特性</h3>
+          <ul>
+            <li>在 <code>/relay/{sessionId}</code> 接受 WebSocket 连接</li>
+            <li>为每个会话配对一个 Mac 主机和一个在线 iPhone 客户端</li>
+            <li>在 Mac 和 iPhone 之间转发安全控制消息和加密负载</li>
+            <li>仅记录连接元数据和负载大小，不记录明文提示或响应</li>
+            <li>提供轻量级统计信息用于健康检查</li>
+          </ul>
+
+          <h3 style="margin: 20px 0 10px;">非功能范围</h3>
+          <ul>
+            <li>不运行 Codex</li>
+            <li>不执行 git 命令</li>
+            <li>不包含您的仓库检出内容</li>
+            <li>不在服务器上持久化本地工作区</li>
+          </ul>
+
+          <h3 style="margin: 20px 0 10px;">安全模型</h3>
+          <p>Remodex 将中继用作传输跳板，而非可信应用服务器。配对二维码为 iPhone 提供桥接身份公钥加短期会话详情。iPhone 和桥接执行签名握手，通过 X25519 + HKDF-SHA256 派生共享 AES-256-GCM 密钥，然后对应用负载进行端到端加密。</p>
+        `
+      }
+    }
+
+    let currentLang = 'en'
+
+    function updateContent(lang) {
+      const t = translations[lang]
+      document.getElementById('title').textContent = t.title
+      document.getElementById('subtitle').textContent = t.subtitle
+      document.getElementById('relay-label').textContent = t['relay-label']
+      document.getElementById('copy-btn').textContent = t['copy-btn']
+      document.getElementById('about-title').textContent = t['about-title']
+      document.getElementById('description').innerHTML = t.description
+
+      const el = (id) => document.getElementById(id)
+      if (el('what-it-does')) el('what-it-does').textContent = t['what-it-does']
+      if (el('what-it-does-not')) el('what-it-does-not').textContent = t['what-it-does-not']
+      if (el('security')) el('security').textContent = t['security']
+      if (el('sessions-label')) el('sessions-label').textContent = t['sessions-label']
+      if (el('mac-label')) el('mac-label').textContent = t['mac-label']
+      if (el('clients-label')) el('clients-label').textContent = t['clients-label']
+
+      document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.lang === lang)
+      })
+    }
+
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentLang = btn.dataset.lang
+        updateContent(currentLang)
+      })
+    })
+
+    // Copy functionality
+    document.getElementById('copy-btn').addEventListener('click', () => {
+      const address = document.getElementById('relay-address').textContent
+      navigator.clipboard.writeText(address).then(() => {
+        const toast = document.getElementById('toast')
+        toast.textContent = translations[currentLang].toast
+        toast.classList.add('show')
+        setTimeout(() => toast.classList.remove('show'), 2000)
+      })
+    })
+
+    // Fetch stats periodically
+    async function fetchStats() {
+      try {
+        const response = await fetch('/api/stats')
+        const stats = await response.json()
+        document.getElementById('active-sessions').textContent = stats.activeSessions || 0
+        document.getElementById('sessions-with-mac').textContent = stats.sessionsWithMac || 0
+        document.getElementById('total-clients').textContent = stats.totalClients || 0
+      } catch (e) {
+        // Stats endpoint may not be available
+      }
+    }
+
+    // Initial fetch and update every 5 seconds
+    fetchStats()
+    setInterval(fetchStats, 5000)
+
+    // Update relay address based on current host
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const currentHost = window.location.host || 'localhost:3000'
+    const relayAddress = `${protocol}//${currentHost}/relay`
+    document.getElementById('relay-address').textContent = `export REMODEX_RELAY="${relayAddress}" && remodex up`
+    document.getElementById('copy-btn').dataset.copy = relayAddress;
+  </script>
+</body>
+
+</html>

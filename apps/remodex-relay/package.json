@@ -1,0 +1,19 @@
+{
+  "name": "remodex-relay",
+  "version": "1.0.0",
+  "description": "WebSocket relay service for Remodex pairing flow",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "remodex",
+    "websocket",
+    "relay"
+  ],
+  "author": "Emanuele Di Pietro",
+  "license": "ISC",
+  "dependencies": {
+    "ws": "^8.19.0"
+  }
+}

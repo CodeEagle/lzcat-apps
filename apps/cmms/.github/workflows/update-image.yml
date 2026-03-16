@@ -1,0 +1,113 @@
+name: Update CMMS Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: Force image sync even if source version did not change
+        required: false
+        default: false
+        type: boolean
+      target_version:
+        description: Target release tag (e.g. v1.5.0). Leave empty for latest release.
+        required: false
+        default: ""
+        type: string
+      publish_to_store:
+        description: Reserved for lzcat-trigger compatibility
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: "0 */6 * * *"
+
+env:
+  UPSTREAM_REPO: Grashjs/cmms
+
+jobs:
+  sync-images:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve source version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET_VERSION="${{ inputs.target_version }}"
+
+          if [ -n "$TARGET_VERSION" ]; then
+            SOURCE_VERSION="$TARGET_VERSION"
+          else
+            SOURCE_VERSION=$(gh api "repos/${{ env.UPSTREAM_REPO }}/releases/latest" --jq '.tag_name')
+          fi
+
+          BUILD_VERSION="${SOURCE_VERSION#v}"
+          echo "source_version=$SOURCE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_version=$BUILD_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check if update is needed
+        id: check
+        run: |
+          FORCE_BUILD="${{ inputs.force_build }}"
+          CURRENT_SOURCE=$(jq -r '.source_version // empty' .lazycat-build.json 2>/dev/null || true)
+          TARGET_SOURCE="${{ steps.version.outputs.source_version }}"
+
+          if [ "$FORCE_BUILD" = "true" ] || [ "$CURRENT_SOURCE" != "$TARGET_SOURCE" ]; then
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "update_needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Login ghcr.io
+        if: steps.check.outputs.update_needed == 'true'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
+
+      - name: Sync upstream images to ghcr.io
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          BUILD_VERSION="${{ steps.version.outputs.build_version }}"
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+
+          sync_image() {
+            local source_image="$1"
+            local target_image="$2"
+            docker pull "$source_image"
+            docker tag "$source_image" "$target_image"
+            docker push "$target_image"
+          }
+
+          sync_image "intelloop/atlas-cmms-frontend:latest" "ghcr.io/${OWNER_LOWER}/cmms-frontend:${BUILD_VERSION}"
+          sync_image "intelloop/atlas-cmms-backend:latest" "ghcr.io/${OWNER_LOWER}/cmms-backend:${BUILD_VERSION}"
+          sync_image "postgres:16-alpine" "ghcr.io/${OWNER_LOWER}/cmms-postgres:16-alpine"
+          sync_image "minio/minio:RELEASE.2025-04-22T22-12-26Z" "ghcr.io/${OWNER_LOWER}/cmms-minio:RELEASE.2025-04-22T22-12-26Z"
+
+          # Keep a primary image alias for lzcat-trigger, which expects ghcr.io/<owner>/<repo>:<tag>
+          docker tag "ghcr.io/${OWNER_LOWER}/cmms-frontend:${BUILD_VERSION}" "ghcr.io/${OWNER_LOWER}/cmms:${BUILD_VERSION}"
+          docker tag "ghcr.io/${OWNER_LOWER}/cmms-frontend:${BUILD_VERSION}" "ghcr.io/${OWNER_LOWER}/cmms:v${BUILD_VERSION}"
+          docker push "ghcr.io/${OWNER_LOWER}/cmms:${BUILD_VERSION}"
+          docker push "ghcr.io/${OWNER_LOWER}/cmms:v${BUILD_VERSION}"
+
+      - name: Export build metadata
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          cat > .lazycat-build.json <<EOF
+          {
+            "upstream_repo": "${{ env.UPSTREAM_REPO }}",
+            "source_version": "${{ steps.version.outputs.source_version }}",
+            "build_version": "${{ steps.version.outputs.build_version }}",
+            "images": {
+              "primary": "ghcr.io/${{ github.repository_owner }}/cmms:${{ steps.version.outputs.build_version }}",
+              "frontend": "ghcr.io/${{ github.repository_owner }}/cmms-frontend:${{ steps.version.outputs.build_version }}",
+              "api": "ghcr.io/${{ github.repository_owner }}/cmms-backend:${{ steps.version.outputs.build_version }}",
+              "postgres": "ghcr.io/${{ github.repository_owner }}/cmms-postgres:16-alpine",
+              "minio": "ghcr.io/${{ github.repository_owner }}/cmms-minio:RELEASE.2025-04-22T22-12-26Z"
+            }
+          }
+          EOF
+          cat .lazycat-build.json

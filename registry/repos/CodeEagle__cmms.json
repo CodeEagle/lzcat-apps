@@ -1,0 +1,32 @@
+{
+  "repo": "CodeEagle/cmms",
+  "enabled": true,
+  "upstream_repo": "Grashjs/cmms",
+  "check_strategy": "github_release",
+  "build_strategy": "target_repo_dockerfile",
+  "publish_to_store": false,
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "custom",
+  "dockerfile_path": "Dockerfile",
+  "build_context": ".",
+  "service_port": 8080,
+  "service_cmd": [],
+  "image_targets": [
+    "frontend"
+  ],
+  "dependencies": [
+    {
+      "target_service": "api",
+      "source_image": "intelloop/atlas-cmms-backend:latest"
+    },
+    {
+      "target_service": "postgres",
+      "source_image": "postgres:16-alpine"
+    },
+    {
+      "target_service": "minio",
+      "source_image": "minio/minio:RELEASE.2025-04-22T22-12-26Z"
+    }
+  ]
+}

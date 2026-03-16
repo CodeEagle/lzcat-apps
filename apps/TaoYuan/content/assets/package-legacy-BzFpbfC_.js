@@ -1,0 +1,8 @@
+System.register(["./useGameStore-legacy-U9lRI6dV.js"],function(e,t){"use strict";var a;return{setters:[function(e){a=e.c}],execute:function(){
+/**
+       * @license lucide-vue-next v0.563.0 - ISC
+       *
+       * This source code is licensed under the ISC license.
+       * See the LICENSE file in the root directory of this source tree.
+       */
+e("P",a("package",[["path",{d:"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z",key:"1a0edw"}],["path",{d:"M12 22V12",key:"d0xqtd"}],["polyline",{points:"3.29 7 12 12 20.71 7",key:"ousv84"}],["path",{d:"m7.5 4.27 9 5.15",key:"1c824w"}]]))}}});

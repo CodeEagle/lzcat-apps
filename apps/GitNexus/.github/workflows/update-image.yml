@@ -1,0 +1,155 @@
+name: Update GitNexus Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build even if no new version'
+        required: false
+        default: false
+        type: boolean
+      target_version:
+        description: 'Target version to build (e.g., 1.3.11). Leave empty for latest.'
+        required: false
+        default: ''
+        type: string
+      publish_to_store:
+        description: 'Publish to LazyCat App Store'
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: '0 */6 * * *'
+
+env:
+  UPSTREAM_REPO: abhigyanpatwari/GitNexus
+  PROJECT_NAME: GitNexus
+  PROJECT_NAME_LOWER: gitnexus
+  OFFICIAL_IMAGE_REGISTRY: ''
+  PRECOMPILED_BINARY_URL: ''
+  DOCKERFILE_TYPE: custom
+  SERVICE_PORT: '8080'
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get latest package version
+        id: get-version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET_VERSION="${{ inputs.target_version }}"
+          LATEST_VERSION=""
+          RELEASE_NOTES=""
+
+          if [ -n "$TARGET_VERSION" ]; then
+            LATEST_VERSION="${TARGET_VERSION#v}"
+            RELEASE_NOTES="Build requested for version ${TARGET_VERSION}"
+            echo "Using requested version: $LATEST_VERSION"
+          fi
+
+          if [ -z "$LATEST_VERSION" ]; then
+            echo "Checking for latest release..."
+            RELEASE_RESPONSE=$(gh api "repos/${{ env.UPSTREAM_REPO }}/releases/latest" 2>&1 || true)
+            if echo "$RELEASE_RESPONSE" | jq -e '.tag_name' >/dev/null 2>&1; then
+              RELEASE_TAG=$(echo "$RELEASE_RESPONSE" | jq -r '.tag_name')
+              LATEST_VERSION="${RELEASE_TAG#v}"
+              RELEASE_NOTES=$(echo "$RELEASE_RESPONSE" | jq -r '.body // empty')
+              echo "Found release version: $LATEST_VERSION"
+            fi
+          fi
+
+          if [ -z "$LATEST_VERSION" ]; then
+            echo "Checking for latest tag..."
+            TAGS_RESPONSE=$(gh api "repos/${{ env.UPSTREAM_REPO }}/tags?per_page=1" 2>&1 || true)
+            if echo "$TAGS_RESPONSE" | jq -e '.[0].name' >/dev/null 2>&1; then
+              LATEST_TAG=$(echo "$TAGS_RESPONSE" | jq -r '.[0].name')
+              LATEST_VERSION="${LATEST_TAG#v}"
+              RELEASE_NOTES="Build from tag $LATEST_TAG"
+              echo "Found tag version: $LATEST_VERSION"
+            fi
+          fi
+
+          if [ -z "$LATEST_VERSION" ]; then
+            LATEST_VERSION="1.3.11"
+            RELEASE_NOTES="Auto build from main branch"
+            echo "Using fallback version: $LATEST_VERSION"
+          fi
+
+          echo "Final version: $LATEST_VERSION"
+          echo "latest_version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          echo "${RELEASE_NOTES:-Build version $LATEST_VERSION}" > /tmp/release_notes.txt
+          echo "release_notes_file=/tmp/release_notes.txt" >> $GITHUB_OUTPUT
+
+      - name: Check if update needed
+        id: check-update
+        run: |
+          CURRENT_IMAGE=$(grep 'image:' lzc-manifest.yml | head -1 | awk '{print $2}')
+          echo "Current image: $CURRENT_IMAGE"
+
+          LATEST_VERSION="${{ steps.get-version.outputs.latest_version }}"
+          FORCE_BUILD="${{ inputs.force_build }}"
+          TARGET_VERSION="${{ inputs.target_version }}"
+
+          if [ -n "$TARGET_VERSION" ]; then
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+            echo "Target version specified: $TARGET_VERSION"
+          elif [ "$FORCE_BUILD" = "true" ]; then
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+            echo "Force build requested"
+          elif [ -n "$LATEST_VERSION" ] && [[ "$CURRENT_IMAGE" != *"$LATEST_VERSION"* ]]; then
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+            echo "New version available: $LATEST_VERSION"
+          else
+            echo "update_needed=false" >> $GITHUB_OUTPUT
+            echo "Already on latest version"
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-update.outputs.update_needed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Login to GHCR
+        if: steps.check-update.outputs.update_needed == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        if: steps.check-update.outputs.update_needed == 'true'
+        id: build-image
+        run: |
+          LATEST_VERSION="${{ steps.get-version.outputs.latest_version }}"
+          LOCAL_IMAGE="ghcr.io/${{ github.repository }}:v${LATEST_VERSION}"
+          LOCAL_IMAGE=$(echo "$LOCAL_IMAGE" | tr '[:upper:]' '[:lower:]')
+          SHA_TAG=$(echo "${GITHUB_SHA}" | cut -c1-12)
+          LOCAL_IMAGE_SHA="ghcr.io/${{ github.repository }}:${SHA_TAG}"
+          LOCAL_IMAGE_SHA=$(echo "$LOCAL_IMAGE_SHA" | tr '[:upper:]' '[:lower:]')
+
+          echo "Building from custom Dockerfile..."
+          echo "Version tag: $LOCAL_IMAGE"
+          echo "Immutable SHA tag: $LOCAL_IMAGE_SHA"
+
+          cp Dockerfile.template Dockerfile
+          sed -i "s/{{VERSION}}/v$LATEST_VERSION/g" Dockerfile
+
+          docker build -t "$LOCAL_IMAGE" -t "$LOCAL_IMAGE_SHA" .
+
+          docker push "$LOCAL_IMAGE"
+          docker push "$LOCAL_IMAGE_SHA"
+
+          echo "ghcr_image=$LOCAL_IMAGE" >> $GITHUB_OUTPUT
+          echo "ghcr_sha_image=$LOCAL_IMAGE_SHA" >> $GITHUB_OUTPUT
+          echo "sha_tag=$SHA_TAG" >> $GITHUB_OUTPUT
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT

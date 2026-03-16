@@ -1,0 +1,282 @@
+name: Update Paperclip Image
+
+# IMPORTANT:
+# - 此 workflow 只作为目标 workflow 存在
+# - 正式构建入口统一使用 CodeEagle/lzcat-trigger
+# - 不要在目标仓库内自行增加 schedule 作为主入口
+
+on:
+  # 仅供 lzcat-trigger 调用
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build even if no new version'
+        required: false
+        default: false
+        type: boolean
+      target_version:
+        description: 'Target source version to build (e.g. v0.3.1 or 0.3.1). Leave empty for latest.'
+        required: false
+        default: ''
+        type: string
+      publish_to_store:
+        description: 'Reserved for lzcat-trigger compatibility'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  UPSTREAM_REPO: paperclipai/paperclip
+  PROJECT_NAME: Paperclip
+  PROJECT_SLUG: paperclip
+  SERVICE_NAME: paperclip
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve upstream version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          TARGET_VERSION_RAW="${{ inputs.target_version }}"
+          SOURCE_REF=""
+          BUILD_VERSION=""
+          RELEASE_NOTES=""
+
+          normalize_version() {
+            local tag="$1"
+            case "$tag" in
+              v*) printf '%s\n' "${tag#v}" ;;
+              paperclipai@*) printf '%s\n' "${tag#paperclipai@}" ;;
+              *) printf '%s\n' "$tag" ;;
+            esac
+          }
+
+          TARGET_VERSION="$(normalize_version "$TARGET_VERSION_RAW")"
+
+          if [ -n "$TARGET_VERSION_RAW" ]; then
+            BUILD_VERSION="$TARGET_VERSION"
+            if gh api "repos/${{ env.UPSTREAM_REPO }}/git/ref/tags/$TARGET_VERSION_RAW" >/dev/null 2>&1; then
+              SOURCE_REF="$TARGET_VERSION_RAW"
+            elif gh api "repos/${{ env.UPSTREAM_REPO }}/git/ref/tags/v$TARGET_VERSION" >/dev/null 2>&1; then
+              SOURCE_REF="v$TARGET_VERSION"
+            elif gh api "repos/${{ env.UPSTREAM_REPO }}/git/ref/tags/paperclipai@$TARGET_VERSION" >/dev/null 2>&1; then
+              SOURCE_REF="paperclipai@$TARGET_VERSION"
+            else
+              echo "Unable to resolve source ref for target version $TARGET_VERSION_RAW" >&2
+              exit 1
+            fi
+            RELEASE_NOTES="Build Paperclip $BUILD_VERSION"
+          else
+            RELEASE_TAG="$(gh api "repos/${{ env.UPSTREAM_REPO }}/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
+            if [ -n "$RELEASE_TAG" ]; then
+              SOURCE_REF="$RELEASE_TAG"
+              BUILD_VERSION="$(normalize_version "$RELEASE_TAG")"
+              RELEASE_NOTES="$(gh api "repos/${{ env.UPSTREAM_REPO }}/releases/latest" --jq '.body // ""' 2>/dev/null || true)"
+            else
+              while IFS= read -r tag; do
+                norm="$(normalize_version "$tag")"
+                if [[ "$norm" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                  SOURCE_REF="$tag"
+                  BUILD_VERSION="$norm"
+                  break
+                fi
+              done < <(gh api "repos/${{ env.UPSTREAM_REPO }}/tags?per_page=100" --jq '.[].name')
+            fi
+          fi
+
+          if [[ ! "$BUILD_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Resolved version is not strict semver: $BUILD_VERSION" >&2
+            exit 1
+          fi
+
+          if [ -z "$SOURCE_REF" ]; then
+            echo "Failed to resolve upstream source ref" >&2
+            exit 1
+          fi
+
+          echo "build_version=$BUILD_VERSION" >> "$GITHUB_OUTPUT"
+          echo "source_ref=$SOURCE_REF" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "${RELEASE_NOTES:-Build Paperclip $BUILD_VERSION}" > /tmp/release_notes.txt
+          echo "release_notes_file=/tmp/release_notes.txt" >> "$GITHUB_OUTPUT"
+
+      - name: Check if update needed
+        id: check
+        run: |
+          set -euo pipefail
+          CURRENT_VERSION="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path(".lazycat-build.json")
+          if path.exists():
+              data = json.loads(path.read_text())
+              print(data.get("build_version", ""))
+          PY
+          )"
+          TARGET_VERSION="${{ steps.version.outputs.build_version }}"
+
+          if [ "${{ inputs.force_build }}" = "true" ]; then
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
+          elif [ "$CURRENT_VERSION" != "$TARGET_VERSION" ]; then
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "update_needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.check.outputs.update_needed == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: steps.check.outputs.update_needed == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clone upstream source
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          set -euo pipefail
+          git clone --depth=1 --branch "${{ steps.version.outputs.source_ref }}" "https://github.com/${{ env.UPSTREAM_REPO }}.git" /tmp/upstream-paperclip
+          SOURCE_COMMIT="$(git -C /tmp/upstream-paperclip rev-parse --short=12 HEAD)"
+          echo "SOURCE_COMMIT=$SOURCE_COMMIT" >> "$GITHUB_ENV"
+
+      - name: Build and push GHCR image
+        if: steps.check.outputs.update_needed == 'true'
+        id: ghcr
+        run: |
+          set -euo pipefail
+          TARGET_HEAD_SHA="$(printf '%s\n' '${{ github.sha }}' | cut -c1-12)"
+          IMAGE_REF="ghcr.io/${{ github.repository }}:${TARGET_HEAD_SHA}"
+          IMAGE_REF="$(printf '%s\n' "$IMAGE_REF" | tr '[:upper:]' '[:lower:]')"
+          docker buildx build \
+            --platform linux/amd64 \
+            --push \
+            --tag "$IMAGE_REF" \
+            /tmp/upstream-paperclip
+          echo "image_ref=$IMAGE_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Install lzc-cli
+        if: steps.check.outputs.update_needed == 'true'
+        run: npm install -g @lazycatcloud/lzc-cli
+
+      - name: Copy image to LazyCat registry
+        if: steps.check.outputs.update_needed == 'true'
+        id: lazycat
+        env:
+          LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
+        run: |
+          set -euo pipefail
+          COPY_OUTPUT="$(lzc-cli appstore copy-image '${{ steps.ghcr.outputs.image_ref }}' 2>&1)"
+          printf '%s\n' "$COPY_OUTPUT"
+          ACCELERATED_URL="$(printf '%s\n' "$COPY_OUTPUT" | grep -oE 'registry\.lazycat\.cloud/[A-Za-z0-9_./:-]+' | head -1 || true)"
+          if [ -z "$ACCELERATED_URL" ]; then
+            echo "Failed to parse LazyCat registry image URL" >&2
+            exit 1
+          fi
+          echo "accelerated_url=$ACCELERATED_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Update manifest and build metadata
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest_path = Path("lzc-manifest.yml")
+          lines = manifest_path.read_text().splitlines()
+          out = []
+          in_services = False
+          target_services = {"paperclip", "bootstrap-ui"}
+          in_target_service = False
+          service_indent = None
+          for line in lines:
+            stripped = line.strip()
+            if line.startswith("services:"):
+              in_services = True
+              in_target_service = False
+            elif in_services and line.startswith("  ") and not line.startswith("    ") and stripped.endswith(":"):
+              current_service = stripped[:-1]
+              in_target_service = current_service in target_services
+              service_indent = len(line) - len(line.lstrip(" "))
+            elif in_services and not line.startswith(" "):
+              in_services = False
+              in_target_service = False
+
+            if line.startswith("version: "):
+              out.append("version: " + "${{ steps.version.outputs.build_version }}")
+              continue
+
+            if in_target_service and line.startswith("    image: "):
+              out.append("    image: " + "${{ steps.lazycat.outputs.accelerated_url }}")
+              continue
+
+            out.append(line)
+
+          manifest_path.write_text("\n".join(out) + "\n")
+
+          Path(".lazycat-build.json").write_text(json.dumps({
+            "upstream_repo": "paperclipai/paperclip",
+            "source_version": "${{ steps.version.outputs.source_ref }}",
+            "build_version": "${{ steps.version.outputs.build_version }}",
+            "source_commit": os.environ["SOURCE_COMMIT"]
+          }, indent=2) + "\n")
+          PY
+
+      - name: Build package
+        if: steps.check.outputs.update_needed == 'true'
+        env:
+          LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
+        run: |
+          lzc-cli project build -o paperclip.lpk
+
+      - name: Publish to LazyCat App Store
+        if: steps.check.outputs.update_needed == 'true' && inputs.publish_to_store == true
+        env:
+          LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
+        run: |
+          set -euo pipefail
+          lzc-cli appstore publish paperclip.lpk --clang en -c "$(cat /tmp/release_notes.txt)"
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.update_needed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release delete "v${{ steps.version.outputs.build_version }}" --yes 2>/dev/null || true
+          gh release create "v${{ steps.version.outputs.build_version }}" \
+            --title "v${{ steps.version.outputs.build_version }}" \
+            --notes-file /tmp/release_notes.txt \
+            paperclip.lpk
+
+      - name: Commit and push manifest updates
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          set -euo pipefail
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add lzc-manifest.yml .lazycat-build.json
+
+          if git diff --staged --quiet; then
+            exit 0
+          fi
+
+          git commit -m "Update Paperclip to version ${{ steps.version.outputs.build_version }}"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main

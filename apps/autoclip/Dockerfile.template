@@ -1,0 +1,96 @@
+FROM node:18-slim AS frontend-builder
+
+WORKDIR /app/frontend
+
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY frontend/package*.json ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npx vite build
+
+FROM python:3.9-slim AS backend-builder
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+FROM python:3.9-slim
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPATH=/app
+
+RUN groupadd -r autoclip && useradd -r -g autoclip autoclip
+
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    curl \
+    nginx \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean \
+    && rm -f /etc/nginx/sites-enabled/default
+
+WORKDIR /app
+
+COPY --from=backend-builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
+COPY --from=backend-builder /usr/local/bin /usr/local/bin
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
+
+COPY backend/ ./backend/
+COPY scripts/ ./scripts/
+COPY *.sh ./
+COPY env.example ./.env
+COPY lazycat/nginx.autoclip.conf /etc/nginx/conf.d/default.conf
+COPY lazycat/start-web.sh /usr/local/bin/start-web.sh
+COPY lazycat/start-worker.sh /usr/local/bin/start-worker.sh
+
+RUN python -m pip install --no-cache-dir \
+    pysrt \
+    pytz \
+    dashscope \
+    openai \
+    google-generativeai \
+    openai-whisper
+
+RUN python - <<'PY'
+import sys
+import shutil
+sys.path.insert(0, '/app')
+import dashscope
+import openai
+import whisper
+import google.generativeai
+import backend.main
+import backend.core.celery_app
+import backend.services.project_service
+assert shutil.which('whisper'), 'whisper CLI missing'
+print('import smoke check passed')
+PY
+
+RUN mkdir -p /app/data/projects /app/data/uploads /app/data/temp /app/data/output /app/logs
+
+RUN chown -R autoclip:autoclip /app \
+    && chmod +x /usr/local/bin/start-web.sh /usr/local/bin/start-worker.sh \
+    && chmod -R 755 /app/data /app/logs
+
+EXPOSE 3000 8000
+
+CMD ["/usr/local/bin/start-web.sh"]

@@ -1,0 +1,17 @@
+{
+  "repo": "CodeEagle/Higress",
+  "enabled": true,
+  "upstream_repo": "alibaba/higress",
+  "check_strategy": "github_release",
+  "build_strategy": "official_image",
+  "publish_to_store": false,
+  "official_image_registry": "higress-registry.cn-hangzhou.cr.aliyuncs.com/higress/all-in-one",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "simple",
+  "service_port": 80,
+  "service_cmd": [],
+  "image_targets": [
+    "higress"
+  ],
+  "dependencies": []
+}

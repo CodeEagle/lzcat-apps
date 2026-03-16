@@ -1,0 +1,66 @@
+name: Trigger LazyCat Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: "Force build"
+        required: false
+        default: false
+        type: boolean
+      target_version:
+        description: "Target upstream version"
+        required: false
+        default: ""
+        type: string
+      publish_to_store:
+        description: "Publish to LazyCat App Store"
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: "0 */6 * * *"
+
+jobs:
+  trigger-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Trigger lzcat-trigger workflow
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            const owner = 'CodeEagle';
+            const repo = 'lzcat-trigger';
+            const workflowFile = 'trigger-build.yml';
+            const targetRepo = process.env.GITHUB_REPOSITORY;
+
+            const workflows = await github.rest.actions.listRepoWorkflows({
+              owner,
+              repo
+            });
+
+            const workflow = workflows.data.workflows.find(w => w.path.endsWith(workflowFile));
+            if (!workflow) {
+              throw new Error(`Workflow not found: ${workflowFile}`);
+            }
+
+            const inputs = {
+              target_repo: targetRepo,
+              target_workflow: 'update-image.yml',
+              force_build: '${{ inputs.force_build }}' === 'true' ? 'true' : 'false',
+              target_version: '${{ inputs.target_version }}',
+              publish_to_store: '${{ inputs.publish_to_store }}' === 'true' ? 'true' : 'false'
+            };
+
+            await github.rest.actions.createWorkflowDispatch({
+              owner,
+              repo,
+              workflow_id: workflow.id,
+              ref: 'main',
+              inputs
+            });
+
+            core.info(`Triggered ${owner}/${repo} for ${targetRepo}`);

@@ -1,0 +1,17 @@
+{
+  "repo": "CodeEagle/TaoYuan",
+  "enabled": true,
+  "upstream_repo": "setube/taoyuan",
+  "check_strategy": "github_release",
+  "build_strategy": "official_image",
+  "publish_to_store": false,
+  "official_image_registry": "nginx",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "simple",
+  "service_port": 80,
+  "service_cmd": [],
+  "image_targets": [
+    "taoyuan-web"
+  ],
+  "dependencies": []
+}

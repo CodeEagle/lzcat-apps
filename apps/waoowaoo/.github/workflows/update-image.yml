@@ -1,0 +1,284 @@
+name: Update waoowaoo Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build even if no new version'
+        required: false
+        default: false
+        type: boolean
+      target_version:
+        description: 'Target version to build (e.g., 0.1.0). Leave empty for latest.'
+        required: false
+        default: ''
+        type: string
+      publish_to_store:
+        description: 'Publish to LazyCat App Store'
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: '0 */6 * * *'
+
+env:
+  UPSTREAM_REPO: waoowaooAI/waoowaoo
+  PROJECT_NAME: waoowaoo
+  PROJECT_NAME_LOWER: waoowaoo
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get latest version
+        id: get-version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          normalize_semver() {
+            local value="$1"
+            value="${value#v}"
+            printf '%s\n' "$value"
+          }
+
+          TARGET_VERSION="${{ inputs.target_version }}"
+          LATEST_VERSION=""
+          RELEASE_NOTES=""
+
+          if [ -n "$TARGET_VERSION" ]; then
+            # 使用指定版本
+            LATEST_VERSION="$(normalize_semver "$TARGET_VERSION")"
+            echo "Using specified version: $LATEST_VERSION"
+          else
+            # 1. 尝试获取最新 release
+            echo "Checking for latest release..."
+            RELEASE_RESPONSE=$(gh api "repos/${{ env.UPSTREAM_REPO }}/releases/latest" 2>&1 || true)
+            if echo "$RELEASE_RESPONSE" | jq -e '.tag_name' >/dev/null 2>&1; then
+              RELEASE_TAG=$(echo "$RELEASE_RESPONSE" | jq -r '.tag_name')
+              LATEST_VERSION="$(normalize_semver "$RELEASE_TAG")"
+              RELEASE_NOTES=$(echo "$RELEASE_RESPONSE" | jq -r '.body // empty')
+              echo "Found release version: $LATEST_VERSION"
+            fi
+
+            # 2. 尝试获取最新 tag
+            if [ -z "$LATEST_VERSION" ]; then
+              echo "Checking for latest tag..."
+              TAGS_RESPONSE=$(gh api "repos/${{ env.UPSTREAM_REPO }}/tags?per_page=1" 2>&1 || true)
+              if echo "$TAGS_RESPONSE" | jq -e '.[0].name' >/dev/null 2>&1; then
+                LATEST_TAG=$(echo "$TAGS_RESPONSE" | jq -r '.[0].name')
+                LATEST_VERSION="$(normalize_semver "$LATEST_TAG")"
+                RELEASE_NOTES="Build from tag $LATEST_TAG"
+                echo "Found tag version: $LATEST_VERSION"
+              fi
+            fi
+
+            # 3. 尝试从 CHANGELOG 解析版本
+            if [ -z "$LATEST_VERSION" ]; then
+              echo "Checking CHANGELOG..."
+              for changelog_file in "CHANGELOG.md" "CHANGELOG" "changelog.md" "HISTORY.md"; do
+                CHANGELOG_RESPONSE=$(gh api "repos/${{ env.UPSTREAM_REPO }}/contents/$changelog_file" 2>&1 || true)
+                if echo "$CHANGELOG_RESPONSE" | jq -e '.content' >/dev/null 2>&1; then
+                  echo "Found $changelog_file, parsing version..."
+                  CHANGELOG_CONTENT=$(echo "$CHANGELOG_RESPONSE" | jq -r '.content' | base64 -d 2>/dev/null || true)
+                  if [ -n "$CHANGELOG_CONTENT" ]; then
+                    # 匹配: ## [v0.2], ## [v0.2.0], ## v0.2, ## 0.2.0
+                    CHANGELOG_VERSION=$(echo "$CHANGELOG_CONTENT" | grep -m1 -E '^##\s+\[?v?[0-9]+\.[0-9]+' | sed -E 's/^##\s+\[?v?([0-9]+\.[0-9]+(\.[0-9]+)?).*/\1/' | head -1 || true)
+                    if [ -n "$CHANGELOG_VERSION" ]; then
+                      if [[ ! "$CHANGELOG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        CHANGELOG_VERSION="${CHANGELOG_VERSION}.0"
+                      fi
+                      LATEST_VERSION="$CHANGELOG_VERSION"
+                      RELEASE_NOTES="Build version $LATEST_VERSION from CHANGELOG"
+                      echo "Parsed version: $LATEST_VERSION"
+                      break
+                    fi
+                  fi
+                fi
+              done
+            fi
+
+            # 4. 兜底版本
+            if [ -z "$LATEST_VERSION" ]; then
+              LATEST_VERSION="0.0.1"
+              RELEASE_NOTES="Auto build from main branch"
+              echo "Using fallback version: $LATEST_VERSION"
+            fi
+          fi
+
+          echo "Final version: $LATEST_VERSION"
+          echo "latest_version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          echo "${RELEASE_NOTES:-Build version $LATEST_VERSION}" > /tmp/release_notes.txt
+          echo "release_notes_file=/tmp/release_notes.txt" >> $GITHUB_OUTPUT
+
+      - name: Check if update needed
+        id: check-update
+        run: |
+          CURRENT_IMAGE=$(grep 'image:.*waoowaoo' lzc-manifest.yml | head -1 | awk '{print $2}')
+          echo "Current image: $CURRENT_IMAGE"
+
+          LATEST_VERSION="${{ steps.get-version.outputs.latest_version }}"
+          FORCE_BUILD="${{ inputs.force_build }}"
+          TARGET_VERSION="${{ inputs.target_version }}"
+
+          if [ -n "$TARGET_VERSION" ] || [ "$FORCE_BUILD" = "true" ]; then
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+          elif [ -n "$LATEST_VERSION" ] && [[ "$CURRENT_IMAGE" != *"$LATEST_VERSION"* ]]; then
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+          else
+            echo "update_needed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-update.outputs.update_needed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install lzc-cli
+        if: steps.check-update.outputs.update_needed == 'true'
+        run: npm install -g @lazycatcloud/lzc-cli
+
+      - name: Checkout upstream repository
+        if: steps.check-update.outputs.update_needed == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          path: upstream
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        if: steps.check-update.outputs.update_needed == 'true'
+        id: build-image
+        env:
+          LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          retry() {
+            local max_attempts="$1"
+            shift
+            local attempt=1
+            while true; do
+              if "$@"; then
+                return 0
+              fi
+              if [ "$attempt" -ge "$max_attempts" ]; then
+                return 1
+              fi
+              echo "Command failed (attempt $attempt/$max_attempts): $*"
+              attempt=$((attempt + 1))
+              sleep 10
+            done
+          }
+
+          LATEST_VERSION="${{ steps.get-version.outputs.latest_version }}"
+
+          cd upstream
+
+          LOCAL_IMAGE="ghcr.io/${{ github.repository_owner }}/${{ env.PROJECT_NAME_LOWER }}:$LATEST_VERSION"
+          LOCAL_IMAGE=$(echo "$LOCAL_IMAGE" | tr '[:upper:]' '[:lower:]')
+
+          echo "Building image: $LOCAL_IMAGE"
+          docker build -t "$LOCAL_IMAGE" .
+
+          retry 3 sh -c 'echo "$GITHUB_TOKEN" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin'
+          retry 4 docker push "$LOCAL_IMAGE"
+
+          COPY_OUTPUT=$(retry 4 lzc-cli appstore copy-image "$LOCAL_IMAGE" 2>&1 || true)
+          echo "$COPY_OUTPUT"
+          ACCELERATED_URL=$(echo "$COPY_OUTPUT" | grep -oE 'registry\.lazycat\.cloud/[a-zA-Z0-9_/.:-]+' | head -1 || echo "")
+
+          if [ -z "$ACCELERATED_URL" ]; then
+            echo "Failed to get accelerated URL"
+            exit 1
+          fi
+
+          echo "accelerated_url=$ACCELERATED_URL" >> $GITHUB_OUTPUT
+
+      - name: Update manifest
+        if: steps.check-update.outputs.update_needed == 'true'
+        env:
+          ACCELERATED_URL: ${{ steps.build-image.outputs.accelerated_url }}
+          LATEST_VERSION: ${{ steps.get-version.outputs.latest_version }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          manifest_path = Path("lzc-manifest.yml")
+          content = manifest_path.read_text()
+          accelerated_url = os.environ["ACCELERATED_URL"]
+
+          pattern = re.compile(
+              r"(^  waoowaoo:\n(?:    .*\n)*?    image: )([^\n]+)",
+              re.MULTILINE,
+          )
+          updated, count = pattern.subn(r"\1" + accelerated_url, content, count=1)
+          if count != 1:
+              raise SystemExit("Failed to update services.waoowaoo.image in lzc-manifest.yml")
+
+          manifest_path.write_text(updated)
+          PY
+          sed -i "s/^version:.*/version: $LATEST_VERSION/g" lzc-manifest.yml
+
+          echo "Updated to version: $LATEST_VERSION"
+          echo "Updated image: $ACCELERATED_URL"
+
+      - name: Build package
+        if: steps.check-update.outputs.update_needed == 'true'
+        env:
+          LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
+        run: |
+          lzc-cli project build -o ${{ env.PROJECT_NAME_LOWER }}.lpk
+
+      - name: Publish to LazyCat App Store
+        if: steps.check-update.outputs.update_needed == 'true' && inputs.publish_to_store == true
+        env:
+          LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
+        run: |
+          LATEST_VERSION="${{ steps.get-version.outputs.latest_version }}"
+          RELEASE_NOTES=$(cat /tmp/release_notes.txt)
+          lzc-cli appstore publish ${{ env.PROJECT_NAME_LOWER }}.lpk --clang en -c "$RELEASE_NOTES"
+
+      - name: Create GitHub Release
+        if: steps.check-update.outputs.update_needed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST_VERSION="${{ steps.get-version.outputs.latest_version }}"
+          gh release delete "v$LATEST_VERSION" --yes 2>/dev/null || true
+          gh release create "v$LATEST_VERSION" \
+            --title "v$LATEST_VERSION" \
+            --notes-file /tmp/release_notes.txt \
+            ${{ env.PROJECT_NAME_LOWER }}.lpk
+
+      - name: Commit and push changes
+        if: steps.check-update.outputs.update_needed == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add lzc-manifest.yml
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Update ${{ env.PROJECT_NAME }} to version ${{ steps.get-version.outputs.latest_version }}"
+
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          printf 'Host github.com\n  Hostname ssh.github.com\n  Port 443\n  User git\n  StrictHostKeyChecking no\n' >> ~/.ssh/config
+
+          git remote set-url origin git@github.com:${{ github.repository }}.git
+          git push

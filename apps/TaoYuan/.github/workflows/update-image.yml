@@ -1,0 +1,120 @@
+name: Update TaoYuan Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: "Force sync even if no new version"
+        required: false
+        default: false
+        type: boolean
+      target_version:
+        description: "Target upstream version. Leave empty for latest release."
+        required: false
+        default: ""
+        type: string
+      publish_to_store:
+        description: "Reserved for lzcat-trigger compatibility"
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: "0 */6 * * *"
+
+env:
+  UPSTREAM_REPO: setube/taoyuan
+  PROJECT_NAME: TaoYuan
+
+jobs:
+  sync-content:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve upstream version
+        id: resolve-version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET_VERSION="${{ inputs.target_version }}"
+
+          if [ -n "$TARGET_VERSION" ]; then
+            VERSION="${TARGET_VERSION#v}"
+          else
+            VERSION=$(gh api "repos/${{ env.UPSTREAM_REPO }}/releases/latest" --jq '.tag_name' | sed 's/^v//')
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check if sync is needed
+        id: check-update
+        run: |
+          CURRENT_VERSION=$(grep '^version:' lzc-manifest.yml | awk '{print $2}')
+          TARGET_VERSION="${{ steps.resolve-version.outputs.version }}"
+
+          if [ "${{ inputs.force_build }}" = "true" ]; then
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
+          elif [ "$CURRENT_VERSION" != "$TARGET_VERSION" ]; then
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "update_needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "Current version: $CURRENT_VERSION"
+          echo "Target version: $TARGET_VERSION"
+
+      - name: Setup Node.js
+        if: steps.check-update.outputs.update_needed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enable pnpm via Corepack
+        if: steps.check-update.outputs.update_needed == 'true'
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+          pnpm --version
+
+      - name: Rebuild patched content
+        if: steps.check-update.outputs.update_needed == 'true'
+        env:
+          VERSION: ${{ steps.resolve-version.outputs.version }}
+        run: |
+          rm -rf /tmp/taoyuan-upstream
+          git clone https://github.com/${{ env.UPSTREAM_REPO }}.git /tmp/taoyuan-upstream
+          cd /tmp/taoyuan-upstream
+          git checkout "v$VERSION" 2>/dev/null || git checkout "$VERSION"
+          bash "${{ github.workspace }}/scripts/build-patched-content.sh" /tmp/taoyuan-upstream "${{ github.workspace }}/content"
+
+      - name: Mirror upstream image to repository GHCR
+        if: steps.check-update.outputs.update_needed == 'true'
+        env:
+          VERSION: ${{ steps.resolve-version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SOURCE_IMAGE="ghcr.io/setube/taoyuan:$VERSION"
+          TARGET_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:v$VERSION"
+
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${GITHUB_REPOSITORY_OWNER}" --password-stdin
+          docker pull "$SOURCE_IMAGE"
+          docker tag "$SOURCE_IMAGE" "$TARGET_IMAGE"
+          docker push "$TARGET_IMAGE"
+
+      - name: Commit synced content
+        if: steps.check-update.outputs.update_needed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add content
+
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          git commit -m "Sync TaoYuan patched content for version ${{ steps.resolve-version.outputs.version }}"
+          git push origin HEAD:${GITHUB_REF_NAME}

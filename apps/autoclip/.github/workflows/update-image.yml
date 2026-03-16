@@ -1,0 +1,126 @@
+name: Update AutoClip Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: Force build even if source version did not change
+        required: false
+        default: false
+        type: boolean
+      target_version:
+        description: Commit SHA, branch, or tag to build. Leave empty for latest main
+        required: false
+        default: ""
+        type: string
+      publish_to_store:
+        description: Reserved for lzcat-trigger compatibility
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/update-image.yml
+      - Dockerfile.template
+      - lazycat/**
+
+env:
+  UPSTREAM_REPO: zhouxiaoka/autoclip
+  IMAGE_NAME: autoclip
+
+jobs:
+  build-image:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout migration repository
+        uses: actions/checkout@v4
+
+      - name: Resolve upstream ref
+        id: resolve-ref
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET_VERSION="${{ inputs.target_version }}"
+
+          if [ -n "$TARGET_VERSION" ]; then
+            SOURCE_REF="$TARGET_VERSION"
+          else
+            SOURCE_REF=$(gh api "repos/${{ env.UPSTREAM_REPO }}/commits/main" --jq '.sha')
+          fi
+
+          echo "source_ref=$SOURCE_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Clone upstream source
+        id: clone-source
+        run: |
+          git clone https://github.com/${{ env.UPSTREAM_REPO }}.git /tmp/autoclip-source
+          cd /tmp/autoclip-source
+          git checkout "${{ steps.resolve-ref.outputs.source_ref }}"
+
+          SOURCE_VERSION=$(git rev-parse --short=12 HEAD)
+          BUILD_VERSION=$(sed -n 's/.*version="\([0-9][0-9.]*\)".*/\1/p' backend/main.py | head -1)
+
+          if [ -z "$BUILD_VERSION" ]; then
+            BUILD_VERSION=1.0.0
+          fi
+
+          echo "source_version=$SOURCE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_version=$BUILD_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare LazyCat build context
+        run: |
+          mkdir -p /tmp/autoclip-source/lazycat
+          cp Dockerfile.template /tmp/autoclip-source/Dockerfile
+          cp lazycat/nginx.autoclip.conf /tmp/autoclip-source/lazycat/nginx.autoclip.conf
+          cp lazycat/start-web.sh /tmp/autoclip-source/lazycat/start-web.sh
+          cp lazycat/start-worker.sh /tmp/autoclip-source/lazycat/start-worker.sh
+          python3 lazycat/prepare_build_context.py /tmp/autoclip-source
+
+      - name: Resolve ghcr image name
+        id: image-name
+        run: |
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          MIGRATION_VERSION=$(git rev-parse --short=12 HEAD)
+          echo "migration_version=$MIGRATION_VERSION" >> "$GITHUB_OUTPUT"
+          echo "ghcr_image=ghcr.io/${OWNER_LOWER}/${{ env.IMAGE_NAME }}:${{ steps.clone-source.outputs.source_version }}-${MIGRATION_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "ghcr_image_semver=ghcr.io/${OWNER_LOWER}/${{ env.IMAGE_NAME }}:v${{ steps.clone-source.outputs.build_version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image to ghcr.io
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd /tmp/autoclip-source
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
+          docker build \
+            -t "${{ steps.image-name.outputs.ghcr_image }}" \
+            -t "${{ steps.image-name.outputs.ghcr_image_semver }}" \
+            .
+          docker push "${{ steps.image-name.outputs.ghcr_image }}"
+          docker push "${{ steps.image-name.outputs.ghcr_image_semver }}"
+
+      - name: Print pushed image
+        run: |
+          echo "Built and pushed image: ${{ steps.image-name.outputs.ghcr_image }}"
+          echo "Built and pushed image: ${{ steps.image-name.outputs.ghcr_image_semver }}"
+
+      - name: Export build metadata
+        run: |
+          cat > /tmp/autoclip-build-metadata.json <<EOF
+          {
+            "upstream_repo": "${{ env.UPSTREAM_REPO }}",
+            "source_version": "${{ steps.clone-source.outputs.source_version }}",
+            "build_version": "${{ steps.clone-source.outputs.build_version }}",
+            "image": "${{ steps.image-name.outputs.ghcr_image }}"
+          }
+          EOF
+
+      - name: Upload build metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: autoclip-build-metadata
+          path: /tmp/autoclip-build-metadata.json
