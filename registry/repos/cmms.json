@@ -1,6 +1,6 @@
 {
   "repo": "CodeEagle/cmms",
-  "enabled": true,
+  "enabled": false,
   "upstream_repo": "Grashjs/cmms",
   "check_strategy": "github_release",
   "build_strategy": "target_repo_dockerfile",
