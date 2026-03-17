@@ -1,7 +1,7 @@
 # Design: Consolidate lzcat-registry into lzcat-apps
 
 **Date**: 2026-03-17
-**Status**: Draft
+**Status**: Implemented
 
 ## Goal
 
