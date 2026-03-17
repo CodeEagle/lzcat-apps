@@ -17,7 +17,11 @@ application:
 services:
   paperclip:
     image: registry.lazycat.cloud/invokerlaw/codeeagle/paperclip:5e6d473063a6a0cb
-    restart: on-failure
+    command: >-
+      /bin/sh -c 'for i in $(seq 1 60); do
+      node -e "const net=require(\"net\"); const s=net.createConnection({host:\"postgres\",port:5432},()=>{s.end();process.exit(0)}); s.on(\"error\",()=>process.exit(1)); setTimeout(()=>process.exit(1),1000)" &&
+      break; sleep 2; done;
+      exec node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js'
     depends_on:
       - postgres
     environment:
