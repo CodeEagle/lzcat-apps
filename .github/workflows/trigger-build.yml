@@ -79,9 +79,6 @@ jobs:
       max-parallel: 2
       matrix:
         include: ${{ fromJson(needs.prepare.outputs.matrix) }}
-    concurrency:
-      group: build-${{ matrix.app_name }}
-      cancel-in-progress: false
     uses: ./.github/workflows/update-image.yml
     with:
       artifact_repo: ${{ needs.prepare.outputs.artifact_repo }}
