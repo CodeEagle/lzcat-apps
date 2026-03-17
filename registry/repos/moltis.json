@@ -1,5 +1,5 @@
 {
-  "enabled": true,
+  "enabled": false,
   "upstream_repo": "moltis-org/moltis",
   "check_strategy": "github_release",
   "build_strategy": "official_image",

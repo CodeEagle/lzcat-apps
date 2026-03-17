@@ -31,7 +31,6 @@ def load_event_payload() -> dict:
 
 def load_configs(config_root: Path) -> tuple[list[dict], dict[str, dict]]:
     index = json.loads((config_root / "repos" / "index.json").read_text())
-    apps_root = config_root.parent / "apps"
     configs: list[dict] = []
     by_app: dict[str, dict] = {}
     for file_name in index.get("repos", []):
@@ -40,17 +39,25 @@ def load_configs(config_root: Path) -> tuple[list[dict], dict[str, dict]]:
         app_name = Path(file_name).stem
         config["_config_file"] = file_name
         config["_app_name"] = app_name
-        manifest = apps_root / app_name / "lzc-manifest.yml"
-        if not manifest.exists():
-            print(
-                f"ERROR: {manifest} not found for config {file_name}. "
-                f"Ensure apps/{app_name}/ exists in lzcat-apps.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
         configs.append(config)
         by_app[app_name] = config
     return configs, by_app
+
+
+def validate_selected(selected: list[dict], config_root: Path) -> bool:
+    apps_root = config_root.parent / "apps"
+    ok = True
+    for config in selected:
+        app_name = config["_app_name"]
+        manifest = apps_root / app_name / "lzc-manifest.yml"
+        if not manifest.exists():
+            print(
+                f"ERROR: {manifest} not found for config {config['_config_file']}. "
+                f"Ensure apps/{app_name}/ exists in lzcat-apps.",
+                file=sys.stderr,
+            )
+            ok = False
+    return ok
 
 
 def write_output(name: str, value: str) -> None:
@@ -102,6 +109,9 @@ def main() -> int:
             print("No target repo provided for non-schedule event", file=sys.stderr)
             return 1
         selected.extend(config for config in configs if parse_bool(config.get("enabled"), True))
+
+    if not validate_selected(selected, config_root):
+        return 1
 
     matrix = []
     for config in selected:
