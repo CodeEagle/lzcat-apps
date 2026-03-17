@@ -1,0 +1,82 @@
+name: Update Image
+
+on:
+  workflow_call:
+    inputs:
+      artifact_repo:
+        required: true
+        type: string
+      config_file:
+        required: true
+        type: string
+      target_version:
+        required: false
+        type: string
+        default: ""
+      force_build:
+        required: false
+        type: boolean
+        default: false
+      publish_to_store:
+        required: false
+        type: boolean
+        default: false
+      check_only:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  update-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install lzc-cli
+        run: npm install -g @lazycatcloud/lzc-cli
+
+      - name: Run shared image update flow
+        env:
+          CONFIG_ROOT: ${{ github.workspace }}/registry
+          LZCAT_APPS_ROOT: ${{ github.workspace }}
+          CONFIG_FILE: ${{ inputs.config_file }}
+          ARTIFACT_REPO: ${{ inputs.artifact_repo }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          APP_NAME="${CONFIG_FILE%.json}"
+          args=(
+            --config-root "$CONFIG_ROOT"
+            --config-file "$CONFIG_FILE"
+            --artifact-repo "$ARTIFACT_REPO"
+            --app-root "$LZCAT_APPS_ROOT/apps/$APP_NAME"
+            --lzcat-apps-root "$LZCAT_APPS_ROOT"
+          )
+
+          if [ -n "${{ inputs.target_version }}" ]; then
+            args+=(--target-version "${{ inputs.target_version }}")
+          fi
+          if [ "${{ inputs.force_build }}" = "true" ]; then
+            args+=(--force-build)
+          fi
+          if [ "${{ inputs.publish_to_store }}" = "true" ]; then
+            args+=(--publish-to-store)
+          fi
+          if [ "${{ inputs.check_only }}" = "true" ]; then
+            args+=(--check-only)
+          fi
+
+          python3 scripts/run_build.py "${args[@]}"
