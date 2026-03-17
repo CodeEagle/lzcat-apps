@@ -180,7 +180,7 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify(state));
     return;
   }
-  if ((state.bootstrapPending || state.inviteUrl) && (req.url === "/" || req.url?.startsWith("/?"))) {
+  if ((state.bootstrapPending || state.bootstrapInviteActive) && (req.url === "/" || req.url?.startsWith("/?"))) {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
     res.end(bootstrapPage(state));
     return;
