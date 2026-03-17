@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make `lzcat-apps` the single source of truth — `lzcat-trigger` reads from and writes back to `lzcat-apps` directly, eliminating all individual standalone repos.
+**Goal:** Make `lzcat-apps` the single repo for everything — apps, registry configs, CI/CD scripts, and workflows — eliminating all individual standalone repos and `lzcat-trigger`.
 
-**Architecture:** `collect_targets.py` derives app identity from filename stem instead of `repo` field; `run_build.py` receives the checked-out `lzcat-apps/apps/<app>/` directory directly instead of cloning individual repos; commit/push goes back to `lzcat-apps` with `git pull --rebase` for concurrency safety.
+**Architecture:** Scripts and workflows from `lzcat-trigger` move into `lzcat-apps`; `config_repo`/`config_ref` indirection is removed and workflows use `$GITHUB_WORKSPACE` directly; `collect_targets.py` derives app identity from filename stem instead of `repo` field; `run_build.py` uses `lzcat-apps/apps/<app>/` directly instead of cloning individual repos; commit/push goes back to `lzcat-apps` with `git pull --rebase` for concurrency safety. Dev notes live in `docs/notes/`.
 
 **Tech Stack:** Python 3, GitHub Actions, `lzc-cli`, Docker/GHCR
 
@@ -12,12 +12,50 @@
 
 ---
 
-## Chunk 1: lzcat-trigger Script Changes
+## Chunk 1: Migrate Scripts into lzcat-apps + Update Them
+
+> **Note:** Scripts are copied from `lzcat-trigger` into `lzcat-apps/scripts/` first (Task 0), then all edits in Tasks 1–2 target `lzcat-apps/scripts/` directly. Do NOT modify `lzcat-trigger` scripts.
+
+### Task 0: Copy scripts and create notes directory
+
+**Files:**
+- Create: `lzcat-apps/scripts/collect_targets.py`
+- Create: `lzcat-apps/scripts/run_build.py`
+- Create: `lzcat-apps/docs/notes/README.md`
+
+- [ ] **Step 1: Copy scripts from lzcat-trigger**
+
+```bash
+cd lzcat-apps
+mkdir -p scripts docs/notes
+cp ../lzcat-trigger/scripts/collect_targets.py scripts/
+cp ../lzcat-apps/scripts/run_build.py scripts/
+```
+
+- [ ] **Step 2: Create notes README**
+
+Create `docs/notes/README.md`:
+
+```markdown
+# Dev Notes
+
+Development notes, known issues, and workarounds for lzcat-apps.
+Each note is a dated markdown file: `YYYY-MM-DD-<topic>.md`.
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add scripts/ docs/notes/
+git commit -m "chore: migrate CI scripts from lzcat-trigger into lzcat-apps"
+```
+
+---
 
 ### Task 1: Update `collect_targets.py`
 
 **Files:**
-- Modify: `lzcat-trigger/scripts/collect_targets.py`
+- Modify: `lzcat-apps/scripts/collect_targets.py`
 
 **What changes:**
 - `load_configs`: key `by_repo` dict by filename stem (app name) instead of `config["repo"]`; validate manifest path exists; store `_app_name` on config
@@ -160,7 +198,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: Verify the script parses correctly**
 
 ```bash
-cd /path/to/lzcat-trigger
+cd lzcat-apps
 python3 -c "import ast; ast.parse(open('scripts/collect_targets.py').read()); print('OK')"
 ```
 
@@ -169,7 +207,7 @@ Expected: `OK`
 - [ ] **Step 3: Commit**
 
 ```bash
-cd lzcat-trigger
+cd lzcat-apps
 git add scripts/collect_targets.py
 git commit -m "feat(collect_targets): derive app identity from filename, validate manifest path"
 ```
@@ -179,7 +217,7 @@ git commit -m "feat(collect_targets): derive app identity from filename, validat
 ### Task 2: Update `run_build.py`
 
 **Files:**
-- Modify: `lzcat-trigger/scripts/run_build.py`
+- Modify: `lzcat-apps/scripts/run_build.py`
 
 **What changes:**
 - Add `--app-root` and `--lzcat-apps-root` CLI args
@@ -485,7 +523,7 @@ No change needed.
 - [ ] **Step 13: Verify the script parses correctly**
 
 ```bash
-cd lzcat-trigger
+cd lzcat-apps
 python3 -c "import ast; ast.parse(open('scripts/run_build.py').read()); print('OK')"
 ```
 
@@ -505,7 +543,7 @@ git commit -m "feat(run_build): use lzcat-apps app dir directly, commit back to 
 ### Task 3: Update `update-image.yml`
 
 **Files:**
-- Modify: `lzcat-trigger/.github/workflows/update-image.yml`
+- Modify: `lzcat-apps/.github/workflows/update-image.yml`
 
 **What changes:**
 - `contents: write` permission (needed to push back to lzcat-apps)
@@ -598,7 +636,7 @@ git commit -m "feat(update-image): pass app-root and lzcat-apps-root, enable wri
 ### Task 4: Update `trigger-build.yml`
 
 **Files:**
-- Modify: `lzcat-trigger/.github/workflows/trigger-build.yml`
+- Modify: `lzcat-apps/.github/workflows/trigger-build.yml`
 
 **What changes:**
 - Update `target_repo` input description (now accepts app name, e.g. `paperclip`)
@@ -643,13 +681,13 @@ git commit -m "feat(trigger-build): update target_repo description and concurren
 
 ### Task 5: Verify end-to-end before removing `repo` field
 
-- [ ] **Step 1: Push lzcat-trigger changes**
+- [ ] **Step 1: Push lzcat-apps changes**
 
 ```bash
 git push origin main
 ```
 
-- [ ] **Step 2: Manually trigger lzcat-trigger for paperclip**
+- [ ] **Step 2: Manually trigger lzcat-apps for paperclip**
 
 In GitHub Actions UI on `CodeEagle/lzcat-trigger`, trigger `Trigger Build` workflow with:
 - `target_repo`: `paperclip`
@@ -726,10 +764,10 @@ git push origin main
 
 Manually trigger `Trigger Build` with all defaults (no `target_repo`, `force_build`: `false`). Verify that `collect_targets.py` correctly selects all enabled apps.
 
-- [ ] **Step 2: Confirm no references to individual repos remain in lzcat-trigger scripts**
+- [ ] **Step 2: Confirm no references to individual repos remain in lzcat-apps scripts**
 
 ```bash
-cd lzcat-trigger
+cd lzcat-apps
 grep -r "config\[.repo.\]" scripts/
 ```
 
@@ -752,4 +790,272 @@ git push origin main
 
 ---
 
-> **Archive step** (manual, after 48h soak): Archive `lzcat-registry` and all individual app repos on GitHub (Settings → Archive this repository).
+## Chunk 3: Migrate lzcat-trigger Workflows into lzcat-apps
+
+### Task 8: Copy and simplify `trigger-build.yml`
+
+**Files:**
+- Create: `lzcat-apps/.github/workflows/trigger-build.yml`
+
+**What changes from the lzcat-trigger version:**
+- Remove `config_repo`, `config_ref` inputs and the "Resolve config source" + "Checkout config repository" steps in `prepare` job — workflows now live in the same repo, so `$GITHUB_WORKSPACE` IS the config root
+- `CONFIG_ROOT` becomes `$GITHUB_WORKSPACE/registry`
+- Remove `config_repo`/`config_ref` outputs from prepare job and inputs to build job
+- `scripts/collect_targets.py` path stays the same (now at repo root `scripts/`)
+
+- [ ] **Step 1: Create `lzcat-apps/.github/workflows/trigger-build.yml`**
+
+```bash
+mkdir -p lzcat-apps/.github/workflows
+```
+
+Write `lzcat-apps/.github/workflows/trigger-build.yml`:
+
+```yaml
+name: Trigger Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        description: "Target app name, e.g. paperclip (leave empty to process all enabled apps)"
+        required: false
+        default: ""
+        type: string
+      target_version:
+        description: "Target upstream version to build. Leave empty for latest."
+        required: false
+        default: ""
+        type: string
+      force_build:
+        description: "Force build regardless of current source version"
+        required: false
+        default: false
+        type: boolean
+      publish_to_store:
+        description: "Publish generated package to LazyCat App Store"
+        required: false
+        default: false
+        type: boolean
+      check_only:
+        description: "Only check whether an update is needed"
+        required: false
+        default: false
+        type: boolean
+      artifact_repo:
+        description: "Central repository to store LPK artifacts and build reports"
+        required: false
+        default: "CodeEagle/lzcat-artifacts"
+        type: string
+  repository_dispatch:
+    types:
+      - lzcat-build
+  schedule:
+    - cron: "0 */12 * * *"
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.collect.outputs.matrix }}
+      has_targets: ${{ steps.collect.outputs.has_targets }}
+      artifact_repo: ${{ steps.resolve.outputs.artifact_repo }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve artifact repo
+        id: resolve
+        run: |
+          ARTIFACT_REPO="${{ inputs.artifact_repo }}"
+          if [ -z "$ARTIFACT_REPO" ]; then
+            ARTIFACT_REPO="CodeEagle/lzcat-artifacts"
+          fi
+          echo "artifact_repo=${ARTIFACT_REPO}" >> "$GITHUB_OUTPUT"
+
+      - name: Collect targets
+        id: collect
+        env:
+          CONFIG_ROOT: ${{ github.workspace }}/registry
+          INPUT_TARGET_REPO: ${{ inputs.target_repo }}
+          INPUT_TARGET_VERSION: ${{ inputs.target_version }}
+          INPUT_FORCE_BUILD: ${{ inputs.force_build }}
+          INPUT_PUBLISH_TO_STORE: ${{ inputs.publish_to_store }}
+          INPUT_CHECK_ONLY: ${{ inputs.check_only }}
+        run: |
+          python3 scripts/collect_targets.py
+
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.has_targets == 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    concurrency:
+      group: build-${{ matrix.app_name }}
+      cancel-in-progress: false
+    uses: ./.github/workflows/update-image.yml
+    with:
+      artifact_repo: ${{ needs.prepare.outputs.artifact_repo }}
+      config_file: ${{ matrix.config_file }}
+      target_version: ${{ matrix.target_version }}
+      force_build: ${{ matrix.force_build }}
+      publish_to_store: ${{ matrix.publish_to_store }}
+      check_only: ${{ matrix.check_only }}
+    secrets: inherit
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+cd lzcat-apps
+git add .github/workflows/trigger-build.yml
+git commit -m "feat: add trigger-build workflow (migrated from lzcat-trigger, simplified)"
+```
+
+---
+
+### Task 9: Copy and simplify `update-image.yml`
+
+**Files:**
+- Create: `lzcat-apps/.github/workflows/update-image.yml`
+
+**What changes from the lzcat-trigger version:**
+- Remove `config_repo`, `config_ref` inputs
+- Remove "Checkout config repository" step
+- `CONFIG_ROOT` → `$GITHUB_WORKSPACE/registry`
+- `LZCAT_APPS_ROOT` → `$GITHUB_WORKSPACE`
+- `scripts/run_build.py` path stays the same
+
+- [ ] **Step 1: Create `lzcat-apps/.github/workflows/update-image.yml`**
+
+Write `lzcat-apps/.github/workflows/update-image.yml`:
+
+```yaml
+name: Update Image
+
+on:
+  workflow_call:
+    inputs:
+      artifact_repo:
+        required: true
+        type: string
+      config_file:
+        required: true
+        type: string
+      target_version:
+        required: false
+        type: string
+        default: ""
+      force_build:
+        required: false
+        type: boolean
+        default: false
+      publish_to_store:
+        required: false
+        type: boolean
+        default: false
+      check_only:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  update-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install lzc-cli
+        run: npm install -g @lazycatcloud/lzc-cli
+
+      - name: Run shared image update flow
+        env:
+          CONFIG_ROOT: ${{ github.workspace }}/registry
+          LZCAT_APPS_ROOT: ${{ github.workspace }}
+          CONFIG_FILE: ${{ inputs.config_file }}
+          ARTIFACT_REPO: ${{ inputs.artifact_repo }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          APP_NAME="${CONFIG_FILE%.json}"
+          args=(
+            --config-root "$CONFIG_ROOT"
+            --config-file "$CONFIG_FILE"
+            --artifact-repo "$ARTIFACT_REPO"
+            --app-root "$LZCAT_APPS_ROOT/apps/$APP_NAME"
+            --lzcat-apps-root "$LZCAT_APPS_ROOT"
+          )
+
+          if [ -n "${{ inputs.target_version }}" ]; then
+            args+=(--target-version "${{ inputs.target_version }}")
+          fi
+          if [ "${{ inputs.force_build }}" = "true" ]; then
+            args+=(--force-build)
+          fi
+          if [ "${{ inputs.publish_to_store }}" = "true" ]; then
+            args+=(--publish-to-store)
+          fi
+          if [ "${{ inputs.check_only }}" = "true" ]; then
+            args+=(--check-only)
+          fi
+
+          python3 scripts/run_build.py "${args[@]}"
+```
+
+- [ ] **Step 2: Commit and push**
+
+```bash
+cd lzcat-apps
+git add .github/workflows/update-image.yml
+git commit -m "feat: add update-image workflow (migrated from lzcat-trigger, simplified)"
+git push origin main
+```
+
+---
+
+### Task 10: Verify and archive lzcat-trigger
+
+- [ ] **Step 1: Manually trigger the new workflow in lzcat-apps**
+
+In GitHub Actions UI on `CodeEagle/lzcat-apps`, trigger `Trigger Build` with:
+- `target_repo`: `paperclip`
+- `force_build`: `true`
+
+Confirm the build completes and `lzcat-apps/apps/paperclip/lzc-manifest.yml` is updated.
+
+- [ ] **Step 2: After 48h soak — archive repos**
+
+Archive the following on GitHub (Settings → Archive this repository):
+- `CodeEagle/lzcat-trigger`
+- `CodeEagle/lzcat-registry`
+- All individual app repos (`CodeEagle/paperclip`, `CodeEagle/airflow`, etc.)
+
+- [ ] **Step 3: Update spec status**
+
+Edit `docs/superpowers/specs/2026-03-17-lzcat-apps-consolidation-design.md`:
+Change `**Status**: Draft` to `**Status**: Implemented`
+
+- [ ] **Step 4: Commit**
+
+```bash
+cd lzcat-apps
+git add docs/superpowers/specs/2026-03-17-lzcat-apps-consolidation-design.md
+git commit -m "docs: mark consolidation spec as implemented"
+git push origin main
+```
