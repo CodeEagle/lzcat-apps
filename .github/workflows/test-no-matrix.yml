@@ -1,0 +1,10 @@
+name: Test No Matrix
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    uses: ./.github/workflows/update-image.yml
+    with:
+      artifact_repo: "CodeEagle/lzcat-artifacts"
+      config_file: "paperclip.json"
+    secrets: inherit
