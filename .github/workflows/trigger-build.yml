@@ -1,7 +1,12 @@
 name: Trigger Build
 
+permissions:
+  contents: write
+  packages: write
+
 on:
   workflow_dispatch:
+
     inputs:
       target_repo:
         description: "Target app name, e.g. paperclip (leave empty to process all enabled apps)"
