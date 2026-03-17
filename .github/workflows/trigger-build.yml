@@ -1,0 +1,93 @@
+name: Trigger Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        description: "Target app name, e.g. paperclip (leave empty to process all enabled apps)"
+        required: false
+        default: ""
+        type: string
+      target_version:
+        description: "Target upstream version to build. Leave empty for latest."
+        required: false
+        default: ""
+        type: string
+      force_build:
+        description: "Force build regardless of current source version"
+        required: false
+        default: false
+        type: boolean
+      publish_to_store:
+        description: "Publish generated package to LazyCat App Store"
+        required: false
+        default: false
+        type: boolean
+      check_only:
+        description: "Only check whether an update is needed"
+        required: false
+        default: false
+        type: boolean
+      artifact_repo:
+        description: "Central repository to store LPK artifacts and build reports"
+        required: false
+        default: "CodeEagle/lzcat-artifacts"
+        type: string
+  repository_dispatch:
+    types:
+      - lzcat-build
+  schedule:
+    - cron: "0 */12 * * *"
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.collect.outputs.matrix }}
+      has_targets: ${{ steps.collect.outputs.has_targets }}
+      artifact_repo: ${{ steps.resolve.outputs.artifact_repo }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve artifact repo
+        id: resolve
+        run: |
+          ARTIFACT_REPO="${{ inputs.artifact_repo }}"
+          if [ -z "$ARTIFACT_REPO" ]; then
+            ARTIFACT_REPO="CodeEagle/lzcat-artifacts"
+          fi
+          echo "artifact_repo=${ARTIFACT_REPO}" >> "$GITHUB_OUTPUT"
+
+      - name: Collect targets
+        id: collect
+        env:
+          CONFIG_ROOT: ${{ github.workspace }}/registry
+          INPUT_TARGET_REPO: ${{ inputs.target_repo }}
+          INPUT_TARGET_VERSION: ${{ inputs.target_version }}
+          INPUT_FORCE_BUILD: ${{ inputs.force_build }}
+          INPUT_PUBLISH_TO_STORE: ${{ inputs.publish_to_store }}
+          INPUT_CHECK_ONLY: ${{ inputs.check_only }}
+        run: |
+          python3 scripts/collect_targets.py
+
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.has_targets == 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    concurrency:
+      group: build-${{ matrix.app_name }}
+      cancel-in-progress: false
+    uses: ./.github/workflows/update-image.yml
+    with:
+      artifact_repo: ${{ needs.prepare.outputs.artifact_repo }}
+      config_file: ${{ matrix.config_file }}
+      target_version: ${{ matrix.target_version }}
+      force_build: ${{ matrix.force_build }}
+      publish_to_store: ${{ matrix.publish_to_store }}
+      check_only: ${{ matrix.check_only }}
+    secrets: inherit
