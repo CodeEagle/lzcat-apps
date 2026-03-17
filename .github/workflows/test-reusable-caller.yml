@@ -1,0 +1,30 @@
+name: Test Reusable Caller
+on:
+  workflow_dispatch:
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.out.outputs.matrix }}
+      has_targets: ${{ steps.out.outputs.has_targets }}
+    steps:
+      - id: out
+        run: |
+          echo 'matrix=[{"app_name":"test","config_file":"test.json","target_version":"","force_build":false,"publish_to_store":false,"check_only":false}]' >> "$GITHUB_OUTPUT"
+          echo 'has_targets=true' >> "$GITHUB_OUTPUT"
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.has_targets == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    uses: ./.github/workflows/update-image.yml
+    with:
+      artifact_repo: "CodeEagle/lzcat-artifacts"
+      config_file: ${{ matrix.config_file }}
+      target_version: ${{ matrix.target_version }}
+      force_build: ${{ matrix.force_build }}
+      publish_to_store: ${{ matrix.publish_to_store }}
+      check_only: ${{ matrix.check_only }}
+    secrets: inherit
