@@ -29,20 +29,11 @@ on:
 jobs:
   update-image:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Run build
         env:
           CONFIG_ROOT: ${{ github.workspace }}/registry
-          LZCAT_APPS_ROOT: ${{ github.workspace }}
           CONFIG_FILE: ${{ inputs.config_file }}
-          ARTIFACT_REPO: ${{ inputs.artifact_repo }}
-          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-        run: |
-          APP_NAME="${CONFIG_FILE%.json}"
-          echo "APP_NAME=$APP_NAME"
-          echo "done"
+        run: echo "OK"
