@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/Higress",
   "enabled": true,
   "upstream_repo": "alibaba/higress",
   "check_strategy": "github_release",

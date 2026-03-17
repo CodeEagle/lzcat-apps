@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/markitdown",
   "enabled": true,
   "upstream_repo": "microsoft/markitdown",
   "check_strategy": "github_release",

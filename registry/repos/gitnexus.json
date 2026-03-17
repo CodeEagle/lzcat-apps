@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/GitNexus",
   "enabled": true,
   "upstream_repo": "abhigyanpatwari/GitNexus",
   "check_strategy": "github_release",

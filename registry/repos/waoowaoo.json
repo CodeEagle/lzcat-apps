@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/waoowaoo",
   "enabled": true,
   "upstream_repo": "waoowaooAI/waoowaoo",
   "check_strategy": "github_release",

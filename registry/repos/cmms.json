@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/cmms",
   "enabled": false,
   "upstream_repo": "Grashjs/cmms",
   "check_strategy": "github_release",

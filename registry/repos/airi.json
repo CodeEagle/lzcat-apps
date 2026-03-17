@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/Airi",
   "enabled": true,
   "upstream_repo": "moeru-ai/airi",
   "check_strategy": "github_release",

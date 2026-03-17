@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/chatgpt-on-wechat-lazycat",
   "enabled": true,
   "upstream_repo": "zhayujie/chatgpt-on-wechat",
   "check_strategy": "github_release",

@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/Moltis",
   "enabled": true,
   "upstream_repo": "moltis-org/moltis",
   "check_strategy": "github_release",

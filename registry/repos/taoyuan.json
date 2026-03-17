@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/TaoYuan",
   "enabled": true,
   "upstream_repo": "setube/taoyuan",
   "check_strategy": "github_release",

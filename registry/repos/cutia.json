@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/cutia",
   "enabled": true,
   "upstream_repo": "msgbyte/cutia",
   "check_strategy": "commit_sha",

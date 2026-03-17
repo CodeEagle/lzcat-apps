@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/OpenFang",
   "enabled": true,
   "upstream_repo": "RightNow-AI/openfang",
   "check_strategy": "github_release",

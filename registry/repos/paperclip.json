@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/paperclip",
   "enabled": true,
   "upstream_repo": "paperclipai/paperclip",
   "check_strategy": "github_release",
@@ -17,5 +16,7 @@
     "bootstrap-ui"
   ],
   "dependencies": [],
-  "overlay_paths": ["lazycat"]
+  "overlay_paths": [
+    "lazycat"
+  ]
 }

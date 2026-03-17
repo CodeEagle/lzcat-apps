@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/airflow",
   "enabled": true,
   "upstream_repo": "apache/airflow",
   "check_strategy": "github_release",

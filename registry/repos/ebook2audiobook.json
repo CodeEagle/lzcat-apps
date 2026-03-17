@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/ebook2audiobook",
   "enabled": false,
   "upstream_repo": "",
   "check_strategy": "github_release",

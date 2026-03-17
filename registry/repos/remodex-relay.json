@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/remodex-relay",
   "enabled": true,
   "upstream_repo": "Emanuele-web04/remodex",
   "check_strategy": "github_tag",
@@ -11,7 +10,12 @@
   "dockerfile_path": "Dockerfile",
   "build_context": ".",
   "service_port": 3000,
-  "service_cmd": ["node", "server.js"],
-  "image_targets": ["remodex-relay"],
+  "service_cmd": [
+    "node",
+    "server.js"
+  ],
+  "image_targets": [
+    "remodex-relay"
+  ],
   "dependencies": []
 }

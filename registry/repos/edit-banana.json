@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/Edit-Banana",
   "enabled": true,
   "upstream_repo": "BIT-DataLab/Edit-Banana",
   "check_strategy": "commit_sha",

@@ -1,5 +1,4 @@
 {
-  "repo": "CodeEagle/CliRelay",
   "enabled": true,
   "upstream_repo": "kittors/CliRelay",
   "check_strategy": "github_tag",
