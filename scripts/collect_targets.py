@@ -31,15 +31,26 @@ def load_event_payload() -> dict:
 
 def load_configs(config_root: Path) -> tuple[list[dict], dict[str, dict]]:
     index = json.loads((config_root / "repos" / "index.json").read_text())
+    apps_root = config_root.parent / "apps"
     configs: list[dict] = []
-    by_repo: dict[str, dict] = {}
+    by_app: dict[str, dict] = {}
     for file_name in index.get("repos", []):
         config_path = config_root / "repos" / file_name
         config = json.loads(config_path.read_text())
+        app_name = Path(file_name).stem
         config["_config_file"] = file_name
+        config["_app_name"] = app_name
+        manifest = apps_root / app_name / "lzc-manifest.yml"
+        if not manifest.exists():
+            print(
+                f"ERROR: {manifest} not found for config {file_name}. "
+                f"Ensure apps/{app_name}/ exists in lzcat-apps.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         configs.append(config)
-        by_repo[config["repo"]] = config
-    return configs, by_repo
+        by_app[app_name] = config
+    return configs, by_app
 
 
 def write_output(name: str, value: str) -> None:
@@ -56,7 +67,7 @@ def main() -> int:
     event = load_event_payload()
     payload = event.get("client_payload", {}) if isinstance(event, dict) else {}
 
-    configs, by_repo = load_configs(config_root)
+    configs, by_app = load_configs(config_root)
 
     target_repo = (
         os.environ.get("INPUT_TARGET_REPO")
@@ -81,9 +92,9 @@ def main() -> int:
 
     selected: list[dict] = []
     if target_repo:
-        config = by_repo.get(target_repo)
+        config = by_app.get(target_repo)
         if not config:
-            print(f"Config not found for target repo: {target_repo}", file=sys.stderr)
+            print(f"Config not found for app: {target_repo}", file=sys.stderr)
             return 1
         selected.append(config)
     else:
@@ -96,7 +107,7 @@ def main() -> int:
     for config in selected:
         matrix.append(
             {
-                "target_repo": config["repo"],
+                "app_name": config["_app_name"],
                 "config_file": config["_config_file"],
                 "target_version": target_version,
                 "force_build": force_build,
