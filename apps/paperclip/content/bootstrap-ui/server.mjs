@@ -20,11 +20,20 @@ async function getPaperclipHealth() {
     const response = await fetch(new URL("/api/health", target), {
       headers: { Accept: "application/json" },
     });
+    if (response.status === 403) {
+      // 403 means server is up and auth is active — bootstrap is complete
+      return {
+        reachable: true,
+        bootstrapPending: false,
+        bootstrapInviteActive: false,
+        inviteUrl,
+      };
+    }
     if (!response.ok) {
       return {
         reachable: false,
         bootstrapPending: true,
-        bootstrapInviteActive: Boolean(inviteUrl),
+        bootstrapInviteActive: false,
         inviteUrl,
       };
     }
