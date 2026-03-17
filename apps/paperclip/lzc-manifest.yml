@@ -16,7 +16,7 @@ application:
       backend: http://bootstrap-ui:8080/
 services:
   paperclip:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/paperclip:5e6d473063a6a0cb
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/paperclip:2d5c21b546278114
     command: >-
       /bin/sh -c 'for i in $(seq 1 60); do
       node -e "const net=require(\"net\"); const s=net.createConnection({host:\"postgres\",port:5432},()=>{s.end();process.exit(0)}); s.on(\"error\",()=>process.exit(1)); setTimeout(()=>process.exit(1),1000)" &&
@@ -40,7 +40,7 @@ services:
     binds:
       - /lzcapp/var/data:/paperclip
   bootstrap-ui:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/paperclip:5e6d473063a6a0cb
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/paperclip:2d5c21b546278114
     depends_on:
       - paperclip
       - postgres
