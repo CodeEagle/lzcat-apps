@@ -51,7 +51,7 @@ services:
       break; sleep 2; done;
       if [ ! -f "$$CONFIG_PATH" ]; then timeout 60s pnpm paperclipai onboard --yes --data-dir "$$PAPERCLIP_HOME"
       >"$$BOOTSTRAP_LOG" 2>&1 || true; else : >"$$BOOTSTRAP_LOG"; fi;
-      if ! grep -q "/invite/pcp_bootstrap_" "$$BOOTSTRAP_LOG" 2>/dev/null; then
+      if [ ! -f "$$BOOTSTRAP_URL_FILE" ] && ! grep -q "/invite/pcp_bootstrap_" "$$BOOTSTRAP_LOG" 2>/dev/null; then
       if timeout 20s pnpm paperclipai auth bootstrap-ceo --data-dir "$$PAPERCLIP_HOME"
       --base-url "$$PAPERCLIP_PUBLIC_URL" >>"$$BOOTSTRAP_LOG" 2>&1; then
       true; else status=$$?; [ "$$status" = "124" ] || echo

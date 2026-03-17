@@ -38,8 +38,8 @@ async function getPaperclipHealth() {
   } catch {
     return {
       reachable: false,
-      bootstrapPending: Boolean(inviteUrl),
-      bootstrapInviteActive: Boolean(inviteUrl),
+      bootstrapPending: true,
+      bootstrapInviteActive: false,
       inviteUrl,
     };
   }
@@ -55,7 +55,8 @@ function escapeHtml(value) {
 }
 
 function bootstrapPage(initialState) {
-  const inviteBlock = initialState.inviteUrl
+  const showInvite = initialState.inviteUrl && initialState.bootstrapInviteActive;
+  const inviteBlock = showInvite
     ? `<a class="primary" href="${escapeHtml(initialState.inviteUrl)}">Open bootstrap invite</a>
        <pre id="invite-url">${escapeHtml(initialState.inviteUrl)}</pre>`
     : `<div class="hint"><span class="spinner"></span>Initializing Paperclip — running first-time setup in the background. This may take 20–30 seconds.</div>
@@ -107,7 +108,7 @@ function bootstrapPage(initialState) {
           return;
         }
         const block = document.getElementById("invite-block");
-        if (state.inviteUrl) {
+        if (state.inviteUrl && state.bootstrapInviteActive) {
           block.innerHTML = '<a class="primary" href="' + state.inviteUrl + '">Open bootstrap invite</a><pre id="invite-url"></pre>';
           document.getElementById("invite-url").textContent = state.inviteUrl;
         }
