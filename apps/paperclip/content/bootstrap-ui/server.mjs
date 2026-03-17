@@ -20,15 +20,6 @@ async function getPaperclipHealth() {
     const response = await fetch(new URL("/api/health", target), {
       headers: { Accept: "application/json" },
     });
-    if (response.status === 403) {
-      // 403 means server is up and auth is active — bootstrap is complete
-      return {
-        reachable: true,
-        bootstrapPending: false,
-        bootstrapInviteActive: false,
-        inviteUrl,
-      };
-    }
     if (!response.ok) {
       return {
         reachable: false,
@@ -104,7 +95,7 @@ function bootstrapPage(initialState) {
       <h1>Paperclip is preparing the first admin invite</h1>
       <p>Bootstrap runs automatically in the background. As soon as the first CEO invite URL is ready, this page will surface it here and you can open it directly.</p>
       <div class="stack" id="invite-block">${inviteBlock}</div>
-      <div class="footer">Once the first admin is created, this page will hand traffic back to Paperclip automatically.</div>
+      <div class="footer">Once the first admin is created, this page will hand traffic back to Paperclip automatically. Already have an account? <a href="/login" style="color:var(--accent)">Sign in →</a></div>
     </section>
   </main>
   <script>
