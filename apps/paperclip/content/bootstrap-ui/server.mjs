@@ -58,8 +58,9 @@ function bootstrapPage(initialState) {
   const inviteBlock = initialState.inviteUrl
     ? `<a class="primary" href="${escapeHtml(initialState.inviteUrl)}">Open bootstrap invite</a>
        <pre id="invite-url">${escapeHtml(initialState.inviteUrl)}</pre>`
-    : `<div class="hint">Preparing the first admin invite URL. This page will update automatically.</div>
-       <pre id="invite-url">Waiting for bootstrap invite...</pre>`;
+    : `<div class="hint"><span class="spinner"></span>Initializing Paperclip — running first-time setup in the background. This may take 20–30 seconds.</div>
+       <pre id="invite-url">Waiting for bootstrap invite...</pre>
+       <div class="elapsed" id="elapsed"></div>`;
 
   return `<!doctype html>
 <html lang="en">
@@ -81,6 +82,9 @@ function bootstrapPage(initialState) {
     pre { margin:0; padding:16px; border-radius:18px; background:#231f1c; color:#f8efe4; overflow:auto; white-space:pre-wrap; word-break:break-all; }
     .hint { padding:16px; border-radius:18px; background:#f6ead8; color:#5d4f40; border:1px solid #e3d4be; }
     .footer { margin-top:18px; font-size:13px; color:var(--muted); }
+    .spinner { display:inline-block; width:14px; height:14px; border:2px solid #c9b49a; border-top-color:#b85c38; border-radius:50%; animation:spin .8s linear infinite; margin-right:8px; vertical-align:middle; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .elapsed { font-size:12px; color:var(--muted); margin-top:6px; }
   </style>
 </head>
 <body>
@@ -109,7 +113,13 @@ function bootstrapPage(initialState) {
         }
       } catch {}
     }
+    const start = Date.now();
+    function updateElapsed() {
+      const el = document.getElementById("elapsed");
+      if (el) el.textContent = "Running for " + Math.floor((Date.now() - start) / 1000) + "s…";
+    }
     setInterval(refresh, 2000);
+    setInterval(updateElapsed, 1000);
     refresh();
   </script>
 </body>
