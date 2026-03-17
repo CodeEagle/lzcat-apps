@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.airflow
-version: 3.1.7
+version: 0.1.2
 min_os_version: 1.3.8
 name: Apache Airflow
 description: (LazyCat Auto-build) A platform to programmatically author, schedule, and monitor workflows
@@ -27,7 +27,7 @@ application:
     - AIRFLOW_UID=50000
 services:
   airflow-api-server:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:596efed1396b4ee5
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:757691a5254159d9
     depends_on:
       - postgres
       - redis
@@ -71,7 +71,7 @@ services:
       retries: 5
 
   airflow-scheduler:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:596efed1396b4ee5
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:757691a5254159d9
     depends_on:
       - postgres
       - redis
@@ -100,7 +100,7 @@ services:
       retries: 5
 
   airflow-worker:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:596efed1396b4ee5
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:757691a5254159d9
     depends_on:
       - postgres
       - redis
@@ -134,7 +134,7 @@ services:
       retries: 5
 
   airflow-dag-processor:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:596efed1396b4ee5
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:757691a5254159d9
     depends_on:
       - postgres
       - redis
@@ -166,7 +166,7 @@ services:
       retries: 5
 
   airflow-triggerer:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:596efed1396b4ee5
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:757691a5254159d9
     depends_on:
       - postgres
       - redis
