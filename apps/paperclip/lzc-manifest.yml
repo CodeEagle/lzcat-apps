@@ -18,7 +18,8 @@ services:
   paperclip:
     image: registry.lazycat.cloud/invokerlaw/codeeagle/paperclip:336d35f0387248c3
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgres://paperclip:paperclip@postgres:5432/paperclip
       - HOST=0.0.0.0
