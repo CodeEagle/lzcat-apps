@@ -266,6 +266,7 @@ def upload_release_asset(repo: str, tag: str, asset: Path, env: dict[str, str]) 
 def build_report_base(
     *,
     config: dict[str, Any],
+    app_name: str,
     artifact_repo: str,
     branch: str,
     head_sha: str,
@@ -275,7 +276,7 @@ def build_report_base(
     target_version: str,
 ) -> dict[str, Any]:
     return {
-        "repo": config["repo"],
+        "repo": app_name,
         "artifact_repo": artifact_repo,
         "branch": branch,
         "head_sha": head_sha,
@@ -414,10 +415,10 @@ def build_target_image(
     source_version: str,
     build_version: str,
     head_sha: str,
+    app_name: str,
 ) -> str:
-    owner, name = config["repo"].split("/", 1)
-    owner_lower = owner.lower()
-    name_lower = name.lower()
+    owner_lower = env.get("GITHUB_REPOSITORY_OWNER", "codeagle").lower()
+    name_lower = app_name.lower()
     image_tag = head_sha[:12]
     target_image = f"ghcr.io/{owner_lower}/{name_lower}:{image_tag}"
     docker_login_ghcr(env)
@@ -546,6 +547,8 @@ def main() -> int:
     parser.add_argument("--config-root", required=True)
     parser.add_argument("--config-file", required=True)
     parser.add_argument("--artifact-repo", required=True)
+    parser.add_argument("--app-root", required=True, help="Path to lzcat-apps/apps/<app>/")
+    parser.add_argument("--lzcat-apps-root", required=True, help="Path to lzcat-apps/ root")
     parser.add_argument("--target-version", default="")
     parser.add_argument("--force-build", action="store_true")
     parser.add_argument("--publish-to-store", action="store_true")
@@ -559,17 +562,20 @@ def main() -> int:
     if not gh_token:
         raise RuntimeError("GH_TOKEN or GITHUB_TOKEN is required")
 
-    work_root = Path(tempfile.mkdtemp(prefix="lzcat-target-"))
-    repo_dir = work_root / "target"
+    app_name = Path(args.config_file).stem
+    repo_dir = Path(args.app_root)
+    lzcat_apps_root = Path(args.lzcat_apps_root)
+    work_root = Path(tempfile.mkdtemp(prefix="lzcat-artifacts-"))
     report_path = work_root / "build-report.json"
     report: dict[str, Any] | None = None
     try:
-        branch, head_sha = clone_repo(config["repo"], gh_token, repo_dir)
+        head_sha = sh(["git", "rev-parse", "--short=12", "HEAD"], cwd=lzcat_apps_root)
         publish_to_store = args.publish_to_store or parse_bool(config.get("publish_to_store"), False)
         report = build_report_base(
             config=config,
+            app_name=app_name,
             artifact_repo=args.artifact_repo,
-            branch=branch,
+            branch="main",
             head_sha=head_sha,
             force_build=args.force_build,
             publish_to_store=publish_to_store,
@@ -607,7 +613,7 @@ def main() -> int:
         print(
             json.dumps(
                 {
-                    "repo": config["repo"],
+                    "repo": app_name,
                     "source_version": source_version,
                     "build_version": build_version,
                     "update_needed": update_needed,
@@ -626,7 +632,7 @@ def main() -> int:
 
         report["phase"] = "build_image"
         write_report(report, report_path)
-        target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha)
+        target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name)
         report["target_image"] = target_image
         write_report(report, report_path)
 
@@ -669,6 +675,7 @@ def main() -> int:
         meta_path.write_text(
             json.dumps(
                 {
+                    "upstream_repo": config.get("upstream_repo", ""),
                     "source_version": source_version,
                     "build_version": build_version,
                     "build_label": build_label,
@@ -680,8 +687,8 @@ def main() -> int:
             + "\n"
         )
 
-        project_name_lower = config["repo"].split("/", 1)[1].lower()
-        lpk_path = repo_dir / f"{project_name_lower}.lpk"
+        project_name_lower = app_name.lower()
+        lpk_path = work_root / f"{project_name_lower}.lpk"
         report["phase"] = "package"
         write_report(report, report_path)
         sh(["lzc-cli", "project", "build", "-o", str(lpk_path)], cwd=repo_dir, env=env)
@@ -708,12 +715,12 @@ def main() -> int:
             )
 
         report["phase"] = "publish_artifact"
-        report["artifact_release_tag"] = f"{config['repo'].replace('/', '--')}-v{build_version}-{build_stamp}"
+        report["artifact_release_tag"] = f"{app_name}-v{build_version}-{build_stamp}"
         write_report(report, report_path)
         report["artifact_release_url"] = publish_release_asset(
             args.artifact_repo,
             report["artifact_release_tag"],
-            f"{config['repo']} v{build_version} ({build_stamp})",
+            f"{app_name} v{build_version} ({build_stamp})",
             f"Auto-built version {build_version} (source: {source_version}, label: {build_label})",
             [lpk_path, report_path],
             env,
@@ -723,13 +730,14 @@ def main() -> int:
 
         report["phase"] = "commit_target_repo"
         write_report(report, report_path)
-        sh(["git", "config", "user.name", "github-actions[bot]"], cwd=repo_dir)
-        sh(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], cwd=repo_dir)
-        sh(["git", "add", "lzc-manifest.yml", ".lazycat-build.json"], cwd=repo_dir)
-        diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=repo_dir, check=False)
+        sh(["git", "config", "user.name", "github-actions[bot]"], cwd=lzcat_apps_root)
+        sh(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], cwd=lzcat_apps_root)
+        sh(["git", "add", f"apps/{app_name}/lzc-manifest.yml", f"apps/{app_name}/.lazycat-build.json"], cwd=lzcat_apps_root)
+        diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=lzcat_apps_root, check=False)
         if diff.returncode != 0:
-            sh(["git", "commit", "-m", f"Update to version {build_version}"], cwd=repo_dir)
-            sh(["git", "push", "origin", f"HEAD:{branch}"], cwd=repo_dir, env=env)
+            sh(["git", "commit", "-m", f"chore({app_name}): update to version {build_version}"], cwd=lzcat_apps_root)
+            sh(["git", "pull", "--rebase", "origin", "main"], cwd=lzcat_apps_root, env=env)
+            sh(["git", "push", "origin", "HEAD:main"], cwd=lzcat_apps_root, env=env)
         report["status"] = "success"
         report["phase"] = "completed"
         write_report(report, report_path)
@@ -738,7 +746,7 @@ def main() -> int:
     except Exception as exc:
         if report is None:
             report = {
-                "repo": config["repo"] if "config" in locals() else "",
+                "repo": (Path(args.config_file).stem if "args" in locals() else ""),
                 "artifact_repo": args.artifact_repo if "args" in locals() else "",
                 "status": "failed",
                 "phase": "startup",
