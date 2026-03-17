@@ -44,6 +44,11 @@ jobs:
       - name: Install lzc-cli
         run: npm install -g @lazycatcloud/lzc-cli
 
+      - name: Configure lzc-cli auth
+        run: |
+          mkdir -p ~/.config/lazycat
+          echo '{"token":"${{ secrets.LZC_CLI_TOKEN }}"}' > ~/.config/lazycat/box-config.json
+
       - name: Run shared image update flow
         env:
           CONFIG_ROOT: ${{ github.workspace }}/registry
