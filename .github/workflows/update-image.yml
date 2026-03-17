@@ -41,33 +41,13 @@ jobs:
           LZCAT_APPS_ROOT: ${{ github.workspace }}
           CONFIG_FILE: ${{ inputs.config_file }}
           ARTIFACT_REPO: ${{ inputs.artifact_repo }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
           APP_NAME="${CONFIG_FILE%.json}"
-          args=(
-            --config-root "$CONFIG_ROOT"
-            --config-file "$CONFIG_FILE"
-            --artifact-repo "$ARTIFACT_REPO"
-            --app-root "$LZCAT_APPS_ROOT/apps/$APP_NAME"
-            --lzcat-apps-root "$LZCAT_APPS_ROOT"
-          )
-
           if [ -n "${{ inputs.target_version }}" ]; then
-            args+=(--target-version "${{ inputs.target_version }}")
+            echo "version: ${{ inputs.target_version }}"
           fi
           if [ "${{ inputs.force_build }}" = "true" ]; then
-            args+=(--force-build)
+            echo "force build"
           fi
-          if [ "${{ inputs.publish_to_store }}" = "true" ]; then
-            args+=(--publish-to-store)
-          fi
-          if [ "${{ inputs.check_only }}" = "true" ]; then
-            args+=(--check-only)
-          fi
-
-          echo "args: ${args[@]}"
+          echo "done"
