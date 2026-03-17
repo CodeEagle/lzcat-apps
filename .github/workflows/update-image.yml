@@ -44,10 +44,5 @@ jobs:
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
           APP_NAME="${CONFIG_FILE%.json}"
-          if [ -n "${{ inputs.target_version }}" ]; then
-            echo "version: ${{ inputs.target_version }}"
-          fi
-          if [ "${{ inputs.force_build }}" = "true" ]; then
-            echo "force build"
-          fi
+          echo "APP_NAME=$APP_NAME"
           echo "done"
