@@ -573,6 +573,12 @@ def main() -> int:
     parser.add_argument("--force-build", action="store_true")
     parser.add_argument("--publish-to-store", action="store_true")
     parser.add_argument("--check-only", action="store_true")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Skip all remote side effects: copy-image, publish artifact, git push. "
+             "Useful for local development and validation.",
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config_root) / "repos" / args.config_file
@@ -662,8 +668,12 @@ def main() -> int:
 
         report["phase"] = "copy_image"
         write_report(report, report_path)
-        log(f"[{app_name}] Phase: copy_image")
-        accelerated_url = copy_image_to_lazycat(target_image, env)
+        if args.dry_run:
+            log(f"[{app_name}] [DRY RUN] Skipping copy-image, using placeholder URL")
+            accelerated_url = f"registry.lazycat.cloud/dry-run/{app_name.lower()}:dry-run"
+        else:
+            log(f"[{app_name}] Phase: copy_image")
+            accelerated_url = copy_image_to_lazycat(target_image, env)
         report["accelerated_image"] = accelerated_url
         write_report(report, report_path)
 
@@ -722,7 +732,7 @@ def main() -> int:
         report["lpk_sha256"] = file_sha256(lpk_path)
         write_report(report, report_path)
 
-        if publish_to_store:
+        if publish_to_store and not args.dry_run:
             report["phase"] = "publish_store"
             write_report(report, report_path)
             sh(
@@ -739,33 +749,42 @@ def main() -> int:
                 cwd=repo_dir,
                 env=env,
             )
+        elif publish_to_store and args.dry_run:
+            log(f"[{app_name}] [DRY RUN] Skipping appstore publish")
 
         report["phase"] = "publish_artifact"
         report["artifact_release_tag"] = f"{app_name}-v{build_version}-{build_stamp}"
         write_report(report, report_path)
-        log(f"[{app_name}] Phase: publish_artifact -> {args.artifact_repo}")
-        report["artifact_release_url"] = publish_release_asset(
-            args.artifact_repo,
-            report["artifact_release_tag"],
-            f"{app_name} v{build_version} ({build_stamp})",
-            f"Auto-built version {build_version} (source: {source_version}, label: {build_label})",
-            [lpk_path, report_path],
-            env,
-        )
-        write_report(report, report_path)
-        upload_release_asset(args.artifact_repo, report["artifact_release_tag"], report_path, env)
+        if args.dry_run:
+            log(f"[{app_name}] [DRY RUN] Skipping artifact publish, lpk at: {lpk_path}")
+            report["artifact_release_url"] = f"dry-run://local/{lpk_path}"
+        else:
+            log(f"[{app_name}] Phase: publish_artifact -> {args.artifact_repo}")
+            report["artifact_release_url"] = publish_release_asset(
+                args.artifact_repo,
+                report["artifact_release_tag"],
+                f"{app_name} v{build_version} ({build_stamp})",
+                f"Auto-built version {build_version} (source: {source_version}, label: {build_label})",
+                [lpk_path, report_path],
+                env,
+            )
+            write_report(report, report_path)
+            upload_release_asset(args.artifact_repo, report["artifact_release_tag"], report_path, env)
 
         report["phase"] = "commit_target_repo"
         write_report(report, report_path)
-        log(f"[{app_name}] Phase: commit_target_repo")
-        sh(["git", "config", "user.name", "github-actions[bot]"], cwd=lzcat_apps_root)
-        sh(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], cwd=lzcat_apps_root)
-        sh(["git", "add", f"apps/{app_name}/lzc-manifest.yml", f"apps/{app_name}/.lazycat-build.json"], cwd=lzcat_apps_root)
-        diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=lzcat_apps_root, check=False)
-        if diff.returncode != 0:
-            sh(["git", "commit", "-m", f"chore({app_name}): update to version {build_version}"], cwd=lzcat_apps_root)
-            sh(["git", "pull", "--rebase", "origin", "main"], cwd=lzcat_apps_root, env=env)
-            sh(["git", "push", "origin", "HEAD:main"], cwd=lzcat_apps_root, env=env)
+        if args.dry_run:
+            log(f"[{app_name}] [DRY RUN] Skipping git commit/push")
+        else:
+            log(f"[{app_name}] Phase: commit_target_repo")
+            sh(["git", "config", "user.name", "github-actions[bot]"], cwd=lzcat_apps_root)
+            sh(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], cwd=lzcat_apps_root)
+            sh(["git", "add", f"apps/{app_name}/lzc-manifest.yml", f"apps/{app_name}/.lazycat-build.json"], cwd=lzcat_apps_root)
+            diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=lzcat_apps_root, check=False)
+            if diff.returncode != 0:
+                sh(["git", "commit", "-m", f"chore({app_name}): update to version {build_version}"], cwd=lzcat_apps_root)
+                sh(["git", "pull", "--rebase", "origin", "main"], cwd=lzcat_apps_root, env=env)
+                sh(["git", "push", "origin", "HEAD:main"], cwd=lzcat_apps_root, env=env)
         report["status"] = "success"
         report["phase"] = "completed"
         write_report(report, report_path)
