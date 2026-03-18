@@ -1,3 +1,4 @@
 .DS_Store
 **/.DS_Store
 scripts/.env.local
+dist/*.lpk

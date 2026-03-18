@@ -588,6 +588,11 @@ def main() -> int:
     parser.add_argument("--publish-to-store", action="store_true")
     parser.add_argument("--check-only", action="store_true")
     parser.add_argument(
+        "--lpk-output",
+        default="",
+        help="Copy the built .lpk to this path after packaging (useful for local install).",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Skip all remote side effects: copy-image, publish artifact, git push. "
@@ -745,6 +750,11 @@ def main() -> int:
         report["lpk_name"] = lpk_path.name
         report["lpk_sha256"] = file_sha256(lpk_path)
         write_report(report, report_path)
+        if args.lpk_output:
+            dest = Path(args.lpk_output)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(lpk_path, dest)
+            log(f"[{app_name}] lpk saved to: {dest}")
 
         if publish_to_store and not args.dry_run:
             report["phase"] = "publish_store"
