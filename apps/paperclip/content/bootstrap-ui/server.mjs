@@ -36,45 +36,33 @@ async function checkInviteExpired(inviteUrl) {
 async function getPaperclipHealth() {
   const inviteUrl = await readInviteUrl();
 
-  // If an invite URL exists, probe it internally to detect expiry
   if (inviteUrl) {
     const expired = await checkInviteExpired(inviteUrl);
     if (expired) {
-      return {
-        reachable: true,
-        bootstrapPending: false,
-        bootstrapInviteActive: false,
-        inviteUrl,
-      };
+      // Invite consumed → registration done, proxy to main app
+      return { reachable: true, bootstrapPending: false, bootstrapInviteActive: false, inviteUrl };
     }
+    // Invite still valid → show it to the user
+    return { reachable: true, bootstrapPending: true, bootstrapInviteActive: true, inviteUrl };
   }
 
+  // No invite URL yet — still initializing, check health for completeness
   try {
     const response = await fetch(new URL("/api/health", target), {
       headers: { Accept: "application/json" },
     });
     if (!response.ok) {
-      return {
-        reachable: false,
-        bootstrapPending: true,
-        bootstrapInviteActive: false,
-        inviteUrl,
-      };
+      return { reachable: false, bootstrapPending: true, bootstrapInviteActive: false, inviteUrl: "" };
     }
     const data = await response.json();
     return {
       reachable: true,
       bootstrapPending: data.bootstrapStatus === "bootstrap_pending",
       bootstrapInviteActive: Boolean(data.bootstrapInviteActive),
-      inviteUrl,
+      inviteUrl: "",
     };
   } catch {
-    return {
-      reachable: false,
-      bootstrapPending: true,
-      bootstrapInviteActive: false,
-      inviteUrl,
-    };
+    return { reachable: false, bootstrapPending: true, bootstrapInviteActive: false, inviteUrl: "" };
   }
 }
 
