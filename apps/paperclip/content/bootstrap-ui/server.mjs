@@ -210,4 +210,15 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.on("upgrade", proxyUpgrade);
+
+let _retries = 0;
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE" && _retries < 30) {
+    _retries++;
+    console.error(`[bootstrap-ui] port ${port} in use, retry ${_retries}/30 in 3s...`);
+    setTimeout(() => server.listen(port, "0.0.0.0"), 3000);
+  } else {
+    throw err;
+  }
+});
 server.listen(port, "0.0.0.0");
