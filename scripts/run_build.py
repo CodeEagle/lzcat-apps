@@ -392,6 +392,8 @@ def build_with_dockerfile(
     dockerfile_rel: str,
     build_context_rel: str,
     build_args: dict[str, Any],
+    *,
+    dry_run: bool = False,
 ) -> str:
     dockerfile = build_root / dockerfile_rel
     context = build_root / build_context_rel
@@ -403,8 +405,11 @@ def build_with_dockerfile(
     args.append(str(context))
     log(f"Building Docker image: {target_image}")
     sh(args, cwd=build_root, env=env, capture=False)
-    log(f"Pushing Docker image: {target_image}")
-    sh(["docker", "push", target_image], env=env, capture=False)
+    if dry_run:
+        log(f"[DRY RUN] Skipping docker push: {target_image}")
+    else:
+        log(f"Pushing Docker image: {target_image}")
+        sh(["docker", "push", target_image], env=env, capture=False)
     return target_image
 
 
@@ -431,6 +436,8 @@ def build_target_image(
     build_version: str,
     head_sha: str,
     app_name: str,
+    *,
+    dry_run: bool = False,
 ) -> str:
     owner_lower = env.get("GITHUB_REPOSITORY_OWNER", "codeagle").lower()
     name_lower = app_name.lower()
@@ -460,8 +467,11 @@ def build_target_image(
                 log(f"Pulling official image: {source_image}")
                 sh(["docker", "pull", source_image], env=env, capture=False)
                 sh(["docker", "tag", source_image, target_image], env=env)
-                log(f"Pushing image: {target_image}")
-                sh(["docker", "push", target_image], env=env, capture=False)
+                if dry_run:
+                    log(f"[DRY RUN] Skipping docker push: {target_image}")
+                else:
+                    log(f"Pushing image: {target_image}")
+                    sh(["docker", "push", target_image], env=env, capture=False)
                 return target_image
 
     binary_url = str(config.get("precompiled_binary_url", "")).strip()
@@ -510,8 +520,11 @@ def build_target_image(
                 )
             log(f"Building Docker image from precompiled binary: {target_image}")
             sh(["docker", "build", "-t", target_image, "."], cwd=build_root, env=env, capture=False)
-            log(f"Pushing Docker image: {target_image}")
-            sh(["docker", "push", target_image], env=env, capture=False)
+            if dry_run:
+                log(f"[DRY RUN] Skipping docker push: {target_image}")
+            else:
+                log(f"Pushing Docker image: {target_image}")
+                sh(["docker", "push", target_image], env=env, capture=False)
             return target_image
         finally:
             shutil.rmtree(build_root, ignore_errors=True)
@@ -519,7 +532,7 @@ def build_target_image(
     if build_strategy == "target_repo_dockerfile":
         dockerfile_path = str(config.get("dockerfile_path", "Dockerfile")).strip()
         build_context = str(config.get("build_context", ".")).strip()
-        return build_with_dockerfile(repo_dir, target_image, env, dockerfile_path, build_context, build_args)
+        return build_with_dockerfile(repo_dir, target_image, env, dockerfile_path, build_context, build_args, dry_run=dry_run)
 
     upstream_repo = str(config.get("upstream_repo", "")).strip()
     if not upstream_repo:
@@ -543,7 +556,7 @@ def build_target_image(
             prepare_script = source_root / "lazycat" / "prepare_build_context.py"
             if prepare_script.exists():
                 sh(["python3", str(prepare_script), str(source_root)], env=env)
-            return build_with_dockerfile(source_root, target_image, env, "Dockerfile", ".", build_args)
+            return build_with_dockerfile(source_root, target_image, env, "Dockerfile", ".", build_args, dry_run=dry_run)
         dockerfile_path = source_root / "Dockerfile"
         if not dockerfile_path.exists():
             candidates = list(source_root.rglob("Dockerfile"))
@@ -557,6 +570,7 @@ def build_target_image(
             str(dockerfile_path.relative_to(source_root)),
             ".",
             build_args,
+            dry_run=dry_run,
         )
     finally:
         shutil.rmtree(source_root, ignore_errors=True)
@@ -662,7 +676,7 @@ def main() -> int:
         report["phase"] = "build_image"
         write_report(report, report_path)
         log(f"[{app_name}] Phase: build_image")
-        target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name)
+        target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name, dry_run=args.dry_run)
         report["target_image"] = target_image
         write_report(report, report_path)
 
