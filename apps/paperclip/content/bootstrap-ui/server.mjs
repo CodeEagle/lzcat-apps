@@ -1,11 +1,12 @@
 import http from "node:http";
 import https from "node:https";
 import net from "node:net";
-import { readFile, unlink } from "node:fs/promises";
+import { readFile, writeFile, unlink } from "node:fs/promises";
 
 const port = Number(process.env.PORT || 8080);
 const target = new URL(process.env.PAPERCLIP_INTERNAL_URL || "http://paperclip:3100");
 const inviteFile = process.env.PAPERCLIP_BOOTSTRAP_INVITE_PATH || "/paperclip/instances/default/bootstrap-invite-url.txt";
+const bootstrapDoneMarker = inviteFile.replace(/[^/]+$/, "bootstrap-done");
 const statusPath = "/__lazycat/bootstrap-status";
 const invitePattern = /^https?:\/\/\S+\/invite\/pcp_bootstrap_[A-Za-z0-9]+$/;
 
@@ -17,47 +18,37 @@ async function readInviteUrl() {
   return matched ? value : "";
 }
 
+async function isBootstrapDone() {
+  return readFile(bootstrapDoneMarker, "utf8").then(() => true).catch(() => false);
+}
+
+async function markBootstrapDone() {
+  console.error(`[bootstrap-ui] marking bootstrap done: ${bootstrapDoneMarker}`);
+  await writeFile(bootstrapDoneMarker, "done").catch(() => {});
+  await unlink(inviteFile).catch(() => {});
+}
+
 async function checkInviteExpired(inviteUrl) {
   if (!inviteUrl) return false;
   try {
     const parsed = new URL(inviteUrl);
-    const probeUrl = new URL(parsed.pathname, target);
-    console.error(`[bootstrap-ui] checkInviteExpired: probing ${probeUrl} (host=${parsed.host})`);
-    const res = await fetch(probeUrl, {
-      redirect: "manual",
+    const token = parsed.pathname.split("/").pop();
+    const apiUrl = new URL(`/api/invites/${token}`, target);
+    console.error(`[bootstrap-ui] checkInviteExpired: probing API ${apiUrl} (host=${parsed.host})`);
+    const res = await fetch(apiUrl, {
       headers: {
         "host": parsed.host,
         "x-forwarded-host": parsed.host,
         "x-forwarded-proto": parsed.protocol.replace(":", ""),
+        "accept": "application/json",
       },
     });
     console.error(`[bootstrap-ui] checkInviteExpired: status=${res.status}`);
-    // 4xx = gone/revoked
-    if (res.status >= 400) {
-      console.error(`[bootstrap-ui] checkInviteExpired: expired (status>=400)`);
+    if (res.status === 404) {
+      console.error(`[bootstrap-ui] checkInviteExpired: expired (404)`);
       return true;
     }
-    if (res.status === 200) {
-      const body = await res.text();
-      console.error(`[bootstrap-ui] checkInviteExpired: body snippet=${JSON.stringify(body.slice(0, 300))}`);
-      // "Invite not available" text — server-rendered error
-      if (body.includes("Invite not available")) {
-        console.error(`[bootstrap-ui] checkInviteExpired: expired (body match 'Invite not available'), clearing file`);
-        await unlink(inviteFile).catch(() => {});
-        return true;
-      }
-      // SPA returns same HTML shell for all routes.
-      // A valid invite page embeds the token in its initial state/data.
-      // If the token is absent from the page, the invite was consumed and
-      // the SPA redirected to the main app.
-      const token = parsed.pathname.split("/").pop() || "";
-      if (token && !body.includes(token)) {
-        console.error(`[bootstrap-ui] checkInviteExpired: expired (token '${token}' not in body), clearing file`);
-        await unlink(inviteFile).catch(() => {});
-        return true;
-      }
-    }
-    console.error(`[bootstrap-ui] checkInviteExpired: invite still valid`);
+    console.error(`[bootstrap-ui] checkInviteExpired: invite still valid (status=${res.status})`);
     return false;
   } catch (err) {
     console.error(`[bootstrap-ui] checkInviteExpired: error=${err.message}`);
@@ -65,37 +56,74 @@ async function checkInviteExpired(inviteUrl) {
   }
 }
 
+async function checkHealthBootstrapDone() {
+  const url = new URL("/api/health", target);
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!response.ok) {
+      console.error(`[bootstrap-ui] health ${url}: status=${response.status}`);
+      return null;
+    }
+    const data = await response.json();
+    console.error(`[bootstrap-ui] health ${url}: bootstrapStatus=${data.bootstrapStatus}`);
+    return data;
+  } catch (err) {
+    console.error(`[bootstrap-ui] health ${url}: error=${err.message}`);
+    return null;
+  }
+}
+
 async function getPaperclipHealth() {
+  // Fast path: marker file means bootstrap is definitively done
+  if (await isBootstrapDone()) {
+    console.error(`[bootstrap-ui] bootstrap-done marker found, proxying`);
+    return { reachable: true, bootstrapPending: false, bootstrapInviteActive: false, inviteUrl: "" };
+  }
+
   const inviteUrl = await readInviteUrl();
 
   if (inviteUrl) {
+    // Health API is the authoritative signal — check it first
+    const health = await checkHealthBootstrapDone();
+    if (health && health.bootstrapStatus !== "bootstrap_pending") {
+      console.error(`[bootstrap-ui] bootstrap complete (health)`);
+      await markBootstrapDone();
+      return { reachable: true, bootstrapPending: false, bootstrapInviteActive: false, inviteUrl };
+    }
+
+    // Health unreachable or still pending → check invite probe as fallback
     const expired = await checkInviteExpired(inviteUrl);
     if (expired) {
-      // Invite consumed → registration done, proxy to main app
+      await markBootstrapDone();
       return { reachable: true, bootstrapPending: false, bootstrapInviteActive: false, inviteUrl };
     }
     // Invite still valid → show it to the user
     return { reachable: true, bootstrapPending: true, bootstrapInviteActive: true, inviteUrl };
   }
 
-  // No invite URL yet — still initializing, check health for completeness
-  try {
-    const response = await fetch(new URL("/api/health", target), {
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) {
-      return { reachable: false, bootstrapPending: true, bootstrapInviteActive: false, inviteUrl: "" };
-    }
-    const data = await response.json();
-    return {
-      reachable: true,
-      bootstrapPending: data.bootstrapStatus === "bootstrap_pending",
-      bootstrapInviteActive: Boolean(data.bootstrapInviteActive),
-      inviteUrl: "",
-    };
-  } catch {
+  // No invite URL yet — still initializing
+  const health = await checkHealthBootstrapDone();
+  if (!health) {
     return { reachable: false, bootstrapPending: true, bootstrapInviteActive: false, inviteUrl: "" };
   }
+  if (health.bootstrapStatus !== "bootstrap_pending") {
+    // Health says ready but no invite file — mark done
+    console.error(`[bootstrap-ui] bootstrap complete (health, no invite file)`);
+    await markBootstrapDone();
+    return { reachable: true, bootstrapPending: false, bootstrapInviteActive: false, inviteUrl: "" };
+  }
+  return {
+    reachable: true,
+    bootstrapPending: true,
+    bootstrapInviteActive: Boolean(health.bootstrapInviteActive),
+    inviteUrl: "",
+  };
 }
 
 function escapeHtml(value) {
