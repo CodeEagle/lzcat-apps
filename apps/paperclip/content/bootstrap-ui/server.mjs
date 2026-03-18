@@ -32,7 +32,7 @@ async function checkInviteExpired(inviteUrl) {
       },
     });
     console.error(`[bootstrap-ui] checkInviteExpired: status=${res.status}`);
-    // 4xx = gone/revoked; or 200 with "Invite not available" body = consumed
+    // 4xx = gone/revoked
     if (res.status >= 400) {
       console.error(`[bootstrap-ui] checkInviteExpired: expired (status>=400)`);
       return true;
@@ -40,8 +40,19 @@ async function checkInviteExpired(inviteUrl) {
     if (res.status === 200) {
       const body = await res.text();
       console.error(`[bootstrap-ui] checkInviteExpired: body snippet=${JSON.stringify(body.slice(0, 300))}`);
+      // "Invite not available" text — server-rendered error
       if (body.includes("Invite not available")) {
-        console.error(`[bootstrap-ui] checkInviteExpired: expired (body match), clearing file`);
+        console.error(`[bootstrap-ui] checkInviteExpired: expired (body match 'Invite not available'), clearing file`);
+        await unlink(inviteFile).catch(() => {});
+        return true;
+      }
+      // SPA returns same HTML shell for all routes.
+      // A valid invite page embeds the token in its initial state/data.
+      // If the token is absent from the page, the invite was consumed and
+      // the SPA redirected to the main app.
+      const token = parsed.pathname.split("/").pop() || "";
+      if (token && !body.includes(token)) {
+        console.error(`[bootstrap-ui] checkInviteExpired: expired (token '${token}' not in body), clearing file`);
         await unlink(inviteFile).catch(() => {});
         return true;
       }
