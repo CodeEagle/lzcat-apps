@@ -98,7 +98,7 @@ python3 "$REPO_ROOT/scripts/run_build.py" "${ARGS[@]}"
 # 安装到设备
 if $INSTALL && [ -f "$LPK_OUTPUT" ]; then
   # 从 manifest 读取 pkgId
-  PKG_ID="$(grep -m1 '^id:' "$APP_ROOT/lzc-manifest.yml" | awk '{print $2}' | tr -d '"' || true)"
+  PKG_ID="$(grep -m1 '^package:' "$APP_ROOT/lzc-manifest.yml" | awk '{print $2}' | tr -d '"' || true)"
   echo ""
   echo "==> Installing $LPK_OUTPUT to device..."
   if [ -n "$PKG_ID" ]; then
