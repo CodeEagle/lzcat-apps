@@ -10,15 +10,20 @@ const statusPath = "/__lazycat/bootstrap-status";
 const invitePattern = /^https?:\/\/\S+\/invite\/pcp_bootstrap_[A-Za-z0-9]+$/;
 
 async function readInviteUrl() {
-  const value = (await readFile(inviteFile, "utf8").catch(() => "")).trim();
-  return invitePattern.test(value) ? value : "";
+  const raw = await readFile(inviteFile, "utf8").catch(() => "");
+  const value = raw.trim();
+  const matched = invitePattern.test(value);
+  console.error(`[bootstrap-ui] readInviteUrl: raw=${JSON.stringify(raw.slice(0, 200))} matched=${matched}`);
+  return matched ? value : "";
 }
 
 async function checkInviteExpired(inviteUrl) {
   if (!inviteUrl) return false;
   try {
     const parsed = new URL(inviteUrl);
-    const res = await fetch(new URL(parsed.pathname, target), {
+    const probeUrl = new URL(parsed.pathname, target);
+    console.error(`[bootstrap-ui] checkInviteExpired: probing ${probeUrl} (host=${parsed.host})`);
+    const res = await fetch(probeUrl, {
       redirect: "manual",
       headers: {
         "host": parsed.host,
@@ -26,18 +31,25 @@ async function checkInviteExpired(inviteUrl) {
         "x-forwarded-proto": parsed.protocol.replace(":", ""),
       },
     });
+    console.error(`[bootstrap-ui] checkInviteExpired: status=${res.status}`);
     // 4xx = gone/revoked; or 200 with "Invite not available" body = consumed
-    if (res.status >= 400) return true;
+    if (res.status >= 400) {
+      console.error(`[bootstrap-ui] checkInviteExpired: expired (status>=400)`);
+      return true;
+    }
     if (res.status === 200) {
       const body = await res.text();
+      console.error(`[bootstrap-ui] checkInviteExpired: body snippet=${JSON.stringify(body.slice(0, 300))}`);
       if (body.includes("Invite not available")) {
-        // Clear local file so we don't probe again on next request
+        console.error(`[bootstrap-ui] checkInviteExpired: expired (body match), clearing file`);
         await unlink(inviteFile).catch(() => {});
         return true;
       }
     }
+    console.error(`[bootstrap-ui] checkInviteExpired: invite still valid`);
     return false;
-  } catch {
+  } catch (err) {
+    console.error(`[bootstrap-ui] checkInviteExpired: error=${err.message}`);
     return false;
   }
 }
