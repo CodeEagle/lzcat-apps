@@ -4,8 +4,9 @@
 # 用法:
 #   ./scripts/local_build.sh paperclip                    # dry-run（跳过 copy-image / publish / git push）
 #   ./scripts/local_build.sh paperclip --check-only       # 只检查版本，不 build
-#   ./scripts/local_build.sh paperclip --force-build      # 强制 build
-#   ./scripts/local_build.sh paperclip --install          # build 完自动卸载旧版并安装到设备
+#   ./scripts/local_build.sh paperclip --force-build      # 强制 build（含 Docker）
+#   ./scripts/local_build.sh paperclip --install          # 只重打包 content/，安装到设备（秒级）
+#   ./scripts/local_build.sh paperclip --install --with-docker  # 重建 Docker image 再安装
 #   ./scripts/local_build.sh paperclip --target-version 0.3.2
 #   ./scripts/local_build.sh paperclip --no-dry-run       # 完整流程（需要 LZC_CLI_TOKEN）
 #
@@ -52,11 +53,13 @@ fi
 # 解析自定义参数
 DRY_RUN=true
 INSTALL=false
+WITH_DOCKER=false
 EXTRA_ARGS=()
 for arg in "$@"; do
   case "$arg" in
     --no-dry-run) DRY_RUN=false ;;
     --install) INSTALL=true ;;
+    --with-docker) WITH_DOCKER=true ;;
     *) EXTRA_ARGS+=("$arg") ;;
   esac
 done
@@ -78,8 +81,12 @@ if $DRY_RUN; then
 fi
 
 if $INSTALL; then
-  # --install 隐含 --force-build（需要有 lpk）
   ARGS+=(--force-build)
+  if ! $WITH_DOCKER; then
+    # 默认跳过 Docker build，只重打包 content/（秒级）
+    ARGS+=(--skip-docker)
+    echo "==> [SKIP DOCKER] 只重打包 content/，使用 manifest 中已有的镜像"
+  fi
 fi
 
 ARGS+=("${EXTRA_ARGS[@]}")

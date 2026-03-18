@@ -598,6 +598,12 @@ def main() -> int:
         help="Skip all remote side effects: copy-image, publish artifact, git push. "
              "Useful for local development and validation.",
     )
+    parser.add_argument(
+        "--skip-docker",
+        action="store_true",
+        help="Skip Docker build entirely. Keep existing image URLs from manifest as-is. "
+             "Use when only content/ files changed (e.g. bootstrap-ui/server.mjs).",
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config_root) / "repos" / args.config_file
@@ -678,42 +684,47 @@ def main() -> int:
 
         log(f"[{app_name}] Update needed: {current_build_version} -> {build_version} (source: {source_version})")
 
-        report["phase"] = "build_image"
-        write_report(report, report_path)
-        log(f"[{app_name}] Phase: build_image")
-        target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name, dry_run=args.dry_run)
-        report["target_image"] = target_image
-        write_report(report, report_path)
-
-        report["phase"] = "copy_image"
-        write_report(report, report_path)
-        if args.dry_run:
-            log(f"[{app_name}] [DRY RUN] Skipping copy-image, using placeholder URL")
-            accelerated_url = f"registry.lazycat.cloud/dry-run/{app_name.lower()}:dry-run"
+        if args.skip_docker:
+            log(f"[{app_name}] [SKIP DOCKER] Keeping existing image URLs from manifest")
+            updated_manifest = manifest_text
         else:
-            log(f"[{app_name}] Phase: copy_image")
-            accelerated_url = copy_image_to_lazycat(target_image, env)
-        report["accelerated_image"] = accelerated_url
-        write_report(report, report_path)
+            report["phase"] = "build_image"
+            write_report(report, report_path)
+            log(f"[{app_name}] Phase: build_image")
+            target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name, dry_run=args.dry_run)
+            report["target_image"] = target_image
+            write_report(report, report_path)
 
-        image_targets = resolve_image_targets(config, manifest_text)
-        if not image_targets:
-            raise RuntimeError("No target services configured for main image update")
-        updated_manifest = manifest_text
-        for target_service in image_targets:
-            updated_manifest, count = update_service_image(updated_manifest, target_service, accelerated_url)
-            if count != 1:
-                raise RuntimeError(f"Failed to update service image in lzc-manifest.yml: {target_service}")
+            report["phase"] = "copy_image"
+            write_report(report, report_path)
+            if args.dry_run:
+                log(f"[{app_name}] [DRY RUN] Skipping copy-image, using placeholder URL")
+                accelerated_url = f"registry.lazycat.cloud/dry-run/{app_name.lower()}:dry-run"
+            else:
+                log(f"[{app_name}] Phase: copy_image")
+                accelerated_url = copy_image_to_lazycat(target_image, env)
+            report["accelerated_image"] = accelerated_url
+            write_report(report, report_path)
 
-        for dependency in config.get("dependencies", []):
-            target_service = str(dependency.get("target_service", "")).strip()
-            source_image = str(dependency.get("source_image", "")).strip()
-            if not target_service or not source_image:
-                continue
-            dependency_image = copy_image_to_lazycat(source_image, env)
-            updated_manifest, dep_count = update_service_image(updated_manifest, target_service, dependency_image)
-            if dep_count != 1:
-                raise RuntimeError(f"Failed to update dependency image for service: {target_service}")
+            image_targets = resolve_image_targets(config, manifest_text)
+            if not image_targets:
+                raise RuntimeError("No target services configured for main image update")
+            updated_manifest = manifest_text
+            for target_service in image_targets:
+                updated_manifest, count = update_service_image(updated_manifest, target_service, accelerated_url)
+                if count != 1:
+                    raise RuntimeError(f"Failed to update service image in lzc-manifest.yml: {target_service}")
+
+        if not args.skip_docker:
+            for dependency in config.get("dependencies", []):
+                target_service = str(dependency.get("target_service", "")).strip()
+                source_image = str(dependency.get("source_image", "")).strip()
+                if not target_service or not source_image:
+                    continue
+                dependency_image = copy_image_to_lazycat(source_image, env)
+                updated_manifest, dep_count = update_service_image(updated_manifest, target_service, dependency_image)
+                if dep_count != 1:
+                    raise RuntimeError(f"Failed to update dependency image for service: {target_service}")
 
         updated_manifest = re.sub(
             r"^version:\s*.+$",
