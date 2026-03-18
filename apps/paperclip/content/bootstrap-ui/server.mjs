@@ -1,7 +1,7 @@
 import http from "node:http";
 import https from "node:https";
 import net from "node:net";
-import { readFile } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
 
 const port = Number(process.env.PORT || 8080);
 const target = new URL(process.env.PAPERCLIP_INTERNAL_URL || "http://paperclip:3100");
@@ -26,8 +26,17 @@ async function checkInviteExpired(inviteUrl) {
         "x-forwarded-proto": parsed.protocol.replace(":", ""),
       },
     });
-    // 4xx means invite is gone/consumed → registration done
-    return res.status >= 400;
+    // 4xx = gone/revoked; or 200 with "Invite not available" body = consumed
+    if (res.status >= 400) return true;
+    if (res.status === 200) {
+      const body = await res.text();
+      if (body.includes("Invite not available")) {
+        // Clear local file so we don't probe again on next request
+        await unlink(inviteFile).catch(() => {});
+        return true;
+      }
+    }
+    return false;
   } catch {
     return false;
   }
