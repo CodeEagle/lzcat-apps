@@ -18,6 +18,11 @@ from typing import Any
 STEP_SUMMARY = Path(os.environ["GITHUB_STEP_SUMMARY"]) if os.environ.get("GITHUB_STEP_SUMMARY") else None
 
 
+def log(msg: str) -> None:
+    ts = datetime.now(timezone.utc).strftime("%H:%M:%S")
+    print(f"[{ts}] {msg}", flush=True)
+
+
 def sh(
     cmd: list[str] | str,
     *,
@@ -106,7 +111,8 @@ def file_sha256(path: Path) -> str:
 def clone_repo(repo: str, token: str, destination: Path) -> tuple[str, str]:
     owner, name = repo.split("/", 1)
     url = f"https://x-access-token:{token}@github.com/{owner}/{name}.git"
-    sh(["git", "clone", url, str(destination)])
+    log(f"Cloning {repo}...")
+    sh(["git", "clone", url, str(destination)], capture=False)
     branch = sh(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=destination)
     head_sha = sh(["git", "rev-parse", "HEAD"], cwd=destination)
     return branch, head_sha
@@ -212,17 +218,24 @@ def strip_ansi(text: str) -> str:
 
 
 def copy_image_to_lazycat(source_image: str, env: dict[str, str]) -> str:
-    result = subprocess.run(
+    log(f"Copying image to LazyCat registry: {source_image}")
+    proc = subprocess.Popen(
         ["lzc-cli", "appstore", "copy-image", source_image],
         env=env,
         text=True,
-        capture_output=True,
-        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
     )
-    output = strip_ansi(f"{result.stdout}\n{result.stderr}").strip()
-    if result.returncode != 0:
+    lines: list[str] = []
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        print(line, end="", flush=True)
+        lines.append(line)
+    proc.wait()
+    output = strip_ansi("".join(lines)).strip()
+    if proc.returncode != 0:
         raise RuntimeError(
-            f"Command failed ({result.returncode}): lzc-cli appstore copy-image {source_image}\n"
+            f"Command failed ({proc.returncode}): lzc-cli appstore copy-image {source_image}\n"
             f"output:\n{output}"
         )
     match = re.search(r"(registry\.lazycat\.cloud/[A-Za-z0-9_/.:-]+)", output)
@@ -388,8 +401,10 @@ def build_with_dockerfile(
     for key, value in build_args.items():
         args.extend(["--build-arg", f"{key}={value}"])
     args.append(str(context))
-    sh(args, cwd=build_root, env=env)
-    sh(["docker", "push", target_image], env=env)
+    log(f"Building Docker image: {target_image}")
+    sh(args, cwd=build_root, env=env, capture=False)
+    log(f"Pushing Docker image: {target_image}")
+    sh(["docker", "push", target_image], env=env, capture=False)
     return target_image
 
 
@@ -442,9 +457,11 @@ def build_target_image(
                 check=False,
             )
             if inspect.returncode == 0:
-                sh(["docker", "pull", source_image], env=env)
+                log(f"Pulling official image: {source_image}")
+                sh(["docker", "pull", source_image], env=env, capture=False)
                 sh(["docker", "tag", source_image, target_image], env=env)
-                sh(["docker", "push", target_image], env=env)
+                log(f"Pushing image: {target_image}")
+                sh(["docker", "push", target_image], env=env, capture=False)
                 return target_image
 
     binary_url = str(config.get("precompiled_binary_url", "")).strip()
@@ -491,8 +508,10 @@ def build_target_image(
                         ]
                     )
                 )
-            sh(["docker", "build", "-t", target_image, "."], cwd=build_root, env=env)
-            sh(["docker", "push", target_image], env=env)
+            log(f"Building Docker image from precompiled binary: {target_image}")
+            sh(["docker", "build", "-t", target_image, "."], cwd=build_root, env=env, capture=False)
+            log(f"Pushing Docker image: {target_image}")
+            sh(["docker", "push", target_image], env=env, capture=False)
             return target_image
         finally:
             shutil.rmtree(build_root, ignore_errors=True)
@@ -508,7 +527,8 @@ def build_target_image(
 
     source_root = Path(tempfile.mkdtemp(prefix="lzcat-upstream-"))
     try:
-        sh(["git", "clone", f"https://github.com/{upstream_repo}.git", str(source_root)], env=env)
+        log(f"Cloning upstream: {upstream_repo}")
+        sh(["git", "clone", f"https://github.com/{upstream_repo}.git", str(source_root)], env=env, capture=False)
         checkout_source_ref(source_root, source_version, env)
         if build_strategy == "upstream_with_target_template":
             template_path = repo_dir / str(config.get("dockerfile_path", "Dockerfile.template"))
@@ -624,20 +644,25 @@ def main() -> int:
         )
 
         if not update_needed or args.check_only:
+            log(f"[{app_name}] No update needed (current={current_build_version}, latest={build_version}), skipping.")
             report["status"] = "skipped"
             report["phase"] = "completed"
             write_report(report, report_path)
             publish_report_summary(report)
             return 0
 
+        log(f"[{app_name}] Update needed: {current_build_version} -> {build_version} (source: {source_version})")
+
         report["phase"] = "build_image"
         write_report(report, report_path)
+        log(f"[{app_name}] Phase: build_image")
         target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name)
         report["target_image"] = target_image
         write_report(report, report_path)
 
         report["phase"] = "copy_image"
         write_report(report, report_path)
+        log(f"[{app_name}] Phase: copy_image")
         accelerated_url = copy_image_to_lazycat(target_image, env)
         report["accelerated_image"] = accelerated_url
         write_report(report, report_path)
@@ -691,7 +716,8 @@ def main() -> int:
         lpk_path = work_root / f"{project_name_lower}.lpk"
         report["phase"] = "package"
         write_report(report, report_path)
-        sh(["lzc-cli", "project", "build", "-o", str(lpk_path)], cwd=repo_dir, env=env)
+        log(f"[{app_name}] Phase: package (lzc-cli project build)")
+        sh(["lzc-cli", "project", "build", "-o", str(lpk_path)], cwd=repo_dir, env=env, capture=False)
         report["lpk_name"] = lpk_path.name
         report["lpk_sha256"] = file_sha256(lpk_path)
         write_report(report, report_path)
@@ -717,6 +743,7 @@ def main() -> int:
         report["phase"] = "publish_artifact"
         report["artifact_release_tag"] = f"{app_name}-v{build_version}-{build_stamp}"
         write_report(report, report_path)
+        log(f"[{app_name}] Phase: publish_artifact -> {args.artifact_repo}")
         report["artifact_release_url"] = publish_release_asset(
             args.artifact_repo,
             report["artifact_release_tag"],
@@ -730,6 +757,7 @@ def main() -> int:
 
         report["phase"] = "commit_target_repo"
         write_report(report, report_path)
+        log(f"[{app_name}] Phase: commit_target_repo")
         sh(["git", "config", "user.name", "github-actions[bot]"], cwd=lzcat_apps_root)
         sh(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], cwd=lzcat_apps_root)
         sh(["git", "add", f"apps/{app_name}/lzc-manifest.yml", f"apps/{app_name}/.lazycat-build.json"], cwd=lzcat_apps_root)
@@ -742,6 +770,7 @@ def main() -> int:
         report["phase"] = "completed"
         write_report(report, report_path)
         publish_report_summary(report)
+        log(f"[{app_name}] Build completed successfully: v{build_version}")
         return 0
     except Exception as exc:
         if report is None:
