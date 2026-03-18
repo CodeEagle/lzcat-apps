@@ -14,8 +14,34 @@ async function readInviteUrl() {
   return invitePattern.test(value) ? value : "";
 }
 
+async function checkInviteExpired(inviteUrl) {
+  if (!inviteUrl) return false;
+  try {
+    const invitePath = new URL(inviteUrl).pathname;
+    const res = await fetch(new URL(invitePath, target), { redirect: "manual" });
+    // 4xx means invite is gone/consumed → registration done
+    return res.status >= 400;
+  } catch {
+    return false;
+  }
+}
+
 async function getPaperclipHealth() {
   const inviteUrl = await readInviteUrl();
+
+  // If an invite URL exists, probe it internally to detect expiry
+  if (inviteUrl) {
+    const expired = await checkInviteExpired(inviteUrl);
+    if (expired) {
+      return {
+        reachable: true,
+        bootstrapPending: false,
+        bootstrapInviteActive: false,
+        inviteUrl,
+      };
+    }
+  }
+
   try {
     const response = await fetch(new URL("/api/health", target), {
       headers: { Accept: "application/json" },
