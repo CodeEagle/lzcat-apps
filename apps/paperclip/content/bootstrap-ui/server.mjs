@@ -17,8 +17,15 @@ async function readInviteUrl() {
 async function checkInviteExpired(inviteUrl) {
   if (!inviteUrl) return false;
   try {
-    const invitePath = new URL(inviteUrl).pathname;
-    const res = await fetch(new URL(invitePath, target), { redirect: "manual" });
+    const parsed = new URL(inviteUrl);
+    const res = await fetch(new URL(parsed.pathname, target), {
+      redirect: "manual",
+      headers: {
+        "host": parsed.host,
+        "x-forwarded-host": parsed.host,
+        "x-forwarded-proto": parsed.protocol.replace(":", ""),
+      },
+    });
     // 4xx means invite is gone/consumed → registration done
     return res.status >= 400;
   } catch {
