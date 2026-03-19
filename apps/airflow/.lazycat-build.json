@@ -1,7 +1,7 @@
 {
   "upstream_repo": "apache/airflow",
-  "source_version": "airflow-ctl/0.1.2",
-  "build_version": "0.1.2",
-  "build_label": "airflow-ctl/0.1.2@20260317T134305Z",
-  "last_checked_at": "2026-03-17T13:43:05.849577+00:00"
+  "source_version": "airflow-ctl/0.1.3",
+  "build_version": "0.1.3",
+  "build_label": "airflow-ctl/0.1.3@20260319T125347Z",
+  "last_checked_at": "2026-03-19T12:53:47.618048+00:00"
 }
