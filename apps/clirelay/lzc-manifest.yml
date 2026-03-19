@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.clirelay
-version: 6.8.30
+version: 6.8.31
 min_os_version: 1.3.8
 name: CliRelay
 description: (LazyCat Auto-build) AI CLI Relay - Unified API for Gemini CLI, Claude Code, OpenAI Codex
@@ -19,7 +19,7 @@ application:
       backend: http://clirelay:8317/
 services:
   clirelay:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/clirelay:456eada84925c1e4
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/clirelay:a165007ee64a201f
     command: >-
       sh -lc 'mkdir -p /CLIProxyAPI/static /lzcapp/var/data/clirelay/auths /lzcapp/var/data/clirelay/logs &&
       cp /lzcapp/pkg/content/management.html /CLIProxyAPI/static/management.html &&

@@ -1,4 +1,7 @@
 {
-  "source_version": "v6.8.30",
-  "build_version": "6.8.30"
+  "upstream_repo": "kittors/CliRelay",
+  "source_version": "v6.8.31",
+  "build_version": "6.8.31",
+  "build_label": "v6.8.31@20260319T122706Z",
+  "last_checked_at": "2026-03-19T12:27:06.498700+00:00"
 }
