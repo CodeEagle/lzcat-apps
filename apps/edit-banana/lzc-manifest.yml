@@ -16,7 +16,7 @@ application:
       backend: http://edit-banana:8000/
 services:
   edit-banana:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/edit-banana:e69b175e64a45e97
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/edit-banana:35777ab617c007b2
     environment:
       - PORT=8000
       - BIND=0.0.0.0
