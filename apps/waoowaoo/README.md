@@ -1,7 +1,7 @@
 # waoowaoo - 懒猫微服自动构建项目
 
 > [!NOTE]
-> 本项目跟踪 [waoowaooAI/waoowaoo](https://github.com/waoowaooAI/waoowaoo) 上游源码，并通过 `lzcat-trigger` 统一完成 LazyCat 镜像复制、清单回写与 `.lpk` 构建。
+> 本项目跟踪 [waoowaooAI/waoowaoo](https://github.com/waoowaooAI/waoowaoo) 上游源码，并已并入 `lzcat-apps` monorepo，由仓库级共享 workflow 统一完成镜像复制、清单回写与 `.lpk` 构建。
 
 > [!IMPORTANT]
 > **Icon 规范**：`icon.png` 文件大小不得超过 **200KB**，建议使用 512x512 像素的 PNG 格式图片。
@@ -26,11 +26,7 @@
 
 ## 自动构建说明
 
-本项目现在分为两层工作流：
-
-1. 当前仓库的 `update-image.yml` 负责构建 `ghcr.io/<owner>/waoowaoo:<source_version>`
-2. 当前仓库的 `trigger-build.yml` 负责触发 `CodeEagle/lzcat-trigger`
-3. `lzcat-trigger` 统一负责复制镜像到 `registry.lazycat.cloud/...`、回写 `lzc-manifest.yml`、构建 `.lpk` 并发布 GitHub Release
+当前项目的构建入口已经收敛到 `lzcat-apps` 仓库级共享 workflow。app 目录不再保留独立 `update-image.yml` 或 `trigger-build.yml`，相关配置统一维护在 `registry/repos/waoowaoo.json`。
 
 ## 上游项目简介
 

@@ -1,7 +1,7 @@
 # Higress - 懒猫微服自动构建项目
 
 > [!NOTE]
-> 本项目是 [Higress](https://github.com/alibaba/higress) 的懒猫微服（LazyCat）自动构建项目，用于自动跟踪上游镜像更新，并通过 `lzcat-trigger` 统一完成构建与发布。
+> 本项目是 [Higress](https://github.com/alibaba/higress) 的懒猫微服（LazyCat）迁移项目，已并入 `lzcat-apps` monorepo，由仓库级共享 workflow 统一完成构建与发布。
 
 > [!IMPORTANT]
 > **Icon 规范**：`icon.png` 文件大小不得超过 **200KB**，建议使用 512x512 像素的 PNG 格式图片。
@@ -11,9 +11,9 @@
 ## 关于本项目
 
 本项目分为两层工作流：
-1. 当前仓库的 `update-image.yml` 负责跟踪上游版本，并构建/推送本仓库的 `ghcr.io` 主镜像
-2. 当前仓库的 `trigger-build.yml` 负责触发 `CodeEagle/lzcat-trigger`
-3. `lzcat-trigger` 统一负责复制镜像到懒猫镜像源、回写 `lzc-manifest.yml`、构建 `.lpk`，并按需发布到应用商店
+1. 仓库级共享 workflow 负责跟踪上游版本，并构建/推送对应主镜像
+2. 镜像复制、manifest 回写和 `.lpk` 构建统一在 `lzcat-apps` monorepo 内完成
+3. 仓库级共享 workflow 统一负责复制镜像到懒猫镜像源、回写 `lzc-manifest.yml`、构建 `.lpk`，并按需发布到应用商店
 
 ## Higress 简介
 

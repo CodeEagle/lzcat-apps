@@ -89,20 +89,11 @@ LazyCat manifest 中已提供可运行默认值：
 
 ## 下一步建议
 
-推荐使用 `lzcat-trigger` 统一触发构建，而不是直接在目标仓库里做完整发布。
+当前项目已经并入 `lzcat-apps` monorepo，构建配置和共享 workflow 都由仓库级统一管理。
 
-1. 先把 `lzc-manifest.yml` 中的占位镜像改成最终会由 `lzcat-trigger` 回写的 LazyCat Registry 地址，或保留占位值等待触发器回写。
-2. 在 `lzcat-trigger` 仓库触发 `trigger-build.yml`，目标仓库填当前仓库，`target_workflow` 使用 `update-image.yml`。
-3. 当前仓库的 `update-image.yml` 只负责：
-   - 拉取上游指定版本源码
-   - 构建并推送 `ghcr.io/<owner>/<repo>:<source_version>` 主镜像
-   - 记录 `.lazycat-build.json`
-4. 后续由 `lzcat-trigger` 继续负责：
-   - `copy-image` 到 `registry.lazycat.cloud/...`
-   - 回写 `lzc-manifest.yml`
-   - 构建 `.lpk`
-   - 发布 GitHub Release
-   - 按需发布应用商店
+1. 在 `registry/repos/airi.json` 中维护版本检查与构建策略。
+2. 通过仓库级共享 workflow 触发镜像构建、镜像复制、manifest 回写与 `.lpk` 构建。
+3. 如需本地验收，可直接在当前 monorepo 内执行 `.lpk` 打包与安装。
 
 ## 本地验证
 

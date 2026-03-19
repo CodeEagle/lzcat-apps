@@ -110,13 +110,9 @@ python3 scripts/test_mcp_local.py \
 
 ## 自动构建
 
-仓库包含兼容 `lzcat-trigger` 的 `.github/workflows/update-image.yml`。目标 workflow 只负责：
+当前项目已经并入 `lzcat-apps` monorepo，镜像构建、镜像复制、manifest 回写和 `.lpk` 构建统一由仓库级共享 workflow 负责。
 
-1. 获取上游 `source_version`
-2. 构建包含 Web 与 MCP 双入口的镜像
-3. 推送 `ghcr.io/<owner>/markitdown:<source_version>`
-
-后续镜像复制到 `registry.lazycat.cloud`、manifest 回写、`.lpk` 构建与发布，默认由 `lzcat-trigger` 统一处理。
+app 目录本身不再保留独立 `.github/workflows`；构建策略与版本检查配置位于 `registry/repos/markitdown.json`。
 
 ## 相关链接
 

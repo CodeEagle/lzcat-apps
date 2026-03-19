@@ -49,29 +49,15 @@
 - [lzc-manifest.yml](/Users/lincoln/Develop/GitHub/lzcat/TaoYuan/lzc-manifest.yml): LazyCat 应用定义
 - [lzc-build.yml](/Users/lincoln/Develop/GitHub/lzcat/TaoYuan/lzc-build.yml): LazyCat 打包配置
 - [icon.png](/Users/lincoln/Develop/GitHub/lzcat/TaoYuan/icon.png): 应用图标
-- [.github/workflows/update-image.yml](/Users/lincoln/Develop/GitHub/lzcat/TaoYuan/.github/workflows/update-image.yml): 自动跟踪上游版本并构建 `.lpk`
 
 ## 自动更新工作流
 
-工作流支持 `lzcat-trigger` 所需的三个输入：
+当前项目已经并入 `lzcat-apps` monorepo，自动更新由仓库级共享 workflow 负责：
 
-- `force_build`
-- `target_version`
-- `publish_to_store`
-
-目标仓库自身的 `update-image.yml` 负责两件事：
-
-1. 保持补丁版 `content/` 与上游版本同步。
-2. 将上游镜像同步到当前仓库自己的 `ghcr.io/codeeagle/taoyuan:v<version>`，供 `lzcat-trigger` 后续复制到 LazyCat 镜像源。
-
-`lzcat-trigger` 触发后的默认逻辑：
-
-1. 读取上游最新 GitHub Release。
-2. 触发当前仓库的 `update-image.yml`，拉取对应上游源码版本并重建补丁版 `content/`。
-3. 解析并确认上游镜像标签。
-4. 将官方镜像复制到 LazyCat 镜像源。
-5. 回写 `lzc-manifest.yml` 的 `version` 和 `image`。
-6. 构建 `.lpk`，并发布到当前仓库的 GitHub Release。
+1. 读取 `registry/repos/taoyuan.json` 的构建配置。
+2. 拉取对应上游版本并同步补丁版 `content/`。
+3. 构建或复制镜像，回写 manifest 中的镜像地址与版本。
+4. 统一构建 `.lpk` 并进入后续验收链路。
 
 ## 本地校验建议
 
