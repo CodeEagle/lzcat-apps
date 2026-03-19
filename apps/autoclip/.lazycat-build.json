@@ -1,6 +1,7 @@
 {
+  "upstream_repo": "zhouxiaoka/autoclip",
   "source_version": "dafae47",
   "build_version": "1.0.1",
-  "build_label": "dafae47@20260313T231508Z",
-  "last_checked_at": "2026-03-13T23:15:08.747735+00:00"
+  "build_label": "dafae47@20260319T033725Z",
+  "last_checked_at": "2026-03-19T03:37:25.419045+00:00"
 }
