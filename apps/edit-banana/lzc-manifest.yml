@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.edit-banana
-version: 0.1.5
+version: 1.0.0
 min_os_version: 1.3.8
 name: Edit Banana
 description: (LazyCat Auto-build) Convert static diagrams into editable DrawIO files with SAM3 and OCR
@@ -27,6 +27,7 @@ services:
       - SAM3_CHECKPOINT_URL=https://www.modelscope.cn/models/facebook/sam3/resolve/master/sam3.pt
       - SAM3_BPE_PATH=/app/models/bpe_simple_vocab_16e6.txt.gz
       - SAM3_BPE_URL=https://raw.githubusercontent.com/openai/CLIP/main/clip/bpe_simple_vocab_16e6.txt.gz
+      - SAM3_DEVICE=cpu
       - MULTIMODAL_MODE=api
       - MULTIMODAL_API_KEY=
       - MULTIMODAL_BASE_URL=

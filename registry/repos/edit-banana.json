@@ -9,7 +9,7 @@
   "dockerfile_type": "custom",
   "dockerfile_path": "Dockerfile",
   "build_context": ".",
-  "service_port": 80,
+  "service_port": 8000,
   "service_cmd": [],
   "image_targets": [
     "edit-banana"

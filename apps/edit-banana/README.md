@@ -10,7 +10,7 @@
 - Upstream repo: [BIT-DataLab/Edit-Banana](https://github.com/BIT-DataLab/Edit-Banana)
 - Homepage: [github.com/BIT-DataLab/Edit-Banana](https://github.com/BIT-DataLab/Edit-Banana)
 - Latest upstream commit used for initial migration: `126f86c479d6d30e96fac93cf7ab4d94bce68630` (`2026-03-09 00:49:25 +0800`)
-- Initial LazyCat package version: `1.0.0`
+- Current LazyCat package version: `1.0.0`
 - License used here: `AGPL-3.0`
 
 > [!IMPORTANT]
@@ -24,6 +24,7 @@
 - 运行形态：单容器 FastAPI 服务
 - 容器入口：`http://edit-banana:8000/`
 - 懒猫入口：应用首页
+- 当前仓库已适配 `lzcat-apps` 单仓构建模式：应用定义位于 `apps/edit-banana/`，构建配置位于 `registry/repos/edit-banana.json`
 - 对外能力：
   - `GET /`：接近上游线上站点风格的内置上传界面，可直接上传文件并下载结果
   - `GET /docs`：FastAPI Swagger UI
@@ -74,6 +75,13 @@
 
 如果配置了 `SAM3_CHECKPOINT_URL` / `SAM3_BPE_URL`，首页会在模型缺失时先弹出确认框。用户同意后，应用再把缺失文件下载到持久化目录。首页也支持填写自定义 `sam3.pt` 下载地址；留空时会自动使用默认的 ModelScope 地址，填写后会把地址保存到持久化配置中，后续重试或重启仍会沿用。这样可以避免把大模型直接打进 `.lpk`，也不需要每次重装后重新手工复制。
 
+首页的“Model Settings”里还新增了 `SAM3` 渲染方式切换：
+
+- `CPU`：当前懒猫镜像默认模式，兼容当前 CPU 构建
+- `GPU`：按上游 `sam3.device: "cuda"` 写入运行配置，适用于运行环境已提供 CUDA / GPU 的场景
+
+该选择会保存到 `/lzcapp/var/config`，后续请求和重启后仍会生效。
+
 如果你放在其他路径，请同步调整 manifest 中的环境变量，或者修改挂载目录里的配置文件。
 
 ## 关键环境变量
@@ -83,6 +91,7 @@
 - `SAM3_CHECKPOINT_URL=https://www.modelscope.cn/models/facebook/sam3/resolve/master/sam3.pt`
 - `SAM3_BPE_PATH=/app/models/bpe_simple_vocab_16e6.txt.gz`
 - `SAM3_BPE_URL=https://raw.githubusercontent.com/openai/CLIP/main/clip/bpe_simple_vocab_16e6.txt.gz`
+- `SAM3_DEVICE=cpu`
 - `MULTIMODAL_MODE=api`
 - `MULTIMODAL_API_KEY=`
 - `MULTIMODAL_BASE_URL=`
@@ -109,11 +118,12 @@
 - 当前迁移针对上游仓库公开的 FastAPI 服务实现，主要验证的是图片转 DrawIO 路径
 - 上游 README 提到的 PDF -> PPTX 和在线 Demo 能力并未在当前开源仓库中完整交付
 - 未绑定 GPU 时将退化为 CPU 路径，速度会明显下降
+- 若切到 `GPU` 但当前运行环境没有可用 CUDA，转换阶段会直接报上游模型加载错误
 - 若模型文件缺失，`POST /convert` 会返回 503 并提示缺少模型配置
 
 ## 自动更新
 
-包含 `.github/workflows/update-image.yml`：
+当前项目的镜像构建入口已迁移到 `lzcat-apps` 仓库级共享 workflow：
 
 - 每 6 小时检查上游默认分支最新 commit
 - 直接复用上游源码里声明的版本号
@@ -130,4 +140,3 @@
 - `Dockerfile`：源码构建镜像
 - `docker/entrypoint.sh`：启动前生成运行配置
 - `docker/server_pa.py`：懒猫增强版 Web API
-- `.github/workflows/update-image.yml`：自动跟踪上游 commit 并发布

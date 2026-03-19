@@ -24,11 +24,14 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+import yaml
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-DOWNLOAD_CONFIG_PATH = os.environ.get("MODEL_DOWNLOAD_CONFIG_PATH", "/app/config/model-download.json")
+RUNTIME_SETTINGS_PATH = os.environ.get("MODEL_DOWNLOAD_CONFIG_PATH", "/app/config/runtime-settings.json")
+CONFIG_YAML_PATH = os.environ.get("EDIT_BANANA_CONFIG_PATH", "/app/config/config.yaml")
 DEFAULT_SAM3_CHECKPOINT_URL = "https://www.modelscope.cn/models/facebook/sam3/resolve/master/sam3.pt"
 DEFAULT_SAM3_BPE_URL = "https://raw.githubusercontent.com/openai/CLIP/main/clip/bpe_simple_vocab_16e6.txt.gz"
+DEFAULT_SAM3_DEVICE = "cpu"
 MODEL_DOWNLOAD_LOCK = threading.Lock()
 MODEL_STATE_LOCK = threading.Lock()
 MODEL_DOWNLOAD_STATE = {
@@ -52,19 +55,22 @@ app.mount("/static", StaticFiles(directory=os.path.join(PROJECT_ROOT, "static"))
 class InitializeModelsRequest(BaseModel):
     checkpoint_url: Optional[str] = None
 
-def _load_config():
-    from main import load_config
-
-    return load_config()
+class RuntimeSettingsRequest(BaseModel):
+    sam3_device: Optional[str] = None
 
 
 def _normalize_url(value: Optional[str]) -> str:
     return (value or "").strip()
 
 
-def _load_download_overrides() -> dict:
+def _normalize_device(value: Optional[str]) -> str:
+    normalized = (value or "").strip().lower()
+    return normalized if normalized in {"cpu", "cuda"} else ""
+
+
+def _load_runtime_settings() -> dict:
     try:
-        with open(DOWNLOAD_CONFIG_PATH, "r", encoding="utf-8") as file:
+        with open(RUNTIME_SETTINGS_PATH, "r", encoding="utf-8") as file:
             data = json.load(file)
             return data if isinstance(data, dict) else {}
     except FileNotFoundError:
@@ -73,18 +79,145 @@ def _load_download_overrides() -> dict:
         return {}
 
 
-def _save_download_overrides(checkpoint_url: Optional[str]) -> None:
-    data = _load_download_overrides()
+def _save_runtime_settings(checkpoint_url: Optional[str] = None, sam3_device: Optional[str] = None) -> dict:
+    data = _load_runtime_settings()
     normalized = _normalize_url(checkpoint_url)
+    normalized_device = _normalize_device(sam3_device)
 
-    if normalized:
-        data["checkpoint_url"] = normalized
-    else:
-        data.pop("checkpoint_url", None)
+    if checkpoint_url is not None:
+        if normalized:
+            data["checkpoint_url"] = normalized
+        else:
+            data.pop("checkpoint_url", None)
 
-    os.makedirs(os.path.dirname(DOWNLOAD_CONFIG_PATH), exist_ok=True)
-    with open(DOWNLOAD_CONFIG_PATH, "w", encoding="utf-8") as file:
+    if sam3_device is not None:
+        if normalized_device:
+            data["sam3_device"] = normalized_device
+        else:
+            data.pop("sam3_device", None)
+
+    os.makedirs(os.path.dirname(RUNTIME_SETTINGS_PATH), exist_ok=True)
+    with open(RUNTIME_SETTINGS_PATH, "w", encoding="utf-8") as file:
         json.dump(data, file, ensure_ascii=True, indent=2)
+
+    return data
+
+
+def _effective_sam3_device() -> tuple[str, str]:
+    settings = _load_runtime_settings()
+    custom_device = _normalize_device(settings.get("sam3_device"))
+    if custom_device:
+        return custom_device, "custom"
+
+    env_device = _normalize_device(os.environ.get("SAM3_DEVICE", ""))
+    if env_device:
+        return env_device, "env"
+
+    return DEFAULT_SAM3_DEVICE, "default"
+
+
+def _build_runtime_config() -> dict:
+    sam3_device, _device_source = _effective_sam3_device()
+    return {
+        "sam3": {
+            "checkpoint_path": os.environ.get("SAM3_CHECKPOINT_PATH", "/app/models/sam3.pt"),
+            "bpe_path": os.environ.get("SAM3_BPE_PATH", "/app/models/bpe_simple_vocab_16e6.txt.gz"),
+            "device": sam3_device,
+            "score_threshold": 0.5,
+            "epsilon_factor": 0.02,
+            "min_area": 100,
+        },
+        "prompt_groups": {
+            "image": {
+                "name": "image",
+                "score_threshold": 0.5,
+                "min_area": 100,
+                "priority": 2,
+            },
+            "arrow": {
+                "name": "arrow",
+                "score_threshold": 0.45,
+                "min_area": 50,
+                "priority": 4,
+            },
+            "shape": {
+                "name": "shape",
+                "score_threshold": 0.5,
+                "min_area": 200,
+                "priority": 3,
+            },
+            "background": {
+                "name": "background",
+                "score_threshold": 0.25,
+                "min_area": 500,
+                "priority": 1,
+            },
+        },
+        "ocr": {
+            "engine": os.environ.get("OCR_ENGINE", "tesseract"),
+        },
+        "multimodal": {
+            "mode": os.environ.get("MULTIMODAL_MODE", "api"),
+            "api_key": os.environ.get("MULTIMODAL_API_KEY", ""),
+            "base_url": os.environ.get("MULTIMODAL_BASE_URL", ""),
+            "model": os.environ.get("MULTIMODAL_MODEL", ""),
+            "local_base_url": os.environ.get("MULTIMODAL_LOCAL_BASE_URL", "http://localhost:11434/v1"),
+            "local_api_key": os.environ.get("MULTIMODAL_LOCAL_API_KEY", "ollama"),
+            "local_model": os.environ.get("MULTIMODAL_LOCAL_MODEL", ""),
+            "force_vlm_ocr": os.environ.get("MULTIMODAL_FORCE_VLM_OCR", "false").strip().lower() == "true",
+            "max_tokens": int(os.environ.get("MULTIMODAL_MAX_TOKENS", "4000") or "4000"),
+            "timeout": int(os.environ.get("MULTIMODAL_TIMEOUT", "60") or "60"),
+            "ca_cert_path": os.environ.get("MULTIMODAL_CA_CERT_PATH", ""),
+            "proxy": os.environ.get("MULTIMODAL_PROXY", ""),
+        },
+        "paths": {
+            "output_dir": os.environ.get("OUTPUT_DIR", "/app/output"),
+        },
+    }
+
+
+def _write_runtime_config() -> None:
+    os.makedirs(os.path.dirname(CONFIG_YAML_PATH), exist_ok=True)
+    config = _build_runtime_config()
+    with open(CONFIG_YAML_PATH, "w", encoding="utf-8") as file:
+        yaml.safe_dump(config, file, allow_unicode=False, sort_keys=False)
+
+
+def _load_config():
+    from main import load_config
+
+    _write_runtime_config()
+    return load_config()
+
+
+def _runtime_settings_payload() -> dict:
+    device_value, device_source = _effective_sam3_device()
+    return {
+        "sam3_device": device_value,
+        "sam3_device_source": device_source,
+        "sam3_device_options": [
+            {"value": "cpu", "label": "CPU"},
+            {"value": "cuda", "label": "GPU"},
+        ],
+    }
+
+
+def _load_download_overrides() -> dict:
+    return _load_runtime_settings()
+
+
+def _save_runtime_device(sam3_device: Optional[str]) -> dict:
+    settings = _save_runtime_settings(sam3_device=sam3_device)
+    _write_runtime_config()
+    return settings
+
+
+def _save_download_overrides(checkpoint_url: Optional[str]) -> None:
+    _save_runtime_settings(checkpoint_url=checkpoint_url)
+    _write_runtime_config()
+
+
+_write_runtime_config()
 
 
 def _resolve_download_url(config_key: str, env_key: str, default_url: str) -> tuple[str, str, str]:
@@ -218,6 +351,7 @@ def _model_status():
             "checkpoint_default_url": next((file["default_url"] for file in files if file["key"] == "checkpoint"), ""),
             "checkpoint_source": next((file["url_source"] for file in files if file["key"] == "checkpoint"), "missing"),
         },
+        "runtime_settings": _runtime_settings_payload(),
         "progress": {
             "status": status,
             "message": progress.get("message", ""),
@@ -719,6 +853,46 @@ def root():
           .url-config {
             margin-top: 16px;
           }
+          .render-mode {
+            margin-top: 16px;
+          }
+          .render-mode-options {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 10px;
+          }
+          .render-mode-option {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 14px 14px 14px 42px;
+            border: 1px solid rgba(215, 190, 136, 0.92);
+            border-radius: 16px;
+            background: rgba(255, 252, 245, 0.96);
+            cursor: pointer;
+          }
+          .render-mode-option input {
+            position: absolute;
+            top: 16px;
+            left: 14px;
+          }
+          .render-mode-option strong {
+            font-size: 14px;
+            color: var(--ink);
+          }
+          .render-mode-option span {
+            font-size: 12px;
+            line-height: 1.45;
+            color: #7c879b;
+          }
+          .runtime-note {
+            margin-top: 10px;
+            font-size: 12px;
+            line-height: 1.45;
+            color: #8b95aa;
+          }
           .advanced-settings {
             margin-top: 16px;
             border: 1px solid rgba(224, 205, 163, 0.92);
@@ -941,6 +1115,22 @@ def root():
             <details id="advanced-download-settings" class="advanced-settings">
               <summary id="advanced-settings-summary">Advanced settings</summary>
               <div class="advanced-settings-body">
+                <div class="render-mode">
+                  <label id="render-mode-label">SAM3 render mode</label>
+                  <div class="render-mode-options">
+                    <label class="render-mode-option" for="sam3-device-cpu">
+                      <input id="sam3-device-cpu" type="radio" name="sam3-device" value="cpu" />
+                      <strong id="render-mode-cpu-title">CPU</strong>
+                      <span id="render-mode-cpu-hint">Compatible path for the current image build.</span>
+                    </label>
+                    <label class="render-mode-option" for="sam3-device-cuda">
+                      <input id="sam3-device-cuda" type="radio" name="sam3-device" value="cuda" />
+                      <strong id="render-mode-gpu-title">GPU</strong>
+                      <span id="render-mode-gpu-hint">Use upstream CUDA mode when the runtime provides a GPU.</span>
+                    </label>
+                  </div>
+                  <div id="runtime-note" class="runtime-note">The selection is saved to workspace storage and applied to the next conversion request.</div>
+                </div>
                 <div class="url-config">
                   <label id="checkpoint-url-label" for="checkpoint-url">Custom SAM3 checkpoint URL (optional)</label>
                   <input id="checkpoint-url" type="url" spellcheck="false" placeholder="Leave blank to use the default mirror" />
@@ -1006,6 +1196,14 @@ def root():
               advancedSettings: "Advanced settings",
               modelStatusBtn: "Model Settings",
               closeModal: "Close",
+              renderModeLabel: "SAM3 render mode",
+              renderModeCpuTitle: "CPU",
+              renderModeCpuHint: "Compatible path for the current image build.",
+              renderModeGpuTitle: "GPU",
+              renderModeGpuHint: "Use upstream CUDA mode when the runtime provides a GPU.",
+              runtimeSaved: "Render mode saved.",
+              runtimeSaveFailed: "Failed to save render mode.",
+              runtimeHint: "The selection is saved to workspace storage and applied to the next conversion request.",
             },
             zh: {
               tagline: "把图片或 PDF 转成可编辑的 Draw.io 图，交给 AI 处理",
@@ -1054,6 +1252,14 @@ def root():
               advancedSettings: "高级设置",
               modelStatusBtn: "模型设置",
               closeModal: "关闭",
+              renderModeLabel: "SAM3 渲染方式",
+              renderModeCpuTitle: "CPU",
+              renderModeCpuHint: "兼容当前这套镜像构建的保守模式。",
+              renderModeGpuTitle: "GPU",
+              renderModeGpuHint: "在运行环境提供 GPU 时，按上游 CUDA 模式执行。",
+              runtimeSaved: "渲染方式已保存。",
+              runtimeSaveFailed: "保存渲染方式失败。",
+              runtimeHint: "选择会保存到当前工作区存储，并在下一次转换请求时生效。",
             },
           };
 
@@ -1087,11 +1293,14 @@ def root():
           const checkpointUrlInput = document.getElementById("checkpoint-url");
           const checkpointUrlHint = document.getElementById("checkpoint-url-hint");
           const closeModalBtn = document.getElementById("close-modal");
+          const runtimeNote = document.getElementById("runtime-note");
+          const sam3DeviceInputs = Array.from(document.querySelectorAll('input[name="sam3-device"]'));
 
           let pollTimer = null;
           let currentModelState = null;
           let modalPinnedOpen = false;
           let refreshRequestId = 0;
+          let suppressDeviceSave = false;
 
           function localizeStaticText() {
             document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
@@ -1113,6 +1322,12 @@ def root():
             document.getElementById("modal-note").textContent = t("waiting");
             document.getElementById("progress-file").textContent = t("progressPreparing");
             document.getElementById("advanced-settings-summary").textContent = t("advancedSettings");
+            document.getElementById("render-mode-label").textContent = t("renderModeLabel");
+            document.getElementById("render-mode-cpu-title").textContent = t("renderModeCpuTitle");
+            document.getElementById("render-mode-cpu-hint").textContent = t("renderModeCpuHint");
+            document.getElementById("render-mode-gpu-title").textContent = t("renderModeGpuTitle");
+            document.getElementById("render-mode-gpu-hint").textContent = t("renderModeGpuHint");
+            document.getElementById("runtime-note").textContent = t("runtimeHint");
             document.getElementById("checkpoint-url-label").textContent = t("checkpointUrlLabel");
             document.getElementById("checkpoint-url").placeholder = t("checkpointUrlPlaceholder");
             document.getElementById("checkpoint-url-hint").textContent = t("checkpointUrlHint");
@@ -1159,6 +1374,16 @@ def root():
               config.checkpoint_source === "custom"
                 ? t("checkpointUrlSaved")
                 : t("checkpointUrlHint");
+          }
+
+          function syncRuntimeSettings(state) {
+            const runtime = state.runtime_settings || {};
+            suppressDeviceSave = true;
+            sam3DeviceInputs.forEach((input) => {
+              input.checked = input.value === runtime.sam3_device;
+            });
+            suppressDeviceSave = false;
+            runtimeNote.textContent = t("runtimeHint");
           }
 
           function stopPolling() {
@@ -1239,6 +1464,7 @@ def root():
             currentModelState = state;
             updateProgress(state.progress);
             syncDownloadConfig(state);
+            syncRuntimeSettings(state);
             setBusyState(downloadButton, false);
             setBusyState(refreshButton, false);
             setBusyState(resetButton, false);
@@ -1353,6 +1579,43 @@ def root():
               modelModal.classList.remove("visible");
               modelStatusBtn.classList.remove("hidden");
             }
+          });
+
+          sam3DeviceInputs.forEach((input) => {
+            input.addEventListener("change", async () => {
+              if (suppressDeviceSave || !input.checked) {
+                return;
+              }
+
+              try {
+                const response = await fetch("/runtime-settings", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ sam3_device: input.value }),
+                });
+                if (!response.ok) {
+                  let detail = t("runtimeSaveFailed");
+                  try {
+                    const payload = await response.json();
+                    detail = payload.detail || detail;
+                  } catch (_err) {
+                  }
+                  throw new Error(detail);
+                }
+
+                const runtime = await response.json();
+                currentModelState = {
+                  ...(currentModelState || {}),
+                  runtime_settings: runtime,
+                };
+                runtimeNote.textContent = t("runtimeSaved");
+              } catch (error) {
+                runtimeNote.textContent = error.message || t("runtimeSaveFailed");
+                if (currentModelState) {
+                  syncRuntimeSettings(currentModelState);
+                }
+              }
+            });
           });
 
           fileInput.addEventListener("change", () => {
@@ -1531,6 +1794,21 @@ def root():
 @app.get("/model-status")
 def model_status():
     return _model_status()
+
+
+@app.get("/runtime-settings")
+def runtime_settings():
+    return _runtime_settings_payload()
+
+
+@app.post("/runtime-settings")
+def update_runtime_settings(payload: RuntimeSettingsRequest):
+    normalized_device = _normalize_device(payload.sam3_device)
+    if not normalized_device:
+        raise HTTPException(status_code=400, detail="Unsupported SAM3 device. Use cpu or cuda.")
+
+    _save_runtime_device(normalized_device)
+    return _runtime_settings_payload()
 
 
 @app.post("/initialize-models", status_code=202)

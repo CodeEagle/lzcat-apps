@@ -7,6 +7,7 @@ cat > /app/config/config.yaml <<EOF
 sam3:
   checkpoint_path: "${SAM3_CHECKPOINT_PATH:-/app/models/sam3.pt}"
   bpe_path: "${SAM3_BPE_PATH:-/app/models/bpe_simple_vocab_16e6.txt.gz}"
+  device: "${SAM3_DEVICE:-cpu}"
   score_threshold: 0.5
   epsilon_factor: 0.02
   min_area: 100
