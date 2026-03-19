@@ -1081,6 +1081,22 @@ def root():
                 <button id="submit" type="submit">Convert and download</button>
               </div>
               <div id="status" class="status">Checking model status...</div>
+              <div class="render-mode">
+                <label id="render-mode-label">SAM3 render mode</label>
+                <div class="render-mode-options">
+                  <label class="render-mode-option" for="sam3-device-cpu">
+                    <input id="sam3-device-cpu" type="radio" name="sam3-device" value="cpu" />
+                    <strong id="render-mode-cpu-title">CPU</strong>
+                    <span id="render-mode-cpu-hint">Compatible path for the current image build.</span>
+                  </label>
+                  <label class="render-mode-option" for="sam3-device-cuda">
+                    <input id="sam3-device-cuda" type="radio" name="sam3-device" value="cuda" />
+                    <strong id="render-mode-gpu-title">GPU</strong>
+                    <span id="render-mode-gpu-hint">Use upstream CUDA mode when the runtime provides a GPU.</span>
+                  </label>
+                </div>
+                <div id="runtime-note" class="runtime-note">Changes are saved immediately and apply to the next conversion request without restarting the app.</div>
+              </div>
             </form>
             <div class="feature-grid" aria-hidden="true">
               <div class="feature"><span class="feature-badge">AI</span><span id="feature-ai" class="feature-copy">AI-<br/>Powered</span></div>
@@ -1115,22 +1131,6 @@ def root():
             <details id="advanced-download-settings" class="advanced-settings">
               <summary id="advanced-settings-summary">Advanced settings</summary>
               <div class="advanced-settings-body">
-                <div class="render-mode">
-                  <label id="render-mode-label">SAM3 render mode</label>
-                  <div class="render-mode-options">
-                    <label class="render-mode-option" for="sam3-device-cpu">
-                      <input id="sam3-device-cpu" type="radio" name="sam3-device" value="cpu" />
-                      <strong id="render-mode-cpu-title">CPU</strong>
-                      <span id="render-mode-cpu-hint">Compatible path for the current image build.</span>
-                    </label>
-                    <label class="render-mode-option" for="sam3-device-cuda">
-                      <input id="sam3-device-cuda" type="radio" name="sam3-device" value="cuda" />
-                      <strong id="render-mode-gpu-title">GPU</strong>
-                      <span id="render-mode-gpu-hint">Use upstream CUDA mode when the runtime provides a GPU.</span>
-                    </label>
-                  </div>
-                  <div id="runtime-note" class="runtime-note">The selection is saved to workspace storage and applied to the next conversion request.</div>
-                </div>
                 <div class="url-config">
                   <label id="checkpoint-url-label" for="checkpoint-url">Custom SAM3 checkpoint URL (optional)</label>
                   <input id="checkpoint-url" type="url" spellcheck="false" placeholder="Leave blank to use the default mirror" />
@@ -1203,7 +1203,7 @@ def root():
               renderModeGpuHint: "Use upstream CUDA mode when the runtime provides a GPU.",
               runtimeSaved: "Render mode saved.",
               runtimeSaveFailed: "Failed to save render mode.",
-              runtimeHint: "The selection is saved to workspace storage and applied to the next conversion request.",
+              runtimeHint: "Changes are saved immediately and apply to the next conversion request without restarting the app.",
             },
             zh: {
               tagline: "把图片或 PDF 转成可编辑的 Draw.io 图，交给 AI 处理",
@@ -1259,7 +1259,7 @@ def root():
               renderModeGpuHint: "在运行环境提供 GPU 时，按上游 CUDA 模式执行。",
               runtimeSaved: "渲染方式已保存。",
               runtimeSaveFailed: "保存渲染方式失败。",
-              runtimeHint: "选择会保存到当前工作区存储，并在下一次转换请求时生效。",
+              runtimeHint: "修改会立即保存，无需重启应用，并在下一次转换请求时生效。",
             },
           };
 
