@@ -247,6 +247,39 @@ def patch_llm_providers(backend_root: Path) -> None:
         llm_providers.write_text(updated)
 
 
+def patch_youtube_api(backend_root: Path) -> None:
+    youtube_api = backend_root / "api" / "v1" / "youtube.py"
+    if not youtube_api.exists():
+        return
+
+    text = youtube_api.read_text()
+    updated = text
+
+    # 给 parse 和 download 端点的 extract_info 调用加上 User-Agent、重试等参数
+    # 裸 ydl_opts（无 headers）会被 YouTube bot 检测拦截
+    old_bare_opts = """        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+        }"""
+    new_opts = """        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'http_headers': {
+                'User-Agent': (
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                    'AppleWebKit/537.36 (KHTML, like Gecko) '
+                    'Chrome/124.0.0.0 Safari/537.36'
+                ),
+            },
+            'retries': 3,
+            'socket_timeout': 30,
+        }"""
+    updated = updated.replace(old_bare_opts, new_opts)
+
+    if updated != text:
+        youtube_api.write_text(updated)
+
+
 def main() -> int:
     source_root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("/tmp/autoclip-source")
     patch_frontend(source_root / "frontend" / "src")
@@ -254,6 +287,7 @@ def main() -> int:
     patch_task_utils(backend_root)
     patch_pipeline_adapter(backend_root)
     patch_llm_providers(backend_root)
+    patch_youtube_api(backend_root)
     return 0
 
 
