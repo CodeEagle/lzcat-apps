@@ -22,7 +22,7 @@ application:
       disable_trim_location: true
 services:
   jellyfish:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/jellyfish:36a6f57e43c7dff5
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/jellyfish:eaad5162fe9b89ce
     environment:
       - PORT=8000
       - DATABASE_URL=sqlite+aiosqlite:////data/jellyfish.db
