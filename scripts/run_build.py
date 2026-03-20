@@ -393,13 +393,18 @@ def build_with_dockerfile(
     build_context_rel: str,
     build_args: dict[str, Any],
     *,
+    platform: str = "",
     dry_run: bool = False,
 ) -> str:
     dockerfile = build_root / dockerfile_rel
     context = build_root / build_context_rel
     if not dockerfile.exists():
         raise RuntimeError(f"Dockerfile not found: {dockerfile}")
-    args = ["docker", "build", "-f", str(dockerfile), "-t", target_image]
+    if platform:
+        args = ["docker", "buildx", "build", "--load", "--platform", platform]
+    else:
+        args = ["docker", "build"]
+    args.extend(["-f", str(dockerfile), "-t", target_image])
     for key, value in build_args.items():
         args.extend(["--build-arg", f"{key}={value}"])
     args.append(str(context))
@@ -445,6 +450,7 @@ def build_target_image(
     target_image = f"ghcr.io/{owner_lower}/{name_lower}:{image_tag}"
     docker_login_ghcr(env)
     build_strategy = str(config.get("build_strategy", "")).strip()
+    docker_platform = str(config.get("docker_platform", "")).strip()
     build_args = dict(config.get("build_args", {}))
     overlay_paths = [str(item).strip() for item in config.get("overlay_paths", []) if str(item).strip()]
     build_args.setdefault("SOURCE_VERSION", source_version)
@@ -519,7 +525,12 @@ def build_target_image(
                     )
                 )
             log(f"Building Docker image from precompiled binary: {target_image}")
-            sh(["docker", "build", "-t", target_image, "."], cwd=build_root, env=env, capture=False)
+            if docker_platform:
+                build_cmd = ["docker", "buildx", "build", "--load", "--platform", docker_platform]
+            else:
+                build_cmd = ["docker", "build"]
+            build_cmd.extend(["-t", target_image, "."])
+            sh(build_cmd, cwd=build_root, env=env, capture=False)
             if dry_run:
                 log(f"[DRY RUN] Skipping docker push: {target_image}")
             else:
@@ -532,7 +543,16 @@ def build_target_image(
     if build_strategy == "target_repo_dockerfile":
         dockerfile_path = str(config.get("dockerfile_path", "Dockerfile")).strip()
         build_context = str(config.get("build_context", ".")).strip()
-        return build_with_dockerfile(repo_dir, target_image, env, dockerfile_path, build_context, build_args, dry_run=dry_run)
+        return build_with_dockerfile(
+            repo_dir,
+            target_image,
+            env,
+            dockerfile_path,
+            build_context,
+            build_args,
+            platform=docker_platform,
+            dry_run=dry_run,
+        )
 
     upstream_repo = str(config.get("upstream_repo", "")).strip()
     if not upstream_repo:
@@ -556,7 +576,16 @@ def build_target_image(
             prepare_script = source_root / "lazycat" / "prepare_build_context.py"
             if prepare_script.exists():
                 sh(["python3", str(prepare_script), str(source_root)], env=env)
-            return build_with_dockerfile(source_root, target_image, env, "Dockerfile", ".", build_args, dry_run=dry_run)
+            return build_with_dockerfile(
+                source_root,
+                target_image,
+                env,
+                "Dockerfile",
+                ".",
+                build_args,
+                platform=docker_platform,
+                dry_run=dry_run,
+            )
         dockerfile_path = source_root / "Dockerfile"
         if not dockerfile_path.exists():
             candidates = list(source_root.rglob("Dockerfile"))
@@ -570,6 +599,7 @@ def build_target_image(
             str(dockerfile_path.relative_to(source_root)),
             ".",
             build_args,
+            platform=docker_platform,
             dry_run=dry_run,
         )
     finally:

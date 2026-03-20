@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit:*)",
+      "Bash(gh workflow:*)",
+      "Bash(gh run:*)",
+      "Bash(git add:*)",
+      "Bash(chmod:*)",
+      "Bash(lzc-cli:*)",
+      "Bash(./scripts/local_build.sh paperclip:*)",
+      "Bash(colima status:*)",
+      "Bash(colima start:*)",
+      "Bash(docker system:*)",
+      "Bash(docker image:*)",
+      "Bash(mkdir:*)",
+      "Bash(ssh:*)",
+      "mcp__plugin_context-mode_context-mode__execute",
+      "Bash(git push:*)",
+      "Bash(gh api:*)",
+      "mcp__plugin_context-mode_context-mode__fetch_and_index",
+      "mcp__plugin_context-mode_context-mode__search",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(git checkout:*)"
+    ]
+  }
+}
