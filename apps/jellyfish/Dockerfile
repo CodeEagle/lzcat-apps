@@ -16,6 +16,8 @@ WORKDIR /src/front
 
 ENV VITE_USE_MOCK=false
 
+COPY patches/front/src/store/useAppStore.ts /src/front/src/store/useAppStore.ts
+
 RUN corepack enable \
     && corepack prepare pnpm@8.15.8 --activate \
     && pnpm install --frozen-lockfile \
@@ -53,6 +55,7 @@ COPY patches/backend/app/config.py /opt/jellyfish/backend/app/config.py
 COPY patches/backend/app/main.py /opt/jellyfish/backend/app/main.py
 COPY patches/backend/app/core/storage.py /opt/jellyfish/backend/app/core/storage.py
 COPY patches/backend/app/utils /opt/jellyfish/backend/app/utils
+COPY patches/front/src/store/useAppStore.ts /opt/jellyfish/front/src/store/useAppStore.ts
 COPY lazycat/nginx.conf /etc/nginx/conf.d/default.conf
 COPY lazycat/entrypoint.sh /entrypoint.sh
 COPY --from=frontend-builder /src/front/dist /var/www/jellyfish
