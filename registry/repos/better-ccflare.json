@@ -11,6 +11,7 @@
   "build_context": ".",
   "docker_platform": "linux/amd64",
   "service_port": 8080,
+  "image_name": "better-ccflare-lzcat",
   "service_cmd": [],
   "image_targets": [
     "better-ccflare"
