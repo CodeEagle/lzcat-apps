@@ -17,6 +17,9 @@ application:
 services:
   superplane:
     image: registry.lazycat.cloud/invokerlaw/superplanehq/superplane:3ecc3663b96c628d
+    depends_on:
+      - postgres
+      - rabbitmq
     setup_script: |
       set -euo pipefail
 
