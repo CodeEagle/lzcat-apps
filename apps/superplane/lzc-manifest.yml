@@ -35,6 +35,23 @@ services:
       fi
 
       chmod 644 /app/oidc-keys/*.pem 2>/dev/null || true
+
+      wait_for_port() {
+        host="$1"
+        port="$2"
+        label="$3"
+        for _ in $(seq 1 60); do
+          if bash -lc ">/dev/tcp/${host}/${port}" >/dev/null 2>&1; then
+            return 0
+          fi
+          sleep 2
+        done
+        echo "${label} is not reachable" >&2
+        exit 1
+      }
+
+      wait_for_port postgres 5432 PostgreSQL
+      wait_for_port rabbitmq 5672 RabbitMQ
     environment:
       - APP_ENV=production
       - APPLICATION_NAME=superplane
