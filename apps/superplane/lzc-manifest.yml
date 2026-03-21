@@ -17,6 +17,21 @@ application:
 services:
   superplane:
     image: registry.lazycat.cloud/invokerlaw/superplanehq/superplane:3ecc3663b96c628d
+    setup_script: |
+      set -euo pipefail
+
+      mkdir -p /app/oidc-keys
+
+      if ! find /app/oidc-keys -type f | head -n 1 >/dev/null 2>&1; then
+        if command -v openssl >/dev/null 2>&1; then
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out "/app/oidc-keys/$(date -u +%s).pem"
+        else
+          echo "openssl is required to generate OIDC keys" >&2
+          exit 1
+        fi
+      fi
+
+      chmod 644 /app/oidc-keys/*.pem 2>/dev/null || true
     environment:
       - APP_ENV=production
       - APPLICATION_NAME=superplane
