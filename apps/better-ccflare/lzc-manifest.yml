@@ -1,0 +1,47 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.better-ccflare
+version: 3.3.12
+min_os_version: 1.3.8
+name: better-ccflare
+description: (LazyCat Auto-build) Claude API proxy with dashboard, request analytics, and account load balancing
+license: MIT
+homepage: https://github.com/tombii/better-ccflare
+author: tombii
+application:
+  subdomain: better-ccflare
+  public_path:
+    - /
+  upstreams:
+    - location: /
+      backend: http://better-ccflare:8080/
+services:
+  better-ccflare:
+    image: registry.lazycat.cloud/dry-run/better-ccflare:dry-run
+    environment:
+      - PORT=8080
+      - BETTER_CCFLARE_HOST=0.0.0.0
+      - BETTER_CCFLARE_DB_PATH=/data/better-ccflare.db
+      - BETTER_CCFLARE_CONFIG_PATH=/data/better-ccflare.json
+      - BETTER_CCFLARE_LOG_DIR=/data/logs
+      - LB_STRATEGY=session
+      - SESSION_DURATION_MS=18000000
+      - RETRY_ATTEMPTS=3
+      - RETRY_DELAY_MS=1000
+      - RETRY_BACKOFF=2
+      - DATA_RETENTION_DAYS=7
+      - REQUEST_RETENTION_DAYS=365
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=pretty
+      - CLIENT_ID
+      - DATABASE_URL
+      - SSL_KEY_PATH
+      - SSL_CERT_PATH
+    binds:
+      - /lzcapp/var/data/better-ccflare:/data
+locales:
+  en:
+    name: better-ccflare
+    description: (LazyCat Auto-build) Claude API proxy with dashboard, request analytics, and account load balancing
+  zh:
+    name: better-ccflare
+    description: （懒猫微服自动构建）带 Dashboard、请求分析和账号负载均衡的 Claude API 代理

@@ -2,6 +2,7 @@
   "repos": [
     "airflow.json",
     "airi.json",
+    "better-ccflare.json",
     "autoclip.json",
     "chatgpt-on-wechat-lazycat.json",
     "clirelay.json",
@@ -14,11 +15,17 @@
     "jellyfish.json",
     "markitdown.json",
     "moltis.json",
+    "omniroute.json",
+    "openops.json",
     "openfang.json",
     "paperclip.json",
+    "pandawiki.json",
     "remodex-relay.json",
     "shadmin.json",
+    "signoz.json",
+    "superplane.json",
     "taoyuan.json",
+    "vane.json",
     "waoowaoo.json"
   ]
 }
