@@ -20,7 +20,7 @@ application:
     test_url: http://shadmin:55667/
 services:
   shadmin:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/shadmin:9f779e97d2209c68
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/shadmin:e959b7db4bdfe27c
     environment:
       - APP_ENV=production
       - CONTEXT_TIMEOUT=60
