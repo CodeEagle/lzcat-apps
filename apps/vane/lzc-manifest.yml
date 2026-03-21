@@ -15,9 +15,9 @@ application:
     - location: /
       backend: http://vane:3000/
   health_check:
-    test_url: http://vane:3000/api/config
-    start_period: 120s
-    timeout: 10s
+    test_url: http://vane:3000/
+    start_period: 600s
+    timeout: 20s
 
 services:
   vane:
@@ -31,11 +31,11 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - curl -fsS http://127.0.0.1:3000/api/config >/dev/null || exit 1
+        - curl -fsS http://127.0.0.1:3000/ >/dev/null || exit 1
       interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
+      timeout: 20s
+      retries: 20
+      start_period: 600s
 
 locales:
   en:
