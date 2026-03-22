@@ -34,7 +34,7 @@ services:
     image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-app:d3fcf4afab64d2a1
 
   panda-wiki-api:
-    image: registry.lazycat.cloud/placeholder/pandawiki-api:pending
+    image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-api:e027e7fdf1f85062
     depends_on:
       - panda-wiki-postgres
       - panda-wiki-redis
@@ -62,7 +62,7 @@ services:
     command: sh -c "/app/panda-wiki-migrate && exec /app/panda-wiki-api"
 
   panda-wiki-consumer:
-    image: registry.lazycat.cloud/placeholder/pandawiki-api:pending
+    image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-consumer:52b41ce554d379f0
     depends_on:
       - panda-wiki-nats
       - panda-wiki-api
