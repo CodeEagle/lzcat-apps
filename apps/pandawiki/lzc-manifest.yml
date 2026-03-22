@@ -1,0 +1,95 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.pandawiki
+version: 3.81.0
+min_os_version: 1.3.8
+name: PandaWiki
+description: (LazyCat Auto-build) AI-driven knowledge base system with admin console, wiki frontend, and RAG services
+license: AGPL-3.0
+homepage: https://pandawiki.docs.baizhi.cloud/
+author: chaitin
+application:
+  subdomain: pandawiki
+  public_path:
+    - /
+    - /api/
+    - /share/
+    - /static-file/
+  upstreams:
+    - location: /api/
+      backend: http://panda-wiki-api:8000/api/
+    - location: /share/
+      backend: http://panda-wiki-api:8000/share/
+    - location: /static-file/
+      backend: http://panda-wiki-minio:9000/static-file/
+    - location: /
+      backend: http://panda-wiki-nginx:8080/
+  environment:
+    - POSTGRES_PASSWORD=changeme-postgres
+    - NATS_PASSWORD=changeme-nats
+    - JWT_SECRET=changeme-jwt-secret
+    - S3_SECRET_KEY=changeme-s3-secret
+    - REDIS_PASSWORD=changeme-redis
+    - ADMIN_PASSWORD=admin
+services:
+  panda-wiki-nginx:
+    image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-nginx:24dad201e9597325
+    depends_on:
+      - panda-wiki-api
+    binds:
+      - /lzcapp/var/data/pandawiki/nginx/ssl:/etc/nginx/ssl
+      - /lzcapp/pkg/content/server.conf:/etc/nginx/conf.d/server.conf
+
+  panda-wiki-api:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/pandawiki:a5d3520db187-amd64
+    depends_on:
+      - panda-wiki-postgres
+      - panda-wiki-redis
+      - panda-wiki-minio
+    binds:
+      - /lzcapp/var/data/pandawiki/conf/api-v2:/data
+      - /lzcapp/var/data/pandawiki/nginx/ssl:/app/etc/nginx/ssl
+    environment:
+      - POSTGRES_PASSWORD=changeme-postgres
+      - REDIS_PASSWORD=changeme-redis
+      - S3_SECRET_KEY=changeme-s3-secret
+      - JWT_SECRET=changeme-jwt-secret
+      - ADMIN_PASSWORD=admin
+      - REDIS_ADDR=panda-wiki-redis:6379
+      - S3_ENDPOINT=panda-wiki-minio:9000
+      - PANDAWIKI_DISABLE_MQ=true
+      - PANDAWIKI_DISABLE_RAG=true
+      - PANDAWIKI_DISABLE_CADDY=true
+      - SENTRY_ENABLED=false
+    command: sh -c "sleep 15 && /app/panda-wiki-migrate && exec /app/panda-wiki-api"
+
+  panda-wiki-postgres:
+    image: registry.lazycat.cloud/invokerlaw/chaitin/postgres-zhparser:b65cc5be639b2e99
+    environment:
+      - POSTGRES_USER=panda-wiki
+      - POSTGRES_PASSWORD=changeme-postgres
+      - POSTGRES_DB=panda-wiki
+    binds:
+      - /lzcapp/var/db/pandawiki/postgres-v2:/var/lib/postgresql/data
+
+  panda-wiki-redis:
+    image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-redis:a001686b5e7825a4
+    command: redis-server --requirepass changeme-redis --appendonly yes --appendfilename appendonly.aof --save 900 1 --save 300 10 --save 60 10000
+    binds:
+      - /lzcapp/var/data/pandawiki/redis:/data
+
+  panda-wiki-minio:
+    image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-minio:ae1d850c94bcf88e
+    command: minio server /data --console-address :9001
+    environment:
+      - MINIO_ROOT_USER=s3panda-wiki
+      - MINIO_ROOT_PASSWORD=changeme-s3-secret
+    binds:
+      - /lzcapp/var/data/pandawiki/minio:/data
+
+locales:
+  en:
+    name: PandaWiki
+    description: (LazyCat Auto-build) AI-driven knowledge base system with admin console, wiki frontend, and RAG services
+  zh:
+    name: PandaWiki
+    description: （懒猫微服自动构建）带管理后台、Wiki 前台与 RAG 组件的 AI 知识库系统
