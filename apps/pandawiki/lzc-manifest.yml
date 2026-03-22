@@ -78,8 +78,7 @@ services:
       - REDIS_ADDR=panda-wiki-redis:6379
       - S3_ENDPOINT=panda-wiki-minio:9000
       - SENTRY_ENABLED=false
-    command:
-      - /app/panda-wiki-consumer
+    command: /app/panda-wiki-consumer
 
   panda-wiki-caddy:
     image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-caddy:14e3e7d49769b6c6
@@ -101,31 +100,13 @@ services:
 
   panda-wiki-redis:
     image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-redis:a001686b5e7825a4
-    command:
-      - redis-server
-      - --requirepass
-      - ${REDIS_PASSWORD}
-      - --appendonly
-      - "yes"
-      - --appendfilename
-      - appendonly.aof
-      - --save
-      - 900 1
-      - --save
-      - 300 10
-      - --save
-      - 60 10000
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --appendfilename appendonly.aof --save 900 1 --save 300 10 --save 60 10000
     binds:
       - /lzcapp/var/data/pandawiki/redis:/data
 
   panda-wiki-minio:
     image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-minio:ae1d850c94bcf88e
-    command:
-      - minio
-      - server
-      - /data
-      - --console-address
-      - :9001
+    command: minio server /data --console-address :9001
     environment:
       - MINIO_ACCESS_KEY=s3panda-wiki
       - MINIO_SECRET_KEY=${S3_SECRET_KEY}
@@ -134,14 +115,7 @@ services:
 
   panda-wiki-nats:
     image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-nats:17781489248a2ba2
-    command:
-      - nats-server
-      - -c
-      - /etc/nats/nats.conf
-      - --user
-      - panda-wiki
-      - --pass
-      - ${NATS_PASSWORD}
+    command: nats-server -c /etc/nats/nats.conf --user panda-wiki --pass ${NATS_PASSWORD}
     binds:
       - /lzcapp/var/data/pandawiki/nats:/data
 
