@@ -11,7 +11,16 @@ application:
   subdomain: pandawiki
   public_path:
     - /
+    - /api/
+    - /share/
+    - /static-file/
   upstreams:
+    - location: /api/
+      backend: http://panda-wiki-api:8000/api/
+    - location: /share/
+      backend: http://panda-wiki-api:8000/share/
+    - location: /static-file/
+      backend: http://panda-wiki-minio:9000/static-file/
     - location: /
       backend: http://panda-wiki-nginx:8080/
   environment:
@@ -19,7 +28,6 @@ application:
     - NATS_PASSWORD=changeme-nats
     - JWT_SECRET=changeme-jwt-secret
     - S3_SECRET_KEY=changeme-s3-secret
-    - QDRANT_API_KEY=changeme-qdrant-key
     - REDIS_PASSWORD=changeme-redis
     - ADMIN_PASSWORD=admin
 services:
@@ -29,78 +37,43 @@ services:
       - panda-wiki-api
     binds:
       - /lzcapp/var/data/pandawiki/nginx/ssl:/etc/nginx/ssl
-
-  panda-wiki-app:
-    image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-app:d3fcf4afab64d2a1
+      - /lzcapp/pkg/content/server.conf:/etc/nginx/conf.d/server.conf
 
   panda-wiki-api:
-    image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-api:e027e7fdf1f85062
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/pandawiki:a5d3520db187-amd64
     depends_on:
       - panda-wiki-postgres
       - panda-wiki-redis
       - panda-wiki-minio
-      - panda-wiki-nats
-      - panda-wiki-caddy
-      - panda-wiki-raglite
     binds:
-      - /lzcapp/var/data/pandawiki/caddy/run:/app/run
+      - /lzcapp/var/data/pandawiki/conf/api-v2:/data
       - /lzcapp/var/data/pandawiki/nginx/ssl:/app/etc/nginx/ssl
-      - /lzcapp/var/data/pandawiki/conf/api:/data
     environment:
-      - NATS_PASSWORD=${NATS_PASSWORD}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - S3_SECRET_KEY=${S3_SECRET_KEY}
-      - JWT_SECRET=${JWT_SECRET}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - MQ_NATS_SERVER=nats://panda-wiki-nats:4222
-      - RAG_CT_RAG_BASE_URL=http://panda-wiki-raglite:5050
+      - POSTGRES_PASSWORD=changeme-postgres
+      - REDIS_PASSWORD=changeme-redis
+      - S3_SECRET_KEY=changeme-s3-secret
+      - JWT_SECRET=changeme-jwt-secret
+      - ADMIN_PASSWORD=admin
       - REDIS_ADDR=panda-wiki-redis:6379
       - S3_ENDPOINT=panda-wiki-minio:9000
-      - CADDY_API=/app/run/caddy-admin.sock
+      - PANDAWIKI_DISABLE_MQ=true
+      - PANDAWIKI_DISABLE_RAG=true
+      - PANDAWIKI_DISABLE_CADDY=true
       - SENTRY_ENABLED=false
-    command: sh -c "/app/panda-wiki-migrate && exec /app/panda-wiki-api"
-
-  panda-wiki-consumer:
-    image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-consumer:52b41ce554d379f0
-    depends_on:
-      - panda-wiki-nats
-      - panda-wiki-api
-      - panda-wiki-raglite
-    environment:
-      - NATS_PASSWORD=${NATS_PASSWORD}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - S3_SECRET_KEY=${S3_SECRET_KEY}
-      - JWT_SECRET=${JWT_SECRET}
-      - MQ_NATS_SERVER=nats://panda-wiki-nats:4222
-      - RAG_CT_RAG_BASE_URL=http://panda-wiki-raglite:5050
-      - REDIS_ADDR=panda-wiki-redis:6379
-      - S3_ENDPOINT=panda-wiki-minio:9000
-      - SENTRY_ENABLED=false
-    command: /app/panda-wiki-consumer
-
-  panda-wiki-caddy:
-    image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-caddy:14e3e7d49769b6c6
-    binds:
-      - /lzcapp/var/data/pandawiki/caddy/config:/config
-      - /lzcapp/var/data/pandawiki/caddy/data:/data
-      - /lzcapp/var/data/pandawiki/caddy/run:/var/run/caddy
-    environment:
-      - CADDY_ADMIN=unix//var/run/caddy/caddy-admin.sock
+    command: sh -c "sleep 15 && /app/panda-wiki-migrate && exec /app/panda-wiki-api"
 
   panda-wiki-postgres:
     image: registry.lazycat.cloud/invokerlaw/chaitin/postgres-zhparser:b65cc5be639b2e99
     environment:
       - POSTGRES_USER=panda-wiki
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=changeme-postgres
       - POSTGRES_DB=panda-wiki
     binds:
-      - /lzcapp/var/db/pandawiki/postgres:/var/lib/postgresql/data
+      - /lzcapp/var/db/pandawiki/postgres-v2:/var/lib/postgresql/data
 
   panda-wiki-redis:
     image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-redis:a001686b5e7825a4
-    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --appendfilename appendonly.aof --save 900 1 --save 300 10 --save 60 10000
+    command: redis-server --requirepass changeme-redis --appendonly yes --appendfilename appendonly.aof --save 900 1 --save 300 10 --save 60 10000
     binds:
       - /lzcapp/var/data/pandawiki/redis:/data
 
@@ -108,63 +81,10 @@ services:
     image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-minio:ae1d850c94bcf88e
     command: minio server /data --console-address :9001
     environment:
-      - MINIO_ACCESS_KEY=s3panda-wiki
-      - MINIO_SECRET_KEY=${S3_SECRET_KEY}
+      - MINIO_ROOT_USER=s3panda-wiki
+      - MINIO_ROOT_PASSWORD=changeme-s3-secret
     binds:
       - /lzcapp/var/data/pandawiki/minio:/data
-
-  panda-wiki-nats:
-    image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-nats:17781489248a2ba2
-    command: nats-server -c /etc/nats/nats.conf --user panda-wiki --pass ${NATS_PASSWORD}
-    binds:
-      - /lzcapp/var/data/pandawiki/nats:/data
-
-  panda-wiki-qdrant:
-    image: registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-qdrant:fca1961f7e30a805
-    environment:
-      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY}
-    binds:
-      - /lzcapp/var/data/pandawiki/qdrant:/qdrant/storage
-
-  panda-wiki-crawler:
-    image: registry.lazycat.cloud/invokerlaw/chaitin/anydoc:74706423a0f1b25b
-    depends_on:
-      - panda-wiki-nats
-      - panda-wiki-minio
-    environment:
-      - GLOG_GLOBAL_LEVEL=info
-      - NAMESPACE=anydoc
-      - MQ_NATS_URL=nats://panda-wiki-nats:4222
-      - MQ_NATS_USER=panda-wiki
-      - MQ_NATS_PASSWORD=${NATS_PASSWORD}
-      - OSS_MINIO_ACCESS_KEY=s3panda-wiki
-      - OSS_MINIO_SECRET_KEY=${S3_SECRET_KEY}
-      - OSS_MINIO_ENDPOINT=panda-wiki-minio:9000
-
-  panda-wiki-raglite:
-    image: registry.lazycat.cloud/invokerlaw/chaitin/raglite:733160bd1c239d09
-    depends_on:
-      - panda-wiki-postgres
-      - panda-wiki-minio
-      - panda-wiki-qdrant
-      - panda-wiki-nats
-    binds:
-      - /lzcapp/var/data/pandawiki/raglite:/data
-    environment:
-      - GIN_MODE=release
-      - DATABASE_POSTGRESQL_HOST=panda-wiki-postgres
-      - DATABASE_POSTGRESQL_USER=panda-wiki
-      - DATABASE_POSTGRESQL_PASSWORD=${POSTGRES_PASSWORD}
-      - DATABASE_QDRANT_HOST=panda-wiki-qdrant
-      - DATABASE_QDRANT_API_KEY=${QDRANT_API_KEY}
-      - STORAGE_MINIO_ENDPOINT=panda-wiki-minio:9000
-      - STORAGE_MINIO_ACCESS_KEY_ID=s3panda-wiki
-      - STORAGE_MINIO_SECRET_ACCESS_KEY=${S3_SECRET_KEY}
-      - NATS_URL=nats://panda-wiki-nats:4222
-      - NATS_USER=panda-wiki
-      - NATS_PASSWORD=${NATS_PASSWORD}
-      - EMBEDDER_RPM=800
-      - LLM_RPM=50
 
 locales:
   en:

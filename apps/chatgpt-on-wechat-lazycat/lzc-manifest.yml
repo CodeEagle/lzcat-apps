@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.chatgpt-on-wechat-lazycat
-version: 2.0.3
+version: 2.0.4
 min_os_version: 1.3.8
 name: ChatGPT-on-WeChat
 description: (LazyCat Auto-build) AI 聊天机器人 - 支持微信/飞书/钉钉/Web 控制台
@@ -16,7 +16,7 @@ application:
       backend: http://chatgpt-on-wechat:9899/
 services:
   chatgpt-on-wechat:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/chatgpt-on-wechat-lazycat:23268cca441e6249
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/chatgpt-on-wechat-lazycat:20fffbd9eb5a1383
     environment:
       # 必需配置 - Mock 值，启动后需要用户在设置中配置
       - OPEN_AI_API_KEY

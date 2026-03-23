@@ -1,4 +1,7 @@
 {
-  "source_version": "v2.2.0",
-  "build_version": "2.2.0"
+  "upstream_repo": "setube/taoyuan",
+  "source_version": "v2.3.0",
+  "build_version": "2.3.0",
+  "build_label": "v2.3.0@20260322T005704Z",
+  "last_checked_at": "2026-03-22T00:57:04.906107+00:00"
 }

@@ -1,6 +1,6 @@
 lzc-sdk-version: "0.1"
 package: fun.selfstudio.app.migration.taoyuan
-version: 2.2.0
+version: 2.3.0
 min_os_version: 1.3.8
 name: TaoYuan
 description: (LazyCat Auto-build) Chinese pastoral life sim game running fully in the browser
@@ -16,7 +16,7 @@ application:
       backend: http://taoyuan-web:80/
 services:
   taoyuan-web:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/taoyuan:2c527085760092f7
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/taoyuan:bc42f9f9b8adbe5d
     environment: []
     binds: []
     setup_script: |

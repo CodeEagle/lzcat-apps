@@ -1,7 +1,7 @@
 {
   "upstream_repo": "ahaodev/shadmin",
-  "source_version": "1061ad0",
-  "build_version": "2.1.2",
-  "build_label": "1061ad0@20260321T122729Z",
-  "last_checked_at": "2026-03-21T12:27:29.655367+00:00"
+  "source_version": "b6e97e1",
+  "build_version": "2.1.4",
+  "build_label": "b6e97e1@20260322T122458Z",
+  "last_checked_at": "2026-03-22T12:24:58.089382+00:00"
 }

@@ -21,11 +21,11 @@ services:
       - postgres
       - rabbitmq
     setup_script: |
-      set -euo pipefail
+      set -eu
 
       mkdir -p /app/oidc-keys
 
-      if ! find /app/oidc-keys -type f | head -n 1 >/dev/null 2>&1; then
+      if ! find /app/oidc-keys -type f -print -quit | grep -q .; then
         if command -v openssl >/dev/null 2>&1; then
           openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out "/app/oidc-keys/$(date -u +%s).pem"
         else

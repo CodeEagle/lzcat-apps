@@ -3,58 +3,34 @@
   "upstream_repo": "chaitin/PandaWiki",
   "check_strategy": "github_release",
   "build_strategy": "target_repo_dockerfile",
+  "image_name": "pandawiki-lzcat",
   "publish_to_store": false,
   "official_image_registry": "",
   "precompiled_binary_url": "",
   "dockerfile_type": "custom",
   "dockerfile_path": "Dockerfile",
   "build_context": ".",
-  "service_port": 8080,
+  "service_port": 8000,
   "service_cmd": [],
   "image_targets": [
-    "panda-wiki-api",
-    "panda-wiki-consumer"
+    "panda-wiki-api"
   ],
   "dependencies": [
     {
       "target_service": "panda-wiki-nginx",
-      "source_image": "registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-nginx:24dad201e9597325"
-    },
-    {
-      "target_service": "panda-wiki-app",
-      "source_image": "registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-app:d3fcf4afab64d2a1"
-    },
-    {
-      "target_service": "panda-wiki-caddy",
-      "source_image": "registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-caddy:14e3e7d49769b6c6"
+      "source_image": "chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/panda-wiki-nginx:$SOURCE_VERSION"
     },
     {
       "target_service": "panda-wiki-postgres",
-      "source_image": "registry.lazycat.cloud/invokerlaw/chaitin/postgres-zhparser:b65cc5be639b2e99"
+      "source_image": "chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/postgres-zhparser:17.6-bookworm"
     },
     {
       "target_service": "panda-wiki-redis",
-      "source_image": "registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-redis:a001686b5e7825a4"
+      "source_image": "chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/panda-wiki-redis:7.4.2-alpine"
     },
     {
       "target_service": "panda-wiki-minio",
-      "source_image": "registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-minio:ae1d850c94bcf88e"
-    },
-    {
-      "target_service": "panda-wiki-nats",
-      "source_image": "registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-nats:17781489248a2ba2"
-    },
-    {
-      "target_service": "panda-wiki-qdrant",
-      "source_image": "registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-qdrant:fca1961f7e30a805"
-    },
-    {
-      "target_service": "panda-wiki-crawler",
-      "source_image": "registry.lazycat.cloud/invokerlaw/chaitin/anydoc:74706423a0f1b25b"
-    },
-    {
-      "target_service": "panda-wiki-raglite",
-      "source_image": "registry.lazycat.cloud/invokerlaw/chaitin/raglite:733160bd1c239d09"
+      "source_image": "chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/panda-wiki-minio:RELEASE.2025-04-22T22-12-26Z-cpuv1"
     }
   ]
 }

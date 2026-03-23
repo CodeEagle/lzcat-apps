@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -123,10 +124,20 @@ def docker_login_ghcr(env: dict[str, str]) -> None:
     ghcr_username = env.get("GHCR_USERNAME") or env.get("GITHUB_REPOSITORY_OWNER") or "github-actions"
     if not ghcr_token:
         raise RuntimeError("GHCR_TOKEN or GH_TOKEN is required")
-    sh(
-        f"printf '%s' '{ghcr_token}' | docker login ghcr.io -u '{ghcr_username}' --password-stdin",
-        env=env,
-    )
+    login_cmd = f"printf '%s' '{ghcr_token}' | docker login ghcr.io -u '{ghcr_username}' --password-stdin"
+    last_error: RuntimeError | None = None
+    for attempt in range(1, 4):
+        try:
+            sh(login_cmd, env=env)
+            return
+        except RuntimeError as exc:
+            last_error = exc
+            if attempt == 3:
+                break
+            log(f"GHCR login failed on attempt {attempt}/3, retrying in 3s...")
+            time.sleep(3)
+    assert last_error is not None
+    raise last_error
 
 
 def resolve_version(config: dict[str, Any], current_build_version: str, current_source_version: str, manual_target_version: str) -> tuple[str, str]:
@@ -412,6 +423,9 @@ def build_with_dockerfile(
     else:
         args = ["docker", "build"]
     args.extend(["-f", str(dockerfile), "-t", target_image])
+    owner = env.get("GITHUB_REPOSITORY_OWNER", "CodeEagle")
+    source_repo = env.get("GITHUB_REPOSITORY", f"{owner}/lzcat-apps")
+    args.extend(["--label", f"org.opencontainers.image.source=https://github.com/{source_repo}"])
     for key, value in build_args.items():
         args.extend(["--build-arg", f"{key}={value}"])
     args.append(str(context))
@@ -477,15 +491,8 @@ def build_target_image(
                 check=False,
             )
             if inspect.returncode == 0:
-                log(f"Pulling official image: {source_image}")
-                sh(["docker", "pull", source_image], env=env, capture=False)
-                sh(["docker", "tag", source_image, target_image], env=env)
-                if dry_run:
-                    log(f"[DRY RUN] Skipping docker push: {target_image}")
-                else:
-                    log(f"Pushing image: {target_image}")
-                    sh(["docker", "push", target_image], env=env, capture=False)
-                return target_image
+                log(f"Using official image directly: {source_image}")
+                return source_image
 
     binary_url = str(config.get("precompiled_binary_url", "")).strip()
     if build_strategy == "precompiled_binary" and binary_url:
@@ -863,8 +870,18 @@ def main() -> int:
             diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=lzcat_apps_root, check=False)
             if diff.returncode != 0:
                 sh(["git", "commit", "-m", f"chore({app_name}): update to version {build_version}"], cwd=lzcat_apps_root)
-                sh(["git", "pull", "--rebase", "origin", "main"], cwd=lzcat_apps_root, env=env)
-                sh(["git", "push", "origin", "HEAD:main"], cwd=lzcat_apps_root, env=env)
+                dirty_tree = subprocess.run(
+                    ["git", "status", "--porcelain"],
+                    cwd=lzcat_apps_root,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                ).stdout.strip()
+                if dirty_tree:
+                    log(f"[{app_name}] Working tree is dirty; skipping git pull/push")
+                else:
+                    sh(["git", "pull", "--rebase", "--autostash", "origin", "main"], cwd=lzcat_apps_root, env=env)
+                    sh(["git", "push", "origin", "HEAD:main"], cwd=lzcat_apps_root, env=env)
         report["status"] = "success"
         report["phase"] = "completed"
         write_report(report, report_path)
