@@ -16,13 +16,13 @@ application:
       backend: http://better-ccflare:8080/
 services:
   better-ccflare:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/better-ccflare-lzcat:186dafa61613b364
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/better-ccflare-lzcat:39685bf2353f0fb8
     environment:
       - PORT=8080
       - BETTER_CCFLARE_HOST=0.0.0.0
-      - BETTER_CCFLARE_DB_PATH=/data/better-ccflare.db
-      - BETTER_CCFLARE_CONFIG_PATH=/data/better-ccflare.json
-      - BETTER_CCFLARE_LOG_DIR=/data/logs
+      - BETTER_CCFLARE_DB_PATH=/home/bun/.config/better-ccflare/better-ccflare.db
+      - BETTER_CCFLARE_CONFIG_PATH=/home/bun/.config/better-ccflare/better-ccflare.json
+      - BETTER_CCFLARE_LOG_DIR=/home/bun/.config/better-ccflare/logs
       - LB_STRATEGY=session
       - SESSION_DURATION_MS=18000000
       - RETRY_ATTEMPTS=3
@@ -37,7 +37,7 @@ services:
       - SSL_KEY_PATH
       - SSL_CERT_PATH
     binds:
-      - /lzcapp/var/data/better-ccflare:/data
+      - /lzcapp/var/data/better-ccflare:/home/bun/.config/better-ccflare
 locales:
   en:
     name: better-ccflare
