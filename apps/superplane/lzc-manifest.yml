@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.superplane
-version: 0.12.0
+version: 0.13.0
 min_os_version: 1.3.8
 name: SuperPlane
 description: (LazyCat Auto-build) Open-source DevOps control plane for event-driven workflows
@@ -16,7 +16,7 @@ application:
       backend: http://superplane:8000/
 services:
   superplane:
-    image: registry.lazycat.cloud/invokerlaw/superplanehq/superplane:3ecc3663b96c628d
+    image: registry.lazycat.cloud/invokerlaw/superplanehq/superplane:0501e556378d615a
     depends_on:
       - postgres
       - rabbitmq

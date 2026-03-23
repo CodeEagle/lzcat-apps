@@ -1,7 +1,7 @@
 {
   "upstream_repo": "superplanehq/superplane",
-  "source_version": "v0.12.0",
-  "build_version": "0.12.0",
-  "build_label": "v0.12.0@20260322T161149Z",
-  "last_checked_at": "2026-03-22T16:11:49.461950+00:00"
+  "source_version": "v0.13.0",
+  "build_version": "0.13.0",
+  "build_label": "v0.13.0@20260323T092842Z",
+  "last_checked_at": "2026-03-23T09:28:42.910436+00:00"
 }
