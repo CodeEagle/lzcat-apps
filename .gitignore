@@ -3,3 +3,6 @@
 scripts/.env.local
 **/*.lpk
 **/*.pyc
+**/.lzc-cli-build*/
+artifacts/
+dist/
