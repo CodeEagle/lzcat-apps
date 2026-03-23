@@ -6,3 +6,5 @@ scripts/.env.local
 **/.lzc-cli-build*/
 artifacts/
 dist/
+.acc/sessions/
+.acc/bundles/
