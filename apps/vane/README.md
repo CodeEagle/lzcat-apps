@@ -76,6 +76,8 @@ manifest 中默认写入以下运行时变量：
 | `DATA_DIR` | `/home/vane` | Vane 的配置与 SQLite 根目录 |
 | `SEARXNG_API_URL` | `http://localhost:8080` | 指向容器内置 SearXNG |
 | `NODE_ENV` | `production` | 生产模式 |
+| `PORT` | `3000` | Next.js Web 主入口端口 |
+| `HOSTNAME` | `0.0.0.0` | 强制 Next.js 监听所有网卡，避免只绑容器主机名 |
 
 说明：
 

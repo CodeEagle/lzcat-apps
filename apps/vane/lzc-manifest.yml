@@ -26,6 +26,8 @@ services:
       - DATA_DIR=/home/vane
       - SEARXNG_API_URL=http://localhost:8080
       - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
     binds:
       - /lzcapp/var/data/vane:/home/vane/data
     healthcheck:
