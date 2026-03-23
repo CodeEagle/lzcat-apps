@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "upstream_repo": "tombii/better-ccflare",
+  "check_strategy": "github_release",
+  "build_strategy": "target_repo_dockerfile",
+  "publish_to_store": false,
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "custom",
+  "dockerfile_path": "Dockerfile",
+  "build_context": ".",
+  "docker_platform": "linux/amd64",
+  "service_port": 8080,
+  "image_name": "better-ccflare-lzcat",
+  "service_cmd": [],
+  "image_targets": [
+    "better-ccflare"
+  ],
+  "dependencies": []
+}

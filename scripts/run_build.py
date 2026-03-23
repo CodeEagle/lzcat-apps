@@ -217,6 +217,13 @@ def strip_ansi(text: str) -> str:
     return re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", text).replace("\r", "\n")
 
 
+def expand_placeholders(value: str, replacements: dict[str, str]) -> str:
+    expanded = value
+    for key, replacement in replacements.items():
+        expanded = expanded.replace(key, replacement)
+    return expanded
+
+
 def copy_image_to_lazycat(source_image: str, env: dict[str, str]) -> str:
     log(f"Copying image to LazyCat registry: {source_image}")
     proc = subprocess.Popen(
@@ -445,7 +452,7 @@ def build_target_image(
     dry_run: bool = False,
 ) -> str:
     owner_lower = env.get("GITHUB_REPOSITORY_OWNER", "codeagle").lower()
-    name_lower = app_name.lower()
+    name_lower = str(config.get("image_name", "")).strip().lower() or app_name.lower()
     image_tag = head_sha[:12]
     target_image = f"ghcr.io/{owner_lower}/{name_lower}:{image_tag}"
     docker_login_ghcr(env)
@@ -746,9 +753,17 @@ def main() -> int:
                     raise RuntimeError(f"Failed to update service image in lzc-manifest.yml: {target_service}")
 
         if not args.skip_docker:
+            dependency_replacements = {
+                "$SOURCE_VERSION": source_version,
+                "$BUILD_VERSION": build_version,
+                "$HEAD_SHA": head_sha,
+            }
             for dependency in config.get("dependencies", []):
                 target_service = str(dependency.get("target_service", "")).strip()
-                source_image = str(dependency.get("source_image", "")).strip()
+                source_image = expand_placeholders(
+                    str(dependency.get("source_image", "")).strip(),
+                    dependency_replacements,
+                )
                 if not target_service or not source_image:
                     continue
                 dependency_image = copy_image_to_lazycat(source_image, env)

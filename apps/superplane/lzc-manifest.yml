@@ -1,0 +1,139 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.superplane
+version: 0.12.0
+min_os_version: 1.3.8
+name: SuperPlane
+description: (LazyCat Auto-build) Open-source DevOps control plane for event-driven workflows
+license: Apache-2.0
+homepage: https://superplane.com
+author: superplanehq
+application:
+  subdomain: superplane
+  public_path:
+    - /
+  upstreams:
+    - location: /
+      backend: http://superplane:8000/
+services:
+  superplane:
+    image: registry.lazycat.cloud/invokerlaw/superplanehq/superplane:3ecc3663b96c628d
+    depends_on:
+      - postgres
+      - rabbitmq
+    setup_script: |
+      set -euo pipefail
+
+      mkdir -p /app/oidc-keys
+
+      if ! find /app/oidc-keys -type f | head -n 1 >/dev/null 2>&1; then
+        if command -v openssl >/dev/null 2>&1; then
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out "/app/oidc-keys/$(date -u +%s).pem"
+        else
+          echo "openssl is required to generate OIDC keys" >&2
+          exit 1
+        fi
+      fi
+
+      chmod 644 /app/oidc-keys/*.pem 2>/dev/null || true
+
+      wait_for_port() {
+        host="$1"
+        port="$2"
+        label="$3"
+        for _ in $(seq 1 60); do
+          if bash -lc ">/dev/tcp/${host}/${port}" >/dev/null 2>&1; then
+            return 0
+          fi
+          sleep 2
+        done
+        echo "${label} is not reachable" >&2
+        exit 1
+      }
+
+      wait_for_port postgres 5432 PostgreSQL
+      wait_for_port rabbitmq 5672 RabbitMQ
+    environment:
+      - APP_ENV=production
+      - APPLICATION_NAME=superplane
+      - BASE_URL=https://${LAZYCAT_APP_DOMAIN}
+      - WEBHOOKS_BASE_URL=https://${LAZYCAT_APP_DOMAIN}
+      - SUPERPLANE_DOMAIN=${LAZYCAT_APP_DOMAIN}
+      - PUBLIC_API_PORT=8000
+      - INTERNAL_API_PORT=50051
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=superplane
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=superplane
+      - POSTGRES_DB_SSL=false
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - SWAGGER_BASE_PATH=/app/api/swagger
+      - RBAC_MODEL_PATH=/app/rbac/rbac_model.conf
+      - RBAC_ORG_POLICY_PATH=/app/rbac/rbac_org_policy.csv
+      - TEMPLATE_DIR=/app/templates
+      - WEB_BASE_PATH=
+      - PUBLIC_API_BASE_PATH=/api/v1
+      - OWNER_SETUP_ENABLED=yes
+      - ENABLE_PASSWORD_LOGIN=yes
+      - BLOCK_SIGNUP=yes
+      - ENCRYPTION_KEY=0123456789abcdef0123456789abcdef
+      - JWT_SECRET=0123456789abcdef0123456789abcdef
+      - SESSION_SECRET=0123456789abcdef0123456789abcdef
+      - OIDC_KEYS_PATH=/app/oidc-keys
+      - NO_ENCRYPTION=no
+      - START_PUBLIC_API=yes
+      - START_INTERNAL_API=yes
+      - START_GRPC_GATEWAY=yes
+      - START_CONSUMERS=yes
+      - START_WEB_SERVER=yes
+      - START_EVENT_DISTRIBUTER=yes
+      - START_EVENT_ROUTER=yes
+      - START_NODE_EXECUTOR=yes
+      - START_NODE_QUEUE_WORKER=yes
+      - START_NODE_REQUEST_WORKER=yes
+      - START_INTEGRATION_REQUEST_WORKER=yes
+      - START_WEBHOOK_PROVISIONER=yes
+      - START_WEBHOOK_CLEANUP_WORKER=yes
+      - START_INTEGRATION_CLEANUP_WORKER=yes
+      - START_CANVAS_CLEANUP_WORKER=yes
+      - SUPERPLANE_BEACON_ENABLED=yes
+      - SUPERPLANE_INSTALLATION_TYPE=single-host
+      - SENTRY_DSN=
+      - SENTRY_ENVIRONMENT=single-host
+      - OTEL_ENABLED=no
+    binds:
+      - /lzcapp/var/data/oidc-keys:/app/oidc-keys
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+  postgres:
+    image: registry.lazycat.cloud/invokerlaw/library/postgres:f717350ad016d704
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=superplane
+      - POSTGRES_DB=superplane
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    binds:
+      - /lzcapp/var/db/superplane/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d superplane"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  rabbitmq:
+    image: registry.lazycat.cloud/invokerlaw/library/rabbitmq:54d1ac3a8d70a82d
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+locales:
+  en:
+    name: SuperPlane
+    description: (LazyCat Auto-build) Open-source DevOps control plane for event-driven workflows
+  zh:
+    name: SuperPlane
+    description: （懒猫微服自动构建）开源 DevOps 事件驱动工作流控制平面
