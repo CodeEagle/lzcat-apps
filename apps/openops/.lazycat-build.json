@@ -1,0 +1,7 @@
+{
+  "upstream_repo": "openops-cloud/openops",
+  "source_version": "0.6.23",
+  "build_version": "0.6.23",
+  "build_label": "0.6.23@20260322T000000Z",
+  "last_checked_at": "2026-03-22T00:00:00+00:00"
+}
