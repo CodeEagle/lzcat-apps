@@ -8,3 +8,4 @@ artifacts/
 dist/
 .acc/sessions/
 .acc/bundles/
+.acc/archive/
