@@ -16,27 +16,27 @@
 
 ## 预填环境变量
 - `POSTGRES_DB`: From compose service postgres (required=False)
-- `POSTGRES_USER`: From compose service postgres (required=True)
-- `POSTGRES_PASSWORD`: From compose service postgres (required=True)
+- `POSTGRES_USER`: From compose service postgres (required=False)
+- `POSTGRES_PASSWORD`: From compose service postgres (required=False)
 - `DB_URL`: From compose service api (required=False)
-- `DB_USER`: From compose service api (required=True)
-- `DB_PWD`: From compose service api (required=True)
+- `DB_USER`: From compose service api (required=False)
+- `DB_PWD`: From compose service api (required=False)
 - `PUBLIC_API_URL`: From compose service api (required=False)
-- `PUBLIC_FRONT_URL`: From compose service api (required=True)
+- `PUBLIC_FRONT_URL`: From compose service api (required=False)
 - `GCP_BUCKET_NAME`: From compose service api (required=True)
 - `GCP_JSON`: From compose service api (required=True)
 - `GCP_PROJECT_ID`: From compose service api (required=True)
 - `MAIL_RECIPIENTS`: From compose service api (required=True)
 - `SMTP_PWD`: From compose service api (required=True)
 - `SMTP_USER`: From compose service api (required=True)
-- `SMTP_HOST`: From compose service api (required=True)
-- `SMTP_PORT`: From compose service api (required=True)
+- `SMTP_HOST`: From compose service api (required=False)
+- `SMTP_PORT`: From compose service api (required=False)
 - `SPRING_PROFILES_ACTIVE`: From compose service api (required=True)
-- `JWT_SECRET_KEY`: From compose service api (required=True)
+- `JWT_SECRET_KEY`: From compose service api (required=False)
 - `MINIO_ENDPOINT`: From compose service api (required=False)
 - `MINIO_BUCKET`: From compose service api (required=False)
-- `MINIO_ACCESS_KEY`: From compose service api (required=True)
-- `MINIO_SECRET_KEY`: From compose service api (required=True)
+- `MINIO_ACCESS_KEY`: From compose service api (required=False)
+- `MINIO_SECRET_KEY`: From compose service api (required=False)
 - `STORAGE_TYPE`: From compose service api (required=False)
 - `PUBLIC_MINIO_ENDPOINT`: From compose service api (required=False)
 - `INVITATION_VIA_EMAIL`: From compose service frontend (required=False)
@@ -62,7 +62,7 @@
 - `SENDGRID_FROM_EMAIL`: From compose service api (required=False)
 - `SENDGRID_CONTACT_LIST_ID`: From compose service api (required=False)
 - `RECAPTCHA_SECRET_KEY`: From compose service api (required=False)
-- `API_URL`: From compose service frontend (required=True)
+- `API_URL`: From compose service frontend (required=False)
 - `GOOGLE_KEY`: From compose service frontend (required=False)
 - `GOOGLE_TRACKING_ID`: From compose service frontend (required=False)
 - `CLOUD_VERSION`: From compose service frontend (required=False)
@@ -70,11 +70,8 @@
 - `DEMO_LINK`: From compose service frontend (required=False)
 - `PADDLE_SECRET_TOKEN`: From compose service frontend (required=False)
 - `RECAPTCHA_SITE_KEY`: From compose service frontend (required=False)
-- `MINIO_ROOT_USER`: From compose service minio (required=True)
-- `MINIO_ROOT_PASSWORD`: From compose service minio (required=True)
-- `POSTGRES_PWD`: From .env.example (required=False)
-- `MINIO_USER`: From .env.example (required=False)
-- `MINIO_PASSWORD`: From .env.example (required=False)
+- `MINIO_ROOT_USER`: From compose service minio (required=False)
+- `MINIO_ROOT_PASSWORD`: From compose service minio (required=False)
 
 ## 预填数据路径
 - `/var/lib/postgresql/data` <= `/lzcapp/var/db/cmms/postgres` (From compose service postgres)
@@ -101,20 +98,20 @@
 - `postgres`
   image: `registry.lazycat.cloud/placeholder/cmms:postgres`
   binds: `/lzcapp/var/db/cmms/postgres:/var/lib/postgresql/data`
-  environment: `POSTGRES_DB=atlas, POSTGRES_USER, POSTGRES_PASSWORD=${POSTGRES_PWD}`
+  environment: `POSTGRES_DB=atlas, POSTGRES_USER, POSTGRES_PASSWORD=mypassword`
 - `api`
   image: `registry.lazycat.cloud/placeholder/cmms:api`
   depends_on: `postgres, minio`
   binds: `/lzcapp/var/data/cmms/api/images:/app/static/images, /lzcapp/var/data/cmms/api/config:/app/static/config`
-  environment: `DB_URL=postgres/atlas, DB_USER=${POSTGRES_USER}, DB_PWD=${POSTGRES_PWD}, PUBLIC_API_URL=https://cmms.${LAZYCAT_BOX_DOMAIN}/api, PUBLIC_FRONT_URL, GCP_BUCKET_NAME, GCP_JSON, GCP_PROJECT_ID, MAIL_RECIPIENTS, SMTP_PWD, SMTP_USER, SMTP_HOST, SMTP_PORT, SPRING_PROFILES_ACTIVE, JWT_SECRET_KEY, MINIO_ENDPOINT=http://minio:9000, MINIO_BUCKET=atlas-bucket, MINIO_ACCESS_KEY=${MINIO_USER}, MINIO_SECRET_KEY=${MINIO_PASSWORD}, STORAGE_TYPE=${STORAGE_TYPE:-minio}, PUBLIC_MINIO_ENDPOINT=https://cmms.${LAZYCAT_BOX_DOMAIN}/minio, INVITATION_VIA_EMAIL=${INVITATION_VIA_EMAIL:-false}, ENABLE_EMAIL_NOTIFICATIONS=${ENABLE_EMAIL_NOTIFICATIONS:-false}, ENABLE_SSO=${ENABLE_SSO:-false}, OAUTH2_PROVIDER, OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET, LICENSE_KEY=${LICENSE_KEY:-}, LICENSE_FINGERPRINT_REQUIRED=${LICENSE_FINGERPRINT_REQUIRED:-true}, LICENSE_FILE_PATH=${LICENSE_FILE_PATH:-}, ALLOWED_ORGANIZATION_ADMINS=${ALLOWED_ORGANIZATION_ADMINS:-}, LOGO_PATHS, CUSTOM_COLORS, BRAND_CONFIG, PADDLE_API_KEY=${PADDLE_API_KEY:-}, PADDLE_WEBHOOK_SECRET_KEY=${PADDLE_WEBHOOK_SECRET_KEY:-}, PADDLE_ENVIRONMENT=${PADDLE_ENVIRONMENT:-sandbox}, ENABLE_CORS=${ENABLE_CORS:-true}, KEYGEN_PRODUCT_TOKEN=${KEYGEN_PRODUCT_TOKEN:-}, MAIL_TYPE=${MAIL_TYPE:-smtp}, SENDGRID_API_KEY=${SENDGRID_API_KEY:-}, SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL:-}, SENDGRID_CONTACT_LIST_ID=${SENDGRID_CONTACT_LIST_ID:-}, RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY:-}`
+  environment: `DB_URL=postgres/atlas, DB_USER=rootUser, DB_PWD=mypassword, PUBLIC_API_URL=https://cmms.${LAZYCAT_BOX_DOMAIN}/api, PUBLIC_FRONT_URL, GCP_BUCKET_NAME, GCP_JSON, GCP_PROJECT_ID, MAIL_RECIPIENTS, SMTP_PWD, SMTP_USER, SMTP_HOST, SMTP_PORT, SPRING_PROFILES_ACTIVE, JWT_SECRET_KEY, MINIO_ENDPOINT=http://minio:9000, MINIO_BUCKET=atlas-bucket, MINIO_ACCESS_KEY=minio, MINIO_SECRET_KEY=minio123, STORAGE_TYPE=MINIO, PUBLIC_MINIO_ENDPOINT=https://cmms.${LAZYCAT_BOX_DOMAIN}/minio, INVITATION_VIA_EMAIL=false, ENABLE_EMAIL_NOTIFICATIONS=false, ENABLE_SSO=false, OAUTH2_PROVIDER, OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET, LICENSE_KEY=, LICENSE_FINGERPRINT_REQUIRED=false, LICENSE_FILE_PATH=, ALLOWED_ORGANIZATION_ADMINS=, LOGO_PATHS, CUSTOM_COLORS, BRAND_CONFIG, PADDLE_API_KEY=, PADDLE_WEBHOOK_SECRET_KEY=, PADDLE_ENVIRONMENT=production, ENABLE_CORS=false, KEYGEN_PRODUCT_TOKEN=, MAIL_TYPE=smtp, SENDGRID_API_KEY=, SENDGRID_FROM_EMAIL=, SENDGRID_CONTACT_LIST_ID=, RECAPTCHA_SECRET_KEY=`
 - `frontend`
   image: `registry.lazycat.cloud/placeholder/cmms:frontend`
   depends_on: `api`
-  environment: `API_URL=https://cmms.${LAZYCAT_BOX_DOMAIN}/api, GOOGLE_KEY=${GOOGLE_KEY:-}, GOOGLE_TRACKING_ID=${GOOGLE_TRACKING_ID:-}, INVITATION_VIA_EMAIL=${INVITATION_VIA_EMAIL:-false}, CLOUD_VERSION=${CLOUD_VERSION:-false}, NODE_ENV=production, ENABLE_SSO=${ENABLE_SSO:-false}, OAUTH2_PROVIDER=${OAUTH2_PROVIDER:-}, LOGO_PATHS=${LOGO_PATHS:-}, CUSTOM_COLORS=${CUSTOM_COLORS:-}, BRAND_CONFIG=${BRAND_CONFIG:-}, DEMO_LINK=${DEMO_LINK:-}, PADDLE_SECRET_TOKEN=${PADDLE_SECRET_TOKEN:-}, PADDLE_ENVIRONMENT=${PADDLE_ENVIRONMENT:-sandbox}, RECAPTCHA_SITE_KEY=${RECAPTCHA_SITE_KEY:-}`
+  environment: `API_URL=https://cmms.${LAZYCAT_BOX_DOMAIN}/api, GOOGLE_KEY=, GOOGLE_TRACKING_ID=, INVITATION_VIA_EMAIL=false, CLOUD_VERSION=false, NODE_ENV=production, ENABLE_SSO=false, OAUTH2_PROVIDER=, LOGO_PATHS=, CUSTOM_COLORS=, BRAND_CONFIG=, DEMO_LINK=, PADDLE_SECRET_TOKEN=, PADDLE_ENVIRONMENT=production, RECAPTCHA_SITE_KEY=`
 - `minio`
   image: `registry.lazycat.cloud/placeholder/cmms:minio`
   binds: `/lzcapp/var/data/cmms/minio:/data`
-  environment: `MINIO_ROOT_USER=${MINIO_USER}, MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}`
+  environment: `MINIO_ROOT_USER=minio, MINIO_ROOT_PASSWORD=minio123`
 
 ## 退出条件
 - [ ] 入口、端口、环境变量、真实写路径、初始化命令、数据库/auth 配置全部确认完毕

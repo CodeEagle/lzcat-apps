@@ -745,6 +745,59 @@ def parse_env_files(paths: list[Path]) -> list[dict[str, Any]]:
     return dedupe_env_docs(entries)
 
 
+def env_defaults_map(entries: list[dict[str, Any]]) -> dict[str, str]:
+    defaults: dict[str, str] = {}
+    for entry in entries:
+        name = str(entry.get("name", "")).strip()
+        if not name or "value" not in entry or entry["value"] is None:
+            continue
+        defaults[name] = str(entry["value"])
+    return defaults
+
+
+def resolve_compose_environment(environment: list[str], defaults: dict[str, str]) -> list[str]:
+    resolved: list[str] = []
+    for entry in environment:
+        if "=" not in entry:
+            resolved.append(entry)
+            continue
+
+        name, value = entry.split("=", 1)
+        match = re.fullmatch(r"\$\{([^}:?-]+)(?:(:?[-?])(.*))?\}", value.strip())
+        if not match:
+            resolved.append(entry)
+            continue
+
+        source_name = match.group(1)
+        operator = match.group(2) or ""
+        operand = match.group(3) or ""
+
+        if source_name in defaults:
+            resolved.append(f"{name}={defaults[source_name]}")
+            continue
+
+        if operator in {":-", "-"}:
+            resolved.append(f"{name}={operand}")
+            continue
+
+        resolved.append(entry)
+    return resolved
+
+
+def resolve_compose_env_docs(entries: list[dict[str, Any]], defaults: dict[str, str]) -> list[dict[str, Any]]:
+    resolved: list[dict[str, Any]] = []
+    for entry in entries:
+        item = dict(entry)
+        source_name = str(item.get("source_name") or item.get("name") or "").strip()
+        if source_name in defaults and "value" not in item:
+            item["value"] = defaults[source_name]
+            item["required"] = False
+        elif item.get("required") is False and "value" not in item and source_name == str(item.get("name", "")).strip():
+            item["value"] = ""
+        resolved.append(item)
+    return resolved
+
+
 def parse_dockerfile_ports(dockerfile_path: Path) -> list[int]:
     ports: list[int] = []
     text = dockerfile_path.read_text(encoding="utf-8", errors="ignore")
@@ -906,6 +959,7 @@ def choose_route_for_compose(
     source_root: Path,
     compose_file: Path,
     dockerfile: Path | None,
+    env_files: list[Path],
 ) -> dict[str, Any]:
     compose = load_yaml(compose_file)
     services = compose.get("services") if isinstance(compose, dict) else {}
@@ -931,6 +985,7 @@ def choose_route_for_compose(
     build_strategy = ""
     official_image_registry = ""
     dockerfile_path = ""
+    env_defaults = env_defaults_map(parse_env_files(env_files))
 
     build_services: dict[str, dict[str, Any]] = {}
 
@@ -1026,9 +1081,10 @@ def choose_route_for_compose(
         }
 
         environment, env_items = extract_compose_environment(service_name, payload)
-        env_docs.extend(env_items)
+        env_docs.extend(resolve_compose_env_docs(env_items, env_defaults))
         if environment:
-            service_payload["environment"] = rewrite_public_url_envs(environment, slug)
+            resolved_env = resolve_compose_environment(environment, env_defaults)
+            service_payload["environment"] = rewrite_public_url_envs(resolved_env, slug)
 
         binds: list[str] = []
         for volume in bm.ensure_list(payload.get("volumes")):
@@ -1557,7 +1613,7 @@ def analyze_source(normalized: dict[str, Any], source_dir: Path | None) -> dict[
                 f"检测到开发用 compose，已跳过其服务拆分结果（compose={compose_file.name}）。"
             ]
         else:
-            spec = choose_route_for_compose(slug, meta, source_dir, compose_file, dockerfile)
+            spec = choose_route_for_compose(slug, meta, source_dir, compose_file, dockerfile, env_files)
     elif native_project_reason:
         raise ValueError(native_project_reason)
     elif dockerfile:
@@ -1571,9 +1627,19 @@ def analyze_source(normalized: dict[str, Any], source_dir: Path | None) -> dict[
         raise ValueError("当前输入不是 GitHub 仓库，也没有可分析的 compose/Dockerfile")
 
     env_from_files = parse_env_files(env_files)
+    resolved_source_names = {
+        str(entry.get("source_name", "")).strip()
+        for entry in bm.ensure_list(spec.get("env_vars"))
+        if isinstance(entry, dict) and str(entry.get("source_name", "")).strip()
+    }
+    existing_env_names = {
+        entry.get("name")
+        for entry in bm.ensure_list(spec.get("env_vars"))
+        if isinstance(entry, dict)
+    }
     spec["env_vars"] = bm.ensure_list(spec.get("env_vars")) + [
         item for item in env_from_files
-        if item.get("name") not in {entry.get("name") for entry in bm.ensure_list(spec.get("env_vars")) if isinstance(entry, dict)}
+        if item.get("name") not in existing_env_names and item.get("name") not in resolved_source_names
     ]
     spec["startup_notes"] = bm.ensure_list(spec.get("startup_notes")) + [
         f"扫描到 env 示例文件：{', '.join(path.name for path in env_files[:3])}" if env_files else "未扫描到 env 示例文件",

@@ -222,7 +222,7 @@ def env_items_to_manifest(entries: list[Any]) -> list[str]:
         name = str(item.get("name", "")).strip()
         if not name:
             continue
-        if "value" in item and item["value"] is not None and str(item["value"]) != "":
+        if "value" in item and item["value"] is not None:
             rendered.append(f"{name}={item['value']}")
         else:
             rendered.append(name)

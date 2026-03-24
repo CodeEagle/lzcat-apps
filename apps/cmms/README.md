@@ -26,27 +26,27 @@
 | 变量名 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | POSTGRES_DB | No | atlas | From compose service postgres |
-| POSTGRES_USER | Yes | - | From compose service postgres |
-| POSTGRES_PASSWORD | Yes | - | From compose service postgres |
+| POSTGRES_USER | No | rootUser | From compose service postgres |
+| POSTGRES_PASSWORD | No | mypassword | From compose service postgres |
 | DB_URL | No | postgres/atlas | From compose service api |
-| DB_USER | Yes | - | From compose service api |
-| DB_PWD | Yes | - | From compose service api |
+| DB_USER | No | rootUser | From compose service api |
+| DB_PWD | No | mypassword | From compose service api |
 | PUBLIC_API_URL | No | http://localhost:8080 | From compose service api |
-| PUBLIC_FRONT_URL | Yes | - | From compose service api |
+| PUBLIC_FRONT_URL | No | http://localhost:3000 | From compose service api |
 | GCP_BUCKET_NAME | Yes | - | From compose service api |
 | GCP_JSON | Yes | - | From compose service api |
 | GCP_PROJECT_ID | Yes | - | From compose service api |
 | MAIL_RECIPIENTS | Yes | - | From compose service api |
 | SMTP_PWD | Yes | - | From compose service api |
 | SMTP_USER | Yes | - | From compose service api |
-| SMTP_HOST | Yes | - | From compose service api |
-| SMTP_PORT | Yes | - | From compose service api |
+| SMTP_HOST | No | smtp.gmail.com | From compose service api |
+| SMTP_PORT | No | 587 | From compose service api |
 | SPRING_PROFILES_ACTIVE | Yes | - | From compose service api |
-| JWT_SECRET_KEY | Yes | - | From compose service api |
+| JWT_SECRET_KEY | No | sD1HBM6ngcaDLMzDqgA9Pn9LEECNAp0C1EOHIR/D+q4= | From compose service api |
 | MINIO_ENDPOINT | No | http://minio:9000 | From compose service api |
 | MINIO_BUCKET | No | atlas-bucket | From compose service api |
-| MINIO_ACCESS_KEY | Yes | - | From compose service api |
-| MINIO_SECRET_KEY | Yes | - | From compose service api |
+| MINIO_ACCESS_KEY | No | minio | From compose service api |
+| MINIO_SECRET_KEY | No | minio123 | From compose service api |
 | STORAGE_TYPE | No | minio | From compose service api |
 | PUBLIC_MINIO_ENDPOINT | No | http://localhost:9000 | From compose service api |
 | INVITATION_VIA_EMAIL | No | false | From compose service frontend |
@@ -72,7 +72,7 @@
 | SENDGRID_FROM_EMAIL | No | - | From compose service api |
 | SENDGRID_CONTACT_LIST_ID | No | - | From compose service api |
 | RECAPTCHA_SECRET_KEY | No | - | From compose service api |
-| API_URL | Yes | - | From compose service frontend |
+| API_URL | No | http://localhost:8080 | From compose service frontend |
 | GOOGLE_KEY | No | - | From compose service frontend |
 | GOOGLE_TRACKING_ID | No | - | From compose service frontend |
 | CLOUD_VERSION | No | false | From compose service frontend |
@@ -80,11 +80,8 @@
 | DEMO_LINK | No | - | From compose service frontend |
 | PADDLE_SECRET_TOKEN | No | - | From compose service frontend |
 | RECAPTCHA_SITE_KEY | No | - | From compose service frontend |
-| MINIO_ROOT_USER | Yes | - | From compose service minio |
-| MINIO_ROOT_PASSWORD | Yes | - | From compose service minio |
-| POSTGRES_PWD | No | mypassword | From .env.example |
-| MINIO_USER | No | minio | From .env.example |
-| MINIO_PASSWORD | No | minio123 | From .env.example |
+| MINIO_ROOT_USER | No | minio | From compose service minio |
+| MINIO_ROOT_PASSWORD | No | minio123 | From compose service minio |
 
 ## 数据目录
 
