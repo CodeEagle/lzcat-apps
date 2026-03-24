@@ -19,6 +19,13 @@ def parse_bool(value: object, default: bool = False) -> bool:
     return text in {"1", "true", "yes", "on"}
 
 
+def normalize_target_repo(value: str) -> str:
+    text = value.strip()
+    if text in {"", "all-enabled-apps", "__all__", "all"}:
+        return ""
+    return text
+
+
 def load_event_payload() -> dict:
     event_path = os.environ.get("GITHUB_EVENT_PATH")
     if not event_path:
@@ -76,7 +83,7 @@ def main() -> int:
 
     configs, by_app = load_configs(config_root)
 
-    target_repo = (
+    target_repo = normalize_target_repo(
         os.environ.get("INPUT_TARGET_REPO")
         or str(payload.get("target_repo", "")).strip()
     )

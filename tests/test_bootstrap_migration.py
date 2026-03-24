@@ -1,0 +1,190 @@
+from __future__ import annotations
+
+import json
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = REPO_ROOT / "scripts" / "bootstrap_migration.py"
+
+
+class BootstrapMigrationTest(unittest.TestCase):
+    def make_repo_root(self) -> Path:
+        temp_dir = Path(tempfile.mkdtemp(prefix="lzcat-bootstrap-test-"))
+        (temp_dir / "apps").mkdir(parents=True, exist_ok=True)
+        (temp_dir / "registry" / "repos").mkdir(parents=True, exist_ok=True)
+        (temp_dir / "registry" / "repos" / "index.json").write_text('{"repos":[]}\n', encoding="utf-8")
+        return temp_dir
+
+    def run_script(self, repo_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [
+                "python3",
+                str(SCRIPT),
+                "--repo-root",
+                str(repo_root),
+                *args,
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    def test_cli_scaffold_single_service(self) -> None:
+        repo_root = self.make_repo_root()
+        result = self.run_script(
+            repo_root,
+            "--slug",
+            "demo-app",
+            "--project-name",
+            "Demo App",
+            "--upstream-repo",
+            "acme/demo-app",
+            "--description",
+            "Demo app for scaffold test",
+            "--description-zh",
+            "用于脚手架测试的 Demo 应用",
+            "--homepage",
+            "https://example.com/demo-app",
+            "--license",
+            "MIT",
+            "--author",
+            "Acme",
+            "--version",
+            "1.2.3",
+            "--build-strategy",
+            "official_image",
+            "--official-image-registry",
+            "ghcr.io/acme/demo-app",
+            "--service-port",
+            "8080",
+            "--env",
+            "OPENAI_API_KEY",
+            "--data-path",
+            "/lzcapp/var/data/demo-app:/app/data",
+            "--startup-note",
+            "Create the first admin account after install",
+            "--no-fetch-upstream",
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        manifest = (repo_root / "apps" / "demo-app" / "lzc-manifest.yml").read_text(encoding="utf-8")
+        config = json.loads((repo_root / "registry" / "repos" / "demo-app.json").read_text(encoding="utf-8"))
+        index = json.loads((repo_root / "registry" / "repos" / "index.json").read_text(encoding="utf-8"))
+
+        self.assertIn("package: fun.selfstudio.app.migration.demo-app", manifest)
+        self.assertIn("backend: http://demo-app:8080/", manifest)
+        self.assertIn("OPENAI_API_KEY", manifest)
+        self.assertEqual(config["build_strategy"], "official_image")
+        self.assertEqual(config["official_image_registry"], "ghcr.io/acme/demo-app")
+        self.assertIn("demo-app.json", index["repos"])
+
+    def test_spec_scaffold_multi_service_with_content(self) -> None:
+        repo_root = self.make_repo_root()
+        spec_path = repo_root / "spec.json"
+        spec_path.write_text(
+            json.dumps(
+                {
+                    "slug": "stack-app",
+                    "project_name": "Stack App",
+                    "upstream_repo": "acme/stack-app",
+                    "description": "Stack app scaffold",
+                    "description_zh": "多服务脚手架示例",
+                    "homepage": "https://example.com/stack-app",
+                    "license": "Apache-2.0",
+                    "author": "Acme",
+                    "version": "2.0.0",
+                    "check_strategy": "github_tag",
+                    "build_strategy": "official_image",
+                    "official_image_registry": "docker.io/acme/stack-app",
+                    "service_port": 3000,
+                    "image_targets": ["web", "api"],
+                    "env_vars": [
+                        {
+                            "name": "API_KEY",
+                            "required": True,
+                            "description": "API key"
+                        }
+                    ],
+                    "data_paths": [
+                        {
+                            "host": "/lzcapp/var/data/stack-app",
+                            "container": "/data",
+                            "description": "Application data"
+                        }
+                    ],
+                    "startup_notes": [
+                        "Seed the initial admin account after first start"
+                    ],
+                    "application": {
+                        "subdomain": "stack-app",
+                        "routes": [
+                            "/=file:///lzcapp/pkg/content/home"
+                        ],
+                        "public_path": ["/", "/api/"],
+                        "upstreams": [
+                            {
+                                "location": "/api/",
+                                "backend": "http://api:8080/api/"
+                            },
+                            {
+                                "location": "/",
+                                "backend": "http://web:3000/"
+                            }
+                        ]
+                    },
+                    "services": {
+                        "web": {
+                            "image": "registry.lazycat.cloud/placeholder/stack-app:web",
+                            "depends_on": ["api"],
+                            "environment": ["NODE_ENV=production"]
+                        },
+                        "api": {
+                            "image": "registry.lazycat.cloud/placeholder/stack-app:api",
+                            "environment": ["API_KEY"],
+                            "binds": ["/lzcapp/var/data/stack-app:/data"],
+                            "healthcheck": {
+                                "test": [
+                                    "CMD-SHELL",
+                                    "curl -f http://127.0.0.1:8080/health >/dev/null || exit 1"
+                                ],
+                                "interval": "30s",
+                                "timeout": "10s",
+                                "retries": 5
+                            }
+                        }
+                    },
+                    "include_content": True
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        result = self.run_script(
+            repo_root,
+            "--spec",
+            str(spec_path),
+            "--no-fetch-upstream",
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        manifest = (repo_root / "apps" / "stack-app" / "lzc-manifest.yml").read_text(encoding="utf-8")
+        build_yml = (repo_root / "apps" / "stack-app" / "lzc-build.yml").read_text(encoding="utf-8")
+        checklist = (repo_root / "apps" / "stack-app" / "UPSTREAM_DEPLOYMENT_CHECKLIST.md").read_text(encoding="utf-8")
+
+        self.assertIn("location: /api/", manifest)
+        self.assertIn("backend: http://web:3000/", manifest)
+        self.assertIn("healthcheck:", manifest)
+        self.assertIn("contentdir: ./content", build_yml)
+        self.assertTrue((repo_root / "apps" / "stack-app" / "content" / "README.md").exists())
+        self.assertIn("PROJECT_SLUG: stack-app", checklist)
+
+
+if __name__ == "__main__":
+    unittest.main()
