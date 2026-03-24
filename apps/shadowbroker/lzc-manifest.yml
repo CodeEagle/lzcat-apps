@@ -17,7 +17,7 @@ application:
       backend: http://frontend:3000/
 services:
   backend:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/shadowbroker-backend:53f389f401ed6ff6
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/shadowbroker-backend:9e1d832c1b7884f7
     environment:
       - AIS_API_KEY
       - OPENSKY_CLIENT_ID
@@ -37,7 +37,7 @@ services:
       retries: 3
       start_period: 90s
   frontend:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/shadowbroker-frontend:2ba81d1be2a99e46
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/shadowbroker-frontend:1d7b32106d9f2b2a
     depends_on:
       - backend
     environment:
