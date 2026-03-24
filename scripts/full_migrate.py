@@ -44,6 +44,85 @@ INFRA_KEYWORDS = {
 WEB_HINTS = ("web", "ui", "frontend", "app", "server", "api", "dashboard", "console")
 COMPOSE_FILENAMES = ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml")
 DEV_COMMAND_HINTS = (" dev", "vite", "webpack", "storybook", "hot-reload")
+LOW_PRIORITY_DOCKERFILE_DIRS = {
+    ".github",
+    "ci",
+    "contrib",
+    "demo",
+    "demos",
+    "deploy",
+    "deployment",
+    "dev",
+    "docker",
+    "docs",
+    "example",
+    "examples",
+    "hack",
+    "packaging",
+    "scripts",
+    "test",
+    "tests",
+    "tools",
+}
+NATIVE_PLATFORM_HINTS = {
+    "android",
+    "desktop",
+    "ios",
+    "linux",
+    "mac",
+    "macos",
+    "ns",
+    "nintendo",
+    "ps4",
+    "ps5",
+    "psv",
+    "psvita",
+    "switch",
+    "uwp",
+    "vita",
+    "win",
+    "windows",
+    "winrt",
+    "xbox",
+}
+NATIVE_ROOT_BUILD_FILES = {
+    "CMakeLists.txt",
+    "meson.build",
+    "SConstruct",
+    "xmake.lua",
+}
+NATIVE_README_HINTS = (
+    "gamepad",
+    "glfw",
+    "handheld",
+    "keyboard",
+    "macos",
+    "metal",
+    "mouse",
+    "nanovg",
+    "nintendo switch",
+    "open gl",
+    "opengl",
+    "pc client",
+    "ps4",
+    "psvita",
+    "steam deck",
+    "sdl",
+    "touch",
+    "vulkan",
+    "windows",
+    "xbox",
+)
+SERVICE_README_HINTS = (
+    "docker compose",
+    "docker run",
+    "127.0.0.1",
+    "localhost",
+    "open http",
+    "port ",
+    "reverse proxy",
+    "web ui",
+)
 
 
 def sh(
@@ -142,15 +221,27 @@ def parse_raw_github_compose_url(source: str) -> str | None:
     return None
 
 
+def infer_local_git_upstream(path: Path) -> tuple[str, str]:
+    if not (path / ".git").exists():
+        return "", ""
+    remote = sh(["git", "remote", "get-url", "origin"], cwd=path, check=False).strip()
+    if not remote:
+        return "", ""
+    repo = parse_github_repo(remote) or parse_raw_github_compose_url(remote) or ""
+    homepage = f"https://github.com/{repo}" if repo else ""
+    return repo, homepage
+
+
 def normalize_source(source: str) -> dict[str, Any]:
     expanded = Path(source).expanduser()
     if expanded.exists() and expanded.is_dir():
+        upstream_repo, homepage = infer_local_git_upstream(expanded.resolve())
         return {
             "kind": "local_repo",
             "source": source,
             "path": expanded.resolve(),
-            "upstream_repo": "",
-            "homepage": "",
+            "upstream_repo": upstream_repo,
+            "homepage": homepage,
         }
 
     github_repo = parse_github_repo(source)
@@ -196,7 +287,16 @@ def prepare_source(normalized: dict[str, Any]) -> tuple[Path | None, list[str], 
 
     if normalized["kind"] == "github_repo":
         repo_dir = temp_root / normalized["upstream_repo"].split("/", 1)[1]
-        sh(["git", "clone", "--depth", "1", normalized["homepage"] + ".git", str(repo_dir)])
+        sh([
+            "git",
+            "clone",
+            "--depth",
+            "1",
+            "--recurse-submodules",
+            "--shallow-submodules",
+            normalized["homepage"] + ".git",
+            str(repo_dir),
+        ])
         outputs.append(str(repo_dir))
         return repo_dir, outputs, lambda: shutil.rmtree(temp_root, ignore_errors=True)
 
@@ -220,13 +320,46 @@ def select_compose_file(source_dir: Path) -> Path | None:
 
 
 def select_dockerfile(source_dir: Path) -> Path | None:
-    candidates = sorted(source_dir.rglob("Dockerfile"), key=lambda p: (len(p.relative_to(source_dir).parts), str(p)))
+    candidates = sorted(source_dir.rglob("Dockerfile"), key=lambda p: (dockerfile_score(source_dir, p), str(p)), reverse=True)
     if candidates:
         return candidates[0]
-    containerfiles = sorted(source_dir.rglob("Containerfile"), key=lambda p: (len(p.relative_to(source_dir).parts), str(p)))
+    containerfiles = sorted(source_dir.rglob("Containerfile"), key=lambda p: (dockerfile_score(source_dir, p), str(p)), reverse=True)
     if containerfiles:
         return containerfiles[0]
     return None
+
+
+def dockerfile_score(source_dir: Path, path: Path) -> int:
+    try:
+        relative = path.relative_to(source_dir)
+    except ValueError:
+        return -1000
+
+    parts = [part.lower() for part in relative.parts]
+    score = 0
+    depth = len(parts)
+
+    score -= depth * 10
+    if relative == Path("Dockerfile") or relative == Path("Containerfile"):
+        score += 300
+    if depth > 1 and parts[0] in LOW_PRIORITY_DOCKERFILE_DIRS:
+        score -= 140
+    if any(part in NATIVE_PLATFORM_HINTS for part in parts[:-1]):
+        score -= 180
+    if path.name != "Dockerfile":
+        score -= 20
+
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return score
+    if re.search(r"(?im)^\s*EXPOSE\s+\d+", text):
+        score += 30
+    if re.search(r"(?im)^\s*(CMD|ENTRYPOINT)\b", text):
+        score += 20
+    if re.search(r"(?i)\b(nginx|caddy|apache|uvicorn|gunicorn|node|python -m http\.server)\b", text):
+        score += 20
+    return score
 
 
 def list_env_files(source_dir: Path) -> list[Path]:
@@ -239,6 +372,70 @@ def list_env_files(source_dir: Path) -> list[Path]:
 
 def list_readmes(source_dir: Path) -> list[Path]:
     return sorted(source_dir.rglob("README*"), key=lambda p: (len(p.relative_to(source_dir).parts), str(p)))
+
+
+def readme_excerpt(readmes: list[Path]) -> str:
+    chunks: list[str] = []
+    for path in readmes[:3]:
+        try:
+            chunks.append(path.read_text(encoding="utf-8", errors="ignore").lower())
+        except OSError:
+            continue
+    return "\n".join(chunks)
+
+
+def detect_non_service_native_project(
+    source_dir: Path,
+    compose_file: Path | None,
+    dockerfile: Path | None,
+    readmes: list[Path],
+) -> str | None:
+    if compose_file:
+        return None
+
+    readme_text = readme_excerpt(readmes)
+    root_file_names = {path.name for path in source_dir.iterdir() if path.is_file()}
+    native_score = 0
+    service_score = 0
+    reasons: list[str] = []
+
+    native_root_files = sorted(root_file_names & NATIVE_ROOT_BUILD_FILES)
+    if native_root_files:
+        native_score += 3
+        reasons.append(f"根目录存在原生构建文件：{', '.join(native_root_files)}")
+
+    native_matches = sorted({hint for hint in NATIVE_README_HINTS if hint in readme_text})
+    if native_matches:
+        native_score += min(4, len(native_matches))
+        reasons.append(f"README 明显描述为原生客户端/多平台桌面应用：{', '.join(native_matches[:6])}")
+
+    service_matches = {hint for hint in SERVICE_README_HINTS if hint in readme_text}
+    if service_matches:
+        service_score += min(3, len(service_matches))
+
+    if dockerfile:
+        try:
+            relative = dockerfile.relative_to(source_dir)
+        except ValueError:
+            relative = dockerfile
+        rel_parts = [part.lower() for part in relative.parts]
+        if relative == Path("Dockerfile") or relative == Path("Containerfile"):
+            service_score += 3
+        else:
+            if rel_parts and rel_parts[0] in LOW_PRIORITY_DOCKERFILE_DIRS:
+                native_score += 2
+                reasons.append(f"仅发现脚本/辅助目录下的 Dockerfile：{relative}")
+            if any(part in NATIVE_PLATFORM_HINTS for part in rel_parts[:-1]):
+                native_score += 2
+                reasons.append(f"Dockerfile 位于平台专用目录：{relative}")
+
+    if native_score >= 6 and native_score >= service_score + 5:
+        detail = "；".join(dict.fromkeys(reasons))
+        return (
+            "检测到该仓库更像原生客户端/桌面应用，而不是提供 HTTP 入口的 LazyCat Web 微服。"
+            + (f" 依据：{detail}。" if detail else "")
+        )
+    return None
 
 
 def load_yaml(path: Path) -> Any:
@@ -315,19 +512,23 @@ def parse_compose_ports(service: dict[str, Any]) -> list[int]:
 def compose_env_entry(name: str, value: Any, service_name: str) -> tuple[str, dict[str, Any]]:
     if value is None:
         return name, {"name": name, "required": True, "description": f"From compose service {service_name}"}
-    rendered = str(value)
+    rendered = str(value).strip()
     doc: dict[str, Any] = {"name": name, "description": f"From compose service {service_name}"}
     env_match = re.fullmatch(r"\$\{([^}:?-]+)(?:(:?[-?])(.*))?\}", rendered)
     if env_match:
         var_name = env_match.group(1)
         operator = env_match.group(2) or ""
-        operand = env_match.group(3) or ""
+        operand = (env_match.group(3) or "").strip()
         if operator in {":-", "-"}:
             doc["required"] = False
-            doc["value"] = operand
-            return f"{name}={operand}", doc
+            if operand:
+                doc["value"] = operand
+            return f"{name}=${{{var_name}{operator}{operand}}}", doc
         doc["required"] = True
-        return name if var_name == name else f"{name}={{{var_name}}}", doc
+        if var_name != name:
+            doc["source_name"] = var_name
+            return f"{name}=${{{var_name}}}", doc
+        return name, doc
     doc["required"] = False
     doc["value"] = rendered
     return f"{name}={rendered}", doc
@@ -463,6 +664,59 @@ def dedupe_data_paths(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if key not in seen and key[0] and key[1]:
             seen[key] = entry
     return list(seen.values())
+
+
+def infer_compose_upstreams(primary_name: str, primary_port: int, services: dict[str, Any]) -> list[dict[str, str]]:
+    upstreams: list[dict[str, str]] = [
+        {"location": "/", "backend": f"http://{primary_name}:{primary_port}/"}
+    ]
+    for service_name, payload in services.items():
+        if service_name == primary_name or not isinstance(payload, dict):
+            continue
+        lowered = service_name.lower()
+        ports = parse_compose_ports(payload)
+        if not ports:
+            continue
+        service_port = ports[0]
+        if lowered in {"api", "backend", "server"} or lowered.endswith("-api") or lowered.endswith("_api"):
+            upstreams.insert(0, {"location": "/api/", "backend": f"http://{service_name}:{service_port}/"})
+        elif lowered == "minio":
+            upstreams.insert(1 if upstreams and upstreams[0]["location"] == "/api/" else 0, {"location": "/minio/", "backend": f"http://{service_name}:{service_port}/"})
+    deduped: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in upstreams:
+        location = item["location"]
+        if location in seen:
+            continue
+        seen.add(location)
+        deduped.append(item)
+    return deduped
+
+
+def rewrite_public_url_envs(environment: list[str], slug: str) -> list[str]:
+    public_base = f"https://{slug}.${{LAZYCAT_BOX_DOMAIN}}"
+    replacements = {
+        "PUBLIC_FRONT_URL": public_base,
+        "PUBLIC_API_URL": f"{public_base}/api",
+        "PUBLIC_MINIO_ENDPOINT": f"{public_base}/minio",
+        "API_URL": f"{public_base}/api",
+    }
+    rendered: list[str] = []
+    for entry in environment:
+        if "=" not in entry:
+            rendered.append(entry)
+            continue
+        name, value = entry.split("=", 1)
+        replacement = replacements.get(name)
+        if replacement and (
+            "localhost" in value
+            or value in {"", f"${{{name}}}"}
+            or (name == "API_URL" and value == "${PUBLIC_API_URL}")
+        ):
+            rendered.append(f"{name}={replacement}")
+            continue
+        rendered.append(entry)
+    return rendered
 
 
 def parse_env_files(paths: list[Path]) -> list[dict[str, Any]]:
@@ -679,28 +933,49 @@ def choose_route_for_compose(
     dockerfile_path = ""
 
     build_services: dict[str, dict[str, Any]] = {}
-    for service_name, payload in services.items():
+
+    def infer_service_build(service_name: str, payload: dict[str, Any]) -> dict[str, Any] | None:
         raw_build = payload.get("build")
-        if not raw_build:
-            continue
-        build_info = raw_build if isinstance(raw_build, dict) else {"context": str(raw_build)}
-        context_rel = str(build_info.get("context") or ".").strip()
-        context_dir = (compose_file.parent / context_rel).resolve()
-        dockerfile_name = str(build_info.get("dockerfile") or "Dockerfile").strip()
-        dockerfile_candidate = (context_dir / dockerfile_name).resolve()
-        try:
-            build_context_rel = str(context_dir.relative_to(source_root.resolve()))
-            dockerfile_rel = str(dockerfile_candidate.relative_to(source_root.resolve()))
-        except ValueError as exc:
-            raise ValueError(f"compose build path escapes source root: {service_name}") from exc
-        build_services[service_name] = {
+        if raw_build:
+            build_info = raw_build if isinstance(raw_build, dict) else {"context": str(raw_build)}
+            context_rel = str(build_info.get("context") or ".").strip()
+            context_dir = (compose_file.parent / context_rel).resolve()
+            dockerfile_name = str(build_info.get("dockerfile") or "Dockerfile").strip()
+            dockerfile_candidate = (context_dir / dockerfile_name).resolve()
+            try:
+                build_context_rel = str(context_dir.relative_to(source_root.resolve()))
+                dockerfile_rel = str(dockerfile_candidate.relative_to(source_root.resolve()))
+            except ValueError as exc:
+                raise ValueError(f"compose build path escapes source root: {service_name}") from exc
+            return {
+                "target_service": service_name,
+                "build_strategy": "upstream_dockerfile",
+                "source_dockerfile_path": dockerfile_rel,
+                "build_context": build_context_rel,
+                "build_args": dict(build_info.get("args") or {}),
+                "image_name": f"{slug}-{sanitize_token(service_name)}",
+            }
+
+        image_ref = str(payload.get("image", "")).strip()
+        if not image_ref or is_version_like_tag(image_tag(image_ref)):
+            return None
+        service_dir = source_root / service_name
+        dockerfile_candidate = service_dir / "Dockerfile"
+        if not dockerfile_candidate.exists():
+            return None
+        return {
             "target_service": service_name,
             "build_strategy": "upstream_dockerfile",
-            "source_dockerfile_path": dockerfile_rel,
-            "build_context": build_context_rel,
-            "build_args": dict(build_info.get("args") or {}),
+            "source_dockerfile_path": str(dockerfile_candidate.relative_to(source_root)),
+            "build_context": str(service_dir.relative_to(source_root)),
+            "build_args": {},
             "image_name": f"{slug}-{sanitize_token(service_name)}",
         }
+
+    for service_name, payload in services.items():
+        build_spec = infer_service_build(service_name, payload)
+        if build_spec:
+            build_services[service_name] = build_spec
 
     if primary_name in build_services:
         primary_build_info = build_services[primary_name]
@@ -753,7 +1028,7 @@ def choose_route_for_compose(
         environment, env_items = extract_compose_environment(service_name, payload)
         env_docs.extend(env_items)
         if environment:
-            service_payload["environment"] = environment
+            service_payload["environment"] = rewrite_public_url_envs(environment, slug)
 
         binds: list[str] = []
         for volume in bm.ensure_list(payload.get("volumes")):
@@ -782,18 +1057,13 @@ def choose_route_for_compose(
             image_targets.append(service_name)
         elif service_image and primary_image_repo and image_repository(service_image) == primary_image_repo and build_strategy == "official_image":
             image_targets.append(service_name)
-        elif service_image:
+        elif service_image and service_name not in build_services:
             dependencies.append({"target_service": service_name, "source_image": service_image})
 
     application = {
         "subdomain": slug,
         "public_path": ["/"],
-        "upstreams": [
-            {
-                "location": "/",
-                "backend": f"http://{primary_name}:{primary_port}/",
-            }
-        ],
+        "upstreams": infer_compose_upstreams(primary_name, primary_port, services),
     }
 
     version = str(meta.get("version", "") or "").strip()
@@ -865,6 +1135,246 @@ def choose_route_for_dockerfile(
         slug: {
             "image": f"registry.lazycat.cloud/placeholder/{slug}:bootstrap",
         }
+    }
+    if healthcheck:
+        service[slug]["healthcheck"] = healthcheck
+    binds = [f"{entry['host']}:{entry['container']}" for entry in data_paths]
+    if binds:
+        service[slug]["binds"] = binds
+
+    return {
+        "slug": slug,
+        "project_name": str(meta.get("project_name") or bm.titleize_slug(slug)),
+        "description": str(meta.get("description") or f"{slug} on LazyCat"),
+        "description_zh": f"（迁移初稿）{bm.titleize_slug(slug)} 的懒猫微服版本",
+        "upstream_repo": str(meta.get("upstream_repo", "")),
+        "homepage": str(meta.get("homepage", "")),
+        "license": str(meta.get("license") or "TODO"),
+        "author": str(meta.get("author") or "TODO"),
+        "version": str(meta.get("version") or "0.1.0"),
+        "check_strategy": str(meta.get("check_strategy", "github_release")),
+        "build_strategy": build_strategy,
+        "dockerfile_path": local_dockerfile_path,
+        "service_port": port,
+        "image_targets": [slug],
+        "services": service,
+        "application": {
+            "subdomain": slug,
+            "public_path": ["/"],
+            "upstreams": [{"location": "/", "backend": f"http://{slug}:{port}/"}],
+        },
+        "env_vars": parse_env_files(env_files),
+        "data_paths": data_paths,
+        "startup_notes": [
+            f"自动扫描到 Dockerfile：{dockerfile_path.name}",
+            "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
+        ],
+        "_risks": [],
+        "_post_write": post_write,
+    }
+
+
+def render_native_desktop_novnc_dockerfile(project_name: str) -> str:
+    return f"""FROM debian:bookworm AS builder
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \\
+    ca-certificates \\
+    build-essential \\
+    cmake \\
+    git \\
+    pkg-config \\
+    libssl-dev \\
+    libmpv-dev \\
+    libwebp-dev \\
+    libglfw3-dev \\
+    libglew-dev \\
+    libgl1-mesa-dev \\
+    libegl1-mesa-dev \\
+    libx11-dev \\
+    libxrandr-dev \\
+    libxinerama-dev \\
+    libxcursor-dev \\
+    libxi-dev \\
+    libdrm-dev \\
+    libgbm-dev \\
+    libwayland-dev \\
+    libxkbcommon-dev \\
+    libasound2-dev \\
+    libpulse-dev \\
+    libudev-dev \\
+    libcurl4-openssl-dev \\
+    libfmt-dev \\
+    libtinyxml2-dev \\
+    libopencc-dev \\
+    zlib1g-dev && \\
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+COPY . /src
+
+RUN cmake -B build -DPLATFORM_DESKTOP=ON -DUSE_SHARED_LIB=OFF && \\
+    cmake --build build -j$(nproc)
+
+FROM debian:bookworm
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \\
+    xvfb \\
+    x11vnc \\
+    fluxbox \\
+    novnc \\
+    websockify \\
+    supervisor \\
+    libmpv2 \\
+    libwebp7 \\
+    libglfw3 \\
+    libglew2.2 \\
+    libgl1 \\
+    libegl1 \\
+    libx11-6 \\
+    libxrandr2 \\
+    libxinerama1 \\
+    libxcursor1 \\
+    libxi6 \\
+    libdrm2 \\
+    libgbm1 \\
+    libwayland-client0 \\
+    libxkbcommon0 \\
+    libasound2 \\
+    libpulse0 \\
+    libudev1 \\
+    libcurl4 \\
+    libfmt9 \\
+    libtinyxml2-9 \\
+    libopencc1.1 \\
+    zlib1g \\
+    xdg-utils \\
+    dbus-x11 \\
+    fonts-dejavu-core \\
+    fonts-noto-cjk && \\
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/{sanitize_token(project_name)}
+
+COPY --from=builder /src/build/wiliwili /usr/local/bin/wiliwili
+COPY --from=builder /src/resources ./resources
+
+RUN mkdir -p /var/log/supervisor /tmp/.X11-unix
+
+ENV DISPLAY=:0
+ENV BRLS_RESOURCES=./resources/
+EXPOSE 8080
+
+RUN cat <<'EOF' >/usr/local/bin/start-wiliwili.sh
+#!/bin/sh
+set -eu
+export DISPLAY=:0
+cd /opt/{sanitize_token(project_name)}
+exec /usr/local/bin/wiliwili
+EOF
+
+RUN cat <<'EOF' >/etc/supervisor/conf.d/wiliwili.conf
+[supervisord]
+nodaemon=true
+
+[program:xvfb]
+command=/usr/bin/Xvfb :0 -screen 0 1280x720x24 -ac +extension GLX +render -noreset
+autorestart=true
+priority=10
+
+[program:fluxbox]
+command=/usr/bin/fluxbox
+environment=DISPLAY=":0"
+autorestart=true
+priority=20
+
+[program:x11vnc]
+command=/usr/bin/x11vnc -display :0 -forever -shared -nopw -listen 0.0.0.0 -xkb
+autorestart=true
+priority=30
+
+[program:novnc]
+command=/usr/share/novnc/utils/novnc_proxy --listen 8080 --vnc localhost:5900
+autorestart=true
+priority=40
+
+[program:wiliwili]
+command=/usr/local/bin/start-wiliwili.sh
+autorestart=true
+priority=50
+startsecs=5
+environment=DISPLAY=":0",BRLS_RESOURCES="./resources/"
+directory=/opt/{sanitize_token(project_name)}
+EOF
+
+RUN chmod +x /usr/local/bin/start-wiliwili.sh
+
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/wiliwili.conf"]
+"""
+
+
+def choose_route_for_native_desktop(
+    slug: str,
+    meta: dict[str, Any],
+    dockerfile: Path | None,
+    readmes: list[Path],
+    reason: str,
+) -> dict[str, Any]:
+    project_name = str(meta.get("project_name") or bm.titleize_slug(slug))
+    notes = [
+        "检测到上游是原生桌面/掌机客户端，自动改走 noVNC 包装路线。",
+        reason,
+        "当前入口通过浏览器访问内置 noVNC 桌面，再启动 Linux 版客户端。",
+    ]
+    if dockerfile:
+        notes.append(f"已忽略辅助/平台专用 Dockerfile：{dockerfile.name}")
+    if readmes:
+        notes.append(f"参考 README：{', '.join(path.name for path in readmes[:3])}")
+    version = str(meta.get("version") or "0.1.0")
+    return {
+        "slug": slug,
+        "project_name": project_name,
+        "description": str(meta.get("description") or f"{slug} on LazyCat"),
+        "description_zh": f"（迁移初稿）{project_name} 的懒猫微服桌面封装版本",
+        "upstream_repo": str(meta.get("upstream_repo", "")),
+        "homepage": str(meta.get("homepage", "")),
+        "license": str(meta.get("license") or "TODO"),
+        "author": str(meta.get("author") or "TODO"),
+        "version": version,
+        "check_strategy": str(meta.get("check_strategy", "github_release")),
+        "build_strategy": "upstream_with_target_template",
+        "dockerfile_path": "Dockerfile.template",
+        "service_port": 8080,
+        "image_targets": [slug],
+        "services": {
+            slug: {
+                "image": f"registry.lazycat.cloud/placeholder/{slug}:bootstrap",
+                "healthcheck": {
+                    "test": ["CMD-SHELL", "curl -f http://127.0.0.1:8080/ >/dev/null || exit 1"],
+                    "interval": "30s",
+                    "timeout": "10s",
+                    "retries": 10,
+                },
+            }
+        },
+        "application": {
+            "subdomain": slug,
+            "public_path": ["/"],
+            "upstreams": [{"location": "/", "backend": f"http://{slug}:8080/"}],
+        },
+        "env_vars": [],
+        "data_paths": [],
+        "startup_notes": notes,
+        "_risks": [
+            "这是原生 GUI 通过 noVNC 暴露的兼容路线，不是上游原生 Web 体验",
+            "首次构建可能需要继续补齐桌面运行时依赖",
+        ],
+        "_post_write": {
+            "Dockerfile.template": render_native_desktop_novnc_dockerfile(project_name),
+        },
     }
     if healthcheck:
         service[slug]["healthcheck"] = healthcheck
@@ -1014,6 +1524,7 @@ def analyze_source(normalized: dict[str, Any], source_dir: Path | None) -> dict[
     dockerfile = select_dockerfile(source_dir)
     env_files = list_env_files(source_dir)
     readmes = list_readmes(source_dir)
+    native_project_reason = detect_non_service_native_project(source_dir, compose_file, dockerfile, readmes)
     official_image = detect_official_image_from_readmes(readmes)
     binary = parse_release_binary_candidate(upstream_repo) if upstream_repo else None
 
@@ -1045,6 +1556,8 @@ def analyze_source(normalized: dict[str, Any], source_dir: Path | None) -> dict[
             ]
         else:
             spec = choose_route_for_compose(slug, meta, source_dir, compose_file, dockerfile)
+    elif native_project_reason:
+        spec = choose_route_for_native_desktop(slug, meta, dockerfile, readmes, native_project_reason)
     elif dockerfile:
         spec = choose_route_for_dockerfile(slug, meta, source_dir, dockerfile, env_files)
     elif upstream_repo:
@@ -1255,11 +1768,19 @@ def main() -> int:
             conclusion=f"目标 app 将注册为 `{finalized['slug']}`。",
             outputs=[str(app_dir), str(config_path)],
             scripts=["scripts/full-migrate.sh"],
-            risks=["如果目录已存在且未传 --force，本步会直接停止"] if not args.force else [],
+            risks=["目标 app 已存在时会自动覆盖当前托管文件"] if not args.force else [],
             next_step="进入 [4/10] 建立项目骨架",
         )
 
-        written = bm.write_files(repo_root, finalized, args.force)
+        effective_force = args.force
+        try:
+            written = bm.write_files(repo_root, finalized, effective_force)
+        except FileExistsError:
+            if args.force:
+                raise
+            effective_force = True
+            finalized.setdefault("_risks", []).append("目标 app 已存在，自动覆盖当前托管文件后继续")
+            written = bm.write_files(repo_root, finalized, effective_force)
         post_written = apply_post_write(repo_root, finalized["slug"], analysis["spec"].get("_post_write", {}))
         step_report(
             4,

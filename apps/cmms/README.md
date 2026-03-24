@@ -1,61 +1,111 @@
-# Atlas CMMS (LazyCat Migration)
+# cmms
 
-这是 [Grashjs/cmms](https://github.com/Grashjs/cmms) 的 LazyCat 迁移项目。
+本目录由 `scripts/bootstrap_migration.py` 生成，用于把上游 `Grashjs/cmms` 初始化为懒猫微服迁移项目。
 
-## 上游信息
+## 上游项目
+- Upstream Repo: Grashjs/cmms
+- Homepage: https://atlas-cmms.com
+- License: AGPL-3.0
+- Author: Grashjs
+- Version Strategy: `github_release` -> 当前初稿版本 `1.5.0`
 
-- 上游仓库: https://github.com/Grashjs/cmms
-- 官网: https://atlas-cmms.com
-- 许可证: AGPL-3.0
-- 上游版本: v1.5.0
+## 当前迁移骨架
+- Build Strategy: `upstream_dockerfile`
+- Primary Subdomain: `cmms`
+- Image Targets: `frontend`
+- Service Port: `3000`
 
-## 应用说明
+### Services
+- `postgres` -> `registry.lazycat.cloud/placeholder/cmms:postgres`
+- `api` -> `registry.lazycat.cloud/placeholder/cmms:api`
+- `frontend` -> `registry.lazycat.cloud/placeholder/cmms:frontend`
+- `minio` -> `registry.lazycat.cloud/placeholder/cmms:minio`
 
-Atlas CMMS 是一个面向资产、工单与维护流程的自托管 CMMS 平台，包含前端、后端、PostgreSQL 与 MinIO 四个服务。
+## 环境变量
 
-- `frontend`：Web 入口
-- `api`：后端接口与业务逻辑
-- `postgres`：关系型数据库
-- `minio`：对象存储
-
-安装后通过 `https://cmms.<your-lazycat-domain>` 访问。
-
-## 必填环境变量
-
-| 变量名 | 说明 |
-| --- | --- |
-| `POSTGRES_USER` | PostgreSQL 用户名 |
-| `POSTGRES_PWD` | PostgreSQL 密码 |
-| `MINIO_USER` | MinIO 管理员用户名 |
-| `MINIO_PASSWORD` | MinIO 管理员密码 |
-| `JWT_SECRET_KEY` | 后端 JWT 密钥（建议 `openssl rand -base64 32` 生成） |
-
-## 常用可选环境变量
-
-| 变量名 | 说明 | 默认值 |
-| --- | --- | --- |
-| `PUBLIC_FRONT_URL` | 前端公开地址 | `http://localhost:3000` |
-| `PUBLIC_API_URL` | 后端公开地址 | `http://localhost:8080` |
-| `PUBLIC_MINIO_ENDPOINT` | MinIO 对外地址 | `http://localhost:9000` |
-| `ENABLE_EMAIL_NOTIFICATIONS` | 是否启用邮件通知 | `false` |
-| `ENABLE_SSO` | 是否启用单点登录 | `false` |
+| 变量名 | 必填 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| POSTGRES_DB | No | atlas | From compose service postgres |
+| POSTGRES_USER | Yes | - | From compose service postgres |
+| POSTGRES_PASSWORD | Yes | - | From compose service postgres |
+| DB_URL | No | postgres/atlas | From compose service api |
+| DB_USER | Yes | - | From compose service api |
+| DB_PWD | Yes | - | From compose service api |
+| PUBLIC_API_URL | No | http://localhost:8080 | From compose service api |
+| PUBLIC_FRONT_URL | Yes | - | From compose service api |
+| GCP_BUCKET_NAME | Yes | - | From compose service api |
+| GCP_JSON | Yes | - | From compose service api |
+| GCP_PROJECT_ID | Yes | - | From compose service api |
+| MAIL_RECIPIENTS | Yes | - | From compose service api |
+| SMTP_PWD | Yes | - | From compose service api |
+| SMTP_USER | Yes | - | From compose service api |
+| SMTP_HOST | Yes | - | From compose service api |
+| SMTP_PORT | Yes | - | From compose service api |
+| SPRING_PROFILES_ACTIVE | Yes | - | From compose service api |
+| JWT_SECRET_KEY | Yes | - | From compose service api |
+| MINIO_ENDPOINT | No | http://minio:9000 | From compose service api |
+| MINIO_BUCKET | No | atlas-bucket | From compose service api |
+| MINIO_ACCESS_KEY | Yes | - | From compose service api |
+| MINIO_SECRET_KEY | Yes | - | From compose service api |
+| STORAGE_TYPE | No | minio | From compose service api |
+| PUBLIC_MINIO_ENDPOINT | No | http://localhost:9000 | From compose service api |
+| INVITATION_VIA_EMAIL | No | false | From compose service frontend |
+| ENABLE_EMAIL_NOTIFICATIONS | No | false | From compose service api |
+| ENABLE_SSO | No | false | From compose service frontend |
+| OAUTH2_PROVIDER | No | - | From compose service frontend |
+| OAUTH2_CLIENT_ID | Yes | - | From compose service api |
+| OAUTH2_CLIENT_SECRET | Yes | - | From compose service api |
+| LICENSE_KEY | No | - | From compose service api |
+| LICENSE_FINGERPRINT_REQUIRED | No | true | From compose service api |
+| LICENSE_FILE_PATH | No | - | From compose service api |
+| ALLOWED_ORGANIZATION_ADMINS | No | - | From compose service api |
+| LOGO_PATHS | No | - | From compose service frontend |
+| CUSTOM_COLORS | No | - | From compose service frontend |
+| BRAND_CONFIG | No | - | From compose service frontend |
+| PADDLE_API_KEY | No | - | From compose service api |
+| PADDLE_WEBHOOK_SECRET_KEY | No | - | From compose service api |
+| PADDLE_ENVIRONMENT | No | sandbox | From compose service frontend |
+| ENABLE_CORS | No | true | From compose service api |
+| KEYGEN_PRODUCT_TOKEN | No | - | From compose service api |
+| MAIL_TYPE | No | smtp | From compose service api |
+| SENDGRID_API_KEY | No | - | From compose service api |
+| SENDGRID_FROM_EMAIL | No | - | From compose service api |
+| SENDGRID_CONTACT_LIST_ID | No | - | From compose service api |
+| RECAPTCHA_SECRET_KEY | No | - | From compose service api |
+| API_URL | Yes | - | From compose service frontend |
+| GOOGLE_KEY | No | - | From compose service frontend |
+| GOOGLE_TRACKING_ID | No | - | From compose service frontend |
+| CLOUD_VERSION | No | false | From compose service frontend |
+| NODE_ENV | No | production | From compose service frontend |
+| DEMO_LINK | No | - | From compose service frontend |
+| PADDLE_SECRET_TOKEN | No | - | From compose service frontend |
+| RECAPTCHA_SITE_KEY | No | - | From compose service frontend |
+| MINIO_ROOT_USER | Yes | - | From compose service minio |
+| MINIO_ROOT_PASSWORD | Yes | - | From compose service minio |
+| POSTGRES_PWD | No | mypassword | From .env.example |
+| MINIO_USER | No | minio | From .env.example |
+| MINIO_PASSWORD | No | minio123 | From .env.example |
 
 ## 数据目录
 
-| 路径 | 用途 |
-| --- | --- |
-| `/lzcapp/var/data/cmms/logo` | Logo 与品牌图片 |
-| `/lzcapp/var/data/cmms/config` | 后端自定义配置 |
-| `/lzcapp/var/db/cmms/postgres` | PostgreSQL 数据 |
-| `/lzcapp/var/data/cmms/minio` | MinIO 数据 |
+| 宿主路径 | 容器路径 | 说明 |
+| --- | --- | --- |
+| /lzcapp/var/db/cmms/postgres | /var/lib/postgresql/data | From compose service postgres |
+| /lzcapp/var/data/cmms/api/images | /app/static/images | From compose service api |
+| /lzcapp/var/data/cmms/api/config | /app/static/config | From compose service api |
+| /lzcapp/var/data/cmms/minio | /data | From compose service minio |
 
-## 首次启动说明
+## 首次启动/验收提醒
 
-1. 建议先设置强密码和随机 `JWT_SECRET_KEY`。
-2. 首次启动后等待数据库与对象存储初始化。
-3. 访问 Web 页面完成组织与管理员初始化配置。
+- 自动扫描到 compose 文件：docker-compose.yml
+- 主服务推断为 `frontend`，入口端口 `3000`。
+- 依赖服务镜像已写入 dependencies，首次完整构建时会自动 copy-image。
+- 扫描到 env 示例文件：.env.example, .env.example
+- 扫描到 README：README.MD, README.md, README.md
 
-## 参考文档
+## 下一步
 
-- 官方文档: https://docs.atlas-cmms.com
-- 上游 Docker Compose: https://github.com/Grashjs/cmms/blob/main/docker-compose.yml
+1. 补完 `UPSTREAM_DEPLOYMENT_CHECKLIST.md`，把真实入口、环境变量、写路径和初始化动作全部核实清楚。
+2. 按真实部署拓扑修正 `lzc-manifest.yml`，不要直接沿用占位镜像、端口或命令。
+3. 如果是源码构建，补齐 `Dockerfile` / `Dockerfile.template`、`content/`、`overlay_paths` 等资产。
+4. 初稿补全后执行 `./scripts/local_build.sh cmms --check-only`，再进入实际构建与验收。

@@ -104,6 +104,56 @@ CMD ["python", "-m", "http.server", "8088"]
         (temp_dir / ".env.example").write_text("API_TOKEN=\n", encoding="utf-8")
         return temp_dir
 
+    def make_source_repo_with_unversioned_image_and_local_dockerfiles(self) -> Path:
+        temp_dir = Path(tempfile.mkdtemp(prefix="lzcat-source-local-dockerfiles-"))
+        (temp_dir / "docker-compose.yml").write_text(
+            """
+services:
+  api:
+    image: acme/example-api
+    environment:
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PWD}
+  frontend:
+    image: acme/example-frontend
+    environment:
+      API_URL: ${PUBLIC_API_URL}
+      DEMO_LINK: ${DEMO_LINK:- }
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+        (temp_dir / "api").mkdir(parents=True, exist_ok=True)
+        (temp_dir / "frontend").mkdir(parents=True, exist_ok=True)
+        (temp_dir / "api" / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
+        (temp_dir / "frontend" / "Dockerfile").write_text("FROM node:20-alpine\n", encoding="utf-8")
+        return temp_dir
+
+    def make_native_desktop_repo_with_platform_dockerfiles(self) -> Path:
+        temp_dir = Path(tempfile.mkdtemp(prefix="lzcat-native-desktop-"))
+        (temp_dir / "CMakeLists.txt").write_text("cmake_minimum_required(VERSION 3.16)\nproject(native-client)\n", encoding="utf-8")
+        (temp_dir / "xmake.lua").write_text("target('native-client')\n", encoding="utf-8")
+        (temp_dir / "README.md").write_text(
+            """
+# Native Client
+
+一个支持 Windows、macOS、Linux 和 Nintendo Switch 的 PC client。
+支持 gamepad、touch、mouse 和 keyboard 操作。
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+        (temp_dir / "scripts" / "ps4").mkdir(parents=True, exist_ok=True)
+        (temp_dir / "scripts" / "ps4" / "Dockerfile").write_text(
+            "FROM alpine:3.20\nRUN echo ps4-toolchain\n",
+            encoding="utf-8",
+        )
+        return temp_dir
+
     def run_script(self, repo_root: Path, source: Path) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [
@@ -139,7 +189,7 @@ CMD ["python", "-m", "http.server", "8088"]
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         slug = normalize_slug(source_repo.name)
         config = json.loads((repo_root / "registry" / "repos" / f"{slug}.json").read_text(encoding="utf-8"))
-        manifest = (repo_root / "apps" / source_repo.name / "lzc-manifest.yml").read_text(encoding="utf-8")
+        manifest = (repo_root / "apps" / slug / "lzc-manifest.yml").read_text(encoding="utf-8")
         self.assertEqual(config["build_strategy"], "upstream_dockerfile")
         self.assertIn("backend: http://", manifest)
         self.assertIn("8088", manifest)
@@ -156,6 +206,43 @@ CMD ["python", "-m", "http.server", "8088"]
         self.assertEqual(sorted(item["target_service"] for item in config["service_builds"]), ["backend", "frontend"])
         self.assertIn('"image_name":', json.dumps(config))
         self.assertIn("backend: http://frontend:3000/", manifest)
+
+    def test_unversioned_images_with_local_dockerfiles_become_service_builds(self) -> None:
+        repo_root = self.make_repo_root()
+        source_repo = self.make_source_repo_with_unversioned_image_and_local_dockerfiles()
+        result = self.run_script(repo_root, source_repo)
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        slug = normalize_slug(source_repo.name)
+        config = json.loads((repo_root / "registry" / "repos" / f"{slug}.json").read_text(encoding="utf-8"))
+        manifest = (repo_root / "apps" / slug / "lzc-manifest.yml").read_text(encoding="utf-8")
+        self.assertEqual(config["build_strategy"], "upstream_dockerfile")
+        self.assertEqual(sorted(item["target_service"] for item in config["service_builds"]), ["api", "frontend"])
+        self.assertIn("DB_USER=${POSTGRES_USER}", manifest)
+        self.assertIn("DB_PASSWORD=${POSTGRES_PWD}", manifest)
+        self.assertIn(f"API_URL=https://{slug}.${{LAZYCAT_BOX_DOMAIN}}/api", manifest)
+        self.assertIn("DEMO_LINK=${DEMO_LINK:-}", manifest)
+
+    def test_rerun_same_target_overwrites_managed_files(self) -> None:
+        repo_root = self.make_repo_root()
+        source_repo = self.make_source_repo_with_dockerfile()
+        first = self.run_script(repo_root, source_repo)
+        second = self.run_script(repo_root, source_repo)
+        self.assertEqual(first.returncode, 0, msg=first.stderr)
+        self.assertEqual(second.returncode, 0, msg=second.stderr)
+
+    def test_native_desktop_repo_with_platform_dockerfile_uses_novnc_route(self) -> None:
+        repo_root = self.make_repo_root()
+        source_repo = self.make_native_desktop_repo_with_platform_dockerfiles()
+        result = self.run_script(repo_root, source_repo)
+        slug = normalize_slug(source_repo.name)
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        config = json.loads((repo_root / "registry" / "repos" / f"{slug}.json").read_text(encoding="utf-8"))
+        manifest = (repo_root / "apps" / slug / "lzc-manifest.yml").read_text(encoding="utf-8")
+        dockerfile = (repo_root / "apps" / slug / "Dockerfile.template").read_text(encoding="utf-8")
+        self.assertEqual(config["build_strategy"], "upstream_with_target_template")
+        self.assertIn("backend: http://", manifest)
+        self.assertIn("8080", manifest)
+        self.assertIn("novnc", dockerfile.lower())
 
 
 if __name__ == "__main__":

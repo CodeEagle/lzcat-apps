@@ -2,8 +2,8 @@ lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.cmms
 version: 1.5.0
 min_os_version: 1.3.8
-name: Atlas CMMS
-description: (LazyCat Auto-build) Self-hosted maintenance management system for web and mobile teams
+name: cmms
+description: "#1 Self hosted CMMS web & mobile application that allows you to manage enterprise maintenance for free - Computerized Maintenance Management System"
 license: AGPL-3.0
 homepage: https://atlas-cmms.com
 author: Grashjs
@@ -12,82 +12,45 @@ application:
   public_path:
     - /
   upstreams:
-    - location: /api/
+    -
+      location: /api/
       backend: http://api:8080/
-    - location: /minio/
+    -
+      location: /minio/
       backend: http://minio:9000/
-    - location: /
+    -
+      location: /
       backend: http://frontend:3000/
-  environment:
-    - POSTGRES_USER=rootUser
-    - POSTGRES_PWD=mypassword
-    - POSTGRES_PASSWORD=mypassword
-    - MINIO_USER=minio
-    - MINIO_PASSWORD=minio123
-    - JWT_SECRET_KEY=J4mH1Yc9J6dW3vF8xQ2nP7sK5mR0tL4aB8cD6eF2gH0=
-    - PUBLIC_FRONT_URL=https://cmms.${LAZYCAT_BOX_DOMAIN}
-    - PUBLIC_API_URL=https://cmms.${LAZYCAT_BOX_DOMAIN}/api
-    - PUBLIC_MINIO_ENDPOINT=https://cmms.${LAZYCAT_BOX_DOMAIN}/minio
-    - STORAGE_TYPE=minio
-    - MAIL_RECIPIENTS=
-    - MAIL_TYPE=smtp
-    - SMTP_HOST=
-    - SMTP_PORT=587
-    - SMTP_USER=
-    - SMTP_PWD=
-    - SENDGRID_API_KEY=
-    - SENDGRID_FROM_EMAIL=
-    - SENDGRID_CONTACT_LIST_ID=
-    - GCP_BUCKET_NAME=
-    - GCP_JSON=
-    - GCP_PROJECT_ID=
-    - SPRING_PROFILES_ACTIVE=dev
-    - OAUTH2_CLIENT_ID=
-    - OAUTH2_CLIENT_SECRET=
-    - LICENSE_KEY=
-    - LICENSE_FINGERPRINT_REQUIRED=false
-    - LICENSE_FILE_PATH=
-    - ALLOWED_ORGANIZATION_ADMINS=
-    - PADDLE_API_KEY=
-    - PADDLE_WEBHOOK_SECRET_KEY=
-    - KEYGEN_PRODUCT_TOKEN=
-    - RECAPTCHA_SECRET_KEY=
 services:
-  frontend:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/cmms:4e139ac9f7f18036
-    restart: unless-stopped
-    depends_on:
-      - api
+  postgres:
+    image: registry.lazycat.cloud/placeholder/cmms:postgres
     environment:
-      - API_URL=https://cmms.${LAZYCAT_BOX_DOMAIN}/api
-      - GOOGLE_KEY=${GOOGLE_KEY:-disabled}
-      - GOOGLE_TRACKING_ID=${GOOGLE_TRACKING_ID:-disabled}
-      - MUI_X_LICENSE=${MUI_X_LICENSE:-disabled}
-      - INVITATION_VIA_EMAIL=${INVITATION_VIA_EMAIL:-false}
-      - CLOUD_VERSION=${CLOUD_VERSION:-false}
-      - NODE_ENV=production
-      - ENABLE_SSO=${ENABLE_SSO:-false}
-      - OAUTH2_PROVIDER=${OAUTH2_PROVIDER:-disabled}
-      - LOGO_PATHS=${LOGO_PATHS:-{}}
-      - CUSTOM_COLORS=${CUSTOM_COLORS:-{}}
-      - BRAND_CONFIG=${BRAND_CONFIG:-{}}
-      - DEMO_LINK=${DEMO_LINK:-disabled}
-      - PADDLE_SECRET_TOKEN=${PADDLE_SECRET_TOKEN:-disabled}
-      - PADDLE_ENVIRONMENT=${PADDLE_ENVIRONMENT:-sandbox}
-      - RECAPTCHA_SITE_KEY=${RECAPTCHA_SITE_KEY:-disabled}
+      - POSTGRES_DB=atlas
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD=${POSTGRES_PWD}
+    binds:
+      - /lzcapp/var/db/cmms/postgres:/var/lib/postgresql/data
   api:
-    image: registry.lazycat.cloud/invokerlaw/intelloop/atlas-cmms-backend:b4184dd0771686ee
-    restart: unless-stopped
+    image: registry.lazycat.cloud/placeholder/cmms:api
     depends_on:
       - postgres
       - minio
     environment:
       - DB_URL=postgres/atlas
-      - DB_USER=${POSTGRES_USER:-rootUser}
-      - DB_PWD=${POSTGRES_PWD:-mypassword}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PWD=${POSTGRES_PWD}
       - PUBLIC_API_URL=https://cmms.${LAZYCAT_BOX_DOMAIN}/api
-      - PUBLIC_FRONT_URL=https://cmms.${LAZYCAT_BOX_DOMAIN}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-J4mH1Yc9J6dW3vF8xQ2nP7sK5mR0tL4aB8cD6eF2gH0=}
+      - PUBLIC_FRONT_URL
+      - GCP_BUCKET_NAME
+      - GCP_JSON
+      - GCP_PROJECT_ID
+      - MAIL_RECIPIENTS
+      - SMTP_PWD
+      - SMTP_USER
+      - SMTP_HOST
+      - SMTP_PORT
+      - SPRING_PROFILES_ACTIVE
+      - JWT_SECRET_KEY
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_BUCKET=atlas-bucket
       - MINIO_ACCESS_KEY=${MINIO_USER}
@@ -97,53 +60,61 @@ services:
       - INVITATION_VIA_EMAIL=${INVITATION_VIA_EMAIL:-false}
       - ENABLE_EMAIL_NOTIFICATIONS=${ENABLE_EMAIL_NOTIFICATIONS:-false}
       - ENABLE_SSO=${ENABLE_SSO:-false}
+      - OAUTH2_PROVIDER
+      - OAUTH2_CLIENT_ID
+      - OAUTH2_CLIENT_SECRET
+      - LICENSE_KEY=${LICENSE_KEY:-}
+      - LICENSE_FINGERPRINT_REQUIRED=${LICENSE_FINGERPRINT_REQUIRED:-true}
+      - LICENSE_FILE_PATH=${LICENSE_FILE_PATH:-}
+      - ALLOWED_ORGANIZATION_ADMINS=${ALLOWED_ORGANIZATION_ADMINS:-}
+      - LOGO_PATHS
+      - CUSTOM_COLORS
+      - BRAND_CONFIG
+      - PADDLE_API_KEY=${PADDLE_API_KEY:-}
+      - PADDLE_WEBHOOK_SECRET_KEY=${PADDLE_WEBHOOK_SECRET_KEY:-}
+      - PADDLE_ENVIRONMENT=${PADDLE_ENVIRONMENT:-sandbox}
       - ENABLE_CORS=${ENABLE_CORS:-true}
-      - MAIL_RECIPIENTS=${MAIL_RECIPIENTS:-}
+      - KEYGEN_PRODUCT_TOKEN=${KEYGEN_PRODUCT_TOKEN:-}
       - MAIL_TYPE=${MAIL_TYPE:-smtp}
-      - SMTP_HOST=${SMTP_HOST:-}
-      - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_USER=${SMTP_USER:-}
-      - SMTP_PWD=${SMTP_PWD:-}
       - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
       - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL:-}
       - SENDGRID_CONTACT_LIST_ID=${SENDGRID_CONTACT_LIST_ID:-}
-      - GCP_BUCKET_NAME=${GCP_BUCKET_NAME:-}
-      - GCP_JSON=${GCP_JSON:-}
-      - GCP_PROJECT_ID=${GCP_PROJECT_ID:-}
-      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
-      - OAUTH2_CLIENT_ID=${OAUTH2_CLIENT_ID:-}
-      - OAUTH2_CLIENT_SECRET=${OAUTH2_CLIENT_SECRET:-}
-      - LICENSE_KEY=${LICENSE_KEY:-}
-      - LICENSE_FINGERPRINT_REQUIRED=${LICENSE_FINGERPRINT_REQUIRED:-false}
-      - LICENSE_FILE_PATH=${LICENSE_FILE_PATH:-}
-      - ALLOWED_ORGANIZATION_ADMINS=${ALLOWED_ORGANIZATION_ADMINS:-}
-      - PADDLE_API_KEY=${PADDLE_API_KEY:-}
-      - PADDLE_WEBHOOK_SECRET_KEY=${PADDLE_WEBHOOK_SECRET_KEY:-}
-      - KEYGEN_PRODUCT_TOKEN=${KEYGEN_PRODUCT_TOKEN:-}
       - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY:-}
     binds:
-      - /lzcapp/var/data/cmms/logo:/app/static/images
-      - /lzcapp/var/data/cmms/config:/app/static/config
-  postgres:
-    image: registry.lazycat.cloud/invokerlaw/library/postgres:c7066f661fdb4a89
+      - /lzcapp/var/data/cmms/api/images:/app/static/images
+      - /lzcapp/var/data/cmms/api/config:/app/static/config
+  frontend:
+    image: registry.lazycat.cloud/placeholder/cmms:frontend
+    depends_on:
+      - api
     environment:
-      - POSTGRES_DB=atlas
-      - POSTGRES_USER=${POSTGRES_USER:-rootUser}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mypassword}
-    binds:
-      - /lzcapp/var/db/cmms/postgres:/var/lib/postgresql/data
+      - API_URL=https://cmms.${LAZYCAT_BOX_DOMAIN}/api
+      - GOOGLE_KEY=${GOOGLE_KEY:-}
+      - GOOGLE_TRACKING_ID=${GOOGLE_TRACKING_ID:-}
+      - INVITATION_VIA_EMAIL=${INVITATION_VIA_EMAIL:-false}
+      - CLOUD_VERSION=${CLOUD_VERSION:-false}
+      - NODE_ENV=production
+      - ENABLE_SSO=${ENABLE_SSO:-false}
+      - OAUTH2_PROVIDER=${OAUTH2_PROVIDER:-}
+      - LOGO_PATHS=${LOGO_PATHS:-}
+      - CUSTOM_COLORS=${CUSTOM_COLORS:-}
+      - BRAND_CONFIG=${BRAND_CONFIG:-}
+      - DEMO_LINK=${DEMO_LINK:-}
+      - PADDLE_SECRET_TOKEN=${PADDLE_SECRET_TOKEN:-}
+      - PADDLE_ENVIRONMENT=${PADDLE_ENVIRONMENT:-sandbox}
+      - RECAPTCHA_SITE_KEY=${RECAPTCHA_SITE_KEY:-}
   minio:
-    image: registry.lazycat.cloud/invokerlaw/minio/minio:04662dc938f19824
+    image: registry.lazycat.cloud/placeholder/cmms:minio
+    command: server --address ":9000" --console-address ":9001" /data
     environment:
       - MINIO_ROOT_USER=${MINIO_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}
     binds:
       - /lzcapp/var/data/cmms/minio:/data
-    command: server --address ":9000" --console-address ":9001" /data
 locales:
   en:
-    name: Atlas CMMS
-    description: (LazyCat Auto-build) Self-hosted maintenance management system for web and mobile teams
+    name: cmms
+    description: "#1 Self hosted CMMS web & mobile application that allows you to manage enterprise maintenance for free - Computerized Maintenance Management System"
   zh:
-    name: Atlas CMMS
-    description: （懒猫微服自动构建）面向 Web 与移动端团队的自托管设备维护管理系统
+    name: cmms
+    description: （迁移初稿）Cmms 的懒猫微服版本
