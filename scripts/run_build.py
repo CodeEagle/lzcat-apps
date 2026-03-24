@@ -12,6 +12,8 @@ import shutil
 import subprocess
 import tempfile
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -240,7 +242,61 @@ def expand_placeholders(value: str, replacements: dict[str, str]) -> str:
     return expanded
 
 
+def split_image_reference(image: str) -> tuple[str, str, str]:
+    if "/" not in image:
+        raise RuntimeError(f"Invalid image reference: {image}")
+    registry, remainder = image.split("/", 1)
+    last_segment = remainder.rsplit("/", 1)[-1]
+    if "@" in remainder:
+        repository, reference = remainder.split("@", 1)
+        return registry, repository, reference
+    if ":" in last_segment:
+        repository, reference = remainder.rsplit(":", 1)
+        return registry, repository, reference
+    raise RuntimeError(f"Image reference must include a tag or digest: {image}")
+
+
+def ensure_registry_anonymous_pullable(image: str) -> None:
+    registry, repository, reference = split_image_reference(image)
+    if registry != "ghcr.io":
+        return
+
+    manifest_url = f"https://{registry}/v2/{repository}/manifests/{reference}"
+    request = urllib.request.Request(
+        manifest_url,
+        headers={
+            "Accept": (
+                "application/vnd.oci.image.index.v1+json, "
+                "application/vnd.oci.image.manifest.v1+json, "
+                "application/vnd.docker.distribution.manifest.list.v2+json, "
+                "application/vnd.docker.distribution.manifest.v2+json"
+            )
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            if response.status != 200:
+                raise RuntimeError(
+                    f"Anonymous pull preflight failed for {image}: unexpected status {response.status}"
+                )
+    except urllib.error.HTTPError as exc:
+        package_owner = repository.split("/", 1)[0]
+        package_name = repository.rsplit("/", 1)[-1]
+        settings_url = (
+            f"https://github.com/users/{package_owner}/packages/container/package/{package_name}/settings"
+        )
+        raise RuntimeError(
+            "Anonymous pull preflight failed for "
+            f"{image}: GHCR returned HTTP {exc.code}. "
+            "LazyCat copy-image cannot pull a private or otherwise restricted GHCR package. "
+            f"Make the package public and verify anonymous pull before retrying. Settings: {settings_url}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Anonymous pull preflight failed for {image}: {exc}") from exc
+
+
 def copy_image_to_lazycat(source_image: str, env: dict[str, str]) -> str:
+    ensure_registry_anonymous_pullable(source_image)
     log(f"Copying image to LazyCat registry: {source_image}")
     proc = subprocess.Popen(
         ["lzc-cli", "appstore", "copy-image", source_image],
