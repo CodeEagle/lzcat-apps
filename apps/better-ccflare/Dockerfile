@@ -4,6 +4,10 @@ ARG BUILD_VERSION
 
 WORKDIR /src
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends patch && \
+    rm -rf /var/lib/apt/lists/*
+
 ADD https://github.com/tombii/better-ccflare/archive/refs/tags/v${BUILD_VERSION}.tar.gz /tmp/source.tar.gz
 COPY patches/ /tmp/patches/
 
