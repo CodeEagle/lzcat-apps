@@ -56,12 +56,12 @@ jobs:
           CONFIG_FILE: ${{ inputs.config_file }}
           ARTIFACT_REPO: ${{ inputs.artifact_repo }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_USERNAME: github-actions
+          GHCR_USERNAME: ${{ github.repository_owner }}
           LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
+          export GITHUB_TOKEN="${GH_TOKEN}"
+
           APP_NAME="${CONFIG_FILE%.json}"
           args=(
             --config-root "$CONFIG_ROOT"

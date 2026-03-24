@@ -101,6 +101,13 @@ def gh_api_text(path: str) -> str:
     return base64.b64decode(data["content"]).decode("utf-8")
 
 
+def resolve_gh_token(env: dict[str, str]) -> str:
+    token = env.get("GH_TOKEN") or env.get("GITHUB_TOKEN")
+    if not token:
+        raise RuntimeError("GH_TOKEN is required")
+    return token
+
+
 def file_sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -120,10 +127,8 @@ def clone_repo(repo: str, token: str, destination: Path) -> tuple[str, str]:
 
 
 def docker_login_ghcr(env: dict[str, str]) -> None:
-    ghcr_token = env.get("GHCR_TOKEN") or env.get("GH_TOKEN") or env.get("GITHUB_TOKEN")
+    ghcr_token = resolve_gh_token(env)
     ghcr_username = env.get("GHCR_USERNAME") or env.get("GITHUB_REPOSITORY_OWNER") or "github-actions"
-    if not ghcr_token:
-        raise RuntimeError("GHCR_TOKEN or GH_TOKEN is required")
     login_cmd = f"printf '%s' '{ghcr_token}' | docker login ghcr.io -u '{ghcr_username}' --password-stdin"
     last_error: RuntimeError | None = None
     for attempt in range(1, 4):
@@ -653,9 +658,7 @@ def main() -> int:
     config_path = Path(args.config_root) / "repos" / args.config_file
     config = json.loads(config_path.read_text())
     env = os.environ.copy()
-    gh_token = env.get("GH_TOKEN") or env.get("GITHUB_TOKEN")
-    if not gh_token:
-        raise RuntimeError("GH_TOKEN or GITHUB_TOKEN is required")
+    gh_token = resolve_gh_token(env)
 
     app_name = Path(args.config_file).stem
     repo_dir = Path(args.app_root)

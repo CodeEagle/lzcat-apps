@@ -11,9 +11,8 @@
 #   ./scripts/local_build.sh paperclip --no-dry-run       # 完整流程（需要 LZC_CLI_TOKEN）
 #
 # 环境变量（可在 scripts/.env.local 中配置，不要提交）:
-#   GH_TOKEN        — GitHub token，用于读取上游版本
+#   GH_TOKEN        — 主凭据；用于 GitHub API，且默认同时用于 GHCR push
 #   LZC_CLI_TOKEN   — LazyCat CLI token（非 dry-run 时必须）
-#   GHCR_TOKEN      — GHCR push token（非 dry-run 时必须，默认复用 GH_TOKEN）
 
 set -euo pipefail
 
@@ -94,7 +93,6 @@ ARGS+=("${EXTRA_ARGS[@]}")
 export GITHUB_REPOSITORY_OWNER="${GITHUB_REPOSITORY_OWNER:-CodeEagle}"
 export GH_TOKEN="${GH_TOKEN:-$(gh auth token 2>/dev/null || true)}"
 export GITHUB_TOKEN="${GH_TOKEN:-}"
-export GHCR_TOKEN="${GHCR_TOKEN:-${GH_TOKEN:-}}"
 export GHCR_USERNAME="${GHCR_USERNAME:-${GITHUB_REPOSITORY_OWNER}}"
 export LZC_CLI_TOKEN="${LZC_CLI_TOKEN:-}"
 
