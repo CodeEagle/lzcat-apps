@@ -31,7 +31,7 @@ services:
     binds:
       - /lzcapp/var/db/cmms/postgres:/var/lib/postgresql/data
   api:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/cmms-api:bb53bbcabe9ff18e
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/cmms-api:5e43f714b34822f2
     depends_on:
       - postgres
       - minio
@@ -84,7 +84,7 @@ services:
       - /lzcapp/var/data/cmms/api/images:/app/static/images
       - /lzcapp/var/data/cmms/api/config:/app/static/config
   frontend:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/cmms-frontend:50f231e20c7defa8
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/cmms-frontend:ee83bda3098ae550
     depends_on:
       - api
     environment:
