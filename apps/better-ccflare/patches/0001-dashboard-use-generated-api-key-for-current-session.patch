@@ -17,3 +17,13 @@
 -						window.dispatchEvent(new CustomEvent("auth-required"));
 +						queryClient.invalidateQueries({ queryKey: ["api-keys"] });
 +						queryClient.invalidateQueries({ queryKey: ["api-keys-stats"] });
+--- a/packages/dashboard-web/src/App.tsx
++++ b/packages/dashboard-web/src/App.tsx
+@@ -90,1 +90,1 @@
+-		path: "/api-keys",
++		path: "/keys",
+--- a/packages/dashboard-web/src/components/navigation.tsx
++++ b/packages/dashboard-web/src/components/navigation.tsx
+@@ -44,1 +44,1 @@
+-	{ label: "API Keys", icon: Key, path: "/api-keys" },
++	{ label: "API Keys", icon: Key, path: "/keys" },
