@@ -230,19 +230,15 @@ services:
         self.assertEqual(first.returncode, 0, msg=first.stderr)
         self.assertEqual(second.returncode, 0, msg=second.stderr)
 
-    def test_native_desktop_repo_with_platform_dockerfile_uses_novnc_route(self) -> None:
+    def test_native_desktop_repo_with_platform_dockerfile_is_rejected(self) -> None:
         repo_root = self.make_repo_root()
         source_repo = self.make_native_desktop_repo_with_platform_dockerfiles()
         result = self.run_script(repo_root, source_repo)
         slug = normalize_slug(source_repo.name)
-        self.assertEqual(result.returncode, 0, msg=result.stderr)
-        config = json.loads((repo_root / "registry" / "repos" / f"{slug}.json").read_text(encoding="utf-8"))
-        manifest = (repo_root / "apps" / slug / "lzc-manifest.yml").read_text(encoding="utf-8")
-        dockerfile = (repo_root / "apps" / slug / "Dockerfile.template").read_text(encoding="utf-8")
-        self.assertEqual(config["build_strategy"], "upstream_with_target_template")
-        self.assertIn("backend: http://", manifest)
-        self.assertIn("8080", manifest)
-        self.assertIn("novnc", dockerfile.lower())
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("原生客户端/桌面应用", result.stdout)
+        self.assertFalse((repo_root / "apps" / slug).exists())
+        self.assertFalse((repo_root / "registry" / "repos" / f"{slug}.json").exists())
 
 
 if __name__ == "__main__":

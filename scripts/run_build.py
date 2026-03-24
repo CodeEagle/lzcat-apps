@@ -681,7 +681,7 @@ def build_target_image(
     source_root = Path(tempfile.mkdtemp(prefix="lzcat-upstream-"))
     try:
         log(f"Cloning upstream: {upstream_repo}")
-        sh(["git", "clone", f"https://github.com/{upstream_repo}.git", str(source_root)], env=env, capture=False)
+        sh(["git", "clone", "--recurse-submodules", f"https://github.com/{upstream_repo}.git", str(source_root)], env=env, capture=False)
         checkout_source_ref(source_root, source_version, env)
         if build_strategy == "upstream_with_target_template":
             template_path = repo_dir / str(config.get("dockerfile_path", "Dockerfile.template"))
@@ -754,7 +754,7 @@ def build_service_images(
     source_root = Path(tempfile.mkdtemp(prefix="lzcat-upstream-"))
     try:
         log(f"Cloning upstream: {upstream_repo}")
-        sh(["git", "clone", f"https://github.com/{upstream_repo}.git", str(source_root)], env=env, capture=False)
+        sh(["git", "clone", "--recurse-submodules", f"https://github.com/{upstream_repo}.git", str(source_root)], env=env, capture=False)
         checkout_source_ref(source_root, source_version, env)
 
         built_images: dict[str, str] = {}

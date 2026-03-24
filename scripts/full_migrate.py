@@ -1215,7 +1215,9 @@ WORKDIR /src
 COPY . /src
 
 RUN cmake -B build -DPLATFORM_DESKTOP=ON -DUSE_SHARED_LIB=OFF && \\
-    cmake --build build -j$(nproc)
+    jobs="$(nproc)"; \\
+    if [ "$jobs" -gt 2 ]; then jobs=2; fi; \\
+    cmake --build build -j"$jobs"
 
 FROM debian:bookworm
 
@@ -1557,7 +1559,7 @@ def analyze_source(normalized: dict[str, Any], source_dir: Path | None) -> dict[
         else:
             spec = choose_route_for_compose(slug, meta, source_dir, compose_file, dockerfile)
     elif native_project_reason:
-        spec = choose_route_for_native_desktop(slug, meta, dockerfile, readmes, native_project_reason)
+        raise ValueError(native_project_reason)
     elif dockerfile:
         spec = choose_route_for_dockerfile(slug, meta, source_dir, dockerfile, env_files)
     elif upstream_repo:
