@@ -16,7 +16,7 @@ application:
       backend: http://better-ccflare:8080/
 services:
   better-ccflare:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/better-ccflare-lzcat:39685bf2353f0fb8
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/better-ccflare-lzcat:40f7b894ea6f39dd
     environment:
       - PORT=8080
       - BETTER_CCFLARE_HOST=0.0.0.0
