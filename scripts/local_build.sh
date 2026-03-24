@@ -18,6 +18,14 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$REPO_ROOT/scripts/.env.local"
+DOCKER_SHIM_DIR=""
+
+cleanup() {
+  if [ -n "$DOCKER_SHIM_DIR" ] && [ -d "$DOCKER_SHIM_DIR" ]; then
+    rm -rf "$DOCKER_SHIM_DIR"
+  fi
+}
+trap cleanup EXIT
 
 # 加载本地 env（如果存在）
 if [ -f "$ENV_FILE" ]; then
@@ -95,6 +103,17 @@ export GH_TOKEN="${GH_TOKEN:-$(gh auth token 2>/dev/null || true)}"
 export GITHUB_TOKEN="${GH_TOKEN:-}"
 export GHCR_USERNAME="${GHCR_USERNAME:-${GITHUB_REPOSITORY_OWNER}}"
 export LZC_CLI_TOKEN="${LZC_CLI_TOKEN:-}"
+
+if ! command -v docker >/dev/null 2>&1 && command -v podman >/dev/null 2>&1; then
+  DOCKER_SHIM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/lzcat-docker-shim.XXXXXX")"
+  cat >"$DOCKER_SHIM_DIR/docker" <<'EOF'
+#!/usr/bin/env bash
+exec podman "$@"
+EOF
+  chmod +x "$DOCKER_SHIM_DIR/docker"
+  export PATH="$DOCKER_SHIM_DIR:$PATH"
+  echo "==> [PODMAN SHIM] docker commands will be forwarded to podman"
+fi
 
 echo "==> Running: python3 scripts/run_build.py ${ARGS[*]}"
 echo ""

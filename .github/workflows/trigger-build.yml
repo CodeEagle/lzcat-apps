@@ -9,10 +9,41 @@ on:
 
     inputs:
       target_repo:
-        description: "Target app name, e.g. paperclip (leave empty to process all enabled apps)"
+        description: "Target app to build"
         required: false
-        default: ""
-        type: string
+        default: "all-enabled-apps"
+        type: choice
+        options:
+          # BEGIN AUTO-GENERATED APP OPTIONS
+          - "all-enabled-apps"
+          - "airflow"
+          - "airi"
+          - "better-ccflare"
+          - "autoclip"
+          - "chatgpt-on-wechat-lazycat"
+          - "clirelay"
+          - "cmms"
+          - "cutia"
+          - "ebook2audiobook"
+          - "edit-banana"
+          - "gitnexus"
+          - "higress"
+          - "jellyfish"
+          - "markitdown"
+          - "moltis"
+          - "omniroute"
+          - "openops"
+          - "pandawiki"
+          - "openfang"
+          - "paperclip"
+          - "remodex-relay"
+          - "shadmin"
+          - "superplane"
+          - "taoyuan"
+          - "vane"
+          - "waoowaoo"
+          - "shadowbroker"
+          # END AUTO-GENERATED APP OPTIONS
       target_version:
         description: "Target upstream version to build. Leave empty for latest."
         required: false

@@ -523,10 +523,9 @@ def build_with_dockerfile(
     context = build_root / build_context_rel
     if not dockerfile.exists():
         raise RuntimeError(f"Dockerfile not found: {dockerfile}")
+    args = ["docker", "build"]
     if platform:
-        args = ["docker", "buildx", "build", "--load", "--platform", platform]
-    else:
-        args = ["docker", "build"]
+        args.extend(["--platform", platform])
     args.extend(["-f", str(dockerfile), "-t", target_image])
     owner = env.get("GITHUB_REPOSITORY_OWNER", "CodeEagle")
     source_repo = env.get("GITHUB_REPOSITORY", f"{owner}/lzcat-apps")
@@ -542,6 +541,11 @@ def build_with_dockerfile(
         log(f"Pushing Docker image: {target_image}")
         sh(["docker", "push", target_image], env=env, capture=False)
     return target_image
+
+
+def compute_target_image(env: dict[str, str], image_name: str, head_sha: str) -> str:
+    owner_lower = env.get("GITHUB_REPOSITORY_OWNER", "codeagle").lower()
+    return f"ghcr.io/{owner_lower}/{image_name.lower()}:{head_sha[:12]}"
 
 
 def copy_overlay_paths(repo_dir: Path, build_root: Path, overlay_paths: list[str]) -> None:
@@ -570,10 +574,8 @@ def build_target_image(
     *,
     dry_run: bool = False,
 ) -> str:
-    owner_lower = env.get("GITHUB_REPOSITORY_OWNER", "codeagle").lower()
     name_lower = str(config.get("image_name", "")).strip().lower() or app_name.lower()
-    image_tag = head_sha[:12]
-    target_image = f"ghcr.io/{owner_lower}/{name_lower}:{image_tag}"
+    target_image = compute_target_image(env, name_lower, head_sha)
     docker_login_ghcr(env)
     build_strategy = str(config.get("build_strategy", "")).strip()
     docker_platform = str(config.get("docker_platform", "")).strip()
@@ -644,10 +646,9 @@ def build_target_image(
                     )
                 )
             log(f"Building Docker image from precompiled binary: {target_image}")
+            build_cmd = ["docker", "build"]
             if docker_platform:
-                build_cmd = ["docker", "buildx", "build", "--load", "--platform", docker_platform]
-            else:
-                build_cmd = ["docker", "build"]
+                build_cmd.extend(["--platform", docker_platform])
             build_cmd.extend(["-t", target_image, "."])
             sh(build_cmd, cwd=build_root, env=env, capture=False)
             if dry_run:
@@ -721,6 +722,85 @@ def build_target_image(
             platform=docker_platform,
             dry_run=dry_run,
         )
+    finally:
+        shutil.rmtree(source_root, ignore_errors=True)
+
+
+def build_service_images(
+    repo_dir: Path,
+    config: dict[str, Any],
+    env: dict[str, str],
+    source_version: str,
+    build_version: str,
+    head_sha: str,
+    app_name: str,
+    *,
+    dry_run: bool = False,
+) -> dict[str, str]:
+    upstream_repo = str(config.get("upstream_repo", "")).strip()
+    if not upstream_repo:
+        raise RuntimeError("No upstream_repo configured for service builds")
+
+    service_builds = config.get("service_builds", [])
+    if not isinstance(service_builds, list) or not service_builds:
+        return {}
+
+    docker_login_ghcr(env)
+    docker_platform = str(config.get("docker_platform", "")).strip()
+    global_build_args = dict(config.get("build_args", {}))
+    global_build_args.setdefault("SOURCE_VERSION", source_version)
+    global_build_args.setdefault("BUILD_VERSION", build_version)
+
+    source_root = Path(tempfile.mkdtemp(prefix="lzcat-upstream-"))
+    try:
+        log(f"Cloning upstream: {upstream_repo}")
+        sh(["git", "clone", f"https://github.com/{upstream_repo}.git", str(source_root)], env=env, capture=False)
+        checkout_source_ref(source_root, source_version, env)
+
+        built_images: dict[str, str] = {}
+        for item in service_builds:
+            if not isinstance(item, dict):
+                continue
+            target_service = str(item.get("target_service", "")).strip()
+            build_strategy = str(item.get("build_strategy") or config.get("build_strategy", "")).strip()
+            image_name = str(item.get("image_name", "")).strip() or f"{app_name}-{target_service}"
+            build_args = dict(global_build_args)
+            build_args.update(dict(item.get("build_args", {})))
+            build_context = str(item.get("build_context") or ".").strip()
+            target_image = compute_target_image(env, image_name, head_sha)
+
+            if build_strategy == "upstream_with_target_template":
+                template_rel = str(item.get("dockerfile_path") or "").strip()
+                output_rel = str(item.get("source_dockerfile_path") or "Dockerfile").strip()
+                if not template_rel:
+                    raise RuntimeError(f"service build {target_service} missing dockerfile_path")
+                template_path = repo_dir / template_rel
+                if not template_path.exists():
+                    raise RuntimeError(f"Template Dockerfile missing: {template_path}")
+                content = template_path.read_text()
+                content = content.replace("{{PROJECT_NAME_LOWER}}", app_name.lower())
+                content = content.replace("{{SERVICE_PORT}}", str(config.get("service_port", "")))
+                destination = source_root / output_rel
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_text(content)
+                dockerfile_rel = output_rel
+            else:
+                dockerfile_rel = str(
+                    item.get("source_dockerfile_path")
+                    or item.get("dockerfile_path")
+                    or "Dockerfile"
+                ).strip()
+            built_images[target_service] = build_with_dockerfile(
+                source_root,
+                target_image,
+                env,
+                dockerfile_rel,
+                build_context,
+                build_args,
+                platform=docker_platform,
+                dry_run=dry_run,
+            )
+        return built_images
     finally:
         shutil.rmtree(source_root, ignore_errors=True)
 
@@ -838,29 +918,63 @@ def main() -> int:
             report["phase"] = "build_image"
             write_report(report, report_path)
             log(f"[{app_name}] Phase: build_image")
-            target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name, dry_run=args.dry_run)
-            report["target_image"] = target_image
-            write_report(report, report_path)
-
-            report["phase"] = "copy_image"
-            write_report(report, report_path)
-            if args.dry_run:
-                log(f"[{app_name}] [DRY RUN] Skipping copy-image, using placeholder URL")
-                accelerated_url = f"registry.lazycat.cloud/dry-run/{app_name.lower()}:dry-run"
-            else:
-                log(f"[{app_name}] Phase: copy_image")
-                accelerated_url = copy_image_to_lazycat(target_image, env)
-            report["accelerated_image"] = accelerated_url
-            write_report(report, report_path)
-
-            image_targets = resolve_image_targets(config, manifest_text)
-            if not image_targets:
-                raise RuntimeError("No target services configured for main image update")
             updated_manifest = manifest_text
-            for target_service in image_targets:
-                updated_manifest, count = update_service_image(updated_manifest, target_service, accelerated_url)
-                if count != 1:
-                    raise RuntimeError(f"Failed to update service image in lzc-manifest.yml: {target_service}")
+            service_builds = config.get("service_builds", [])
+            if isinstance(service_builds, list) and service_builds:
+                built_images = build_service_images(
+                    repo_dir,
+                    config,
+                    env,
+                    source_version,
+                    build_version,
+                    head_sha,
+                    app_name,
+                    dry_run=args.dry_run,
+                )
+                report["target_images"] = built_images
+                write_report(report, report_path)
+
+                report["phase"] = "copy_image"
+                write_report(report, report_path)
+                accelerated_images: dict[str, str] = {}
+                for target_service, built_image in built_images.items():
+                    if args.dry_run:
+                        accelerated_images[target_service] = f"registry.lazycat.cloud/dry-run/{app_name.lower()}-{target_service}:dry-run"
+                    else:
+                        log(f"[{app_name}] Phase: copy_image -> {target_service}")
+                        accelerated_images[target_service] = copy_image_to_lazycat(built_image, env)
+                    updated_manifest, count = update_service_image(
+                        updated_manifest,
+                        target_service,
+                        accelerated_images[target_service],
+                    )
+                    if count != 1:
+                        raise RuntimeError(f"Failed to update service image in lzc-manifest.yml: {target_service}")
+                report["accelerated_images"] = accelerated_images
+                write_report(report, report_path)
+            else:
+                target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name, dry_run=args.dry_run)
+                report["target_image"] = target_image
+                write_report(report, report_path)
+
+                report["phase"] = "copy_image"
+                write_report(report, report_path)
+                if args.dry_run:
+                    log(f"[{app_name}] [DRY RUN] Skipping copy-image, using placeholder URL")
+                    accelerated_url = f"registry.lazycat.cloud/dry-run/{app_name.lower()}:dry-run"
+                else:
+                    log(f"[{app_name}] Phase: copy_image")
+                    accelerated_url = copy_image_to_lazycat(target_image, env)
+                report["accelerated_image"] = accelerated_url
+                write_report(report, report_path)
+
+                image_targets = resolve_image_targets(config, manifest_text)
+                if not image_targets:
+                    raise RuntimeError("No target services configured for main image update")
+                for target_service in image_targets:
+                    updated_manifest, count = update_service_image(updated_manifest, target_service, accelerated_url)
+                    if count != 1:
+                        raise RuntimeError(f"Failed to update service image in lzc-manifest.yml: {target_service}")
 
         if not args.skip_docker:
             dependency_replacements = {

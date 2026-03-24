@@ -1,0 +1,112 @@
+{
+  "slug": "example-stack",
+  "project_name": "Example Stack",
+  "upstream_repo": "example-org/example-stack",
+  "description": "Example multi-service app scaffold for LazyCat",
+  "description_zh": "用于懒猫微服的一份多服务移植骨架示例",
+  "homepage": "https://github.com/example-org/example-stack",
+  "license": "MIT",
+  "author": "example-org",
+  "version": "0.1.0",
+  "check_strategy": "github_release",
+  "build_strategy": "official_image",
+  "official_image_registry": "ghcr.io/example-org/example-stack",
+  "service_port": 3000,
+  "image_targets": [
+    "web",
+    "api"
+  ],
+  "env_vars": [
+    {
+      "name": "OPENAI_API_KEY",
+      "required": true,
+      "description": "LLM provider API key"
+    },
+    {
+      "name": "EXAMPLE_ADMIN_EMAIL",
+      "value": "admin@example.com",
+      "description": "Initial admin email"
+    }
+  ],
+  "data_paths": [
+    {
+      "host": "/lzcapp/var/data/example-stack",
+      "container": "/data",
+      "description": "Application data"
+    },
+    {
+      "host": "/lzcapp/var/db/example-stack/postgres",
+      "container": "/var/lib/postgresql/data",
+      "description": "PostgreSQL data"
+    }
+  ],
+  "startup_notes": [
+    "Confirm the real bootstrap flow before writing setup_script.",
+    "Verify which directories are writable by the upstream runtime user."
+  ],
+  "application": {
+    "subdomain": "example-stack",
+    "routes": [
+      "/=file:///lzcapp/pkg/content/home"
+    ],
+    "public_path": [
+      "/",
+      "/api/"
+    ],
+    "upstreams": [
+      {
+        "location": "/api/",
+        "backend": "http://api:8080/api/"
+      },
+      {
+        "location": "/",
+        "backend": "http://web:3000/"
+      }
+    ]
+  },
+  "services": {
+    "web": {
+      "image": "registry.lazycat.cloud/placeholder/example-stack:web",
+      "depends_on": [
+        "api"
+      ],
+      "environment": [
+        "NODE_ENV=production"
+      ]
+    },
+    "api": {
+      "image": "registry.lazycat.cloud/placeholder/example-stack:api",
+      "depends_on": [
+        "postgres"
+      ],
+      "environment": [
+        "OPENAI_API_KEY",
+        "EXAMPLE_ADMIN_EMAIL=admin@example.com"
+      ],
+      "binds": [
+        "/lzcapp/var/data/example-stack:/data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -f http://127.0.0.1:8080/health >/dev/null || exit 1"
+        ],
+        "interval": "30s",
+        "timeout": "10s",
+        "retries": 5
+      }
+    },
+    "postgres": {
+      "image": "registry.lazycat.cloud/placeholder/example-stack:postgres",
+      "environment": [
+        "POSTGRES_USER=example",
+        "POSTGRES_PASSWORD=example",
+        "POSTGRES_DB=example"
+      ],
+      "binds": [
+        "/lzcapp/var/db/example-stack/postgres:/var/lib/postgresql/data"
+      ]
+    }
+  },
+  "include_content": true
+}
