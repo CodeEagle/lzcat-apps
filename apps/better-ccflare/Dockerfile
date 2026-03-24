@@ -5,11 +5,14 @@ ARG BUILD_VERSION
 WORKDIR /src
 
 ADD https://github.com/tombii/better-ccflare/archive/refs/tags/v${BUILD_VERSION}.tar.gz /tmp/source.tar.gz
+COPY patches/ /tmp/patches/
 
 RUN test -n "$BUILD_VERSION" && \
     mkdir -p /src && \
     tar -xzf /tmp/source.tar.gz --strip-components=1 -C /src && \
     rm -f /tmp/source.tar.gz
+
+RUN patch -p1 -d /src < /tmp/patches/0001-dashboard-use-generated-api-key-for-current-session.patch
 
 RUN bun install --frozen-lockfile
 RUN bun run build
