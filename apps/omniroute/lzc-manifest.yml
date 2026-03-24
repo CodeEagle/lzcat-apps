@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.omniroute
-version: 2.9.4
+version: 2.9.5
 min_os_version: 1.3.8
 name: OmniRoute
 description: (LazyCat Auto-build) Unified AI proxy with dashboard, OpenAI-compatible API, MCP, and A2A support
@@ -21,7 +21,7 @@ application:
     timeout: 10s
 services:
   omniroute:
-    image: registry.lazycat.cloud/invokerlaw/omniroute-c19c2f03-31ad-4bdc-9040-20cad85f776e:fac60aa260e03d6d
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/omniroute:43a36be248f667e5
     environment:
       - NODE_ENV=production
       - PORT=20128
