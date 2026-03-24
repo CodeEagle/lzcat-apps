@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -262,17 +263,15 @@ def ensure_registry_anonymous_pullable(image: str) -> None:
         return
 
     manifest_url = f"https://{registry}/v2/{repository}/manifests/{reference}"
-    request = urllib.request.Request(
-        manifest_url,
-        headers={
-            "Accept": (
-                "application/vnd.oci.image.index.v1+json, "
-                "application/vnd.oci.image.manifest.v1+json, "
-                "application/vnd.docker.distribution.manifest.list.v2+json, "
-                "application/vnd.docker.distribution.manifest.v2+json"
-            )
-        },
-    )
+    headers = {
+        "Accept": (
+            "application/vnd.oci.image.index.v1+json, "
+            "application/vnd.oci.image.manifest.v1+json, "
+            "application/vnd.docker.distribution.manifest.list.v2+json, "
+            "application/vnd.docker.distribution.manifest.v2+json"
+        )
+    }
+    request = urllib.request.Request(manifest_url, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
             if response.status != 200:
@@ -280,6 +279,36 @@ def ensure_registry_anonymous_pullable(image: str) -> None:
                     f"Anonymous pull preflight failed for {image}: unexpected status {response.status}"
                 )
     except urllib.error.HTTPError as exc:
+        www_authenticate = exc.headers.get("WWW-Authenticate", "")
+        match = re.match(
+            r'Bearer\s+realm="(?P<realm>[^"]+)",service="(?P<service>[^"]+)",scope="(?P<scope>[^"]+)"',
+            www_authenticate,
+        )
+        if exc.code == 401 and match:
+            token_url = f"{match.group('realm')}?{urllib.parse.urlencode(match.groupdict())}"
+            token_request = urllib.request.Request(token_url)
+            try:
+                with urllib.request.urlopen(token_request, timeout=20) as token_response:
+                    token_payload = json.loads(token_response.read().decode("utf-8"))
+                token = token_payload.get("token") or token_payload.get("access_token")
+                if not token:
+                    raise RuntimeError(
+                        f"Anonymous pull preflight failed for {image}: GHCR token response did not include a token"
+                    )
+                authed_request = urllib.request.Request(
+                    manifest_url,
+                    headers={**headers, "Authorization": f"Bearer {token}"},
+                )
+                with urllib.request.urlopen(authed_request, timeout=20) as response:
+                    if response.status == 200:
+                        return
+                    raise RuntimeError(
+                        f"Anonymous pull preflight failed for {image}: unexpected status {response.status}"
+                    )
+            except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError) as token_exc:
+                raise RuntimeError(
+                    f"Anonymous pull preflight failed for {image}: GHCR bearer challenge did not complete successfully ({token_exc})"
+                ) from token_exc
         package_owner = repository.split("/", 1)[0]
         package_name = repository.rsplit("/", 1)[-1]
         settings_url = (
