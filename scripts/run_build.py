@@ -244,17 +244,32 @@ def expand_placeholders(value: str, replacements: dict[str, str]) -> str:
 
 
 def split_image_reference(image: str) -> tuple[str, str, str]:
-    if "/" not in image:
+    if "@" in image:
+        name, reference = image.rsplit("@", 1)
+    else:
+        name = image
+        reference = ""
+        last_segment = image.rsplit("/", 1)[-1]
+        if ":" in last_segment:
+            name, reference = image.rsplit(":", 1)
+    if not reference:
+        raise RuntimeError(f"Image reference must include a tag or digest: {image}")
+
+    parts = name.split("/")
+    first = parts[0]
+    if len(parts) == 1:
+        registry = "docker.io"
+        repository = f"library/{first}"
+    elif "." in first or ":" in first or first == "localhost":
+        registry = first
+        repository = "/".join(parts[1:])
+    else:
+        registry = "docker.io"
+        repository = name
+
+    if not repository:
         raise RuntimeError(f"Invalid image reference: {image}")
-    registry, remainder = image.split("/", 1)
-    last_segment = remainder.rsplit("/", 1)[-1]
-    if "@" in remainder:
-        repository, reference = remainder.split("@", 1)
-        return registry, repository, reference
-    if ":" in last_segment:
-        repository, reference = remainder.rsplit(":", 1)
-        return registry, repository, reference
-    raise RuntimeError(f"Image reference must include a tag or digest: {image}")
+    return registry, repository, reference
 
 
 def ensure_registry_anonymous_pullable(image: str) -> None:
