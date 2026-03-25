@@ -585,8 +585,11 @@ def build_target_image(
     build_args.setdefault("BUILD_VERSION", build_version)
 
     official_registry = str(config.get("official_image_registry", "")).strip()
+    official_fallback_tag = str(config.get("official_image_fallback_tag", "")).strip()
     if build_strategy == "official_image" and official_registry:
         tag_candidates = [source_version, build_version]
+        if official_fallback_tag:
+            tag_candidates.append(official_fallback_tag)
         for tag in tag_candidates:
             if not tag:
                 continue

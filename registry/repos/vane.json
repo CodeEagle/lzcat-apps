@@ -6,6 +6,7 @@
   "build_strategy": "official_image",
   "publish_to_store": false,
   "official_image_registry": "docker.io/itzcrazykns1337/vane",
+  "official_image_fallback_tag": "latest",
   "precompiled_binary_url": "",
   "dockerfile_type": "simple",
   "service_port": 3000,
