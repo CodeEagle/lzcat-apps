@@ -43,6 +43,7 @@ on:
           - "vane"
           - "waoowaoo"
           - "shadowbroker"
+          - "signoz"
           # END AUTO-GENERATED APP OPTIONS
       target_version:
         description: "Target upstream version to build. Leave empty for latest."

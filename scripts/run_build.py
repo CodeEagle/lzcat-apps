@@ -863,8 +863,10 @@ def main() -> int:
         write_report(report, report_path)
         manifest_path = repo_dir / "lzc-manifest.yml"
         manifest_text = manifest_path.read_text()
+        original_manifest_text = manifest_text
         meta_path = repo_dir / ".lazycat-build.json"
-        build_meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+        original_meta_text = meta_path.read_text() if meta_path.exists() else None
+        build_meta = json.loads(original_meta_text) if original_meta_text else {}
         current_version_match = re.search(r"^version:\s*(.+)$", manifest_text, re.MULTILINE)
         current_version = current_version_match.group(1).strip() if current_version_match else ""
         current_build_version = str(build_meta.get("build_version", current_version)).strip()
@@ -1103,6 +1105,12 @@ def main() -> int:
         report["phase"] = "completed"
         write_report(report, report_path)
         publish_report_summary(report)
+        if args.dry_run:
+            manifest_path.write_text(original_manifest_text)
+            if original_meta_text is None:
+                meta_path.unlink(missing_ok=True)
+            else:
+                meta_path.write_text(original_meta_text)
         log(f"[{app_name}] Build completed successfully: v{build_version}")
         return 0
     except Exception as exc:

@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import textwrap
 from pathlib import Path
 from typing import Any
 from urllib import error, request
@@ -445,7 +446,7 @@ def load_yaml(path: Path) -> Any:
             "-ryaml",
             "-rjson",
             "-e",
-            "data = YAML.load_file(ARGV[0]); puts JSON.generate(data)",
+            "data = YAML.load_file(ARGV[0], aliases: true); puts JSON.generate(data)",
             str(path),
         ]
     )
@@ -1668,6 +1669,559 @@ def apply_post_write(repo_root: Path, slug: str, post_write: dict[str, str]) -> 
     return outputs
 
 
+def post_process_signoz(repo_root: Path) -> list[str]:
+    app_dir = repo_root / "apps" / "signoz"
+    content_dir = app_dir / "content"
+    (content_dir / "clickhouse").mkdir(parents=True, exist_ok=True)
+
+    writes: dict[Path, str] = {
+        app_dir / "lzc-manifest.yml": textwrap.dedent(
+            """\
+            lzc-sdk-version: '0.1'
+            package: fun.selfstudio.app.migration.signoz
+            version: 0.116.1
+            min_os_version: 1.3.8
+            name: SigNoz
+            description: Open-source observability with traces, metrics, and logs
+            license: Apache-2.0
+            homepage: https://signoz.io
+            author: SigNoz
+            application:
+              subdomain: signoz
+              public_path:
+                - /
+              health_check:
+                disable: true
+                test_url: http://signoz:8080/api/v1/health
+                start_period: 300s
+                timeout: 10s
+              upstreams:
+                - location: /
+                  backend: http://signoz:8080/
+                  disable_auto_health_checking: true
+            services:
+              init-clickhouse:
+                image: registry.lazycat.cloud/invokerlaw/clickhouse/clickhouse-server:ccb6549ae7e253ed
+                command: >-
+                  bash -lc 'set -e;
+                  mkdir -p /var/lib/clickhouse/user_scripts;
+                  if [ ! -x /var/lib/clickhouse/user_scripts/histogramQuantile ]; then
+                  version="v0.0.1";
+                  node_os=$$(uname -s | tr "[:upper:]" "[:lower:]");
+                  node_arch=$$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/);
+                  cd /tmp;
+                  wget -O histogram-quantile.tar.gz "https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2F$${version}/histogram-quantile_$${node_os}_$${node_arch}.tar.gz";
+                  tar -xzf histogram-quantile.tar.gz;
+                  mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile;
+                  chmod +x /var/lib/clickhouse/user_scripts/histogramQuantile;
+                  fi'
+                binds:
+                  - /lzcapp/var/db/signoz/clickhouse:/var/lib/clickhouse
+
+              zookeeper-1:
+                image: registry.lazycat.cloud/invokerlaw/signoz/zookeeper:730916d2ce75de76
+                user: root
+                environment:
+                  - ZOO_SERVER_ID=1
+                  - ALLOW_ANONYMOUS_LOGIN=yes
+                  - ZOO_AUTOPURGE_INTERVAL=1
+                  - ZOO_ENABLE_PROMETHEUS_METRICS=yes
+                  - ZOO_PROMETHEUS_METRICS_PORT_NUMBER=9141
+                binds:
+                  - /lzcapp/var/db/signoz/zookeeper:/bitnami/zookeeper
+                healthcheck:
+                  test: ["CMD-SHELL", "curl -s -m 2 http://localhost:8080/commands/ruok | grep error | grep null"]
+                  interval: 30s
+                  timeout: 5s
+                  retries: 10
+
+              clickhouse:
+                image: registry.lazycat.cloud/invokerlaw/clickhouse/clickhouse-server:ccb6549ae7e253ed
+                depends_on:
+                  - init-clickhouse
+                  - zookeeper-1
+                environment:
+                  - CLICKHOUSE_SKIP_USER_SETUP=1
+                binds:
+                  - /lzcapp/var/db/signoz/clickhouse:/var/lib/clickhouse
+                setup_script: |
+                  mkdir -p /etc/clickhouse-server/config.d /var/lib/clickhouse/user_scripts
+                  cp /lzcapp/pkg/content/clickhouse/users.xml /etc/clickhouse-server/users.xml
+                  cp /lzcapp/pkg/content/clickhouse/cluster.xml /etc/clickhouse-server/config.d/cluster.xml
+                  cp /lzcapp/pkg/content/clickhouse/macros.xml /etc/clickhouse-server/config.d/macros.xml
+                  cp /lzcapp/pkg/content/clickhouse/custom-function.xml /etc/clickhouse-server/custom-function.xml
+                healthcheck:
+                  test: ["CMD", "wget", "--spider", "-q", "0.0.0.0:8123/ping"]
+                  interval: 30s
+                  timeout: 5s
+                  retries: 10
+
+              signoz:
+                image: registry.lazycat.cloud/invokerlaw/signoz/signoz:a16516d0ba0ee588
+                depends_on:
+                  - clickhouse
+                  - signoz-telemetrystore-migrator
+                entrypoint: /bin/sh
+                command: >-
+                  -lc 'mkdir -p /var/lib/signoz /var/lib/signoz/prometheus-active-query-tracker
+                  /var/lib/signoz-runtime; until [ -f
+                  /var/lib/signoz-runtime/migrations-ready ]; do sleep 3; done; exec
+                  ./signoz server'
+                environment:
+                  - SIGNOZ_ALERTMANAGER_PROVIDER=signoz
+                  - SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN=tcp://clickhouse:9000
+                  - SIGNOZ_SQLSTORE_SQLITE_PATH=/var/lib/signoz/signoz.db
+                  - SIGNOZ_TOKENIZER_JWT_SECRET=secret
+                  - SIGNOZ_PROMETHEUS_ACTIVE__QUERY__TRACKER_PATH=/var/lib/signoz/prometheus-active-query-tracker
+                binds:
+                  - /lzcapp/var/data/signoz/sqlite:/var/lib/signoz
+                  - /lzcapp/var/data/signoz/runtime:/var/lib/signoz-runtime
+                healthcheck:
+                  test: ["CMD", "wget", "--spider", "-q", "localhost:8080/api/v1/health"]
+                  interval: 30s
+                  timeout: 5s
+                  retries: 10
+
+              otel-collector:
+                image: registry.lazycat.cloud/invokerlaw/signoz/signoz-otel-collector:85bd090294be0dbf
+                depends_on:
+                  - clickhouse
+                  - signoz-telemetrystore-migrator
+                environment:
+                  - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
+                  - LOW_CARDINAL_EXCEPTION_GROUPING=false
+                  - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://clickhouse:9000
+                  - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER=cluster
+                  - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION=true
+                  - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
+                entrypoint: /bin/sh
+                command: >-
+                  -lc 'set -e; mkdir -p /var/lib/signoz-runtime; cp
+                  /lzcapp/pkg/content/otel-collector-config.yaml
+                  /var/tmp/otel-config.yaml; until [ -f
+                  /var/lib/signoz-runtime/migrations-ready ]; do sleep 3; done;
+                  /signoz-otel-collector migrate sync check --clickhouse-dsn
+                  tcp://clickhouse:9000 --clickhouse-cluster cluster
+                  --clickhouse-replication && exec /signoz-otel-collector --config
+                  /var/tmp/otel-config.yaml'
+                binds:
+                  - /lzcapp/var/data/signoz/runtime:/var/lib/signoz-runtime
+                healthcheck:
+                  test: ["CMD", "true"]
+                  interval: 30s
+                  timeout: 5s
+                  retries: 10
+
+              signoz-telemetrystore-migrator:
+                image: registry.lazycat.cloud/invokerlaw/signoz/signoz-otel-collector:85bd090294be0dbf
+                user: root
+                depends_on:
+                  - clickhouse
+                environment:
+                  - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://clickhouse:9000
+                  - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER=cluster
+                  - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION=true
+                  - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
+                entrypoint: /bin/sh
+                command: >-
+                  -lc 'set -e; mkdir -p /var/lib/signoz-runtime; rm -f
+                  /var/lib/signoz-runtime/migrations-ready; until /signoz-otel-collector
+                  migrate ready --clickhouse-dsn tcp://clickhouse:9000
+                  --clickhouse-cluster cluster --clickhouse-replication; do sleep 3;
+                  done; /signoz-otel-collector migrate bootstrap --clickhouse-dsn
+                  tcp://clickhouse:9000 --clickhouse-cluster cluster
+                  --clickhouse-replication; /signoz-otel-collector migrate sync up
+                  --clickhouse-dsn tcp://clickhouse:9000 --clickhouse-cluster cluster
+                  --clickhouse-replication; /signoz-otel-collector migrate async up
+                  --clickhouse-dsn tcp://clickhouse:9000 --clickhouse-cluster cluster
+                  --clickhouse-replication; touch /var/lib/signoz-runtime/migrations-ready'
+                binds:
+                  - /lzcapp/var/data/signoz/runtime:/var/lib/signoz-runtime
+            locales:
+              en:
+                name: SigNoz
+                description: Open-source observability with traces, metrics, and logs
+              zh:
+                name: SigNoz
+                description: 开源可观测性平台，统一查看链路、指标和日志
+            """
+        ),
+        app_dir / "lzc-build.yml": textwrap.dedent(
+            """\
+            lzc-sdk-version: '0.1'
+            manifest: ./lzc-manifest.yml
+            contentdir: ./content
+            pkgout: ./
+            icon: ./icon.png
+            """
+        ),
+        app_dir / "README.md": textwrap.dedent(
+            """\
+            # SigNoz
+
+            SigNoz 是一个基于 OpenTelemetry 的开源可观测性平台，提供 traces、metrics 和 logs 的统一查看入口。
+
+            ## 上游信息
+
+            - Upstream Repo: `SigNoz/signoz`
+            - Homepage: `https://signoz.io`
+            - License: `Apache-2.0`
+            - Default Version: `0.116.1`
+
+            ## 服务拓扑
+
+            - `signoz`: Web UI 和 query-service，入口端口 `8080`
+            - `clickhouse`: Telemetry 数据存储
+            - `zookeeper-1`: ClickHouse replication / cluster metadata
+            - `init-clickhouse`: 预下载 `histogramQuantile` 可执行文件
+            - `otel-collector`: 执行 migration 并暴露 OTLP 接收端
+
+            ## 持久化目录
+
+            - `/lzcapp/var/db/signoz/clickhouse` -> `/var/lib/clickhouse`
+            - `/lzcapp/var/db/signoz/zookeeper` -> `/bitnami/zookeeper`
+            - `/lzcapp/var/data/signoz/sqlite` -> `/var/lib/signoz`
+
+            ## 访问方式
+
+            - UI: `https://signoz.${LAZYCAT_BOX_DOMAIN}`
+
+            ## 说明
+
+            - 该移植基于上游官方 `deploy/docker/docker-compose.yaml` 拆分。
+            - ClickHouse 配置和 collector 配置放在 `content/` 下，通过 `lzc-build.yml` 打包进 `.lpk`。
+            - collector 采用静态配置启动，不使用 OpAMP manager-config，避免首次启动阶段因 `orgId` 缺失阻塞。
+            """
+        ),
+        app_dir / "UPSTREAM_DEPLOYMENT_CHECKLIST.md": textwrap.dedent(
+            """\
+            # SigNoz Upstream Deployment Checklist
+
+            ## 已确认字段
+
+            - PROJECT_NAME: SigNoz
+            - PROJECT_SLUG: signoz
+            - UPSTREAM_REPO: SigNoz/signoz
+            - UPSTREAM_URL: https://github.com/SigNoz/signoz
+            - HOMEPAGE: https://signoz.io
+            - LICENSE: Apache-2.0
+            - AUTHOR: SigNoz
+            - VERSION: 0.116.1
+            - IMAGE: signoz/signoz:v0.116.1
+            - PORT: 8080
+
+            ## 真实启动入口
+
+            - 官方 compose: `deploy/docker/docker-compose.yaml`
+            - 主服务: `signoz`
+            - collector: `signoz-otel-collector`
+            - 初始化链:
+              - `init-clickhouse` 下载 `histogramQuantile`
+              - `otel-collector migrate bootstrap`
+              - `otel-collector migrate sync up`
+              - `otel-collector migrate async up`
+              - `otel-collector migrate sync check`
+
+            ## 真实写路径
+
+            - ClickHouse data: `/var/lib/clickhouse`
+            - ClickHouse user scripts: `/var/lib/clickhouse/user_scripts`
+            - ZooKeeper data: `/bitnami/zookeeper`
+            - SigNoz sqlite: `/var/lib/signoz`
+            - Collector runtime temp: `/var/tmp`
+
+            ## 配置文件
+
+            - ClickHouse cluster config: `deploy/common/clickhouse/cluster.xml`
+            - ClickHouse users config: `deploy/common/clickhouse/users.xml`
+            - ClickHouse custom function: `deploy/common/clickhouse/custom-function.xml`
+            - Collector config: `deploy/docker/otel-collector-config.yaml`
+            - OpAMP config: `deploy/common/signoz/otel-collector-opamp-config.yaml`
+
+            ## 外部依赖
+
+            - ClickHouse
+            - ZooKeeper
+            - SQLite
+
+            ## LazyCat 适配结论
+
+            - 保留官方多服务拓扑，不压成单容器。
+            - ClickHouse 需要额外注入 `cluster.xml`、`users.xml`、`custom-function.xml` 和单机 `macros.xml`。
+            - collector 不能直接沿用上游 `/etc` 写入路径，配置改复制到 `/var/tmp`。
+            - collector 不使用 OpAMP manager-config，避免 `cannot create agent without orgId` 启动阻塞。
+            - 显式设置 `SIGNOZ_PROMETHEUS_ACTIVE__QUERY__TRACKER_PATH`，避免默认空路径触发 active query tracker 目录报错。
+            """
+        ),
+        repo_root / "registry" / "repos" / "signoz.json": textwrap.dedent(
+            """\
+            {
+              "enabled": true,
+              "upstream_repo": "SigNoz/signoz",
+              "check_strategy": "github_release",
+              "build_strategy": "official_image",
+              "publish_to_store": false,
+              "official_image_registry": "signoz/signoz",
+              "precompiled_binary_url": "",
+              "dockerfile_type": "custom",
+              "service_port": 8080,
+              "service_cmd": [],
+              "image_targets": [
+                "signoz"
+              ],
+              "dependencies": [
+                {
+                  "target_service": "init-clickhouse",
+                  "source_image": "clickhouse/clickhouse-server:25.5.6"
+                },
+                {
+                  "target_service": "zookeeper-1",
+                  "source_image": "signoz/zookeeper:3.7.1"
+                },
+                {
+                  "target_service": "clickhouse",
+                  "source_image": "clickhouse/clickhouse-server:25.5.6"
+                },
+                {
+                  "target_service": "otel-collector",
+                  "source_image": "signoz/signoz-otel-collector:v0.144.2"
+                }
+              ]
+            }
+            """
+        ),
+        content_dir / "clickhouse" / "cluster.xml": textwrap.dedent(
+            """\
+            <?xml version="1.0"?>
+            <clickhouse>
+              <zookeeper>
+                <node index="1">
+                  <host>zookeeper-1</host>
+                  <port>2181</port>
+                </node>
+              </zookeeper>
+              <remote_servers>
+                <cluster>
+                  <shard>
+                    <replica>
+                      <host>clickhouse</host>
+                      <port>9000</port>
+                    </replica>
+                  </shard>
+                </cluster>
+              </remote_servers>
+            </clickhouse>
+            """
+        ),
+        content_dir / "clickhouse" / "custom-function.xml": textwrap.dedent(
+            """\
+            <functions>
+              <function>
+                <type>executable</type>
+                <name>histogramQuantile</name>
+                <return_type>Float64</return_type>
+                <argument>
+                  <type>Array(Float64)</type>
+                  <name>buckets</name>
+                </argument>
+                <argument>
+                  <type>Array(Float64)</type>
+                  <name>counts</name>
+                </argument>
+                <argument>
+                  <type>Float64</type>
+                  <name>quantile</name>
+                </argument>
+                <format>CSV</format>
+                <command>./histogramQuantile</command>
+              </function>
+            </functions>
+            """
+        ),
+        content_dir / "clickhouse" / "macros.xml": textwrap.dedent(
+            """\
+            <?xml version="1.0"?>
+            <clickhouse>
+              <macros>
+                <shard>01</shard>
+                <replica>clickhouse-01</replica>
+              </macros>
+            </clickhouse>
+            """
+        ),
+        content_dir / "clickhouse" / "users.xml": textwrap.dedent(
+            """\
+            <?xml version="1.0"?>
+            <clickhouse>
+              <profiles>
+                <default>
+                  <max_memory_usage>10000000000</max_memory_usage>
+                  <load_balancing>random</load_balancing>
+                </default>
+                <readonly>
+                  <readonly>1</readonly>
+                </readonly>
+              </profiles>
+              <users>
+                <default>
+                  <password></password>
+                  <networks>
+                    <ip>::/0</ip>
+                  </networks>
+                  <profile>default</profile>
+                  <quota>default</quota>
+                </default>
+              </users>
+              <quotas>
+                <default>
+                  <interval>
+                    <duration>3600</duration>
+                    <queries>0</queries>
+                    <errors>0</errors>
+                    <result_rows>0</result_rows>
+                    <read_rows>0</read_rows>
+                    <execution_time>0</execution_time>
+                  </interval>
+                </default>
+              </quotas>
+            </clickhouse>
+            """
+        ),
+        content_dir / "otel-collector-config.yaml": textwrap.dedent(
+            """\
+            connectors:
+              signozmeter:
+                metrics_flush_interval: 1h
+                dimensions:
+                  - name: service.name
+                  - name: deployment.environment
+                  - name: host.name
+            receivers:
+              otlp:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:4317
+                  http:
+                    endpoint: 0.0.0.0:4318
+              prometheus:
+                config:
+                  global:
+                    scrape_interval: 60s
+                  scrape_configs:
+                    - job_name: otel-collector
+                      static_configs:
+                        - targets:
+                            - localhost:8888
+                          labels:
+                            job_name: otel-collector
+            processors:
+              batch:
+                send_batch_size: 10000
+                send_batch_max_size: 11000
+                timeout: 10s
+              batch/meter:
+                send_batch_max_size: 25000
+                send_batch_size: 20000
+                timeout: 1s
+              resourcedetection:
+                detectors: [env, system]
+                timeout: 2s
+              signozspanmetrics/delta:
+                metrics_exporter: signozclickhousemetrics
+                metrics_flush_interval: 60s
+                latency_histogram_buckets: [100us, 1ms, 2ms, 6ms, 10ms, 50ms, 100ms, 250ms, 500ms, 1000ms, 1400ms, 2000ms, 5s, 10s, 20s, 40s, 60s]
+                dimensions_cache_size: 100000
+                aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
+                enable_exp_histogram: true
+                dimensions:
+                  - name: service.namespace
+                    default: default
+                  - name: deployment.environment
+                    default: default
+                  - name: signoz.collector.id
+                  - name: service.version
+                  - name: browser.platform
+                  - name: browser.mobile
+                  - name: k8s.cluster.name
+                  - name: k8s.node.name
+                  - name: k8s.namespace.name
+                  - name: host.name
+                  - name: host.type
+                  - name: container.name
+            extensions:
+              health_check:
+                endpoint: 0.0.0.0:13133
+              pprof:
+                endpoint: 0.0.0.0:1777
+            exporters:
+              clickhousetraces:
+                datasource: tcp://clickhouse:9000/signoz_traces
+                low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
+                use_new_schema: true
+              signozclickhousemetrics:
+                dsn: tcp://clickhouse:9000/signoz_metrics
+              clickhouselogsexporter:
+                dsn: tcp://clickhouse:9000/signoz_logs
+                timeout: 10s
+                use_new_schema: true
+              signozclickhousemeter:
+                dsn: tcp://clickhouse:9000/signoz_meter
+                timeout: 45s
+                sending_queue:
+                  enabled: false
+              metadataexporter:
+                cache:
+                  provider: in_memory
+                dsn: tcp://clickhouse:9000/signoz_metadata
+                enabled: true
+                timeout: 45s
+            service:
+              telemetry:
+                logs:
+                  encoding: json
+              extensions:
+                - health_check
+                - pprof
+              pipelines:
+                traces:
+                  receivers: [otlp]
+                  processors: [signozspanmetrics/delta, batch]
+                  exporters: [clickhousetraces, metadataexporter, signozmeter]
+                metrics:
+                  receivers: [otlp]
+                  processors: [batch]
+                  exporters: [signozclickhousemetrics, metadataexporter, signozmeter]
+                metrics/prometheus:
+                  receivers: [prometheus]
+                  processors: [batch]
+                  exporters: [signozclickhousemetrics, metadataexporter, signozmeter]
+                logs:
+                  receivers: [otlp]
+                  processors: [batch]
+                  exporters: [clickhouselogsexporter, metadataexporter, signozmeter]
+                metrics/meter:
+                  receivers: [signozmeter]
+                  processors: [batch/meter]
+                  exporters: [signozclickhousemeter]
+            """
+        ),
+    }
+
+    outputs: list[str] = []
+    for path, content in writes.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        outputs.append(str(path))
+    return outputs
+
+
+def apply_app_post_process(repo_root: Path, finalized: dict[str, Any], analysis: dict[str, Any]) -> list[str]:
+    upstream_repo = str(finalized.get("upstream_repo") or analysis["spec"].get("upstream_repo") or "").strip()
+    if finalized["slug"] == "signoz" and upstream_repo == "SigNoz/signoz":
+        return post_process_signoz(repo_root)
+    return []
+
+
 def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
     issues: list[str] = []
     app_dir = repo_root / "apps" / slug
@@ -1850,6 +2404,7 @@ def main() -> int:
             finalized.setdefault("_risks", []).append("目标 app 已存在，自动覆盖当前托管文件后继续")
             written = bm.write_files(repo_root, finalized, effective_force)
         post_written = apply_post_write(repo_root, finalized["slug"], analysis["spec"].get("_post_write", {}))
+        post_written.extend(apply_app_post_process(repo_root, finalized, analysis))
         step_report(
             4,
             "建立项目骨架",
