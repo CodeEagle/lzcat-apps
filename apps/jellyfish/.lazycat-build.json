@@ -1,7 +1,7 @@
 {
   "upstream_repo": "Forget-C/Jellyfish",
-  "source_version": "2f30de0",
-  "build_version": "0.1.4",
-  "build_label": "2f30de0@20260321T004855Z",
-  "last_checked_at": "2026-03-21T00:48:55.015313+00:00"
+  "source_version": "38a5c2c",
+  "build_version": "0.1.5",
+  "build_label": "38a5c2c@20260325T123242Z",
+  "last_checked_at": "2026-03-25T12:32:42.630016+00:00"
 }

@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.jellyfish
-version: 0.1.4
+version: 0.1.5
 min_os_version: 1.3.8
 name: Jellyfish
 description: (LazyCat Auto-build) AI short drama studio with script, storyboard, asset and generation workflow management
@@ -22,7 +22,7 @@ application:
       disable_trim_location: true
 services:
   jellyfish:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/jellyfish:219a01bcdeebae4d
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/jellyfish:21de1b31dc3498e6
     environment:
       - PORT=8000
       - DATABASE_URL=sqlite+aiosqlite:////data/jellyfish.db
