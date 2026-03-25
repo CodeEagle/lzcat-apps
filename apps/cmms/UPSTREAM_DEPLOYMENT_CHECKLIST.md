@@ -85,7 +85,7 @@
 - 依赖服务镜像已写入 dependencies，首次完整构建时会自动 copy-image。
 - 扫描到 env 示例文件：.env.example, .env.example
 - 扫描到 README：README.MD, README.md, README.md
-- frontend 启动前会显式 export 运行时变量，避免空字符串变量在 runtime-env-cra 阶段被丢失。
+- frontend 启动前会先按容器环境重写 .env，再以 NODE_ENV=development 执行 runtime-env-cra，避免空字符串变量被判定为缺失。
 
 ## 必扫清单
 - [ ] Dockerfile / Containerfile / compose / helm / entrypoint / startup script 的真实启动入口

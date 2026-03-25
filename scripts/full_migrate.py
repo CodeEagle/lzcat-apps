@@ -887,22 +887,25 @@ def env_var_names(environment: list[str]) -> list[str]:
     return list(dict.fromkeys(names))
 
 
-def build_exported_runtime_env_command(
+def build_runtime_env_file_command(
     environment: list[str],
     *,
     workdir: str,
-    runtime_cmd: str,
+    env_file: str,
+    env_config: str,
+    final_cmd: str,
 ) -> str:
     names = env_var_names(environment)
-    export_clause = ""
+    render_env_file = ""
     if names:
-        exports = " ".join(f'{name}="${{{name}-}}"' for name in names)
-        export_clause = f"export {exports}; "
+        rendered_pairs = " ".join(f'"{name}=${{{name}-}}"' for name in names)
+        render_env_file = f"printf '%s\\n' {rendered_pairs} > {shlex.quote(env_file)}; "
     shell_script = (
         "set -e; "
         f"cd {shlex.quote(workdir)}; "
-        f"{export_clause}"
-        f"{runtime_cmd}"
+        f"{render_env_file}"
+        f"NODE_ENV=development runtime-env-cra --config-name={shlex.quote(env_config)} --env-file={shlex.quote(env_file)}; "
+        f"{final_cmd}"
     )
     return f"/bin/sh -lc {shlex.quote(shell_script)}"
 
@@ -2259,13 +2262,15 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: dict[str, Any
         frontend = finalized.get("services", {}).get("frontend")
         if isinstance(frontend, dict):
             frontend_env = [str(item) for item in frontend.get("environment", [])]
-            frontend["command"] = build_exported_runtime_env_command(
+            frontend["command"] = build_runtime_env_file_command(
                 frontend_env,
                 workdir="/usr/share/nginx/html",
-                runtime_cmd='runtime-env-cra --config-name=./runtime-env.js --env-file=./.env; exec nginx -g "daemon off;"',
+                env_file="./.env",
+                env_config="./runtime-env.js",
+                final_cmd='exec nginx -g "daemon off;"',
             )
         startup_notes = finalized.setdefault("startup_notes", [])
-        note = "frontend 启动前会显式 export 运行时变量，避免空字符串变量在 runtime-env-cra 阶段被丢失。"
+        note = "frontend 启动前会先按容器环境重写 .env，再以 NODE_ENV=development 执行 runtime-env-cra，避免空字符串变量被判定为缺失。"
         if note not in startup_notes:
             startup_notes.append(note)
 
