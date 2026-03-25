@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -875,6 +876,35 @@ def stringify_command(command: Any) -> str:
     if isinstance(command, list):
         return " ".join(str(item) for item in command)
     return str(command or "")
+
+
+def env_var_names(environment: list[str]) -> list[str]:
+    names: list[str] = []
+    for entry in environment:
+        name = entry.split("=", 1)[0].strip()
+        if name and re.fullmatch(r"[A-Z][A-Z0-9_]*", name):
+            names.append(name)
+    return list(dict.fromkeys(names))
+
+
+def build_exported_runtime_env_command(
+    environment: list[str],
+    *,
+    workdir: str,
+    runtime_cmd: str,
+) -> str:
+    names = env_var_names(environment)
+    export_clause = ""
+    if names:
+        exports = " ".join(f'{name}="${{{name}-}}"' for name in names)
+        export_clause = f"export {exports}; "
+    shell_script = (
+        "set -e; "
+        f"cd {shlex.quote(workdir)}; "
+        f"{export_clause}"
+        f"{runtime_cmd}"
+    )
+    return f"/bin/sh -lc {shlex.quote(shell_script)}"
 
 
 def is_probably_dev_compose(services: dict[str, Any]) -> bool:
@@ -2222,6 +2252,26 @@ def apply_app_post_process(repo_root: Path, finalized: dict[str, Any], analysis:
     return []
 
 
+def apply_generated_app_fixes(finalized: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
+    upstream_repo = str(finalized.get("upstream_repo") or analysis["spec"].get("upstream_repo") or "").strip()
+
+    if finalized.get("slug") == "cmms" and upstream_repo == "Grashjs/cmms":
+        frontend = finalized.get("services", {}).get("frontend")
+        if isinstance(frontend, dict):
+            frontend_env = [str(item) for item in frontend.get("environment", [])]
+            frontend["command"] = build_exported_runtime_env_command(
+                frontend_env,
+                workdir="/usr/share/nginx/html",
+                runtime_cmd='runtime-env-cra --config-name=./runtime-env.js --env-file=./.env; exec nginx -g "daemon off;"',
+            )
+        startup_notes = finalized.setdefault("startup_notes", [])
+        note = "frontend 启动前会显式 export 运行时变量，避免空字符串变量在 runtime-env-cra 阶段被丢失。"
+        if note not in startup_notes:
+            startup_notes.append(note)
+
+    return finalized
+
+
 def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
     issues: list[str] = []
     app_dir = repo_root / "apps" / slug
@@ -2382,6 +2432,7 @@ def main() -> int:
         )
 
         finalized = bm.finalize_spec(analysis["spec"], detect_gh_token(runtime_env), fetch_upstream=False)
+        finalized = apply_generated_app_fixes(finalized, analysis)
         config_path = repo_root / "registry" / "repos" / f"{finalized['slug']}.json"
         app_dir = repo_root / "apps" / finalized["slug"]
         step_report(
