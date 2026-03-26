@@ -1,0 +1,98 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.deer-flow
+version: 0.1.1
+min_os_version: 1.3.8
+name: deer-flow
+description: An open-source long-horizon SuperAgent harness that researches, codes, and creates. With the help of sandboxes, memories, tools, skill, subagents and message gateway, it handles different levels of tasks that could take minutes to hours.
+license: MIT
+homepage: https://deerflow.tech
+author: bytedance
+application:
+  subdomain: deer-flow
+  public_path:
+    - /
+  upstreams:
+    -
+      location: /
+      backend: http://nginx:2026/
+  health_check:
+    test_url: http://nginx:2026/health
+services:
+  nginx:
+    image: registry.lazycat.cloud/invokerlaw/library/nginx:f14898f5b3ebfb0b
+    depends_on:
+      - frontend
+      - gateway
+      - langgraph
+    binds:
+      - /lzcapp/pkg/content/nginx.conf:/etc/nginx/nginx.conf
+  frontend:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-frontend:d967a9d9841bb4db
+    command: sh -lc 'cd /app/frontend && pnpm dev --hostname 0.0.0.0 --port 3000'
+    environment:
+      - BETTER_AUTH_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-better-auth
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+  gateway:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-gateway:74570b57d0032d21
+    command: sh -lc 'mkdir -p /lzcapp/var/data/deer-flow/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /lzcapp/var/data/deer-flow/config/config.yaml ]; then cp /lzcapp/pkg/content/config.yaml /lzcapp/var/data/deer-flow/config/config.yaml; fi && if [ ! -f /lzcapp/var/data/deer-flow/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /lzcapp/var/data/deer-flow/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && cd /app/backend && PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --workers 2'
+    environment:
+      - CI=true
+      - DEER_FLOW_HOME=/app/backend/.deer-flow
+      - DEER_FLOW_CONFIG_PATH=/lzcapp/var/data/deer-flow/config/config.yaml
+      - DEER_FLOW_EXTENSIONS_CONFIG_PATH=/lzcapp/var/data/deer-flow/config/extensions_config.json
+      - OPENAI_API_KEY
+      - OPENROUTER_API_KEY
+      - ANTHROPIC_API_KEY
+      - GEMINI_API_KEY
+      - GOOGLE_API_KEY
+      - DEEPSEEK_API_KEY
+      - VOLCENGINE_API_KEY
+      - TAVILY_API_KEY
+      - JINA_API_KEY
+      - INFOQUEST_API_KEY
+      - FIRECRAWL_API_KEY
+      - GITHUB_TOKEN
+    binds:
+      - /lzcapp/var/data/deer-flow/runtime:/app/backend/.deer-flow
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - "-f"
+        - http://localhost:8001/health
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+  langgraph:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-langgraph:1b1121eff4bc25b3
+    command: sh -lc 'mkdir -p /lzcapp/var/data/deer-flow/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /lzcapp/var/data/deer-flow/config/config.yaml ]; then cp /lzcapp/pkg/content/config.yaml /lzcapp/var/data/deer-flow/config/config.yaml; fi && if [ ! -f /lzcapp/var/data/deer-flow/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /lzcapp/var/data/deer-flow/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && mkdir -p /app/backend/.langgraph_api && cd /app/backend && uv run langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port 2024'
+    environment:
+      - CI=true
+      - DEER_FLOW_HOME=/app/backend/.deer-flow
+      - DEER_FLOW_CONFIG_PATH=/lzcapp/var/data/deer-flow/config/config.yaml
+      - DEER_FLOW_EXTENSIONS_CONFIG_PATH=/lzcapp/var/data/deer-flow/config/extensions_config.json
+      - OPENAI_API_KEY
+      - OPENROUTER_API_KEY
+      - ANTHROPIC_API_KEY
+      - GEMINI_API_KEY
+      - GOOGLE_API_KEY
+      - DEEPSEEK_API_KEY
+      - VOLCENGINE_API_KEY
+      - TAVILY_API_KEY
+      - JINA_API_KEY
+      - INFOQUEST_API_KEY
+      - FIRECRAWL_API_KEY
+      - GITHUB_TOKEN
+      - LANGCHAIN_TRACING_V2=false
+    binds:
+      - /lzcapp/var/data/deer-flow/runtime:/app/backend/.deer-flow
+      - /lzcapp/var/data/deer-flow/langgraph-api:/app/backend/.langgraph_api
+locales:
+  en:
+    name: deer-flow
+    description: An open-source long-horizon SuperAgent harness that researches, codes, and creates. With the help of sandboxes, memories, tools, skill, subagents and message gateway, it handles different levels of tasks that could take minutes to hours.
+  zh:
+    name: deer-flow
+    description: （迁移初稿）Deer Flow 的懒猫微服版本
