@@ -39,6 +39,8 @@ services:
       - DEER_FLOW_MODEL_TEMPERATURE=0.7
       - TAVILY_API_KEY=
       - JINA_API_KEY=
+    binds:
+      - /lzcapp/var/data/deer-flow/config:/lzcapp/var/data/deer-flow/config
   nginx:
     image: registry.lazycat.cloud/invokerlaw/library/nginx:f14898f5b3ebfb0b
     command: sh -lc 'mkdir -p /lzcapp/var/data/deer-flow/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /lzcapp/var/data/deer-flow/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /lzcapp/var/data/deer-flow/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && sh /lzcapp/pkg/content/render-deer-flow-config.sh && exec nginx -g "daemon off;"'
@@ -55,6 +57,7 @@ services:
       - JINA_API_KEY=
     binds:
       - /lzcapp/pkg/content/nginx.conf:/etc/nginx/nginx.conf
+      - /lzcapp/var/data/deer-flow/config:/lzcapp/var/data/deer-flow/config
   frontend:
     image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-frontend:04e4e01d2d055f58
     command: sh -lc 'mkdir -p /lzcapp/var/data/deer-flow/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /lzcapp/var/data/deer-flow/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /lzcapp/var/data/deer-flow/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && sh /lzcapp/pkg/content/render-deer-flow-config.sh && ready_file="/lzcapp/var/data/deer-flow/config/.lazycat-config-ready"; echo "[deer-flow] waiting for model configuration"; until [ -f "$ready_file" ]; do sleep 2; done && cd /app/frontend && pnpm dev --hostname 0.0.0.0 --port 3000'
@@ -72,6 +75,8 @@ services:
       - DEER_FLOW_MODEL_TEMPERATURE=0.7
       - TAVILY_API_KEY=
       - JINA_API_KEY=
+    binds:
+      - /lzcapp/var/data/deer-flow/config:/lzcapp/var/data/deer-flow/config
   gateway:
     image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-gateway:6f9bf9308fbb3312
     command: sh -lc 'mkdir -p /lzcapp/var/data/deer-flow/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /lzcapp/var/data/deer-flow/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /lzcapp/var/data/deer-flow/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && sh /lzcapp/pkg/content/render-deer-flow-config.sh && ready_file="/lzcapp/var/data/deer-flow/config/.lazycat-config-ready"; echo "[deer-flow] waiting for model configuration"; until [ -f "$ready_file" ]; do sleep 2; done && cd /app/backend && PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --workers 2'
@@ -103,6 +108,7 @@ services:
       - TAVILY_API_KEY=
       - JINA_API_KEY=
     binds:
+      - /lzcapp/var/data/deer-flow/config:/lzcapp/var/data/deer-flow/config
       - /lzcapp/var/data/deer-flow/runtime:/app/backend/.deer-flow
   langgraph:
     image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-langgraph:5ffd44564e4883ef
@@ -136,6 +142,7 @@ services:
       - JINA_API_KEY=
       - LANGCHAIN_TRACING_V2=false
     binds:
+      - /lzcapp/var/data/deer-flow/config:/lzcapp/var/data/deer-flow/config
       - /lzcapp/var/data/deer-flow/runtime:/app/backend/.deer-flow
       - /lzcapp/var/data/deer-flow/langgraph-api:/app/backend/.langgraph_api
 locales:
