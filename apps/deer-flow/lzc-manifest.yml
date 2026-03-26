@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.deer-flow
-version: 0.1.4
+version: 0.1.5
 min_os_version: 1.3.8
 name: deer-flow
 description: An open-source long-horizon SuperAgent harness that researches, codes, and creates. With the help of sandboxes, memories, tools, skill, subagents and message gateway, it handles different levels of tasks that could take minutes to hours.
