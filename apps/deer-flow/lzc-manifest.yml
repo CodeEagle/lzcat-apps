@@ -31,7 +31,7 @@ services:
       - CONFIG_GATE_VALIDATOR_MODULE=/lzcapp/pkg/content/config-gate/validators/deer-flow-models.mjs
       - CONFIG_GATE_TARGET_URL=http://nginx:2026
       - CONFIG_GATE_TARGET_HEALTH_URL=http://gateway:8001/health
-      - CONFIG_GATE_SETUP_HINT=Add at least one model entry under models: in config.yaml before starting DeerFlow. You can paste your full config or edit the template directly on this page.
+      - CONFIG_GATE_SETUP_HINT=Add at least one model entry under the models section in config.yaml before starting DeerFlow. You can paste your full config or edit the template directly on this page.
   nginx:
     image: registry.lazycat.cloud/invokerlaw/library/nginx:f14898f5b3ebfb0b
     depends_on:
