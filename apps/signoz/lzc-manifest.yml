@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.signoz
-version: 0.117.0
+version: 0.117.1
 min_os_version: 1.3.8
 name: SigNoz
 description: Open-source observability with traces, metrics, and logs
@@ -78,7 +78,7 @@ services:
       retries: 10
 
   signoz:
-    image: registry.lazycat.cloud/invokerlaw/signoz/signoz:296b0abcbde069ac
+    image: registry.lazycat.cloud/invokerlaw/signoz/signoz:4a21314842805aa4
     depends_on:
       - clickhouse
     entrypoint: /bin/sh
