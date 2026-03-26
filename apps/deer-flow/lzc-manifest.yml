@@ -31,13 +31,9 @@ services:
       - CONFIG_GATE_VALIDATOR_MODULE=/lzcapp/pkg/content/config-gate/validators/deer-flow-models.mjs
       - CONFIG_GATE_TARGET_URL=http://nginx:2026
       - CONFIG_GATE_TARGET_HEALTH_URL=http://gateway:8001/health
-      - CONFIG_GATE_SETUP_HINT=Add at least one model entry under models: in config.yaml before starting DeerFlow. You can paste your full config or edit the template directly on this page.
+      - CONFIG_GATE_SETUP_HINT=Add at least one model entry under the models section in config.yaml before starting DeerFlow. You can paste your full config or edit the template directly on this page.
   nginx:
     image: registry.lazycat.cloud/invokerlaw/library/nginx:f14898f5b3ebfb0b
-    depends_on:
-      - frontend
-      - gateway
-      - langgraph
     binds:
       - /lzcapp/pkg/content/nginx.conf:/etc/nginx/nginx.conf
     command: sh -lc 'mkdir -p /lzcapp/var/data/deer-flow/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /lzcapp/var/data/deer-flow/config/config.yaml ]; then cp /lzcapp/pkg/content/config.yaml /lzcapp/var/data/deer-flow/config/config.yaml; fi && if [ ! -f /lzcapp/var/data/deer-flow/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /lzcapp/var/data/deer-flow/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && while [ ! -f /lzcapp/var/data/deer-flow/config/.lazycat-config-ready ]; do sleep 3; done && exec nginx -g "daemon off;"'
@@ -70,16 +66,6 @@ services:
       - GITHUB_TOKEN
     binds:
       - /lzcapp/var/data/deer-flow/runtime:/app/backend/.deer-flow
-    healthcheck:
-      test:
-        - CMD
-        - curl
-        - "-f"
-        - http://localhost:8001/health
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 45s
   langgraph:
     image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-langgraph:5ffd44564e4883ef
     command: sh -lc 'mkdir -p /lzcapp/var/data/deer-flow/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /lzcapp/var/data/deer-flow/config/config.yaml ]; then cp /lzcapp/pkg/content/config.yaml /lzcapp/var/data/deer-flow/config/config.yaml; fi && if [ ! -f /lzcapp/var/data/deer-flow/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /lzcapp/var/data/deer-flow/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && while [ ! -f /lzcapp/var/data/deer-flow/config/.lazycat-config-ready ]; do sleep 3; done && mkdir -p /app/backend/.langgraph_api && cd /app/backend && uv run langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port 2024'
