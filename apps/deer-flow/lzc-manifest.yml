@@ -27,14 +27,14 @@ services:
     binds:
       - /lzcapp/pkg/content/nginx.conf:/etc/nginx/nginx.conf
   frontend:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-frontend:d967a9d9841bb4db
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-frontend:36fc6401a8baa975
     command: sh -lc 'cd /app/frontend && pnpm dev --hostname 0.0.0.0 --port 3000'
     environment:
       - BETTER_AUTH_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-better-auth
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
   gateway:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-gateway:74570b57d0032d21
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-gateway:e79f2b91e88b903c
     command: sh -lc 'mkdir -p /lzcapp/var/data/deer-flow/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /lzcapp/var/data/deer-flow/config/config.yaml ]; then cp /lzcapp/pkg/content/config.yaml /lzcapp/var/data/deer-flow/config/config.yaml; fi && if [ ! -f /lzcapp/var/data/deer-flow/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /lzcapp/var/data/deer-flow/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && cd /app/backend && PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --workers 2'
     environment:
       - CI=true
@@ -66,7 +66,7 @@ services:
       retries: 5
       start_period: 45s
   langgraph:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-langgraph:1b1121eff4bc25b3
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-langgraph:bbb6e9e5a0c3e516
     command: sh -lc 'mkdir -p /lzcapp/var/data/deer-flow/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /lzcapp/var/data/deer-flow/config/config.yaml ]; then cp /lzcapp/pkg/content/config.yaml /lzcapp/var/data/deer-flow/config/config.yaml; fi && if [ ! -f /lzcapp/var/data/deer-flow/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /lzcapp/var/data/deer-flow/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && mkdir -p /app/backend/.langgraph_api && cd /app/backend && uv run langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port 2024'
     environment:
       - CI=true
