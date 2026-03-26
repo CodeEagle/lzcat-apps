@@ -65,16 +65,6 @@ services:
       - GITHUB_TOKEN
     binds:
       - /lzcapp/var/data/deer-flow/runtime:/app/backend/.deer-flow
-    healthcheck:
-      test:
-        - CMD
-        - curl
-        - "-f"
-        - http://localhost:8001/health
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 45s
   langgraph:
     image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-langgraph:ae6e4f2fb510ce39
     command: sh -lc 'mkdir -p /lzcapp/var/data/deer-flow/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /lzcapp/var/data/deer-flow/config/config.yaml ]; then cp /lzcapp/pkg/content/config.yaml /lzcapp/var/data/deer-flow/config/config.yaml; fi && if [ ! -f /lzcapp/var/data/deer-flow/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /lzcapp/var/data/deer-flow/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && while [ ! -f /lzcapp/var/data/deer-flow/config/.lazycat-config-ready ]; do sleep 3; done && mkdir -p /app/backend/.langgraph_api && cd /app/backend && uv run langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port 2024'
