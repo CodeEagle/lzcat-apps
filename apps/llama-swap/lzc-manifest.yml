@@ -20,7 +20,7 @@ services:
     image: registry.lazycat.cloud/invokerlaw/mostlygeek/llama-swap:e59d4d8ba311e618
     setup_script: |
       mkdir -p /lzcapp/var/config/llama-swap /lzcapp/var/data/llama-swap/models
-      if [ ! -f /lzcapp/var/config/llama-swap/config.yaml ]; then
+      if [ ! -f /lzcapp/var/config/llama-swap/config.yaml ] || grep -q '^  z-image:' /lzcapp/var/config/llama-swap/config.yaml 2>/dev/null; then
         printf '%s\n' \
           'healthCheckTimeout: 120' \
           'logLevel: info' \
