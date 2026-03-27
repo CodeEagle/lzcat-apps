@@ -20,21 +20,19 @@ services:
     image: registry.lazycat.cloud/invokerlaw/mostlygeek/llama-swap:e59d4d8ba311e618
     setup_script: |
       mkdir -p /lzcapp/var/config/llama-swap /lzcapp/var/data/llama-swap/models
-      if [ ! -f /lzcapp/var/config/llama-swap/config.yaml ] || grep -q '^  z-image:' /lzcapp/var/config/llama-swap/config.yaml 2>/dev/null; then
-        printf '%s\n' \
-          'healthCheckTimeout: 120' \
-          'logLevel: info' \
-          'logToStdout: proxy' \
-          'startPort: 10001' \
-          '' \
-          'models:' \
-          '  example-local-gguf:' \
-          '    name: Example local GGUF model' \
-          '    description: Update /models/example.gguf to a real GGUF file before using this entry.' \
-          '    cmd: >' \
-          '      llama-server --port ${PORT} --model /models/example.gguf --ctx-size 4096' \
-          > /lzcapp/var/config/llama-swap/config.yaml
-      fi
+      printf '%s\n' \
+        'healthCheckTimeout: 120' \
+        'logLevel: info' \
+        'logToStdout: proxy' \
+        'startPort: 10001' \
+        '' \
+        'models:' \
+        '  example-local-gguf:' \
+        '    name: Example local GGUF model' \
+        '    description: Update /models/example.gguf to a real GGUF file before using this entry.' \
+        '    cmd: >' \
+        '      llama-server --port ${PORT} --model /models/example.gguf --ctx-size 4096' \
+        > /lzcapp/var/config/llama-swap/config.yaml
     binds:
       - /lzcapp/var/config/llama-swap:/etc/llama-swap/config
       - /lzcapp/var/data/llama-swap/models:/models
