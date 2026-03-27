@@ -11,7 +11,7 @@
 #   ./scripts/local_build.sh paperclip --no-dry-run       # 完整流程（需要 LZC_CLI_TOKEN）
 #
 # 环境变量（可在 scripts/.env.local 中配置，不要提交）:
-#   GH_TOKEN        — 主凭据；用于 GitHub API，且默认同时用于 GHCR push
+#   GH_PAT / GH_TOKEN — 主凭据；用于 GitHub API，且默认同时用于 GHCR push
 #   LZC_CLI_TOKEN   — LazyCat CLI token（非 dry-run 时必须）
 
 set -euo pipefail
@@ -99,10 +99,22 @@ fi
 ARGS+=("${EXTRA_ARGS[@]}")
 
 export GITHUB_REPOSITORY_OWNER="${GITHUB_REPOSITORY_OWNER:-CodeEagle}"
-export GH_TOKEN="${GH_TOKEN:-$(gh auth token 2>/dev/null || true)}"
+export GH_TOKEN="${GH_TOKEN:-${GH_PAT:-$(gh auth token 2>/dev/null || true)}}"
 export GITHUB_TOKEN="${GH_TOKEN:-}"
 export GHCR_USERNAME="${GHCR_USERNAME:-${GITHUB_REPOSITORY_OWNER}}"
+if [ -z "${LZC_CLI_TOKEN:-}" ] && command -v lzc-cli >/dev/null 2>&1; then
+  LZC_CLI_TOKEN="$(lzc-cli config get token 2>/dev/null | awk 'NF { print $NF; exit }' || true)"
+fi
 export LZC_CLI_TOKEN="${LZC_CLI_TOKEN:-}"
+
+if ! $DRY_RUN && [ -z "${GH_PAT:-}" ] && command -v gh >/dev/null 2>&1; then
+  ACTIVE_SCOPE_LINE="$(gh auth status -t 2>/dev/null | awk '/Active account: true/{active=1; next} active && /Token scopes:/{print; exit}')"
+  if [ -n "$ACTIVE_SCOPE_LINE" ] && ! printf '%s\n' "$ACTIVE_SCOPE_LINE" | grep -q "write:packages"; then
+    echo "GHCR push requires a GitHub token with write:packages on the active gh account." >&2
+    echo "Current active account scopes: ${ACTIVE_SCOPE_LINE#*- Token scopes: }" >&2
+    exit 1
+  fi
+fi
 
 if ! command -v docker >/dev/null 2>&1 && command -v podman >/dev/null 2>&1; then
   DOCKER_SHIM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/lzcat-docker-shim.XXXXXX")"

@@ -1,0 +1,114 @@
+{
+  "title": "Configure DeerFlow",
+  "description": "Pick a hosted provider preset and default model. The package writes the result back into config.yaml and only then starts DeerFlow.",
+  "submitLabel": "Save and Start",
+  "defaultProvider": "openai",
+  "providers": [
+    {
+      "id": "openai",
+      "label": "OpenAI",
+      "baseUrl": "",
+      "defaultModel": "gpt-4.1-mini",
+      "models": [
+        {
+          "id": "gpt-4.1-mini",
+          "label": "GPT-4.1 Mini",
+          "name": "default-chat",
+          "displayName": "GPT-4.1 Mini",
+          "modelId": "gpt-4.1-mini",
+          "useResponsesApi": false,
+          "temperature": "0.7",
+          "summary": "Balanced default for DeerFlow."
+        },
+        {
+          "id": "gpt-4.1",
+          "label": "GPT-4.1",
+          "name": "default-chat",
+          "displayName": "GPT-4.1",
+          "modelId": "gpt-4.1",
+          "useResponsesApi": false,
+          "temperature": "0.7",
+          "summary": "Higher quality general-purpose option."
+        },
+        {
+          "id": "gpt-5-mini",
+          "label": "GPT-5 Mini",
+          "name": "default-chat",
+          "displayName": "GPT-5 Mini",
+          "modelId": "gpt-5-mini",
+          "useResponsesApi": true,
+          "temperature": "0.7",
+          "summary": "Uses the Responses API path recommended for GPT-5 models."
+        }
+      ]
+    },
+    {
+      "id": "openrouter",
+      "label": "OpenRouter",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "requiresBaseUrl": false,
+      "defaultModel": "openai/gpt-4.1-mini",
+      "models": [
+        {
+          "id": "openai/gpt-4.1-mini",
+          "label": "OpenAI GPT-4.1 Mini",
+          "name": "default-chat",
+          "displayName": "OpenAI GPT-4.1 Mini",
+          "modelId": "openai/gpt-4.1-mini",
+          "useResponsesApi": false,
+          "temperature": "0.7",
+          "summary": "OpenAI model served through OpenRouter."
+        },
+        {
+          "id": "google/gemini-2.5-flash-preview",
+          "label": "Gemini 2.5 Flash Preview",
+          "name": "default-chat",
+          "displayName": "Gemini 2.5 Flash Preview",
+          "modelId": "google/gemini-2.5-flash-preview",
+          "useResponsesApi": false,
+          "temperature": "0.7",
+          "summary": "Fast Google-hosted model routed through OpenRouter."
+        },
+        {
+          "id": "anthropic/claude-sonnet-4",
+          "label": "Claude Sonnet 4",
+          "name": "default-chat",
+          "displayName": "Claude Sonnet 4",
+          "modelId": "anthropic/claude-sonnet-4",
+          "useResponsesApi": false,
+          "temperature": "0.7",
+          "summary": "Anthropic-hosted model routed through OpenRouter."
+        }
+      ]
+    },
+    {
+      "id": "custom-openai",
+      "label": "Custom OpenAI-Compatible",
+      "baseUrl": "",
+      "requiresBaseUrl": true,
+      "defaultModel": "custom-gpt-4.1-mini",
+      "models": [
+        {
+          "id": "custom-gpt-4.1-mini",
+          "label": "GPT-4.1 Mini Compatible",
+          "name": "default-chat",
+          "displayName": "Custom GPT-4.1 Mini",
+          "modelId": "gpt-4.1-mini",
+          "useResponsesApi": false,
+          "temperature": "0.7",
+          "summary": "For self-hosted or gateway endpoints that speak the OpenAI Chat Completions API."
+        },
+        {
+          "id": "custom-gpt-5-mini",
+          "label": "GPT-5 Mini Compatible",
+          "name": "default-chat",
+          "displayName": "Custom GPT-5 Mini",
+          "modelId": "gpt-5-mini",
+          "useResponsesApi": true,
+          "temperature": "0.7",
+          "summary": "For OpenAI-compatible endpoints that support the Responses API."
+        }
+      ]
+    }
+  ]
+}

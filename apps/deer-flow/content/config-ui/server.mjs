@@ -1,0 +1,436 @@
+import http from "node:http";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import { dirname } from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
+const port = Number(process.env.PORT || 3210);
+const appName = process.env.CONFIG_UI_APP_NAME || "Application";
+const schemaPath = process.env.CONFIG_UI_SCHEMA_PATH || "";
+const statePath = process.env.CONFIG_UI_STATE_PATH || "";
+const readyMarker = process.env.CONFIG_UI_READY_MARKER || "";
+const renderCommand = process.env.CONFIG_UI_RENDER_COMMAND || "";
+const settingsPath = process.env.CONFIG_UI_SETTINGS_PATH || "/settings/config";
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+async function readText(path) {
+  if (!path) return "";
+  return readFile(path, "utf8").catch(() => "");
+}
+
+async function writeText(path, content) {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, content, "utf8");
+}
+
+async function fileExists(path) {
+  if (!path) return false;
+  try {
+    await access(path, fsConstants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function parseEnvFile(raw) {
+  const result = {};
+  for (const line of String(raw || "").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+    if (!match) continue;
+    let value = match[2] || "";
+    if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
+      value = value.slice(1, -1);
+    }
+    value = value.replace(/'\\''/g, "'");
+    result[match[1]] = value;
+  }
+  return result;
+}
+
+function shellQuote(value) {
+  return `'${String(value || "").replaceAll("'", `'\\''`)}'`;
+}
+
+async function loadSchema() {
+  const raw = await readText(schemaPath);
+  return JSON.parse(raw || "{}");
+}
+
+function findProvider(schema, providerId) {
+  return (schema.providers || []).find((item) => item.id === providerId) || null;
+}
+
+function findModel(provider, modelPreset) {
+  return (provider?.models || []).find((item) => item.id === modelPreset) || null;
+}
+
+function deriveInitialValues(schema, persisted) {
+  const providerId = persisted.DEER_FLOW_MODEL_PROVIDER_PRESET || process.env.DEER_FLOW_MODEL_PROVIDER_PRESET || schema.defaultProvider || schema.providers?.[0]?.id || "";
+  const provider = findProvider(schema, providerId) || schema.providers?.[0] || null;
+  const modelPresetFromState = persisted.DEER_FLOW_MODEL_PRESET || "";
+  const modelPresetFromEnv = provider?.models?.find((item) => item.modelId === (process.env.DEER_FLOW_MODEL_ID || ""))?.id || "";
+  const modelPreset = modelPresetFromState || modelPresetFromEnv || provider?.defaultModel || provider?.models?.[0]?.id || "";
+  return {
+    provider: provider?.id || "",
+    modelPreset,
+    baseUrl: persisted.DEER_FLOW_MODEL_BASE_URL || process.env.DEER_FLOW_MODEL_BASE_URL || provider?.baseUrl || "",
+    apiKey: persisted.DEER_FLOW_MODEL_API_KEY || process.env.DEER_FLOW_MODEL_API_KEY || "",
+    tavilyApiKey: persisted.TAVILY_API_KEY || process.env.TAVILY_API_KEY || "",
+    jinaApiKey: persisted.JINA_API_KEY || process.env.JINA_API_KEY || "",
+  };
+}
+
+function validateAndMaterialize(schema, submitted) {
+  const provider = findProvider(schema, submitted.provider);
+  if (!provider) {
+    throw new Error("Pick a supported provider preset.");
+  }
+  const model = findModel(provider, submitted.modelPreset);
+  if (!model) {
+    throw new Error("Pick a supported model preset.");
+  }
+  if (!String(submitted.apiKey || "").trim()) {
+    throw new Error("API Key is required before DeerFlow can start.");
+  }
+  const submittedBaseUrl = String(submitted.baseUrl || "").trim();
+  const resolvedBaseUrl = submittedBaseUrl || provider.baseUrl || "";
+  if (provider.requiresBaseUrl && !resolvedBaseUrl) {
+    throw new Error("Base URL is required for the custom OpenAI-compatible provider.");
+  }
+  return {
+    DEER_FLOW_MODEL_PROVIDER_PRESET: provider.id,
+    DEER_FLOW_MODEL_PRESET: model.id,
+    DEER_FLOW_MODEL_NAME: model.name,
+    DEER_FLOW_MODEL_DISPLAY_NAME: model.displayName,
+    DEER_FLOW_MODEL_ID: model.modelId,
+    DEER_FLOW_MODEL_BASE_URL: resolvedBaseUrl,
+    DEER_FLOW_MODEL_USE_RESPONSES_API: model.useResponsesApi ? "true" : "false",
+    DEER_FLOW_MODEL_TEMPERATURE: String(model.temperature ?? "0.7"),
+    DEER_FLOW_MODEL_API_KEY: String(submitted.apiKey || "").trim(),
+    TAVILY_API_KEY: String(submitted.tavilyApiKey || "").trim(),
+    JINA_API_KEY: String(submitted.jinaApiKey || "").trim(),
+  };
+}
+
+async function saveState(envMap) {
+  const lines = [
+    "# Generated by LazyCat config-ui.",
+    ...Object.entries(envMap).map(([key, value]) => `${key}=${shellQuote(value)}`),
+    "",
+  ];
+  await writeText(statePath, lines.join("\n"));
+}
+
+async function runRender() {
+  if (!renderCommand) return;
+  await execFileAsync("sh", ["-lc", renderCommand], {
+    env: process.env,
+    timeout: 30000,
+  });
+}
+
+async function buildPayload() {
+  const schema = await loadSchema();
+  const persisted = parseEnvFile(await readText(statePath));
+  const values = deriveInitialValues(schema, persisted);
+  return {
+    schema,
+    values,
+    ready: await fileExists(readyMarker),
+  };
+}
+
+function renderPage(payload) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(payload.schema.title || `Configure ${appName}`)}</title>
+  <style>
+    :root { --bg:#050816; --bg-2:#0b1124; --panel:rgba(8,16,34,.82); --line:rgba(96,165,250,.24); --line-2:rgba(45,212,191,.18); --text:#e5f0ff; --muted:#8aa0c4; --accent:#4fd1ff; --accent-2:#8b5cf6; --ok:#37f0b0; --warn:#ffb84d; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; font-family: ui-sans-serif, system-ui, sans-serif; background:radial-gradient(circle at top, rgba(79,209,255,.16) 0%, transparent 28%), radial-gradient(circle at right, rgba(139,92,246,.18) 0%, transparent 24%), linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%); color:var(--text); }
+    body::before { content:""; position:fixed; inset:0; pointer-events:none; background-image:linear-gradient(rgba(79,209,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(79,209,255,.06) 1px, transparent 1px); background-size:32px 32px; mask-image:linear-gradient(180deg, rgba(0,0,0,.5), transparent); }
+    .wrap { max-width:960px; margin:0 auto; padding:40px 20px 56px; position:relative; z-index:1; }
+    .hero { margin-bottom:24px; }
+    .hero h1 { margin:0 0 12px; font-size:40px; letter-spacing:.02em; text-transform:uppercase; }
+    .hero p { margin:0; max-width:720px; line-height:1.7; color:var(--muted); }
+    .panel { background:linear-gradient(180deg, rgba(12,20,40,.88), rgba(7,13,28,.92)); border:1px solid var(--line); border-radius:28px; padding:24px; box-shadow:0 0 0 1px rgba(79,209,255,.08) inset, 0 24px 90px rgba(2,8,23,.55); backdrop-filter:blur(18px); }
+    .status { margin-bottom:18px; padding:14px 16px; border-radius:16px; background:rgba(55,240,176,.08); color:var(--ok); border:1px solid rgba(55,240,176,.24); font-weight:600; box-shadow:0 0 24px rgba(55,240,176,.08) inset; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:16px; }
+    label { display:block; font-size:12px; font-weight:700; margin-bottom:8px; letter-spacing:.12em; text-transform:uppercase; color:#c8dbff; }
+    .field { margin-bottom:16px; }
+    select, input { width:100%; min-height:48px; border-radius:16px; border:1px solid var(--line); padding:0 14px; background:rgba(5,12,26,.88); color:var(--text); outline:none; box-shadow:0 0 0 1px transparent inset; }
+    select:focus, input:focus { border-color:rgba(79,209,255,.55); box-shadow:0 0 0 1px rgba(79,209,255,.32), 0 0 24px rgba(79,209,255,.12); }
+    input:disabled { color:#6e82a6; border-color:rgba(96,165,250,.12); }
+    .hint { margin-top:6px; font-size:12px; color:var(--muted); }
+    .actions { display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+    button { min-height:48px; padding:0 22px; border:1px solid rgba(79,209,255,.3); border-radius:999px; background:linear-gradient(90deg, rgba(79,209,255,.18), rgba(139,92,246,.2)); color:#f7fbff; font-weight:700; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; box-shadow:0 0 20px rgba(79,209,255,.16); }
+    button.secondary { background:rgba(8,16,34,.7); color:#b7cbef; border-color:rgba(96,165,250,.22); box-shadow:none; }
+    .inline { display:flex; gap:12px; flex-wrap:wrap; }
+    .pill { display:inline-flex; align-items:center; min-height:38px; padding:0 14px; border-radius:999px; background:rgba(12,24,48,.88); border:1px solid var(--line-2); color:#bdefff; font-size:13px; box-shadow:0 0 18px rgba(45,212,191,.08) inset; }
+    @media (max-width: 640px) { .hero h1 { font-size:32px; } .panel { padding:18px; border-radius:22px; } }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <h1>${escapeHtml(payload.schema.title || `Configure ${appName}`)}</h1>
+      <p>${escapeHtml(payload.schema.description || "Choose a provider preset and default model before starting the app.")}</p>
+    </section>
+    <section class="panel">
+      <div id="status" class="status">${payload.ready ? "Configuration found. You can update it here at any time." : "Configuration is required before DeerFlow can start."}</div>
+      <div class="grid">
+        <div class="field">
+          <label for="provider">Provider</label>
+          <select id="provider"></select>
+          <div class="hint">Hosted presets supported by this package. The base URL is filled automatically.</div>
+        </div>
+        <div class="field">
+          <label for="modelPreset">Default Model</label>
+          <select id="modelPreset"></select>
+          <div id="modelHint" class="hint"></div>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="field">
+          <label for="apiKey">API Key</label>
+          <input id="apiKey" type="password" autocomplete="off" placeholder="Paste the provider API key">
+          <div class="hint">Stored in the app data directory and exposed to DeerFlow as <code>DEER_FLOW_MODEL_API_KEY</code>.</div>
+        </div>
+        <div class="field">
+          <label for="baseUrl">Base URL</label>
+          <input id="baseUrl" type="url" autocomplete="off" placeholder="Required for custom OpenAI-compatible endpoints">
+          <div id="baseUrlHint" class="hint">Automatically filled for presets like OpenRouter. Required for custom endpoints.</div>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="field">
+          <label for="tavilyApiKey">Tavily API Key</label>
+          <input id="tavilyApiKey" type="password" autocomplete="off" placeholder="Optional search key">
+          <div class="hint">Optional. Enables DeerFlow web search.</div>
+        </div>
+        <div class="field">
+          <label for="jinaApiKey">Jina API Key</label>
+          <input id="jinaApiKey" type="password" autocomplete="off" placeholder="Optional fetch key">
+          <div class="hint">Optional. Enables DeerFlow web fetch.</div>
+        </div>
+        <div class="field">
+          <label>Resolved Profile</label>
+          <div id="resolved" class="inline"></div>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="save" type="button">${escapeHtml(payload.schema.submitLabel || "Save and Start")}</button>
+        <button id="openApp" class="secondary" type="button">Open App</button>
+      </div>
+    </section>
+  </main>
+  <script>
+    const schema = __SCHEMA_JSON__;
+    const initialValues = __VALUES_JSON__;
+    const providerEl = document.getElementById("provider");
+    const modelEl = document.getElementById("modelPreset");
+    const apiKeyEl = document.getElementById("apiKey");
+    const baseUrlEl = document.getElementById("baseUrl");
+    const baseUrlHintEl = document.getElementById("baseUrlHint");
+    const tavilyEl = document.getElementById("tavilyApiKey");
+    const jinaEl = document.getElementById("jinaApiKey");
+    const modelHintEl = document.getElementById("modelHint");
+    const resolvedEl = document.getElementById("resolved");
+    const statusEl = document.getElementById("status");
+
+    function currentProvider() {
+      return schema.providers.find((item) => item.id === providerEl.value) || schema.providers[0];
+    }
+
+    function currentModel() {
+      const provider = currentProvider();
+      return (provider.models || []).find((item) => item.id === modelEl.value) || provider.models[0];
+    }
+
+    function updateProviderOptions() {
+      providerEl.innerHTML = "";
+      for (const provider of schema.providers || []) {
+        const option = document.createElement("option");
+        option.value = provider.id;
+        option.textContent = provider.label;
+        providerEl.appendChild(option);
+      }
+      providerEl.value = initialValues.provider || schema.defaultProvider || schema.providers[0]?.id || "";
+    }
+
+    function updateModelOptions() {
+      const provider = currentProvider();
+      modelEl.innerHTML = "";
+      for (const model of provider.models || []) {
+        const option = document.createElement("option");
+        option.value = model.id;
+        option.textContent = model.label;
+        modelEl.appendChild(option);
+      }
+      const fallback = provider.defaultModel || provider.models[0]?.id || "";
+      const selected = (provider.models || []).some((item) => item.id === initialValues.modelPreset) ? initialValues.modelPreset : fallback;
+      modelEl.value = selected;
+      updateBaseUrlField();
+      updateResolved();
+    }
+
+    function updateBaseUrlField() {
+      const provider = currentProvider();
+      const defaultBaseUrl = provider.baseUrl || "";
+      const requiresBaseUrl = Boolean(provider.requiresBaseUrl);
+      if (!baseUrlEl.dataset.touched || providerEl.dataset.providerChanged === "true") {
+        baseUrlEl.value = initialValues.baseUrl || defaultBaseUrl;
+      }
+      baseUrlEl.disabled = !requiresBaseUrl && Boolean(defaultBaseUrl);
+      baseUrlEl.required = requiresBaseUrl;
+      baseUrlEl.placeholder = requiresBaseUrl
+        ? "https://your-openai-compatible-endpoint/v1"
+        : (defaultBaseUrl || "Uses provider default");
+      baseUrlHintEl.textContent = requiresBaseUrl
+        ? "Required for custom OpenAI-compatible providers."
+        : (defaultBaseUrl ? "Preset provider. Base URL is managed automatically." : "Optional. Leave empty to use the provider default.");
+      providerEl.dataset.providerChanged = "false";
+    }
+
+    function updateResolved() {
+      const provider = currentProvider();
+      const model = currentModel();
+      modelHintEl.textContent = model.summary || "";
+      const resolvedBaseUrl = baseUrlEl.value || provider.baseUrl || "";
+      const bits = [
+        "Provider: " + provider.label,
+        "Model ID: " + model.modelId,
+        resolvedBaseUrl ? "Base URL: " + resolvedBaseUrl : "Base URL: provider default",
+        model.useResponsesApi ? "Responses API: enabled" : "Responses API: disabled",
+      ];
+      resolvedEl.innerHTML = "";
+      for (const bit of bits) {
+        const span = document.createElement("span");
+        span.className = "pill";
+        span.textContent = bit;
+        resolvedEl.appendChild(span);
+      }
+    }
+
+    function payload() {
+      return {
+        provider: providerEl.value,
+        modelPreset: modelEl.value,
+        baseUrl: baseUrlEl.value,
+        apiKey: apiKeyEl.value,
+        tavilyApiKey: tavilyEl.value,
+        jinaApiKey: jinaEl.value,
+      };
+    }
+
+    async function save() {
+      const res = await fetch("/__config/api/config", {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify(payload()),
+      });
+      const data = await res.json();
+      statusEl.textContent = data.error || data.summary || (data.ready ? "Configuration saved. DeerFlow is starting in the background." : "Configuration saved.");
+    }
+
+    providerEl.addEventListener("change", () => {
+      providerEl.dataset.providerChanged = "true";
+      initialValues.modelPreset = "";
+      updateModelOptions();
+    });
+    modelEl.addEventListener("change", updateResolved);
+    baseUrlEl.addEventListener("input", () => {
+      baseUrlEl.dataset.touched = "true";
+      updateResolved();
+    });
+    document.getElementById("save").addEventListener("click", () => { save().catch((error) => { statusEl.textContent = error.message; }); });
+    document.getElementById("openApp").addEventListener("click", () => { window.location.href = "/"; });
+
+    updateProviderOptions();
+    updateModelOptions();
+    apiKeyEl.value = initialValues.apiKey || "";
+    baseUrlEl.value = initialValues.baseUrl || "";
+    tavilyEl.value = initialValues.tavilyApiKey || "";
+    jinaEl.value = initialValues.jinaApiKey || "";
+  </script>
+</body>
+</html>`
+    .replace("__SCHEMA_JSON__", JSON.stringify(payload.schema || {}))
+    .replace("__VALUES_JSON__", JSON.stringify(payload.values || {}));
+}
+
+async function readBody(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+const server = http.createServer(async (req, res) => {
+  const payload = await buildPayload();
+
+  if (req.url === "/health") {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ready: payload.ready }));
+    return;
+  }
+
+  if (req.url === "/internal/ready") {
+    res.writeHead(payload.ready ? 204 : 401);
+    res.end();
+    return;
+  }
+
+  if (req.url === "/__config/api/schema") {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(payload));
+    return;
+  }
+
+  if (req.url === "/__config/api/config" && req.method === "POST") {
+    try {
+      const body = JSON.parse((await readBody(req)) || "{}");
+      const envMap = validateAndMaterialize(payload.schema, body);
+      await saveState(envMap);
+      await runRender();
+      const nextPayload = await buildPayload();
+      res.writeHead(nextPayload.ready ? 200 : 422, { "content-type": "application/json" });
+      res.end(JSON.stringify({
+        ready: nextPayload.ready,
+        summary: nextPayload.ready ? `${appName} configuration saved.` : "Configuration is still incomplete.",
+      }));
+    } catch (error) {
+      res.writeHead(422, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ready: false, error: error instanceof Error ? error.message : String(error) }));
+    }
+    return;
+  }
+
+  if (req.url === "/" || req.url === settingsPath || req.url === "/settings/config") {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end(renderPage(payload));
+    return;
+  }
+
+  res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+  res.end("not found");
+});
+
+server.listen(port, "0.0.0.0", () => {
+  console.error(`[config-ui] listening on :${port}`);
+});

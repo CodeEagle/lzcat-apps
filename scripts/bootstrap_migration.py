@@ -1054,7 +1054,7 @@ def main() -> int:
         raw_spec = load_json(Path(args.spec).resolve())
     raw_spec = deep_merge(raw_spec, build_cli_spec(args))
 
-    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") or ""
+    token = os.environ.get("GH_PAT") or os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") or ""
 
     try:
         spec = finalize_spec(raw_spec, token, fetch_upstream=not args.no_fetch_upstream)

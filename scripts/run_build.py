@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import selectors
 import shutil
 import subprocess
 import tempfile
@@ -15,6 +16,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -53,6 +55,113 @@ def sh(
     return result.stdout.strip() if capture else ""
 
 
+def parse_int_env(env: dict[str, str], name: str, default: int) -> int:
+    raw = str(env.get(name, "")).strip()
+    if not raw:
+        return default
+    manifest_path: Path | None = None
+    meta_path: Path | None = None
+    original_manifest_text: str | None = None
+    original_meta_text: str | None = None
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+def describe_process(pid: int) -> str:
+    probe = subprocess.run(
+        ["ps", "-p", str(pid), "-o", "pid=,etime=,%cpu=,%mem=,state=,command="],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    summary = probe.stdout.strip()
+    return summary or f"pid={pid}"
+
+
+def run_streaming(
+    cmd: list[str] | str,
+    *,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+    label: str,
+    inactivity_timeout: int | None = None,
+    heartbeat_interval: int | None = None,
+) -> str:
+    proc = subprocess.Popen(
+        cmd,
+        cwd=str(cwd) if cwd else None,
+        env=env,
+        text=True,
+        shell=isinstance(cmd, str),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        bufsize=1,
+    )
+    assert proc.stdout is not None
+    selector = selectors.DefaultSelector()
+    selector.register(proc.stdout, selectors.EVENT_READ)
+
+    lines: list[str] = []
+    started = time.monotonic()
+    last_output = started
+    last_heartbeat = started
+
+    try:
+        while True:
+            if proc.poll() is not None:
+                break
+
+            events = selector.select(timeout=1)
+            if events:
+                line = proc.stdout.readline()
+                if line:
+                    print(line, end="", flush=True)
+                    lines.append(line)
+                    last_output = time.monotonic()
+                    continue
+
+            now = time.monotonic()
+            if heartbeat_interval and now - last_heartbeat >= heartbeat_interval:
+                elapsed = int(now - started)
+                idle = int(now - last_output)
+                log(
+                    f"[heartbeat] {label} still running after {elapsed}s "
+                    f"(idle={idle}s, {describe_process(proc.pid)})"
+                )
+                last_heartbeat = now
+
+            if inactivity_timeout and now - last_output >= inactivity_timeout:
+                proc.kill()
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.terminate()
+                output = strip_ansi("".join(lines)).strip()
+                raise RuntimeError(
+                    f"{label} stalled with no output for {inactivity_timeout}s.\n"
+                    f"process: {describe_process(proc.pid)}\n"
+                    f"recent output:\n{output}"
+                )
+
+        remainder = proc.stdout.read()
+        if remainder:
+            print(remainder, end="", flush=True)
+            lines.append(remainder)
+    finally:
+        selector.close()
+
+    output = strip_ansi("".join(lines)).strip()
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"Command failed ({proc.returncode}): {cmd}\n"
+            f"output:\n{output}"
+        )
+    return output
+
+
 def append_summary(lines: list[str]) -> None:
     if not STEP_SUMMARY:
         return
@@ -69,6 +178,22 @@ def parse_bool(value: object, default: bool = False) -> bool:
     if not text:
         return default
     return text in {"1", "true", "yes", "on"}
+
+
+def is_transient_push_error(message: str) -> bool:
+    lowered = message.lower()
+    transient_markers = (
+        "unexpected eof",
+        "connection reset by peer",
+        "tls handshake timeout",
+        "i/o timeout",
+        "timeout awaiting response headers",
+        "temporarily unavailable",
+        "no such host",
+        "connection refused",
+        "broken pipe",
+    )
+    return any(marker in lowered for marker in transient_markers)
 
 
 def normalize_build_version(value: str) -> str:
@@ -105,9 +230,9 @@ def gh_api_text(path: str) -> str:
 
 
 def resolve_gh_token(env: dict[str, str]) -> str:
-    token = env.get("GH_TOKEN") or env.get("GITHUB_TOKEN")
+    token = env.get("GH_PAT") or env.get("GH_TOKEN") or env.get("GITHUB_TOKEN")
     if not token:
-        raise RuntimeError("GH_TOKEN is required")
+        raise RuntimeError("GH_PAT or GH_TOKEN is required")
     return token
 
 
@@ -117,6 +242,77 @@ def file_sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def collect_manifest_images(manifest_text: str) -> list[str]:
+    image_matches: list[str] = []
+    for raw_line in manifest_text.splitlines():
+        stripped = raw_line.strip()
+        if not stripped.startswith("image:"):
+            continue
+        image_value = stripped.split(":", 1)[1].strip()
+        if not image_value or image_value in {"|-", "|", ">-", ">"}:
+            continue
+        image_matches.append(image_value)
+    return image_matches
+
+
+def find_placeholder_images(images: list[str]) -> list[str]:
+    return [
+        image
+        for image in images
+        if image.startswith("registry.lazycat.cloud/placeholder/")
+    ]
+
+
+def ensure_manifest_images_materialized(
+    manifest_text: str,
+    *,
+    context: str,
+    allow_dry_run: bool,
+) -> list[str]:
+    image_matches = collect_manifest_images(manifest_text)
+    placeholder_images = find_placeholder_images(image_matches)
+    if placeholder_images:
+        raise RuntimeError(
+            f"{context} contains unresolved placeholder images: "
+            + ", ".join(sorted(set(placeholder_images)))
+        )
+
+    invalid_images = [
+        image
+        for image in image_matches
+        if (
+            not image.startswith("registry.lazycat.cloud/")
+            or (image.startswith("registry.lazycat.cloud/dry-run/") and not allow_dry_run)
+        )
+    ]
+    if invalid_images:
+        raise RuntimeError(
+            f"{context} contains non-LazyCat images: "
+            + ", ".join(sorted(set(invalid_images)))
+        )
+    return image_matches
+
+
+def inspect_lpk_manifest(lpk_path: Path) -> dict[str, Any]:
+    with zipfile.ZipFile(lpk_path) as archive:
+        try:
+            manifest_text = archive.read("manifest.yml").decode("utf-8")
+        except KeyError as exc:
+            raise RuntimeError(f"LPK missing manifest.yml: {lpk_path}") from exc
+
+    image_matches = ensure_manifest_images_materialized(
+        manifest_text,
+        context=f"LPK manifest {lpk_path}",
+        allow_dry_run=True,
+    )
+
+    return {
+        "manifest_path": "manifest.yml",
+        "image_count": len(image_matches),
+        "images": image_matches,
+    }
 
 
 def clone_repo(repo: str, token: str, destination: Path) -> tuple[str, str]:
@@ -232,6 +428,20 @@ def update_service_image(manifest_text: str, service_name: str, image: str) -> t
     return pattern.subn(r"\1" + image, manifest_text, count=1)
 
 
+def resolve_service_update_targets(item: dict[str, Any]) -> list[str]:
+    targets: list[str] = []
+    primary = str(item.get("target_service", "")).strip()
+    if primary:
+        targets.append(primary)
+    extra = item.get("additional_target_services", [])
+    if isinstance(extra, list):
+        for value in extra:
+            name = str(value).strip()
+            if name and name not in targets:
+                targets.append(name)
+    return targets
+
+
 def strip_ansi(text: str) -> str:
     return re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", text).replace("\r", "\n")
 
@@ -287,6 +497,11 @@ def ensure_registry_anonymous_pullable(image: str) -> None:
         )
     }
     request = urllib.request.Request(manifest_url, headers=headers)
+    package_owner = repository.split("/", 1)[0]
+    package_name = repository.rsplit("/", 1)[-1]
+    settings_url = (
+        f"https://github.com/users/{package_owner}/packages/container/{package_name}/settings"
+    )
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
             if response.status != 200:
@@ -322,13 +537,11 @@ def ensure_registry_anonymous_pullable(image: str) -> None:
                     )
             except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError) as token_exc:
                 raise RuntimeError(
-                    f"Anonymous pull preflight failed for {image}: GHCR bearer challenge did not complete successfully ({token_exc})"
+                    "Anonymous pull preflight failed for "
+                    f"{image}: GHCR bearer challenge did not complete successfully ({token_exc}). "
+                    "This usually means the package is still private or otherwise not anonymously pullable. "
+                    f"Make the package public, then retry. Settings: {settings_url}"
                 ) from token_exc
-        package_owner = repository.split("/", 1)[0]
-        package_name = repository.rsplit("/", 1)[-1]
-        settings_url = (
-            f"https://github.com/users/{package_owner}/packages/container/package/{package_name}/settings"
-        )
         raise RuntimeError(
             "Anonymous pull preflight failed for "
             f"{image}: GHCR returned HTTP {exc.code}. "
@@ -339,9 +552,10 @@ def ensure_registry_anonymous_pullable(image: str) -> None:
         raise RuntimeError(f"Anonymous pull preflight failed for {image}: {exc}") from exc
 
 
-def copy_image_to_lazycat(source_image: str, env: dict[str, str]) -> str:
+def copy_image_to_lazycat(source_image: str, env: dict[str, str]) -> tuple[str, dict[str, Any]]:
     ensure_registry_anonymous_pullable(source_image)
     log(f"Copying image to LazyCat registry: {source_image}")
+    started = time.monotonic()
     proc = subprocess.Popen(
         ["lzc-cli", "appstore", "copy-image", source_image],
         env=env,
@@ -350,10 +564,22 @@ def copy_image_to_lazycat(source_image: str, env: dict[str, str]) -> str:
         stderr=subprocess.STDOUT,
     )
     lines: list[str] = []
+    announced_waiting = False
+    announced_upload = False
     assert proc.stdout is not None
     for line in proc.stdout:
         print(line, end="", flush=True)
         lines.append(line)
+        normalized = strip_ansi(line).strip().lower()
+        if not normalized:
+            continue
+        if "waiting" in normalized and not announced_waiting:
+            log(f"[copy-image] Waiting for LazyCat registry to accept {source_image}")
+            announced_waiting = True
+            continue
+        if "uploading" in normalized and not announced_upload:
+            log(f"[copy-image] Upload started for {source_image}")
+            announced_upload = True
     proc.wait()
     output = strip_ansi("".join(lines)).strip()
     if proc.returncode != 0:
@@ -364,7 +590,18 @@ def copy_image_to_lazycat(source_image: str, env: dict[str, str]) -> str:
     match = re.search(r"(registry\.lazycat\.cloud/[A-Za-z0-9_/.:-]+)", output)
     if not match:
         raise RuntimeError(f"Failed to extract LazyCat image from output:\n{output}")
-    return match.group(1)
+    target_image = match.group(1)
+    elapsed = time.monotonic() - started
+    log(
+        f"[copy-image] Completed in {elapsed:.1f}s: {source_image} -> {target_image}"
+    )
+    return target_image, {
+        "source_image": source_image,
+        "target_image": target_image,
+        "elapsed_seconds": round(elapsed, 3),
+        "saw_waiting": announced_waiting,
+        "saw_upload_started": announced_upload,
+    }
 
 
 def publish_release_asset(
@@ -430,6 +667,7 @@ def build_report_base(
         "dependencies": config.get("dependencies", []),
         "target_image": "",
         "accelerated_image": "",
+        "copy_image_events": [],
         "artifact_release_tag": "",
         "artifact_release_url": "",
         "lpk_name": "",
@@ -516,6 +754,7 @@ def build_with_dockerfile(
     build_context_rel: str,
     build_args: dict[str, Any],
     *,
+    target: str = "",
     platform: str = "",
     dry_run: bool = False,
 ) -> str:
@@ -527,6 +766,8 @@ def build_with_dockerfile(
     if platform:
         args.extend(["--platform", platform])
     args.extend(["-f", str(dockerfile), "-t", target_image])
+    if target:
+        args.extend(["--target", target])
     owner = env.get("GITHUB_REPOSITORY_OWNER", "CodeEagle")
     source_repo = env.get("GITHUB_REPOSITORY", f"{owner}/lzcat-apps")
     args.extend(["--label", f"org.opencontainers.image.source=https://github.com/{source_repo}"])
@@ -534,12 +775,45 @@ def build_with_dockerfile(
         args.extend(["--build-arg", f"{key}={value}"])
     args.append(str(context))
     log(f"Building Docker image: {target_image}")
-    sh(args, cwd=build_root, env=env, capture=False)
+    run_streaming(
+        args,
+        cwd=build_root,
+        env=env,
+        label=f"docker build {target_image}",
+        inactivity_timeout=parse_int_env(env, "LZCAT_BUILD_INACTIVITY_TIMEOUT", 900),
+        heartbeat_interval=parse_int_env(env, "LZCAT_BUILD_HEARTBEAT_INTERVAL", 60),
+    )
     if dry_run:
         log(f"[DRY RUN] Skipping docker push: {target_image}")
     else:
         log(f"Pushing Docker image: {target_image}")
-        sh(["docker", "push", target_image], env=env, capture=False)
+        max_attempts = max(1, parse_int_env(env, "LZCAT_PUSH_MAX_ATTEMPTS", 3))
+        for attempt in range(1, max_attempts + 1):
+            try:
+                run_streaming(
+                    ["docker", "push", target_image],
+                    env=env,
+                    label=f"docker push {target_image}",
+                    inactivity_timeout=parse_int_env(env, "LZCAT_PUSH_INACTIVITY_TIMEOUT", 600),
+                    heartbeat_interval=parse_int_env(env, "LZCAT_BUILD_HEARTBEAT_INTERVAL", 60),
+                )
+                break
+            except RuntimeError as exc:
+                message = str(exc)
+                if "permission_denied: The token provided does not match expected scopes" in message:
+                    raise RuntimeError(
+                        "GHCR push failed: current GitHub token does not have package push permission. "
+                        "A token with `write:packages` is required for non-dry-run builds."
+                    ) from exc
+                if attempt >= max_attempts or not is_transient_push_error(message):
+                    raise
+                delay = min(30, 5 * attempt)
+                log(
+                    f"Transient image push failure for {target_image} "
+                    f"(attempt {attempt}/{max_attempts}): {message.splitlines()[0]}"
+                )
+                log(f"Retrying docker push in {delay}s")
+                time.sleep(delay)
     return target_image
 
 
@@ -682,6 +956,7 @@ def build_target_image(
         raise RuntimeError("No upstream_repo configured for source build fallback")
 
     source_root = Path(tempfile.mkdtemp(prefix="lzcat-upstream-"))
+    keep_source_root = False
     try:
         log(f"Cloning upstream: {upstream_repo}")
         sh(["git", "clone", "--recurse-submodules", f"https://github.com/{upstream_repo}.git", str(source_root)], env=env, capture=False)
@@ -755,6 +1030,7 @@ def build_service_images(
     global_build_args.setdefault("BUILD_VERSION", build_version)
 
     source_root = Path(tempfile.mkdtemp(prefix="lzcat-upstream-"))
+    keep_source_root = False
     try:
         log(f"Cloning upstream: {upstream_repo}")
         sh(["git", "clone", "--recurse-submodules", f"https://github.com/{upstream_repo}.git", str(source_root)], env=env, capture=False)
@@ -767,6 +1043,7 @@ def build_service_images(
             target_service = str(item.get("target_service", "")).strip()
             build_strategy = str(item.get("build_strategy") or config.get("build_strategy", "")).strip()
             image_name = str(item.get("image_name", "")).strip() or f"{app_name}-{target_service}"
+            build_target = str(item.get("build_target", "")).strip()
             build_args = dict(global_build_args)
             build_args.update(dict(item.get("build_args", {})))
             build_context = str(item.get("build_context") or ".").strip()
@@ -800,12 +1077,18 @@ def build_service_images(
                 dockerfile_rel,
                 build_context,
                 build_args,
+                target=build_target,
                 platform=docker_platform,
                 dry_run=dry_run,
             )
         return built_images
+    except Exception:
+        keep_source_root = True
+        log(f"[debug] Preserving failed upstream checkout at: {source_root}")
+        raise
     finally:
-        shutil.rmtree(source_root, ignore_errors=True)
+        if not keep_source_root:
+            shutil.rmtree(source_root, ignore_errors=True)
 
 
 def main() -> int:
@@ -849,6 +1132,7 @@ def main() -> int:
     work_root = Path(tempfile.mkdtemp(prefix="lzcat-artifacts-"))
     report_path = work_root / "build-report.json"
     report: dict[str, Any] | None = None
+    keep_work_root = False
     try:
         head_sha = sh(["git", "rev-parse", "--short=12", "HEAD"], cwd=lzcat_apps_root)
         publish_to_store = args.publish_to_store or parse_bool(config.get("publish_to_store"), False)
@@ -917,13 +1201,21 @@ def main() -> int:
         log(f"[{app_name}] Update needed: {current_build_version} -> {build_version} (source: {source_version})")
 
         if args.skip_docker:
-            log(f"[{app_name}] [SKIP DOCKER] Keeping existing image URLs from manifest")
+            ensure_manifest_images_materialized(
+                manifest_text,
+                context=f"{app_name} manifest before --skip-docker packaging",
+                allow_dry_run=args.dry_run,
+            )
+            log(
+                f"[{app_name}] [SKIP DOCKER] Reusing materialized LazyCat image URLs from manifest"
+            )
             updated_manifest = manifest_text
         else:
             report["phase"] = "build_image"
             write_report(report, report_path)
             log(f"[{app_name}] Phase: build_image")
             updated_manifest = manifest_text
+            copy_image_events: list[dict[str, Any]] = []
             service_builds = config.get("service_builds", [])
             if isinstance(service_builds, list) and service_builds:
                 built_images = build_service_images(
@@ -947,14 +1239,31 @@ def main() -> int:
                         accelerated_images[target_service] = f"registry.lazycat.cloud/dry-run/{app_name.lower()}-{target_service}:dry-run"
                     else:
                         log(f"[{app_name}] Phase: copy_image -> {target_service}")
-                        accelerated_images[target_service] = copy_image_to_lazycat(built_image, env)
-                    updated_manifest, count = update_service_image(
-                        updated_manifest,
-                        target_service,
-                        accelerated_images[target_service],
+                        accelerated_images[target_service], copy_event = copy_image_to_lazycat(built_image, env)
+                        copy_event["service"] = target_service
+                        copy_event["kind"] = "service"
+                        copy_image_events.append(copy_event)
+                        report["copy_image_events"] = copy_image_events
+                        write_report(report, report_path)
+                    item = next(
+                        (
+                            candidate
+                            for candidate in service_builds
+                            if str(candidate.get("target_service", "")).strip() == target_service
+                        ),
+                        {"target_service": target_service},
                     )
-                    if count != 1:
-                        raise RuntimeError(f"Failed to update service image in lzc-manifest.yml: {target_service}")
+                    update_targets = resolve_service_update_targets(item)
+                    for service_name in update_targets:
+                        updated_manifest, count = update_service_image(
+                            updated_manifest,
+                            service_name,
+                            accelerated_images[target_service],
+                        )
+                        if count != 1:
+                            raise RuntimeError(
+                                f"Failed to update service image in lzc-manifest.yml: {service_name}"
+                            )
                 report["accelerated_images"] = accelerated_images
                 write_report(report, report_path)
             else:
@@ -969,7 +1278,11 @@ def main() -> int:
                     accelerated_url = f"registry.lazycat.cloud/dry-run/{app_name.lower()}:dry-run"
                 else:
                     log(f"[{app_name}] Phase: copy_image")
-                    accelerated_url = copy_image_to_lazycat(target_image, env)
+                    accelerated_url, copy_event = copy_image_to_lazycat(target_image, env)
+                    copy_event["kind"] = "primary"
+                    copy_image_events.append(copy_event)
+                    report["copy_image_events"] = copy_image_events
+                    write_report(report, report_path)
                 report["accelerated_image"] = accelerated_url
                 write_report(report, report_path)
 
@@ -987,6 +1300,7 @@ def main() -> int:
                 "$BUILD_VERSION": build_version,
                 "$HEAD_SHA": head_sha,
             }
+            dependency_images: dict[str, str] = {}
             for dependency in config.get("dependencies", []):
                 target_service = str(dependency.get("target_service", "")).strip()
                 source_image = expand_placeholders(
@@ -995,10 +1309,28 @@ def main() -> int:
                 )
                 if not target_service or not source_image:
                     continue
-                dependency_image = copy_image_to_lazycat(source_image, env)
+                if args.dry_run:
+                    dependency_image = (
+                        f"registry.lazycat.cloud/dry-run/{app_name.lower()}-{target_service}:dry-run"
+                    )
+                    log(
+                        f"[{app_name}] [DRY RUN] Skipping dependency copy-image "
+                        f"for {target_service}: {source_image}"
+                    )
+                else:
+                    dependency_image, copy_event = copy_image_to_lazycat(source_image, env)
+                    copy_event["service"] = target_service
+                    copy_event["kind"] = "dependency"
+                    copy_image_events.append(copy_event)
+                    report["copy_image_events"] = copy_image_events
+                    write_report(report, report_path)
+                dependency_images[target_service] = dependency_image
                 updated_manifest, dep_count = update_service_image(updated_manifest, target_service, dependency_image)
                 if dep_count != 1:
                     raise RuntimeError(f"Failed to update dependency image for service: {target_service}")
+            if dependency_images:
+                report["dependency_images"] = dependency_images
+                write_report(report, report_path)
 
         updated_manifest = re.sub(
             r"^version:\s*.+$",
@@ -1007,6 +1339,16 @@ def main() -> int:
             count=1,
             flags=re.MULTILINE,
         )
+        report["workspace_manifest"] = {
+            "image_count": len(
+                ensure_manifest_images_materialized(
+                    updated_manifest,
+                    context=f"{app_name} workspace manifest before packaging",
+                    allow_dry_run=args.dry_run,
+                )
+            )
+        }
+        write_report(report, report_path)
         manifest_path.write_text(updated_manifest)
 
         build_stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -1031,9 +1373,17 @@ def main() -> int:
         report["phase"] = "package"
         write_report(report, report_path)
         log(f"[{app_name}] Phase: package (lzc-cli project build)")
-        sh(["lzc-cli", "project", "build", "-o", str(lpk_path)], cwd=repo_dir, env=env, capture=False)
+        run_streaming(
+            ["lzc-cli", "project", "build", "-o", str(lpk_path)],
+            cwd=repo_dir,
+            env=env,
+            label=f"lzc-cli project build {app_name}",
+            inactivity_timeout=parse_int_env(env, "LZCAT_PACKAGE_INACTIVITY_TIMEOUT", 900),
+            heartbeat_interval=parse_int_env(env, "LZCAT_BUILD_HEARTBEAT_INTERVAL", 60),
+        )
         report["lpk_name"] = lpk_path.name
         report["lpk_sha256"] = file_sha256(lpk_path)
+        report["lpk_manifest"] = inspect_lpk_manifest(lpk_path)
         write_report(report, report_path)
         if args.lpk_output:
             dest = Path(args.lpk_output)
@@ -1108,15 +1458,16 @@ def main() -> int:
         report["phase"] = "completed"
         write_report(report, report_path)
         publish_report_summary(report)
-        if args.dry_run:
-            manifest_path.write_text(original_manifest_text)
-            if original_meta_text is None:
-                meta_path.unlink(missing_ok=True)
-            else:
-                meta_path.write_text(original_meta_text)
         log(f"[{app_name}] Build completed successfully: v{build_version}")
         return 0
     except Exception as exc:
+        if args.dry_run and manifest_path is not None and original_manifest_text is not None:
+            manifest_path.write_text(original_manifest_text)
+            if meta_path is not None:
+                if original_meta_text is None:
+                    meta_path.unlink(missing_ok=True)
+                else:
+                    meta_path.write_text(original_meta_text)
         if report is None:
             report = {
                 "repo": (Path(args.config_file).stem if "args" in locals() else ""),
@@ -1129,11 +1480,22 @@ def main() -> int:
         else:
             report["status"] = "failed"
             report["error"] = str(exc)
+            report["debug_artifacts_dir"] = str(work_root)
+        keep_work_root = True
         write_report(report, report_path)
         publish_report_summary(report)
+        log(f"[{report.get('repo', app_name)}] Failure artifacts preserved at: {work_root}")
         raise
     finally:
-        shutil.rmtree(work_root, ignore_errors=True)
+        if args.dry_run and manifest_path is not None and original_manifest_text is not None:
+            manifest_path.write_text(original_manifest_text)
+            if meta_path is not None:
+                if original_meta_text is None:
+                    meta_path.unlink(missing_ok=True)
+                else:
+                    meta_path.write_text(original_meta_text)
+        if not keep_work_root:
+            shutil.rmtree(work_root, ignore_errors=True)
 
 
 if __name__ == "__main__":

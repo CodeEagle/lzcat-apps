@@ -125,6 +125,11 @@ SERVICE_README_HINTS = (
     "reverse proxy",
     "web ui",
 )
+SOURCE_BUILD_STRATEGIES = {
+    "dockerfile",
+    "upstream_dockerfile",
+    "upstream_with_target_template",
+}
 
 
 def sh(
@@ -1811,9 +1816,10 @@ def post_process_signoz(repo_root: Path) -> list[str]:
                   - /lzcapp/var/data/signoz/runtime:/var/lib/signoz-runtime
                 healthcheck:
                   test: ["CMD", "wget", "--spider", "-q", "localhost:8080/api/v1/health"]
+                  start_period: 300s
                   interval: 30s
                   timeout: 5s
-                  retries: 10
+                  retries: 20
 
               otel-collector:
                 image: registry.lazycat.cloud/invokerlaw/signoz/signoz-otel-collector:85bd090294be0dbf
@@ -2244,6 +2250,8 @@ def post_process_signoz(repo_root: Path) -> list[str]:
     for path, content in writes.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
+        if path.suffix == ".sh":
+            path.chmod(0o755)
         outputs.append(str(path))
     return outputs
 
@@ -2252,11 +2260,19 @@ def apply_app_post_process(repo_root: Path, finalized: dict[str, Any], analysis:
     upstream_repo = str(finalized.get("upstream_repo") or analysis["spec"].get("upstream_repo") or "").strip()
     if finalized["slug"] == "signoz" and upstream_repo == "SigNoz/signoz":
         return post_process_signoz(repo_root)
+    if finalized["slug"] == "deer-flow" and upstream_repo == "bytedance/deer-flow":
+        return post_process_deer_flow(repo_root)
     return []
 
 
 def apply_generated_app_fixes(finalized: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
     upstream_repo = str(finalized.get("upstream_repo") or analysis["spec"].get("upstream_repo") or "").strip()
+
+    if (
+        str(finalized.get("build_strategy", "")).strip() in SOURCE_BUILD_STRATEGIES
+        or bool(finalized.get("service_builds"))
+    ) and not str(finalized.get("docker_platform", "")).strip():
+        finalized["docker_platform"] = "linux/amd64"
 
     if finalized.get("slug") == "cmms" and upstream_repo == "Grashjs/cmms":
         frontend = finalized.get("services", {}).get("frontend")
@@ -2274,7 +2290,1647 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: dict[str, Any
         if note not in startup_notes:
             startup_notes.append(note)
 
+    if finalized.get("slug") == "deer-flow" and upstream_repo == "bytedance/deer-flow":
+        finalized["include_content"] = True
+        finalized["image_targets"] = ["frontend", "gateway", "langgraph"]
+        finalized["dependencies"] = [{"target_service": "nginx", "source_image": "nginx:alpine"}]
+        finalized["service_builds"] = [
+            {
+                "target_service": "frontend",
+                "additional_target_services": ["config-ui"],
+                "build_strategy": "upstream_dockerfile",
+                "source_dockerfile_path": "frontend/Dockerfile",
+                "build_context": ".",
+                "build_target": "dev",
+                "build_args": {
+                    "PNPM_STORE_PATH": "${PNPM_STORE_PATH:-/root/.local/share/pnpm/store}"
+                },
+                "image_name": "deer-flow-frontend",
+            },
+            {
+                "target_service": "gateway",
+                "build_strategy": "upstream_dockerfile",
+                "source_dockerfile_path": "backend/Dockerfile",
+                "build_context": ".",
+                "build_args": {},
+                "image_name": "deer-flow-gateway",
+            },
+            {
+                "target_service": "langgraph",
+                "build_strategy": "upstream_dockerfile",
+                "source_dockerfile_path": "backend/Dockerfile",
+                "build_context": ".",
+                "build_args": {},
+                "image_name": "deer-flow-langgraph",
+            },
+        ]
+        finalized["application"] = {
+            "subdomain": "deer-flow",
+            "public_path": ["/"],
+            "upstreams": [{"location": "/", "backend": "http://nginx:2026/"}],
+            "health_check": {"test_url": "http://nginx:2026/health"},
+        }
+        finalized["env_vars"] = [
+            {
+                "name": "BETTER_AUTH_SECRET",
+                "value": "${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-better-auth",
+                "description": "前端会话密钥，默认按应用域名生成",
+            },
+            {"name": "OPENAI_API_KEY", "description": "默认模板模型使用的 API Key"},
+            {"name": "OPENROUTER_API_KEY", "description": "可选 OpenAI-compatible 网关"},
+            {"name": "ANTHROPIC_API_KEY", "description": "可选 Claude 模型"},
+            {"name": "GEMINI_API_KEY", "description": "可选 Gemini 模型"},
+            {"name": "GOOGLE_API_KEY", "description": "可选 Google 模型"},
+            {"name": "DEEPSEEK_API_KEY", "description": "可选 DeepSeek 模型"},
+            {"name": "VOLCENGINE_API_KEY", "description": "可选火山引擎模型"},
+            {"name": "TAVILY_API_KEY", "description": "Web Search 工具"},
+            {"name": "JINA_API_KEY", "description": "Web Fetch 工具"},
+            {"name": "INFOQUEST_API_KEY", "description": "可选 InfoQuest 工具"},
+            {"name": "FIRECRAWL_API_KEY", "description": "可选抓取工具"},
+            {"name": "GITHUB_TOKEN", "description": "可选 GitHub MCP / API 访问令牌"},
+            {
+                "name": "LANGCHAIN_TRACING_V2",
+                "value": "false",
+                "description": "默认关闭 LangSmith tracing",
+            },
+        ]
+        finalized["data_paths"] = [
+            {
+                "host": "/lzcapp/var/data/deer-flow/runtime",
+                "container": "/app/backend/.deer-flow",
+                "description": "DeerFlow 线程、workspace、uploads、outputs 持久化目录",
+            },
+            {
+                "host": "/lzcapp/var/data/deer-flow/langgraph-api",
+                "container": "/app/backend/.langgraph_api",
+                "description": "LangGraph 运行时目录",
+            },
+        ]
+        finalized["startup_notes"] = [
+            "自动扫描到 compose 文件：docker/docker-compose.yaml",
+            "首次访问会进入应用内配置页，用户通过下拉选项选择模型提供方和默认模型后再启动 DeerFlow。",
+            "配置完成后可随时访问 `/settings/config` 重新修改。",
+            "App Detail 中也会保留 Deployment Parameters 入口，作为高级默认值配置入口。",
+            "当前默认走 LocalSandboxProvider，避免依赖 Docker Socket 或 Kubernetes provisioner。",
+            "服务启动前会根据应用内表单状态自动渲染 `/lzcapp/var/data/deer-flow/config/config.yaml`。",
+            "当前内置的是 OpenAI / OpenRouter 下拉选项；如果后续要支持更多 provider，可继续扩展 schema 和渲染脚本。",
+        ]
+        finalized["services"] = {
+            "config-ui": {
+                "image": "registry.lazycat.cloud/placeholder/deer-flow:frontend",
+                "command": deer_flow_config_ui_command(),
+                "environment": deer_flow_config_ui_env(),
+                "binds": ["/lzcapp/var/data/deer-flow/runtime:/deer-flow-state"],
+            },
+            "nginx": {
+                "image": "registry.lazycat.cloud/placeholder/deer-flow:nginx",
+                "environment": deer_flow_deploy_param_env(),
+                "binds": [
+                    "/lzcapp/pkg/content/nginx.conf:/etc/nginx/nginx.conf",
+                    "/lzcapp/var/data/deer-flow/runtime:/deer-flow-state",
+                ],
+                "command": deer_flow_bootstrap_command("exec nginx -g \"daemon off;\""),
+            },
+            "frontend": {
+                "image": "registry.lazycat.cloud/placeholder/deer-flow:frontend",
+                "command": deer_flow_bootstrap_command("cd /app/frontend && pnpm dev --hostname 0.0.0.0 --port 3000"),
+                "environment": [
+                    "BETTER_AUTH_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-better-auth",
+                    "NODE_ENV=development",
+                    "NEXT_TELEMETRY_DISABLED=1",
+                ]
+                + deer_flow_deploy_param_env(),
+                "binds": ["/lzcapp/var/data/deer-flow/runtime:/deer-flow-state"],
+            },
+            "gateway": {
+                "image": "registry.lazycat.cloud/placeholder/deer-flow:gateway",
+                "command": deer_flow_bootstrap_command("cd /app/backend && PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --workers 2", wait_for_ready=True),
+                "environment": deer_flow_runtime_env(),
+                "binds": [
+                    "/lzcapp/var/data/deer-flow/runtime:/deer-flow-state",
+                    "/lzcapp/var/data/deer-flow/runtime:/app/backend/.deer-flow",
+                ],
+            },
+            "langgraph": {
+                "image": "registry.lazycat.cloud/placeholder/deer-flow:langgraph",
+                "command": deer_flow_bootstrap_command("mkdir -p /app/backend/.langgraph_api && cd /app/backend && uv run langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port 2024", wait_for_ready=True),
+                "environment": deer_flow_runtime_env(include_tracing=True),
+                "binds": [
+                    "/lzcapp/var/data/deer-flow/runtime:/deer-flow-state",
+                    "/lzcapp/var/data/deer-flow/runtime:/app/backend/.deer-flow",
+                    "/lzcapp/var/data/deer-flow/langgraph-api:/app/backend/.langgraph_api",
+                ],
+            },
+        }
+
     return finalized
+
+
+def deer_flow_runtime_env(*, include_tracing: bool = False) -> list[str]:
+    env = [
+        "CI=true",
+        "DEER_FLOW_HOME=/app/backend/.deer-flow",
+        "DEER_FLOW_SHARED_STATE_DIR=/deer-flow-state",
+        "DEER_FLOW_CONFIG_DIR=/deer-flow-state/config",
+        "DEER_FLOW_CONFIG_PATH=/deer-flow-state/config/config.yaml",
+        "DEER_FLOW_CONFIG_ENV_PATH=/deer-flow-state/config/model.env",
+        "DEER_FLOW_READY_MARKER=/deer-flow-state/config/.lazycat-config-ready",
+        "DEER_FLOW_EXTENSIONS_CONFIG_PATH=/deer-flow-state/config/extensions_config.json",
+        "OPENAI_API_KEY",
+        "OPENROUTER_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "VOLCENGINE_API_KEY",
+        "TAVILY_API_KEY",
+        "JINA_API_KEY",
+        "INFOQUEST_API_KEY",
+        "FIRECRAWL_API_KEY",
+        "GITHUB_TOKEN",
+    ] + deer_flow_deploy_param_env()
+    if include_tracing:
+        env.append("LANGCHAIN_TRACING_V2=false")
+    return env
+
+
+def deer_flow_prepare_runtime_clause() -> str:
+    return (
+        "state_dir=\"${DEER_FLOW_SHARED_STATE_DIR:-/deer-flow-state}\" && "
+        "config_dir=\"${DEER_FLOW_CONFIG_DIR:-$state_dir/config}\" && "
+        "mkdir -p \"$config_dir\" "
+        "/lzcapp/var/data/deer-flow/skills "
+        "/lzcapp/var/data/deer-flow/runtime && "
+        "if [ ! -f \"$config_dir/extensions_config.json\" ]; then "
+        "cp /lzcapp/pkg/content/extensions_config.json \"$config_dir/extensions_config.json\"; fi && "
+        "if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then "
+        "cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && "
+        "sh /lzcapp/pkg/content/render-deer-flow-config.sh"
+    )
+
+
+def deer_flow_wait_ready_clause() -> str:
+    return (
+        'ready_file="${DEER_FLOW_READY_MARKER:-/deer-flow-state/config/.lazycat-config-ready}"; '
+        'echo "[deer-flow] waiting for model configuration"; '
+        'until [ -f "$ready_file" ]; do sleep 2; done'
+    )
+
+
+def deer_flow_bootstrap_command(final_cmd: str, *, wait_for_ready: bool = False) -> str:
+    segments = [deer_flow_prepare_runtime_clause()]
+    if wait_for_ready:
+        segments.append(deer_flow_wait_ready_clause())
+    segments.append(final_cmd)
+    return "sh -lc " + shlex.quote(" && ".join(segments))
+
+
+def deer_flow_config_ui_command() -> str:
+    return deer_flow_bootstrap_command("cd /app/frontend && node /lzcapp/pkg/content/config-ui/server.mjs")
+
+
+def deer_flow_config_ui_env() -> list[str]:
+    return [
+        "PORT=3210",
+        "CONFIG_UI_APP_NAME=DeerFlow",
+        "CONFIG_UI_SCHEMA_PATH=/lzcapp/pkg/content/config-ui/deer-flow-schema.json",
+        "CONFIG_UI_STATE_PATH=/deer-flow-state/config/model.env",
+        "CONFIG_UI_READY_MARKER=/deer-flow-state/config/.lazycat-config-ready",
+        "CONFIG_UI_RENDER_COMMAND=sh /lzcapp/pkg/content/render-deer-flow-config.sh",
+        "CONFIG_UI_SETTINGS_PATH=/settings/config",
+        "DEER_FLOW_SHARED_STATE_DIR=/deer-flow-state",
+        "DEER_FLOW_CONFIG_DIR=/deer-flow-state/config",
+        "DEER_FLOW_CONFIG_PATH=/deer-flow-state/config/config.yaml",
+        "DEER_FLOW_CONFIG_ENV_PATH=/deer-flow-state/config/model.env",
+        "DEER_FLOW_READY_MARKER=/deer-flow-state/config/.lazycat-config-ready",
+        "DEER_FLOW_EXTENSIONS_CONFIG_PATH=/deer-flow-state/config/extensions_config.json",
+    ] + deer_flow_deploy_param_env()
+
+
+def deer_flow_deploy_param_env() -> list[str]:
+    return [
+        '{{ if index .U "model.provider_preset" }}DEER_FLOW_MODEL_PROVIDER_PRESET={{ index .U "model.provider_preset" }}{{ else }}DEER_FLOW_MODEL_PROVIDER_PRESET=openai{{ end }}',
+        '{{ if index .U "model.name" }}DEER_FLOW_MODEL_NAME={{ index .U "model.name" }}{{ else }}DEER_FLOW_MODEL_NAME=default-chat{{ end }}',
+        '{{ if index .U "model.display_name" }}DEER_FLOW_MODEL_DISPLAY_NAME={{ index .U "model.display_name" }}{{ else }}DEER_FLOW_MODEL_DISPLAY_NAME=Default Chat Model{{ end }}',
+        '{{ if index .U "model.id" }}DEER_FLOW_MODEL_ID={{ index .U "model.id" }}{{ else }}DEER_FLOW_MODEL_ID=gpt-4.1-mini{{ end }}',
+        '{{ if index .U "model.base_url" }}DEER_FLOW_MODEL_BASE_URL={{ index .U "model.base_url" }}{{ else }}DEER_FLOW_MODEL_BASE_URL={{ end }}',
+        '{{ if index .U "model.api_key" }}DEER_FLOW_MODEL_API_KEY={{ index .U "model.api_key" }}{{ else }}DEER_FLOW_MODEL_API_KEY={{ end }}',
+        '{{ if index .U "model.use_responses_api" }}DEER_FLOW_MODEL_USE_RESPONSES_API={{ index .U "model.use_responses_api" }}{{ else }}DEER_FLOW_MODEL_USE_RESPONSES_API=false{{ end }}',
+        '{{ if index .U "model.temperature" }}DEER_FLOW_MODEL_TEMPERATURE={{ index .U "model.temperature" }}{{ else }}DEER_FLOW_MODEL_TEMPERATURE=0.7{{ end }}',
+        '{{ if index .U "search.tavily_api_key" }}TAVILY_API_KEY={{ index .U "search.tavily_api_key" }}{{ else }}TAVILY_API_KEY={{ end }}',
+        '{{ if index .U "fetch.jina_api_key" }}JINA_API_KEY={{ index .U "fetch.jina_api_key" }}{{ else }}JINA_API_KEY={{ end }}',
+    ]
+
+
+def render_deer_flow_config_script() -> str:
+    return textwrap.dedent(
+        """\
+        #!/bin/sh
+        set -eu
+
+        CONFIG_PATH="${DEER_FLOW_CONFIG_PATH:-/deer-flow-state/config/config.yaml}"
+        CONFIG_ENV_PATH="${DEER_FLOW_CONFIG_ENV_PATH:-/deer-flow-state/config/model.env}"
+        READY_MARKER="${DEER_FLOW_READY_MARKER:-/deer-flow-state/config/.lazycat-config-ready}"
+        CONFIG_DIR="$(dirname "$CONFIG_PATH")"
+        mkdir -p "$CONFIG_DIR"
+
+        quote_yaml() {
+          printf '"%s"' "$(printf '%s' "$1" | sed 's/\\\\/\\\\\\\\/g; s/"/\\\\"/g')"
+        }
+
+        if [ -f "$CONFIG_ENV_PATH" ]; then
+          # shellcheck disable=SC1090
+          . "$CONFIG_ENV_PATH"
+        fi
+
+        provider="${DEER_FLOW_MODEL_PROVIDER_PRESET:-openai}"
+        model_name="${DEER_FLOW_MODEL_NAME:-default-chat}"
+        display_name="${DEER_FLOW_MODEL_DISPLAY_NAME:-Default Chat Model}"
+        model_id="${DEER_FLOW_MODEL_ID:-gpt-4.1-mini}"
+        base_url="${DEER_FLOW_MODEL_BASE_URL:-}"
+        api_key_value="${DEER_FLOW_MODEL_API_KEY:-}"
+        api_key_ref='\\$DEER_FLOW_MODEL_API_KEY'
+        use_responses_api="${DEER_FLOW_MODEL_USE_RESPONSES_API:-false}"
+        temperature="${DEER_FLOW_MODEL_TEMPERATURE:-0.7}"
+
+        if [ "$provider" = "openrouter" ] && [ -z "$base_url" ]; then
+          base_url="https://openrouter.ai/api/v1"
+        fi
+
+        {
+          echo "# Generated from LazyCat deployment parameters."
+          echo "# Re-open App Detail -> Deployment Parameters to update this config."
+          echo "config_version: 3"
+          echo "log_level: info"
+          echo
+          echo "models:"
+          echo "  - name: $(quote_yaml "$model_name")"
+          echo "    display_name: $(quote_yaml "$display_name")"
+          echo "    use: langchain_openai:ChatOpenAI"
+          echo "    model: $(quote_yaml "$model_id")"
+          echo "    api_key: $api_key_ref"
+          echo "    max_tokens: 4096"
+          echo "    temperature: $temperature"
+          if [ -n "$base_url" ]; then
+            echo "    base_url: $(quote_yaml "$base_url")"
+          fi
+          if [ "$use_responses_api" = "true" ]; then
+            echo "    use_responses_api: true"
+            echo "    output_version: responses/v1"
+          fi
+          echo
+          cat <<'EOF'
+        tool_groups:
+          - name: web
+          - name: file:read
+          - name: file:write
+          - name: bash
+
+        tools:
+          - name: web_search
+            group: web
+            use: deerflow.community.tavily.tools:web_search_tool
+            max_results: 5
+          - name: web_fetch
+            group: web
+            use: deerflow.community.jina_ai.tools:web_fetch_tool
+            timeout: 10
+          - name: image_search
+            group: web
+            use: deerflow.community.image_search.tools:image_search_tool
+            max_results: 5
+          - name: ls
+            group: file:read
+            use: deerflow.sandbox.tools:ls_tool
+          - name: read_file
+            group: file:read
+            use: deerflow.sandbox.tools:read_file_tool
+          - name: write_file
+            group: file:write
+            use: deerflow.sandbox.tools:write_file_tool
+          - name: str_replace
+            group: file:write
+            use: deerflow.sandbox.tools:str_replace_tool
+          - name: bash
+            group: bash
+            use: deerflow.sandbox.tools:bash_tool
+
+        sandbox:
+          use: deerflow.sandbox.local:LocalSandboxProvider
+
+        skills:
+          path: /lzcapp/var/data/deer-flow/skills
+          container_path: /mnt/skills
+
+        title:
+          enabled: true
+          max_words: 6
+          max_chars: 60
+          model_name: null
+
+        summarization:
+          enabled: true
+        EOF
+        } > "$CONFIG_PATH"
+
+        if [ -n "$model_id" ] && [ -n "$api_key_value" ]; then
+          printf 'ready\\n' > "$READY_MARKER"
+        else
+          rm -f "$READY_MARKER"
+        fi
+        """
+    )
+
+
+def render_config_ui_server() -> str:
+    return textwrap.dedent(
+        """\
+        import http from "node:http";
+        import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+        import { constants as fsConstants } from "node:fs";
+        import { dirname } from "node:path";
+        import { execFile } from "node:child_process";
+        import { promisify } from "node:util";
+
+        const execFileAsync = promisify(execFile);
+        const port = Number(process.env.PORT || 3210);
+        const appName = process.env.CONFIG_UI_APP_NAME || "Application";
+        const schemaPath = process.env.CONFIG_UI_SCHEMA_PATH || "";
+        const statePath = process.env.CONFIG_UI_STATE_PATH || "";
+        const readyMarker = process.env.CONFIG_UI_READY_MARKER || "";
+        const renderCommand = process.env.CONFIG_UI_RENDER_COMMAND || "";
+        const settingsPath = process.env.CONFIG_UI_SETTINGS_PATH || "/settings/config";
+
+        function escapeHtml(value) {
+          return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#39;");
+        }
+
+        async function readText(path) {
+          if (!path) return "";
+          return readFile(path, "utf8").catch(() => "");
+        }
+
+        async function writeText(path, content) {
+          await mkdir(dirname(path), { recursive: true });
+          await writeFile(path, content, "utf8");
+        }
+
+        async function fileExists(path) {
+          if (!path) return false;
+          try {
+            await access(path, fsConstants.F_OK);
+            return true;
+          } catch {
+            return false;
+          }
+        }
+
+        function parseEnvFile(raw) {
+          const result = {};
+          for (const line of String(raw || "").split(/\\r?\\n/)) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith("#")) continue;
+            const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+            if (!match) continue;
+            let value = match[2] || "";
+            if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
+              value = value.slice(1, -1);
+            }
+            value = value.replace(/'\\\\''/g, "'");
+            result[match[1]] = value;
+          }
+          return result;
+        }
+
+        function shellQuote(value) {
+          return `'${String(value || "").replaceAll("'", `'\\\\''`)}'`;
+        }
+
+        async function loadSchema() {
+          const raw = await readText(schemaPath);
+          return JSON.parse(raw || "{}");
+        }
+
+        function findProvider(schema, providerId) {
+          return (schema.providers || []).find((item) => item.id === providerId) || null;
+        }
+
+        function findModel(provider, modelPreset) {
+          return (provider?.models || []).find((item) => item.id === modelPreset) || null;
+        }
+
+        function deriveInitialValues(schema, persisted) {
+          const providerId = persisted.DEER_FLOW_MODEL_PROVIDER_PRESET || process.env.DEER_FLOW_MODEL_PROVIDER_PRESET || schema.defaultProvider || schema.providers?.[0]?.id || "";
+          const provider = findProvider(schema, providerId) || schema.providers?.[0] || null;
+          const modelPresetFromState = persisted.DEER_FLOW_MODEL_PRESET || "";
+          const modelPresetFromEnv = provider?.models?.find((item) => item.modelId === (process.env.DEER_FLOW_MODEL_ID || ""))?.id || "";
+          const modelPreset = modelPresetFromState || modelPresetFromEnv || provider?.defaultModel || provider?.models?.[0]?.id || "";
+          return {
+            provider: provider?.id || "",
+            modelPreset,
+            baseUrl: persisted.DEER_FLOW_MODEL_BASE_URL || process.env.DEER_FLOW_MODEL_BASE_URL || provider?.baseUrl || "",
+            apiKey: persisted.DEER_FLOW_MODEL_API_KEY || process.env.DEER_FLOW_MODEL_API_KEY || "",
+            tavilyApiKey: persisted.TAVILY_API_KEY || process.env.TAVILY_API_KEY || "",
+            jinaApiKey: persisted.JINA_API_KEY || process.env.JINA_API_KEY || "",
+          };
+        }
+
+        function validateAndMaterialize(schema, submitted) {
+          const provider = findProvider(schema, submitted.provider);
+          if (!provider) {
+            throw new Error("Pick a supported provider preset.");
+          }
+          const model = findModel(provider, submitted.modelPreset);
+          if (!model) {
+            throw new Error("Pick a supported model preset.");
+          }
+          if (!String(submitted.apiKey || "").trim()) {
+            throw new Error("API Key is required before DeerFlow can start.");
+          }
+          const submittedBaseUrl = String(submitted.baseUrl || "").trim();
+          const resolvedBaseUrl = submittedBaseUrl || provider.baseUrl || "";
+          if (provider.requiresBaseUrl && !resolvedBaseUrl) {
+            throw new Error("Base URL is required for the custom OpenAI-compatible provider.");
+          }
+          return {
+            DEER_FLOW_MODEL_PROVIDER_PRESET: provider.id,
+            DEER_FLOW_MODEL_PRESET: model.id,
+            DEER_FLOW_MODEL_NAME: model.name,
+            DEER_FLOW_MODEL_DISPLAY_NAME: model.displayName,
+            DEER_FLOW_MODEL_ID: model.modelId,
+            DEER_FLOW_MODEL_BASE_URL: resolvedBaseUrl,
+            DEER_FLOW_MODEL_USE_RESPONSES_API: model.useResponsesApi ? "true" : "false",
+            DEER_FLOW_MODEL_TEMPERATURE: String(model.temperature ?? "0.7"),
+            DEER_FLOW_MODEL_API_KEY: String(submitted.apiKey || "").trim(),
+            TAVILY_API_KEY: String(submitted.tavilyApiKey || "").trim(),
+            JINA_API_KEY: String(submitted.jinaApiKey || "").trim(),
+          };
+        }
+
+        async function saveState(envMap) {
+          const lines = [
+            "# Generated by LazyCat config-ui.",
+            ...Object.entries(envMap).map(([key, value]) => `${key}=${shellQuote(value)}`),
+            "",
+          ];
+          await writeText(statePath, lines.join("\\n"));
+        }
+
+        async function runRender() {
+          if (!renderCommand) return;
+          await execFileAsync("sh", ["-lc", renderCommand], {
+            env: process.env,
+            timeout: 30000,
+          });
+        }
+
+        async function buildPayload() {
+          const schema = await loadSchema();
+          const persisted = parseEnvFile(await readText(statePath));
+          const values = deriveInitialValues(schema, persisted);
+          return {
+            schema,
+            values,
+            ready: await fileExists(readyMarker),
+          };
+        }
+
+        function renderPage(payload) {
+          return `<!doctype html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>${escapeHtml(payload.schema.title || `Configure ${appName}`)}</title>
+          <style>
+            :root { --bg:#050816; --bg-2:#0b1124; --panel:rgba(8,16,34,.82); --line:rgba(96,165,250,.24); --line-2:rgba(45,212,191,.18); --text:#e5f0ff; --muted:#8aa0c4; --accent:#4fd1ff; --accent-2:#8b5cf6; --ok:#37f0b0; --warn:#ffb84d; }
+            * { box-sizing:border-box; }
+            body { margin:0; min-height:100vh; font-family: ui-sans-serif, system-ui, sans-serif; background:radial-gradient(circle at top, rgba(79,209,255,.16) 0%, transparent 28%), radial-gradient(circle at right, rgba(139,92,246,.18) 0%, transparent 24%), linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%); color:var(--text); }
+            body::before { content:""; position:fixed; inset:0; pointer-events:none; background-image:linear-gradient(rgba(79,209,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(79,209,255,.06) 1px, transparent 1px); background-size:32px 32px; mask-image:linear-gradient(180deg, rgba(0,0,0,.5), transparent); }
+            .wrap { max-width:960px; margin:0 auto; padding:40px 20px 56px; position:relative; z-index:1; }
+            .hero { margin-bottom:24px; }
+            .hero h1 { margin:0 0 12px; font-size:40px; letter-spacing:.02em; text-transform:uppercase; }
+            .hero p { margin:0; max-width:720px; line-height:1.7; color:var(--muted); }
+            .panel { background:linear-gradient(180deg, rgba(12,20,40,.88), rgba(7,13,28,.92)); border:1px solid var(--line); border-radius:28px; padding:24px; box-shadow:0 0 0 1px rgba(79,209,255,.08) inset, 0 24px 90px rgba(2,8,23,.55); backdrop-filter:blur(18px); }
+            .status { margin-bottom:18px; padding:14px 16px; border-radius:16px; background:rgba(55,240,176,.08); color:var(--ok); border:1px solid rgba(55,240,176,.24); font-weight:600; box-shadow:0 0 24px rgba(55,240,176,.08) inset; }
+            .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:16px; }
+            label { display:block; font-size:12px; font-weight:700; margin-bottom:8px; letter-spacing:.12em; text-transform:uppercase; color:#c8dbff; }
+            .field { margin-bottom:16px; }
+            select, input { width:100%; min-height:48px; border-radius:16px; border:1px solid var(--line); padding:0 14px; background:rgba(5,12,26,.88); color:var(--text); outline:none; box-shadow:0 0 0 1px transparent inset; }
+            select:focus, input:focus { border-color:rgba(79,209,255,.55); box-shadow:0 0 0 1px rgba(79,209,255,.32), 0 0 24px rgba(79,209,255,.12); }
+            input:disabled { color:#6e82a6; border-color:rgba(96,165,250,.12); }
+            .hint { margin-top:6px; font-size:12px; color:var(--muted); }
+            .actions { display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+            button { min-height:48px; padding:0 22px; border:1px solid rgba(79,209,255,.3); border-radius:999px; background:linear-gradient(90deg, rgba(79,209,255,.18), rgba(139,92,246,.2)); color:#f7fbff; font-weight:700; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; box-shadow:0 0 20px rgba(79,209,255,.16); }
+            button.secondary { background:rgba(8,16,34,.7); color:#b7cbef; border-color:rgba(96,165,250,.22); box-shadow:none; }
+            .inline { display:flex; gap:12px; flex-wrap:wrap; }
+            .pill { display:inline-flex; align-items:center; min-height:38px; padding:0 14px; border-radius:999px; background:rgba(12,24,48,.88); border:1px solid var(--line-2); color:#bdefff; font-size:13px; box-shadow:0 0 18px rgba(45,212,191,.08) inset; }
+            @media (max-width: 640px) { .hero h1 { font-size:32px; } .panel { padding:18px; border-radius:22px; } }
+          </style>
+        </head>
+        <body>
+          <main class="wrap">
+            <section class="hero">
+              <h1>${escapeHtml(payload.schema.title || `Configure ${appName}`)}</h1>
+              <p>${escapeHtml(payload.schema.description || "Choose a provider preset and default model before starting the app.")}</p>
+            </section>
+            <section class="panel">
+              <div id="status" class="status">${payload.ready ? "Configuration found. You can update it here at any time." : "Configuration is required before DeerFlow can start."}</div>
+              <div class="grid">
+                <div class="field">
+                  <label for="provider">Provider</label>
+                  <select id="provider"></select>
+                  <div class="hint">Hosted presets supported by this package. The base URL is filled automatically.</div>
+                </div>
+                <div class="field">
+                  <label for="modelPreset">Default Model</label>
+                  <select id="modelPreset"></select>
+                  <div id="modelHint" class="hint"></div>
+                </div>
+              </div>
+              <div class="grid">
+                <div class="field">
+                  <label for="apiKey">API Key</label>
+                  <input id="apiKey" type="password" autocomplete="off" placeholder="Paste the provider API key">
+                  <div class="hint">Stored in the app data directory and exposed to DeerFlow as <code>DEER_FLOW_MODEL_API_KEY</code>.</div>
+                </div>
+                <div class="field">
+                  <label for="baseUrl">Base URL</label>
+                  <input id="baseUrl" type="url" autocomplete="off" placeholder="Required for custom OpenAI-compatible endpoints">
+                  <div id="baseUrlHint" class="hint">Automatically filled for presets like OpenRouter. Required for custom endpoints.</div>
+                </div>
+              </div>
+              <div class="grid">
+                <div class="field">
+                  <label for="tavilyApiKey">Tavily API Key</label>
+                  <input id="tavilyApiKey" type="password" autocomplete="off" placeholder="Optional search key">
+                  <div class="hint">Optional. Enables DeerFlow web search.</div>
+                </div>
+                <div class="field">
+                  <label for="jinaApiKey">Jina API Key</label>
+                  <input id="jinaApiKey" type="password" autocomplete="off" placeholder="Optional fetch key">
+                  <div class="hint">Optional. Enables DeerFlow web fetch.</div>
+                </div>
+                <div class="field">
+                  <label>Resolved Profile</label>
+                  <div id="resolved" class="inline"></div>
+                </div>
+              </div>
+              <div class="actions">
+                <button id="save" type="button">${escapeHtml(payload.schema.submitLabel || "Save and Start")}</button>
+                <button id="openApp" class="secondary" type="button">Open App</button>
+              </div>
+            </section>
+          </main>
+          <script>
+            const schema = __SCHEMA_JSON__;
+            const initialValues = __VALUES_JSON__;
+            const providerEl = document.getElementById("provider");
+            const modelEl = document.getElementById("modelPreset");
+            const apiKeyEl = document.getElementById("apiKey");
+            const baseUrlEl = document.getElementById("baseUrl");
+            const baseUrlHintEl = document.getElementById("baseUrlHint");
+            const tavilyEl = document.getElementById("tavilyApiKey");
+            const jinaEl = document.getElementById("jinaApiKey");
+            const modelHintEl = document.getElementById("modelHint");
+            const resolvedEl = document.getElementById("resolved");
+            const statusEl = document.getElementById("status");
+
+            function currentProvider() {
+              return schema.providers.find((item) => item.id === providerEl.value) || schema.providers[0];
+            }
+
+            function currentModel() {
+              const provider = currentProvider();
+              return (provider.models || []).find((item) => item.id === modelEl.value) || provider.models[0];
+            }
+
+            function updateProviderOptions() {
+              providerEl.innerHTML = "";
+              for (const provider of schema.providers || []) {
+                const option = document.createElement("option");
+                option.value = provider.id;
+                option.textContent = provider.label;
+                providerEl.appendChild(option);
+              }
+              providerEl.value = initialValues.provider || schema.defaultProvider || schema.providers[0]?.id || "";
+            }
+
+            function updateModelOptions() {
+              const provider = currentProvider();
+              modelEl.innerHTML = "";
+              for (const model of provider.models || []) {
+                const option = document.createElement("option");
+                option.value = model.id;
+                option.textContent = model.label;
+                modelEl.appendChild(option);
+              }
+              const fallback = provider.defaultModel || provider.models[0]?.id || "";
+              const selected = (provider.models || []).some((item) => item.id === initialValues.modelPreset) ? initialValues.modelPreset : fallback;
+              modelEl.value = selected;
+              updateBaseUrlField();
+              updateResolved();
+            }
+
+            function updateBaseUrlField() {
+              const provider = currentProvider();
+              const defaultBaseUrl = provider.baseUrl || "";
+              const requiresBaseUrl = Boolean(provider.requiresBaseUrl);
+              if (!baseUrlEl.dataset.touched || providerEl.dataset.providerChanged === "true") {
+                baseUrlEl.value = initialValues.baseUrl || defaultBaseUrl;
+              }
+              baseUrlEl.disabled = !requiresBaseUrl && Boolean(defaultBaseUrl);
+              baseUrlEl.required = requiresBaseUrl;
+              baseUrlEl.placeholder = requiresBaseUrl
+                ? "https://your-openai-compatible-endpoint/v1"
+                : (defaultBaseUrl || "Uses provider default");
+              baseUrlHintEl.textContent = requiresBaseUrl
+                ? "Required for custom OpenAI-compatible providers."
+                : (defaultBaseUrl ? "Preset provider. Base URL is managed automatically." : "Optional. Leave empty to use the provider default.");
+              providerEl.dataset.providerChanged = "false";
+            }
+
+            function updateResolved() {
+              const provider = currentProvider();
+              const model = currentModel();
+              modelHintEl.textContent = model.summary || "";
+              const resolvedBaseUrl = baseUrlEl.value || provider.baseUrl || "";
+              const bits = [
+                "Provider: " + provider.label,
+                "Model ID: " + model.modelId,
+                resolvedBaseUrl ? "Base URL: " + resolvedBaseUrl : "Base URL: provider default",
+                model.useResponsesApi ? "Responses API: enabled" : "Responses API: disabled",
+              ];
+              resolvedEl.innerHTML = "";
+              for (const bit of bits) {
+                const span = document.createElement("span");
+                span.className = "pill";
+                span.textContent = bit;
+                resolvedEl.appendChild(span);
+              }
+            }
+
+            function payload() {
+              return {
+                provider: providerEl.value,
+                modelPreset: modelEl.value,
+                baseUrl: baseUrlEl.value,
+                apiKey: apiKeyEl.value,
+                tavilyApiKey: tavilyEl.value,
+                jinaApiKey: jinaEl.value,
+              };
+            }
+
+            async function save() {
+              const res = await fetch("/__config/api/config", {
+                method: "POST",
+                headers: { "content-type": "application/json", accept: "application/json" },
+                body: JSON.stringify(payload()),
+              });
+              const data = await res.json();
+              statusEl.textContent = data.error || data.summary || (data.ready ? "Configuration saved. DeerFlow is starting in the background." : "Configuration saved.");
+            }
+
+            providerEl.addEventListener("change", () => {
+              providerEl.dataset.providerChanged = "true";
+              initialValues.modelPreset = "";
+              updateModelOptions();
+            });
+            modelEl.addEventListener("change", updateResolved);
+            baseUrlEl.addEventListener("input", () => {
+              baseUrlEl.dataset.touched = "true";
+              updateResolved();
+            });
+            document.getElementById("save").addEventListener("click", () => { save().catch((error) => { statusEl.textContent = error.message; }); });
+            document.getElementById("openApp").addEventListener("click", () => { window.location.href = "/"; });
+
+            updateProviderOptions();
+            updateModelOptions();
+            apiKeyEl.value = initialValues.apiKey || "";
+            baseUrlEl.value = initialValues.baseUrl || "";
+            tavilyEl.value = initialValues.tavilyApiKey || "";
+            jinaEl.value = initialValues.jinaApiKey || "";
+          </script>
+        </body>
+        </html>`
+            .replace("__SCHEMA_JSON__", JSON.stringify(payload.schema || {}))
+            .replace("__VALUES_JSON__", JSON.stringify(payload.values || {}));
+        }
+
+        async function readBody(req) {
+          const chunks = [];
+          for await (const chunk of req) chunks.push(chunk);
+          return Buffer.concat(chunks).toString("utf8");
+        }
+
+        const server = http.createServer(async (req, res) => {
+          const payload = await buildPayload();
+
+          if (req.url === "/health") {
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify({ ready: payload.ready }));
+            return;
+          }
+
+          if (req.url === "/internal/ready") {
+            res.writeHead(payload.ready ? 204 : 401);
+            res.end();
+            return;
+          }
+
+          if (req.url === "/__config/api/schema") {
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify(payload));
+            return;
+          }
+
+          if (req.url === "/__config/api/config" && req.method === "POST") {
+            try {
+              const body = JSON.parse((await readBody(req)) || "{}");
+              const envMap = validateAndMaterialize(payload.schema, body);
+              await saveState(envMap);
+              await runRender();
+              const nextPayload = await buildPayload();
+              res.writeHead(nextPayload.ready ? 200 : 422, { "content-type": "application/json" });
+              res.end(JSON.stringify({
+                ready: nextPayload.ready,
+                summary: nextPayload.ready ? `${appName} configuration saved.` : "Configuration is still incomplete.",
+              }));
+            } catch (error) {
+              res.writeHead(422, { "content-type": "application/json" });
+              res.end(JSON.stringify({ ready: false, error: error instanceof Error ? error.message : String(error) }));
+            }
+            return;
+          }
+
+          if (req.url === "/" || req.url === settingsPath || req.url === "/settings/config") {
+            res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+            res.end(renderPage(payload));
+            return;
+          }
+
+          res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+          res.end("not found");
+        });
+
+        server.listen(port, "0.0.0.0", () => {
+          console.error(`[config-ui] listening on :${port}`);
+        });
+        """
+    )
+
+
+def render_deer_flow_config_ui_schema() -> str:
+    return json.dumps(
+        {
+            "title": "Configure DeerFlow",
+            "description": "Pick a hosted provider preset and default model. The package writes the result back into config.yaml and only then starts DeerFlow.",
+            "submitLabel": "Save and Start",
+            "defaultProvider": "openai",
+            "providers": [
+                {
+                    "id": "openai",
+                    "label": "OpenAI",
+                    "baseUrl": "",
+                    "defaultModel": "gpt-4.1-mini",
+                    "models": [
+                        {
+                            "id": "gpt-4.1-mini",
+                            "label": "GPT-4.1 Mini",
+                            "name": "default-chat",
+                            "displayName": "GPT-4.1 Mini",
+                            "modelId": "gpt-4.1-mini",
+                            "useResponsesApi": False,
+                            "temperature": "0.7",
+                            "summary": "Balanced default for DeerFlow.",
+                        },
+                        {
+                            "id": "gpt-4.1",
+                            "label": "GPT-4.1",
+                            "name": "default-chat",
+                            "displayName": "GPT-4.1",
+                            "modelId": "gpt-4.1",
+                            "useResponsesApi": False,
+                            "temperature": "0.7",
+                            "summary": "Higher quality general-purpose option.",
+                        },
+                        {
+                            "id": "gpt-5-mini",
+                            "label": "GPT-5 Mini",
+                            "name": "default-chat",
+                            "displayName": "GPT-5 Mini",
+                            "modelId": "gpt-5-mini",
+                            "useResponsesApi": True,
+                            "temperature": "0.7",
+                            "summary": "Uses the Responses API path recommended for GPT-5 models.",
+                        },
+                    ],
+                },
+                {
+                    "id": "openrouter",
+                    "label": "OpenRouter",
+                    "baseUrl": "https://openrouter.ai/api/v1",
+                    "requiresBaseUrl": False,
+                    "defaultModel": "openai/gpt-4.1-mini",
+                    "models": [
+                        {
+                            "id": "openai/gpt-4.1-mini",
+                            "label": "OpenAI GPT-4.1 Mini",
+                            "name": "default-chat",
+                            "displayName": "OpenAI GPT-4.1 Mini",
+                            "modelId": "openai/gpt-4.1-mini",
+                            "useResponsesApi": False,
+                            "temperature": "0.7",
+                            "summary": "OpenAI model served through OpenRouter.",
+                        },
+                        {
+                            "id": "google/gemini-2.5-flash-preview",
+                            "label": "Gemini 2.5 Flash Preview",
+                            "name": "default-chat",
+                            "displayName": "Gemini 2.5 Flash Preview",
+                            "modelId": "google/gemini-2.5-flash-preview",
+                            "useResponsesApi": False,
+                            "temperature": "0.7",
+                            "summary": "Fast Google-hosted model routed through OpenRouter.",
+                        },
+                        {
+                            "id": "anthropic/claude-sonnet-4",
+                            "label": "Claude Sonnet 4",
+                            "name": "default-chat",
+                            "displayName": "Claude Sonnet 4",
+                            "modelId": "anthropic/claude-sonnet-4",
+                            "useResponsesApi": False,
+                            "temperature": "0.7",
+                            "summary": "Anthropic-hosted model routed through OpenRouter.",
+                        },
+                    ],
+                },
+                {
+                    "id": "custom-openai",
+                    "label": "Custom OpenAI-Compatible",
+                    "baseUrl": "",
+                    "requiresBaseUrl": True,
+                    "defaultModel": "custom-gpt-4.1-mini",
+                    "models": [
+                        {
+                            "id": "custom-gpt-4.1-mini",
+                            "label": "GPT-4.1 Mini Compatible",
+                            "name": "default-chat",
+                            "displayName": "Custom GPT-4.1 Mini",
+                            "modelId": "gpt-4.1-mini",
+                            "useResponsesApi": False,
+                            "temperature": "0.7",
+                            "summary": "For self-hosted or gateway endpoints that speak the OpenAI Chat Completions API.",
+                        },
+                        {
+                            "id": "custom-gpt-5-mini",
+                            "label": "GPT-5 Mini Compatible",
+                            "name": "default-chat",
+                            "displayName": "Custom GPT-5 Mini",
+                            "modelId": "gpt-5-mini",
+                            "useResponsesApi": True,
+                            "temperature": "0.7",
+                            "summary": "For OpenAI-compatible endpoints that support the Responses API.",
+                        },
+                    ],
+                },
+            ],
+        },
+        ensure_ascii=True,
+        indent=2,
+    ) + "\n"
+
+
+def render_deer_flow_nginx_conf() -> str:
+    return textwrap.dedent(
+        """\
+        events {
+            worker_connections 1024;
+        }
+        pid /tmp/nginx.pid;
+        http {
+            sendfile on;
+            tcp_nopush on;
+            tcp_nodelay on;
+            keepalive_timeout 65;
+            types_hash_max_size 2048;
+
+            access_log /dev/stdout;
+            error_log /dev/stderr;
+
+            resolver 127.0.0.11 valid=10s ipv6=off;
+
+            upstream config_ui {
+                server config-ui:3210;
+            }
+
+            upstream gateway {
+                server gateway:8001;
+            }
+
+            upstream langgraph {
+                server langgraph:2024;
+            }
+
+            upstream frontend {
+                server frontend:3000;
+            }
+
+            server {
+                listen 2026 default_server;
+                listen [::]:2026 default_server;
+                server_name _;
+
+                proxy_hide_header 'Access-Control-Allow-Origin';
+                proxy_hide_header 'Access-Control-Allow-Methods';
+                proxy_hide_header 'Access-Control-Allow-Headers';
+                proxy_hide_header 'Access-Control-Allow-Credentials';
+
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, PATCH, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' '*' always;
+
+                if ($request_method = 'OPTIONS') {
+                    return 204;
+                }
+
+                location = /__config_ready {
+                    internal;
+                    proxy_pass http://config_ui/internal/ready;
+                    proxy_pass_request_body off;
+                    proxy_set_header Content-Length "";
+                    proxy_set_header X-Original-URI $request_uri;
+                }
+
+                location = /settings/config {
+                    proxy_pass http://config_ui/settings/config;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location ^~ /__config/ {
+                    proxy_pass http://config_ui;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location /api/langgraph/ {
+                    rewrite ^/api/langgraph/(.*) /$1 break;
+                    proxy_pass http://langgraph;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                    proxy_set_header Connection '';
+                    proxy_buffering off;
+                    proxy_cache off;
+                    proxy_set_header X-Accel-Buffering no;
+                    proxy_connect_timeout 600s;
+                    proxy_send_timeout 600s;
+                    proxy_read_timeout 600s;
+                    chunked_transfer_encoding on;
+                }
+
+                location /api/models {
+                    proxy_pass http://gateway;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location /api/memory {
+                    proxy_pass http://gateway;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location /api/mcp {
+                    proxy_pass http://gateway;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location /api/skills {
+                    proxy_pass http://gateway;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location /api/agents {
+                    proxy_pass http://gateway;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location ~ ^/api/threads/[^/]+/uploads {
+                    proxy_pass http://gateway;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                    client_max_body_size 100M;
+                    proxy_request_buffering off;
+                }
+
+                location ~ ^/api/threads {
+                    proxy_pass http://gateway;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location /docs {
+                    proxy_pass http://gateway;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location /redoc {
+                    proxy_pass http://gateway;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location /openapi.json {
+                    proxy_pass http://gateway;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location /health {
+                    proxy_pass http://config_ui/health;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+
+                location / {
+                    auth_request /__config_ready;
+                    error_page 401 = /settings/config;
+                    proxy_pass http://frontend;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                    proxy_set_header Upgrade $http_upgrade;
+                    proxy_set_header Connection 'upgrade';
+                    proxy_cache_bypass $http_upgrade;
+                    proxy_connect_timeout 600s;
+                    proxy_send_timeout 600s;
+                    proxy_read_timeout 600s;
+                }
+            }
+        }
+        """
+    )
+
+
+def render_config_gate_server() -> str:
+    return textwrap.dedent(
+        """\
+        import http from "node:http";
+        import https from "node:https";
+        import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+        import { dirname } from "node:path";
+        import { pathToFileURL } from "node:url";
+
+        const port = Number(process.env.PORT || 8080);
+        const appName = process.env.CONFIG_GATE_APP_NAME || "Application";
+        const pageTitle = process.env.CONFIG_GATE_PAGE_TITLE || `Configure ${appName}`;
+        const setupHint = process.env.CONFIG_GATE_SETUP_HINT || "Fill in the required configuration, then save to start the app.";
+        const configPath = process.env.CONFIG_GATE_CONFIG_PATH || "";
+        const templatePath = process.env.CONFIG_GATE_TEMPLATE_PATH || "";
+        const readyMarker = process.env.CONFIG_GATE_READY_MARKER || "";
+        const validatorModulePath = process.env.CONFIG_GATE_VALIDATOR_MODULE || "";
+        const targetUrl = new URL(process.env.CONFIG_GATE_TARGET_URL || "http://127.0.0.1:80");
+        const targetHealthUrl = process.env.CONFIG_GATE_TARGET_HEALTH_URL || "";
+
+        function escapeHtml(value) {
+          return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#39;");
+        }
+
+        async function ensureParent(filePath) {
+          await mkdir(dirname(filePath), { recursive: true });
+        }
+
+        async function readText(filePath) {
+          if (!filePath) return "";
+          return readFile(filePath, "utf8").catch(() => "");
+        }
+
+        async function writeText(filePath, value) {
+          await ensureParent(filePath);
+          await writeFile(filePath, value, "utf8");
+        }
+
+        async function touchReadyMarker() {
+          if (!readyMarker) return;
+          await writeText(readyMarker, "ready\\n");
+        }
+
+        async function clearReadyMarker() {
+          if (!readyMarker) return;
+          await rm(readyMarker, { force: true }).catch(() => {});
+        }
+
+        async function loadValidator() {
+          if (!validatorModulePath) {
+            return { validateConfig: async () => ({ ready: true, summary: "No validator configured." }) };
+          }
+          const mod = await import(pathToFileURL(validatorModulePath).href + `?ts=${Date.now()}`);
+          if (typeof mod.validateConfig !== "function") {
+            throw new Error(`Validator module missing validateConfig(): ${validatorModulePath}`);
+          }
+          return mod;
+        }
+
+        async function ensureConfigExists() {
+          const existing = await readText(configPath);
+          if (existing.trim()) return existing;
+          const template = await readText(templatePath);
+          if (template.trim()) {
+            await writeText(configPath, template);
+            return template;
+          }
+          return existing;
+        }
+
+        async function getConfigState() {
+          const content = await ensureConfigExists();
+          const validator = await loadValidator();
+          const result = await validator.validateConfig(content, { appName, configPath });
+          const ready = Boolean(result && result.ready);
+          if (ready) {
+            await touchReadyMarker();
+          } else {
+            await clearReadyMarker();
+          }
+          return {
+            ready,
+            summary: result?.summary || "",
+            error: result?.error || "",
+            content,
+          };
+        }
+
+        async function readBody(req) {
+          const chunks = [];
+          for await (const chunk of req) chunks.push(chunk);
+          return Buffer.concat(chunks).toString("utf8");
+        }
+
+        async function probeTarget() {
+          const probeUrl = targetHealthUrl || targetUrl.toString();
+          try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 3000);
+            const res = await fetch(probeUrl, {
+              signal: controller.signal,
+              headers: { accept: "application/json,text/plain,*/*" },
+            });
+            clearTimeout(timer);
+            return res.ok;
+          } catch {
+            return false;
+          }
+        }
+
+        function renderPage(state) {
+          const statusClass = state.ready ? "status ready" : "status blocked";
+          const statusText = state.ready
+            ? (state.targetReachable ? `${appName} is starting. This page will switch automatically.` : "Configuration saved. Waiting for backend services to become reachable.")
+            : (state.error || state.summary || "Configuration is required before startup.");
+          return `<!doctype html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>${escapeHtml(pageTitle)}</title>
+          <style>
+            :root { --bg:#f3efe6; --panel:#fffaf2; --line:#d7cbb4; --text:#221c14; --muted:#6f6457; --accent:#1f6feb; --warn:#b54708; --ok:#157347; }
+            * { box-sizing:border-box; }
+            body { margin:0; min-height:100vh; font-family: ui-sans-serif, system-ui, sans-serif; background:linear-gradient(180deg, #faf6ef 0%, var(--bg) 100%); color:var(--text); }
+            .wrap { max-width:960px; margin:0 auto; padding:32px 20px 48px; }
+            .panel { background:rgba(255,250,242,.95); border:1px solid var(--line); border-radius:24px; padding:24px; box-shadow:0 20px 40px rgba(34,28,20,.08); }
+            h1 { margin:0 0 12px; font-size:32px; }
+            p { margin:0; color:var(--muted); line-height:1.6; }
+            .status { margin-top:18px; padding:14px 16px; border-radius:16px; font-weight:600; }
+            .status.blocked { background:#fff1e6; color:var(--warn); border:1px solid #f7d6bf; }
+            .status.ready { background:#e8f5ee; color:var(--ok); border:1px solid #c8e7d3; }
+            textarea { width:100%; min-height:420px; margin-top:18px; padding:16px; border-radius:18px; border:1px solid var(--line); background:#fff; color:var(--text); font:13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; resize:vertical; }
+            .row { display:flex; gap:12px; align-items:center; margin-top:16px; flex-wrap:wrap; }
+            button { min-height:44px; padding:0 18px; border:0; border-radius:999px; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; }
+            button[disabled] { opacity:.6; cursor:progress; }
+            .hint { font-size:13px; color:var(--muted); }
+          </style>
+        </head>
+        <body>
+          <main class="wrap">
+            <section class="panel">
+              <h1>${escapeHtml(pageTitle)}</h1>
+              <p>${escapeHtml(setupHint)}</p>
+              <div id="status" class="${statusClass}">${escapeHtml(statusText)}</div>
+              <textarea id="config">${escapeHtml(state.content)}</textarea>
+              <div class="row">
+                <button id="save" type="button">Save and Start</button>
+                <span class="hint">Config path: ${escapeHtml(configPath)}</span>
+              </div>
+            </section>
+          </main>
+          <script>
+            const statusEl = document.getElementById("status");
+            const saveButton = document.getElementById("save");
+            const configInput = document.getElementById("config");
+
+            function renderStatus(state) {
+              const ready = Boolean(state.ready);
+              statusEl.className = ready ? "status ready" : "status blocked";
+              statusEl.textContent = ready
+                ? (state.targetReachable ? "Configuration saved. Switching to the application..." : "Configuration saved. Waiting for backend services to start...")
+                : (state.error || state.summary || "Configuration is required before startup.");
+              if (ready && state.targetReachable) {
+                window.location.reload();
+              }
+            }
+
+            async function refresh() {
+              const res = await fetch("/__lazycat/config-status", { headers: { accept: "application/json" } });
+              renderStatus(await res.json());
+            }
+
+            saveButton.addEventListener("click", async () => {
+              saveButton.disabled = true;
+              try {
+                const res = await fetch("/__lazycat/config", {
+                  method: "POST",
+                  headers: { "content-type": "application/json", accept: "application/json" },
+                  body: JSON.stringify({ content: configInput.value }),
+                });
+                renderStatus(await res.json());
+              } finally {
+                saveButton.disabled = false;
+              }
+            });
+
+            setInterval(() => { refresh().catch(() => {}); }, 3000);
+          </script>
+        </body>
+        </html>`;
+        }
+
+        function proxyHttp(req, res) {
+          const isHttps = targetUrl.protocol === "https:";
+          const requestImpl = isHttps ? https.request : http.request;
+          const upstreamReq = requestImpl(
+            {
+              protocol: targetUrl.protocol,
+              hostname: targetUrl.hostname,
+              port: targetUrl.port || (isHttps ? 443 : 80),
+              method: req.method,
+              path: req.url,
+              headers: { ...req.headers, host: req.headers.host },
+            },
+            (upstreamRes) => {
+              res.writeHead(upstreamRes.statusCode || 502, upstreamRes.headers);
+              upstreamRes.pipe(res);
+            },
+          );
+          upstreamReq.on("error", (error) => {
+            res.writeHead(502, { "content-type": "application/json" });
+            res.end(JSON.stringify({ error: `proxy failed: ${error.message}` }));
+          });
+          req.pipe(upstreamReq);
+        }
+
+        const server = http.createServer(async (req, res) => {
+          const state = await getConfigState();
+          const targetReachable = state.ready ? await probeTarget() : false;
+          const payload = {
+            ready: state.ready,
+            summary: state.summary,
+            error: state.error,
+            targetReachable,
+          };
+
+          if (req.url === "/health") {
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify(payload));
+            return;
+          }
+
+          if (req.url === "/__lazycat/config-status") {
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify(payload));
+            return;
+          }
+
+          if (req.url === "/__lazycat/config" && req.method === "GET") {
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify({ ...payload, content: state.content }));
+            return;
+          }
+
+          if (req.url === "/__lazycat/config" && req.method === "POST") {
+            let content = "";
+            try {
+              content = JSON.parse((await readBody(req)) || "{}").content || "";
+            } catch {
+              res.writeHead(400, { "content-type": "application/json" });
+              res.end(JSON.stringify({ ready: false, error: "Invalid JSON payload." }));
+              return;
+            }
+            await writeText(configPath, content);
+            const nextState = await getConfigState();
+            const nextTargetReachable = nextState.ready ? await probeTarget() : false;
+            res.writeHead(nextState.ready ? 200 : 422, { "content-type": "application/json" });
+            res.end(JSON.stringify({
+              ready: nextState.ready,
+              summary: nextState.summary,
+              error: nextState.error,
+              targetReachable: nextTargetReachable,
+              content: nextState.content,
+            }));
+            return;
+          }
+
+          if (state.ready && targetReachable) {
+            proxyHttp(req, res);
+            return;
+          }
+
+          res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+          res.end(renderPage({ ...state, targetReachable }));
+        });
+
+        server.listen(port, "0.0.0.0", () => {
+          console.error(`[config-gate] listening on :${port}`);
+        });
+        """
+    )
+
+
+def render_deer_flow_config_validator() -> str:
+    return textwrap.dedent(
+        """\
+        export async function validateConfig(content) {
+          const raw = String(content || "").replace(/\\r\\n/g, "\\n");
+          const modelsMatch = raw.match(/^models:\\s*$/m);
+          if (!modelsMatch) {
+            return {
+              ready: false,
+              error: "Missing `models:` section. Add at least one model before starting DeerFlow.",
+            };
+          }
+
+          const afterModels = raw.slice(modelsMatch.index + modelsMatch[0].length);
+          const nextRootKey = afterModels.search(/^\\S/m);
+          const modelBlock = nextRootKey === -1 ? afterModels : afterModels.slice(0, nextRootKey);
+          const listItems = modelBlock
+            .split("\\n")
+            .map((line) => line.trim())
+            .filter((line) => line.startsWith("-"));
+
+          if (listItems.length === 0) {
+            return {
+              ready: false,
+              error: "No models configured. Add at least one item under `models:`.",
+            };
+          }
+
+          const nameFields = modelBlock
+            .split("\\n")
+            .map((line) => line.trim())
+            .filter((line) => line.startsWith("name:") || line.includes(" name:"));
+
+          if (nameFields.length === 0) {
+            return {
+              ready: false,
+              error: "Each DeerFlow model should define a `name:` field.",
+            };
+          }
+
+          return {
+            ready: true,
+            summary: `Detected ${nameFields.length} configured model(s).`,
+          };
+        }
+        """
+    )
+
+
+def post_process_deer_flow(repo_root: Path) -> list[str]:
+    app_dir = repo_root / "apps" / "deer-flow"
+    content_dir = app_dir / "content"
+    skills_dir = content_dir / "skills"
+    config_ui_dir = content_dir / "config-ui"
+    skills_dir.mkdir(parents=True, exist_ok=True)
+    config_ui_dir.mkdir(parents=True, exist_ok=True)
+
+    writes = {
+        app_dir / "lzc-deploy-params.yml": textwrap.dedent(
+            """\
+            params:
+              - id: model.provider_preset
+                type: string
+                name: Provider Preset
+                description: "Advanced defaults for DeerFlow. Preferred day-to-day UX is /settings/config."
+                default_value: "openai"
+                optional: true
+              - id: model.name
+                type: string
+                name: Internal Model Name
+                description: "Advanced default only."
+                default_value: "default-chat"
+                optional: true
+              - id: model.display_name
+                type: string
+                name: Display Name
+                description: "Advanced default only."
+                default_value: "Default Chat Model"
+                optional: true
+              - id: model.id
+                type: string
+                name: API Model ID
+                description: "Advanced default only."
+                default_value: "gpt-4.1-mini"
+                optional: true
+              - id: model.base_url
+                type: string
+                name: Base URL
+                description: "Optional advanced default for OpenAI-compatible endpoints."
+                default_value: ""
+                optional: true
+              - id: model.api_key
+                type: string
+                name: API Key
+                description: "Optional advanced default."
+                default_value: ""
+                optional: true
+              - id: model.use_responses_api
+                type: string
+                name: Use Responses API
+                description: "Optional advanced default."
+                default_value: "false"
+                optional: true
+              - id: model.temperature
+                type: string
+                name: Temperature
+                description: "Optional advanced default."
+                default_value: "0.7"
+                optional: true
+              - id: search.tavily_api_key
+                type: string
+                name: Tavily API Key
+                description: "Optional advanced default."
+                default_value: ""
+                optional: true
+              - id: fetch.jina_api_key
+                type: string
+                name: Jina API Key
+                description: "Optional advanced default."
+                default_value: ""
+                optional: true
+            """
+        ),
+        content_dir / "config.yaml": textwrap.dedent(
+            """\
+            # DeerFlow config template for LazyCat single-node deployment.
+            # This template is intentionally boot-safe: no model API key is required at startup.
+            # The packaged config-ui writes model.env, and render-deer-flow-config.sh rewrites this file from it.
+
+            config_version: 3
+            log_level: info
+
+            models: []
+
+            tool_groups:
+              - name: web
+              - name: file:read
+              - name: file:write
+              - name: bash
+
+            tools:
+              - name: web_search
+                group: web
+                use: deerflow.community.tavily.tools:web_search_tool
+                max_results: 5
+              - name: web_fetch
+                group: web
+                use: deerflow.community.jina_ai.tools:web_fetch_tool
+                timeout: 10
+              - name: image_search
+                group: web
+                use: deerflow.community.image_search.tools:image_search_tool
+                max_results: 5
+              - name: ls
+                group: file:read
+                use: deerflow.sandbox.tools:ls_tool
+              - name: read_file
+                group: file:read
+                use: deerflow.sandbox.tools:read_file_tool
+              - name: write_file
+                group: file:write
+                use: deerflow.sandbox.tools:write_file_tool
+              - name: str_replace
+                group: file:write
+                use: deerflow.sandbox.tools:str_replace_tool
+              - name: bash
+                group: bash
+                use: deerflow.sandbox.tools:bash_tool
+
+            sandbox:
+              use: deerflow.sandbox.local:LocalSandboxProvider
+
+            skills:
+              path: /lzcapp/var/data/deer-flow/skills
+              container_path: /mnt/skills
+
+            title:
+              enabled: true
+              max_words: 6
+              max_chars: 60
+              model_name: null
+
+            summarization:
+              enabled: true
+            """
+        ),
+        content_dir / "extensions_config.json": textwrap.dedent(
+            """\
+            {
+              "mcpServers": {},
+              "skills": {}
+            }
+            """
+        ),
+        content_dir / "render-deer-flow-config.sh": render_deer_flow_config_script(),
+        config_ui_dir / "server.mjs": render_config_ui_server(),
+        config_ui_dir / "deer-flow-schema.json": render_deer_flow_config_ui_schema(),
+        content_dir / "nginx.conf": render_deer_flow_nginx_conf(),
+        skills_dir / "README.md": textwrap.dedent(
+            """\
+            Place custom DeerFlow skills in this directory.
+
+            This LazyCat package defaults to `skills.path: /lzcapp/var/data/deer-flow/skills`,
+            so files stored here persist across upgrades.
+            """
+        ),
+    }
+
+    outputs: list[str] = []
+    for path, content in writes.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        if path.suffix in {".sh", ".mjs"}:
+            path.chmod(0o755)
+        outputs.append(str(path))
+    return outputs
 
 
 def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
@@ -2347,13 +4003,26 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
 
 
 def detect_gh_token(env: dict[str, str]) -> str:
-    token = env.get("GH_TOKEN") or env.get("GITHUB_TOKEN")
+    token = env.get("GH_PAT") or env.get("GH_TOKEN") or env.get("GITHUB_TOKEN")
     if token:
         return token
     if command_exists("gh"):
         token = sh(["gh", "auth", "token"], check=False)
         if token:
             return token
+    return ""
+
+
+def detect_lzc_cli_token(env: dict[str, str]) -> str:
+    token = env.get("LZC_CLI_TOKEN", "").strip()
+    if token:
+        return token
+    if command_exists("lzc-cli"):
+        config_value = sh(["lzc-cli", "config", "get", "token"], check=False).strip()
+        if config_value:
+            parts = config_value.split()
+            if len(parts) >= 2:
+                return parts[-1].strip()
     return ""
 
 
@@ -2366,15 +4035,22 @@ def run_local_build(
     cmd = ["bash", "./scripts/local_build.sh", slug, "--force-build"]
     if full_install:
         cmd.extend(["--install", "--with-docker", "--no-dry-run"])
-    result = subprocess.run(
+    proc = subprocess.Popen(
         cmd,
         cwd=str(repo_root),
         env=env,
         text=True,
-        capture_output=True,
-        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
     )
-    return result
+    assert proc.stdout is not None
+    lines: list[str] = []
+    for line in proc.stdout:
+        print(line, end="")
+        lines.append(line)
+    proc.wait()
+    output = "".join(lines)
+    return subprocess.CompletedProcess(cmd, proc.returncode, stdout=output, stderr="")
 
 
 def manifest_package_id(repo_root: Path, slug: str) -> str:
@@ -2397,6 +4073,9 @@ def main() -> int:
     repo_root = Path(args.repo_root).resolve() if args.repo_root else Path(__file__).resolve().parents[1]
     env = os.environ.copy()
     runtime_name, runtime_env, cleanup_runtime = prepare_container_env(env)
+    lzc_cli_token = detect_lzc_cli_token(runtime_env)
+    if lzc_cli_token:
+        runtime_env["LZC_CLI_TOKEN"] = lzc_cli_token
 
     normalized = normalize_source(args.source)
     source_dir: Path | None = None
