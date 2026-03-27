@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.shadmin
-version: 2.1.5
+version: 2.1.6
 min_os_version: 1.3.8
 name: Shadmin
 description: (LazyCat Auto-build) Enterprise-grade Go + React RBAC admin system with embedded web UI
@@ -20,7 +20,7 @@ application:
     test_url: http://shadmin:55667/
 services:
   shadmin:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/shadmin:7e488c2ced5820d3
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/shadmin:dd5c19bcfd7edd1a
     environment:
       - APP_ENV=production
       - CONTEXT_TIMEOUT=60
