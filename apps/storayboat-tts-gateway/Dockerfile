@@ -14,6 +14,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY landing_app.py /app/landing_app.py
+COPY landing_page.html /app/landing_page.html
 
 RUN python -m pip install --upgrade pip \
     && python -m pip install "git+https://github.com/CodeEagle/StorayBoatTTSGateway.git@${UPSTREAM_REF}"

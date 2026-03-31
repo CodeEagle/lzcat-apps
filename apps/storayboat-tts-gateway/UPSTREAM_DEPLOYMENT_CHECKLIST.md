@@ -4,8 +4,8 @@
 
 - 仓库：`CodeEagle/StorayBoatTTSGateway`
 - 主页：<https://github.com/CodeEagle/StorayBoatTTSGateway>
-- 当前最新 tag：`v0.2.0`
-- 当前已适配提交：`434e621fd04ccd0c2bb1347d62051853fadd0f6c`
+- 当前最新 tag：`v0.2.1`
+- 当前已适配提交：`c29afa280d29459585a6ae586b1eb7624a1b479f`
 
 ## 2. 上游运行拓扑
 
@@ -73,5 +73,5 @@ python -m uvicorn storayboat_tts_gateway.app:app --host 0.0.0.0 --port 5051
 
 ## 7. 本轮特别说明
 
-- 上游新增 SSE 异步任务接口时尚未发布新 tag，因此本轮保持 app 版本 `0.2.0`，但构建上下文固定到 commit `434e621`
+- 当前版本已直接对齐上游 `v0.2.1`
 - `landing_app.py` 只增加首页和 demo，不改写上游 API 语义

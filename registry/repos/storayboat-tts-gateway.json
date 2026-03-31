@@ -18,6 +18,6 @@
   ],
   "docker_platform": "linux/amd64",
   "build_args": {
-    "UPSTREAM_REF": "434e621fd04ccd0c2bb1347d62051853fadd0f6c"
+    "UPSTREAM_REF": "c29afa280d29459585a6ae586b1eb7624a1b479f"
   }
 }

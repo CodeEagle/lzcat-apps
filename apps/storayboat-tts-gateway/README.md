@@ -5,8 +5,8 @@
 ## 当前对齐范围
 
 - 上游仓库：`CodeEagle/StorayBoatTTSGateway`
-- 上游最新 tag：`v0.2.0`
-- 本次已适配的未打 tag 提交：`434e621 feat: add async synthesis job streaming`
+- 上游最新 tag：`v0.2.1`
+- 当前对齐提交：`c29afa2 chore: bump version to 0.2.1`
 - 内置 sidecar：`ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.4`
 
 ## 入口
@@ -40,8 +40,7 @@
 
 ## 版本策略
 
-- 对外版本号保持与上游 tag 对齐：当前为 `0.2.0`
-- 这轮 SSE 适配来自上游 tag 之后的提交，因此 `.lazycat-build.json` 额外记录了实际适配 commit
+- 对外版本号保持与上游 tag 对齐：当前为 `0.2.1`
 
 ## 上游链接
 
