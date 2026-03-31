@@ -16,12 +16,12 @@ application:
       backend: http://storayboat-tts-gateway:5051/
 services:
   storayboat-tts-gateway:
-    image: registry.lazycat.cloud/placeholder/storayboat-tts-gateway:latest
+    image: registry.lazycat.cloud/invokerlaw/cybermegaworld/storayboat-tts-gateway:3bb98ef701f05d9e
     environment:
       - KOKORO_FASTAPI_BASE_URL=http://kokoro-fastapi:8880
       - KOKORO_FASTAPI_TIMEOUT=120
   kokoro-fastapi:
-    image: registry.lazycat.cloud/placeholder/kokoro-fastapi:latest
+    image: registry.lazycat.cloud/invokerlaw/remsky/kokoro-fastapi-cpu:7b517e1bf1f7c8fb
 locales:
   en:
     name: StorayBoat TTS Gateway

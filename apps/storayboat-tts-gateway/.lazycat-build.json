@@ -1,7 +1,7 @@
 {
   "upstream_repo": "CodeEagle/StorayBoatTTSGateway",
-  "source_version": "434e621",
+  "source_version": "v0.2.0",
   "build_version": "0.2.0",
-  "build_label": "434e621@bootstrap",
-  "last_checked_at": "2026-03-31T00:00:00+00:00"
+  "build_label": "v0.2.0@20260331T041047Z",
+  "last_checked_at": "2026-03-31T04:10:47.440109+00:00"
 }
