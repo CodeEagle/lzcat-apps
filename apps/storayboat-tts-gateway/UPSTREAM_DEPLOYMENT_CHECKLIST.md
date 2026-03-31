@@ -1,11 +1,11 @@
-# StorayBoat TTS Gateway 上游部署清单
+# StoryBoat TTS Gateway 上游部署清单
 
 ## 1. 上游来源
 
-- 仓库：`CodeEagle/StorayBoatTTSGateway`
-- 主页：<https://github.com/CodeEagle/StorayBoatTTSGateway>
-- 当前最新 tag：`v0.2.1`
-- 当前已适配提交：`c29afa280d29459585a6ae586b1eb7624a1b479f`
+- 仓库：`CodeEagle/StoryBoatTTSGateway`
+- 主页：<https://github.com/CodeEagle/StoryBoatTTSGateway>
+- 当前最新 tag：`v1.0.0`
+- 当前已适配提交：`7f02ee1f87ee9ad1605176d0a42e1c47374834b5`
 
 ## 2. 上游运行拓扑
 
@@ -18,7 +18,7 @@
 - 启动命令：
 
 ```bash
-python -m uvicorn storayboat_tts_gateway.app:app --host 0.0.0.0 --port 5051
+python -m uvicorn storyboat_tts_gateway.app:app --host 0.0.0.0 --port 5051
 ```
 
 ### 依赖服务
@@ -73,5 +73,5 @@ python -m uvicorn storayboat_tts_gateway.app:app --host 0.0.0.0 --port 5051
 
 ## 7. 本轮特别说明
 
-- 当前版本已直接对齐上游 `v0.2.1`
+- 当前版本已直接对齐上游 `v1.0.0`
 - `landing_app.py` 只增加首页和 demo，不改写上游 API 语义

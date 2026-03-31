@@ -1,12 +1,12 @@
-# StorayBoat TTS Gateway
+# StoryBoat TTS Gateway
 
-`StorayBoat TTS Gateway` 把 `Edge TTS` 和 `Kokoro` 收敛成一套统一 API。当前迁移版本额外提供了首页说明页，包含动态域名 quickstart、在线 demo、`speech_bundle` 试听下载，以及基于 SSE 的异步任务示例。
+`StoryBoat TTS Gateway` 把 `Edge TTS` 和 `Kokoro` 收敛成一套统一 API。当前迁移版本额外提供了首页说明页，包含动态域名 quickstart、在线 demo、`speech_bundle` 试听下载，以及基于 SSE 的异步任务示例。
 
 ## 当前对齐范围
 
-- 上游仓库：`CodeEagle/StorayBoatTTSGateway`
-- 上游最新 tag：`v0.2.1`
-- 当前对齐提交：`c29afa2 chore: bump version to 0.2.1`
+- 上游仓库：`CodeEagle/StoryBoatTTSGateway`
+- 上游最新 tag：`v1.0.0`
+- 当前对齐提交：`7f02ee1 feat!: rename project to storyboat`
 - 内置 sidecar：`ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.4`
 
 ## 入口
@@ -40,8 +40,8 @@
 
 ## 版本策略
 
-- 对外版本号保持与上游 tag 对齐：当前为 `0.2.1`
+- 对外版本号保持与上游 tag 对齐：当前为 `1.0.0`
 
 ## 上游链接
 
-- GitHub: https://github.com/CodeEagle/StorayBoatTTSGateway
+- GitHub: https://github.com/CodeEagle/StoryBoatTTSGateway

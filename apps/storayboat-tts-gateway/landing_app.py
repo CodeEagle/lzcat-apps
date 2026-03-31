@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 
-from storayboat_tts_gateway.app import app as upstream_app
+from storyboat_tts_gateway.app import app as upstream_app
 
 
 app = FastAPI(
@@ -26,7 +26,7 @@ TRANSLATIONS = {
     "zh": {
         "html_lang": "zh-CN",
         "switch_label": "EN",
-        "title": "StorayBoat TTS Gateway",
+        "title": "StoryBoat TTS Gateway",
         "subtitle": "统一 Edge TTS 与 Kokoro 的音频合成网关",
         "summary": "默认提供真实词级时间戳、multipart 音频打包，以及基于 SSE 的异步任务流。",
         "quickstart": "Quickstart",
@@ -75,12 +75,12 @@ TRANSLATIONS = {
         "curl_job_bundle": "下载完成后的 bundle",
         "voice_loading": "加载声音列表中...",
         "voice_failed": "加载声音列表失败",
-        "default_text": "欢迎使用 StorayBoat TTS Gateway。这一版已经支持 multipart bundle 和 SSE 任务流。",
+        "default_text": "欢迎使用 StoryBoat TTS Gateway。这一版已经支持 multipart bundle 和 SSE 任务流。",
     },
     "en": {
         "html_lang": "en",
         "switch_label": "中文",
-        "title": "StorayBoat TTS Gateway",
+        "title": "StoryBoat TTS Gateway",
         "subtitle": "A unified speech gateway for Edge TTS and Kokoro",
         "summary": "It exposes real word-level timestamps, multipart audio bundles, and async synthesis jobs streamed over SSE.",
         "quickstart": "Quickstart",
@@ -129,7 +129,7 @@ TRANSLATIONS = {
         "curl_job_bundle": "Download the final bundle",
         "voice_loading": "Loading voices...",
         "voice_failed": "Failed to load voices",
-        "default_text": "Welcome to StorayBoat TTS Gateway. This build supports multipart bundles and SSE-based async jobs.",
+        "default_text": "Welcome to StoryBoat TTS Gateway. This build supports multipart bundles and SSE-based async jobs.",
     },
 }
 

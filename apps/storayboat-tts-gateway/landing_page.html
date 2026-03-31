@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>StorayBoat TTS Gateway</title>
+  <title>StoryBoat TTS Gateway</title>
   <link rel="icon" href="data:,">
   <style>
     :root {
@@ -601,7 +601,7 @@
           label: text.curl_bundle,
           content: `curl -X POST ${baseUrl}/v1/audio/speech_bundle \\
   -H 'Content-Type: application/json' \\
-  -d '{\n    "provider": "edge",\n    "model": "tts-1",\n    "input": "Hello from StorayBoat.",\n    "voice": "alloy",\n    "response_format": "mp3",\n    "speed": 1.0\n  }'`
+  -d '{\n    "provider": "edge",\n    "model": "tts-1",\n    "input": "Hello from StoryBoat.",\n    "voice": "alloy",\n    "response_format": "mp3",\n    "speed": 1.0\n  }'`
         },
         {
           label: text.curl_job_create,

@@ -1,11 +1,11 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.storayboat-tts-gateway
-version: '0.2.0'
+version: '1.0.0'
 min_os_version: 1.3.8
-name: StorayBoat TTS Gateway
+name: StoryBoat TTS Gateway
 description: Unified TTS gateway for Edge TTS and Kokoro, with timestamps, multipart bundle, and SSE job streaming
 license: NOASSERTION
-homepage: https://github.com/CodeEagle/StorayBoatTTSGateway
+homepage: https://github.com/CodeEagle/StoryBoatTTSGateway
 author: CodeEagle
 application:
   subdomain: storayboat-tts-gateway
@@ -24,8 +24,8 @@ services:
     image: registry.lazycat.cloud/invokerlaw/remsky/kokoro-fastapi-cpu:7b517e1bf1f7c8fb
 locales:
   en:
-    name: StorayBoat TTS Gateway
+    name: StoryBoat TTS Gateway
     description: Unified TTS gateway for Edge TTS and Kokoro, with timestamps, multipart bundle, and SSE job streaming
   zh:
-    name: StorayBoat TTS Gateway
+    name: StoryBoat TTS Gateway
     description: 统一 Edge TTS 与 Kokoro 的 TTS 网关，支持时间戳、multipart 打包和 SSE 任务流

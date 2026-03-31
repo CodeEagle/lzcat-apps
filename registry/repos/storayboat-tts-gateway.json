@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "upstream_repo": "CodeEagle/StorayBoatTTSGateway",
+  "upstream_repo": "CodeEagle/StoryBoatTTSGateway",
   "check_strategy": "github_tag",
   "build_strategy": "target_repo_dockerfile",
   "publish_to_store": false,
@@ -18,6 +18,6 @@
   ],
   "docker_platform": "linux/amd64",
   "build_args": {
-    "UPSTREAM_REF": "c29afa280d29459585a6ae586b1eb7624a1b479f"
+    "UPSTREAM_REF": "7f02ee1f87ee9ad1605176d0a42e1c47374834b5"
   }
 }

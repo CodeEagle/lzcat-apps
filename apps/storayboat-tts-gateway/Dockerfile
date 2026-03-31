@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-ARG UPSTREAM_REF=434e621fd04ccd0c2bb1347d62051853fadd0f6c
+ARG UPSTREAM_REF=7f02ee1f87ee9ad1605176d0a42e1c47374834b5
 ARG SOURCE_VERSION=unknown
 ARG BUILD_VERSION=unknown
 
@@ -17,7 +17,7 @@ COPY landing_app.py /app/landing_app.py
 COPY landing_page.html /app/landing_page.html
 
 RUN python -m pip install --upgrade pip \
-    && python -m pip install "git+https://github.com/CodeEagle/StorayBoatTTSGateway.git@${UPSTREAM_REF}"
+    && python -m pip install "git+https://github.com/CodeEagle/StoryBoatTTSGateway.git@${UPSTREAM_REF}"
 
 LABEL org.opencontainers.image.version="${BUILD_VERSION}"
 LABEL org.opencontainers.image.revision="${UPSTREAM_REF}"
