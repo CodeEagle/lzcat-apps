@@ -16,7 +16,7 @@ application:
       backend: http://storayboat-tts-gateway:5051/
 services:
   storayboat-tts-gateway:
-    image: registry.lazycat.cloud/invokerlaw/cybermegaworld/storayboat-tts-gateway:3bb98ef701f05d9e
+    image: registry.lazycat.cloud/invokerlaw/cybermegaworld/storayboat-tts-gateway:cd654da77c428144
     environment:
       - KOKORO_FASTAPI_BASE_URL=http://kokoro-fastapi:8880
       - KOKORO_FASTAPI_TIMEOUT=120
