@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.cutia
-version: 0.1.3
+version: '0.1.4'
 min_os_version: 1.3.8
 name: Cutia
 description: (LazyCat Auto-build) Privacy-first, open-source video editing in browser
@@ -20,7 +20,7 @@ application:
     - NODE_ENV=production
 services:
   cutia:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/cutia:71bf7a7953837991
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/cutia:0228b2f0b356dec1
     environment:
       - DATABASE_URL=postgresql://cutia:cutia@postgres:5432/cutia
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
