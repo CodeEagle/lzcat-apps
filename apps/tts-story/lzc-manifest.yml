@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.tts-story
-version: 0.1.1
+version: '0.1.1'
 min_os_version: 1.3.8
 name: TTS-Story
 description: (LazyCat Auto-build) Multi-engine audiobook and story TTS studio with CPU-friendly defaults
@@ -21,7 +21,7 @@ application:
     test_url: http://tts-story:5000/api/health
 services:
   tts-story:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/tts-story:06429f68cddefef5
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/tts-story:38de411619cdccdf
     environment:
       - PORT=5000
       - TTS_STORY_DATA_ROOT=/data
