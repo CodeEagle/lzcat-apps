@@ -45,7 +45,7 @@ on:
           - "shadowbroker"
           - "signoz"
           - "deer-flow"
-          - "storayboat-tts-gateway"
+          - "storyboat-tts-gateway"
           # END AUTO-GENERATED APP OPTIONS
       target_version:
         description: "Target upstream version to build. Leave empty for latest."

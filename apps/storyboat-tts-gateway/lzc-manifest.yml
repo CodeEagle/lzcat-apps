@@ -1,5 +1,5 @@
 lzc-sdk-version: '0.1'
-package: fun.selfstudio.app.migration.storayboat-tts-gateway
+package: fun.selfstudio.app.migration.storyboat-tts-gateway
 version: '1.0.0'
 min_os_version: 1.3.8
 name: StoryBoat TTS Gateway
@@ -8,15 +8,15 @@ license: NOASSERTION
 homepage: https://github.com/CodeEagle/StoryBoatTTSGateway
 author: CodeEagle
 application:
-  subdomain: storayboat-tts-gateway
+  subdomain: storyboat-tts-gateway
   public_path:
     - /
   upstreams:
     - location: /
-      backend: http://storayboat-tts-gateway:5051/
+      backend: http://storyboat-tts-gateway:5051/
 services:
-  storayboat-tts-gateway:
-    image: registry.lazycat.cloud/invokerlaw/cybermegaworld/storayboat-tts-gateway:cd654da77c428144
+  storyboat-tts-gateway:
+    image: registry.lazycat.cloud/invokerlaw/cybermegaworld/storyboat-tts-gateway:cd654da77c428144
     environment:
       - KOKORO_FASTAPI_BASE_URL=http://kokoro-fastapi:8880
       - KOKORO_FASTAPI_TIMEOUT=120

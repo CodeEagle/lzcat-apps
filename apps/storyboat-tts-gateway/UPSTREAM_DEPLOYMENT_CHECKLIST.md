@@ -66,7 +66,7 @@ python -m uvicorn storyboat_tts_gateway.app:app --host 0.0.0.0 --port 5051
 
 ## 6. LazyCat 迁移落点
 
-- 主路由：`/ -> http://storayboat-tts-gateway:5051/`
+- 主路由：`/ -> http://storyboat-tts-gateway:5051/`
 - 主镜像：当前仓库内 `Dockerfile` 构建
 - sidecar 镜像：通过 `dependencies` 做 `copy-image`
 - 首页包装层：`landing_app.py`

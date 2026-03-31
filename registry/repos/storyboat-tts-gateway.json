@@ -7,7 +7,7 @@
   "dockerfile_path": "Dockerfile",
   "build_context": ".",
   "image_targets": [
-    "storayboat-tts-gateway"
+    "storyboat-tts-gateway"
   ],
   "service_port": 5051,
   "dependencies": [
