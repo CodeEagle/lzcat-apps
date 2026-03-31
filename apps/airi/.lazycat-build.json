@@ -1,7 +1,7 @@
 {
   "upstream_repo": "moeru-ai/airi",
-  "source_version": "v0.9.0-alpha.24",
+  "source_version": "v0.9.0-beta.2",
   "build_version": "0.9.0",
-  "build_label": "v0.9.0-alpha.24@20260327T011034Z",
-  "last_checked_at": "2026-03-27T01:10:34.037105+00:00"
+  "build_label": "v0.9.0-beta.2@20260331T125208Z",
+  "last_checked_at": "2026-03-31T12:52:08.536582+00:00"
 }

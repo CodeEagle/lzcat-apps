@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.airi
-version: 0.9.0
+version: '0.9.0'
 min_os_version: 1.3.8
 name: AIRI
 description: (LazyCat Auto-build) Self-hosted AI companion with web UI, auth, and PostgreSQL-backed server
@@ -18,7 +18,7 @@ application:
     test_url: http://airi:8080/health
 services:
   airi:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/airi:adcdbe8b2a4704cc
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/airi:70bd410bc7049f6c
     depends_on:
       - postgres
     environment:
