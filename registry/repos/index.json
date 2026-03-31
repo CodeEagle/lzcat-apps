@@ -29,6 +29,9 @@
     "shadowbroker.json",
     "signoz.json",
     "deer-flow.json",
-    "storayboat-tts-gateway.json"
+    "llama-swap.json",
+    "storayboat-tts-gateway.json",
+    "flipt.json",
+    "fastclaw.json"
   ]
 }

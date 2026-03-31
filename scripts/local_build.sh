@@ -117,6 +117,26 @@ if ! $DRY_RUN && [ -z "${GH_PAT:-}" ] && command -v gh >/dev/null 2>&1; then
 fi
 
 if ! command -v docker >/dev/null 2>&1 && command -v podman >/dev/null 2>&1; then
+  PODMAN_MACHINE_NAME="${PODMAN_MACHINE_NAME:-podman-machine-default}"
+  if podman machine inspect "$PODMAN_MACHINE_NAME" >/dev/null 2>&1; then
+    PODMAN_MACHINE_STATE="$(
+      podman machine inspect "$PODMAN_MACHINE_NAME" \
+        | ruby -rjson -e 'data = JSON.parse(STDIN.read); puts data.dig(0, "State").to_s'
+    )"
+    if [ "$PODMAN_MACHINE_STATE" != "running" ]; then
+      echo "==> [PODMAN] starting machine $PODMAN_MACHINE_NAME"
+      podman machine start "$PODMAN_MACHINE_NAME" >/dev/null
+    fi
+    PODMAN_SOCKET_PATH="$(
+      podman machine inspect "$PODMAN_MACHINE_NAME" \
+        | ruby -rjson -e 'data = JSON.parse(STDIN.read); puts data.dig(0, "ConnectionInfo", "PodmanSocket", "Path").to_s'
+    )"
+    if [ -n "$PODMAN_SOCKET_PATH" ]; then
+      export DOCKER_HOST="unix://$PODMAN_SOCKET_PATH"
+      export CONTAINER_HOST="$DOCKER_HOST"
+      echo "==> [PODMAN] using socket $DOCKER_HOST"
+    fi
+  fi
   DOCKER_SHIM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/lzcat-docker-shim.XXXXXX")"
   cat >"$DOCKER_SHIM_DIR/docker" <<'EOF'
 #!/usr/bin/env bash

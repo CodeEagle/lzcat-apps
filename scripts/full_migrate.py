@@ -863,7 +863,7 @@ def parse_release_binary_candidate(upstream_repo: str) -> dict[str, Any] | None:
         url = str(asset.get("browser_download_url", "")).strip()
         if not url:
             continue
-        if any(token in name for token in ("linux", "amd64", "x86_64")) and name.endswith((".tar.gz", ".tgz", ".zip")):
+        if "linux" in name and any(arch in name for arch in ("amd64", "x86_64")) and name.endswith((".tar.gz", ".tgz", ".zip")):
             templated_url = url
             if tag_name:
                 templated_url = templated_url.replace(f"/{tag_name}/", "/$LATEST_VERSION/")
@@ -2372,7 +2372,7 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: dict[str, Any
             "配置完成后可随时访问 `/settings/config` 重新修改。",
             "App Detail 中也会保留 Deployment Parameters 入口，作为高级默认值配置入口。",
             "当前默认走 LocalSandboxProvider，避免依赖 Docker Socket 或 Kubernetes provisioner。",
-            "服务启动前会根据应用内表单状态自动渲染 `/lzcapp/var/data/deer-flow/config/config.yaml`。",
+            "服务启动前会根据应用内表单状态自动渲染 `/deer-flow-state/config/config.yaml`。",
             "当前内置的是 OpenAI / OpenRouter 下拉选项；如果后续要支持更多 provider，可继续扩展 schema 和渲染脚本。",
         ]
         finalized["services"] = {
@@ -2456,24 +2456,22 @@ def deer_flow_runtime_env(*, include_tracing: bool = False) -> list[str]:
 
 def deer_flow_prepare_runtime_clause() -> str:
     return (
-        "state_dir=\"${DEER_FLOW_SHARED_STATE_DIR:-/deer-flow-state}\" && "
-        "config_dir=\"${DEER_FLOW_CONFIG_DIR:-$state_dir/config}\" && "
-        "mkdir -p \"$config_dir\" "
+        "mkdir -p /deer-flow-state/config "
         "/lzcapp/var/data/deer-flow/skills "
         "/lzcapp/var/data/deer-flow/runtime && "
-        "if [ ! -f \"$config_dir/extensions_config.json\" ]; then "
-        "cp /lzcapp/pkg/content/extensions_config.json \"$config_dir/extensions_config.json\"; fi && "
+        "if [ ! -f /deer-flow-state/config/extensions_config.json ]; then "
+        "cp /lzcapp/pkg/content/extensions_config.json /deer-flow-state/config/extensions_config.json; fi && "
         "if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then "
         "cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && "
-        "sh /lzcapp/pkg/content/render-deer-flow-config.sh"
+        "sh /lzcapp/pkg/content/render-deer-flow-config.sh && "
+        "if [ -f /deer-flow-state/config/model.env ]; then set -a && . /deer-flow-state/config/model.env && set +a; fi"
     )
 
 
 def deer_flow_wait_ready_clause() -> str:
     return (
-        'ready_file="${DEER_FLOW_READY_MARKER:-/deer-flow-state/config/.lazycat-config-ready}"; '
         'echo "[deer-flow] waiting for model configuration"; '
-        'until [ -f "$ready_file" ]; do sleep 2; done'
+        'until [ -f /deer-flow-state/config/.lazycat-config-ready ]; do sleep 2; done'
     )
 
 
@@ -2730,9 +2728,12 @@ def render_config_ui_server() -> str:
           const modelPresetFromState = persisted.DEER_FLOW_MODEL_PRESET || "";
           const modelPresetFromEnv = provider?.models?.find((item) => item.modelId === (process.env.DEER_FLOW_MODEL_ID || ""))?.id || "";
           const modelPreset = modelPresetFromState || modelPresetFromEnv || provider?.defaultModel || provider?.models?.[0]?.id || "";
+          const selectedModel = findModel(provider, modelPreset) || provider?.models?.[0] || null;
           return {
             provider: provider?.id || "",
             modelPreset,
+            customModelId: persisted.DEER_FLOW_MODEL_ID || process.env.DEER_FLOW_MODEL_ID || selectedModel?.modelId || "",
+            customDisplayName: persisted.DEER_FLOW_MODEL_DISPLAY_NAME || process.env.DEER_FLOW_MODEL_DISPLAY_NAME || selectedModel?.displayName || "",
             baseUrl: persisted.DEER_FLOW_MODEL_BASE_URL || process.env.DEER_FLOW_MODEL_BASE_URL || provider?.baseUrl || "",
             apiKey: persisted.DEER_FLOW_MODEL_API_KEY || process.env.DEER_FLOW_MODEL_API_KEY || "",
             tavilyApiKey: persisted.TAVILY_API_KEY || process.env.TAVILY_API_KEY || "",
@@ -2752,17 +2753,22 @@ def render_config_ui_server() -> str:
           if (!String(submitted.apiKey || "").trim()) {
             throw new Error("API Key is required before DeerFlow can start.");
           }
+          const customModelId = String(submitted.customModelId || "").trim();
+          if (!customModelId) {
+            throw new Error("Model ID is required before DeerFlow can start.");
+          }
           const submittedBaseUrl = String(submitted.baseUrl || "").trim();
           const resolvedBaseUrl = submittedBaseUrl || provider.baseUrl || "";
           if (provider.requiresBaseUrl && !resolvedBaseUrl) {
             throw new Error("Base URL is required for the custom OpenAI-compatible provider.");
           }
+          const customDisplayName = String(submitted.customDisplayName || "").trim();
           return {
             DEER_FLOW_MODEL_PROVIDER_PRESET: provider.id,
             DEER_FLOW_MODEL_PRESET: model.id,
             DEER_FLOW_MODEL_NAME: model.name,
-            DEER_FLOW_MODEL_DISPLAY_NAME: model.displayName,
-            DEER_FLOW_MODEL_ID: model.modelId,
+            DEER_FLOW_MODEL_DISPLAY_NAME: customDisplayName || model.displayName,
+            DEER_FLOW_MODEL_ID: customModelId,
             DEER_FLOW_MODEL_BASE_URL: resolvedBaseUrl,
             DEER_FLOW_MODEL_USE_RESPONSES_API: model.useResponsesApi ? "true" : "false",
             DEER_FLOW_MODEL_TEMPERATURE: String(model.temperature ?? "0.7"),
@@ -2850,7 +2856,19 @@ def render_config_ui_server() -> str:
                 <div class="field">
                   <label for="modelPreset">Default Model</label>
                   <select id="modelPreset"></select>
-                  <div id="modelHint" class="hint"></div>
+                  <div id="modelHint" class="hint">Pick a preset, or use it as a starting point and edit the model ID below.</div>
+                </div>
+              </div>
+              <div class="grid">
+                <div class="field">
+                  <label for="customModelId">Model ID</label>
+                  <input id="customModelId" type="text" autocomplete="off" placeholder="gpt-4.1-mini">
+                  <div class="hint">Supports manual input. The preset only provides a suggested default.</div>
+                </div>
+                <div class="field">
+                  <label for="customDisplayName">Display Name</label>
+                  <input id="customDisplayName" type="text" autocomplete="off" placeholder="Optional custom label">
+                  <div class="hint">Optional. If left empty, the selected preset label is used.</div>
                 </div>
               </div>
               <div class="grid">
@@ -2892,6 +2910,8 @@ def render_config_ui_server() -> str:
             const initialValues = __VALUES_JSON__;
             const providerEl = document.getElementById("provider");
             const modelEl = document.getElementById("modelPreset");
+            const customModelIdEl = document.getElementById("customModelId");
+            const customDisplayNameEl = document.getElementById("customDisplayName");
             const apiKeyEl = document.getElementById("apiKey");
             const baseUrlEl = document.getElementById("baseUrl");
             const baseUrlHintEl = document.getElementById("baseUrlHint");
@@ -2933,6 +2953,13 @@ def render_config_ui_server() -> str:
               const fallback = provider.defaultModel || provider.models[0]?.id || "";
               const selected = (provider.models || []).some((item) => item.id === initialValues.modelPreset) ? initialValues.modelPreset : fallback;
               modelEl.value = selected;
+              const model = currentModel();
+              if (!customModelIdEl.dataset.touched || providerEl.dataset.providerChanged === "true") {
+                customModelIdEl.value = initialValues.customModelId || model?.modelId || "";
+              }
+              if (!customDisplayNameEl.dataset.touched || providerEl.dataset.providerChanged === "true") {
+                customDisplayNameEl.value = initialValues.customDisplayName || model?.displayName || "";
+              }
               updateBaseUrlField();
               updateResolved();
             }
@@ -2959,10 +2986,13 @@ def render_config_ui_server() -> str:
               const provider = currentProvider();
               const model = currentModel();
               modelHintEl.textContent = model.summary || "";
+              const resolvedModelId = customModelIdEl.value || model.modelId;
+              const resolvedDisplayName = customDisplayNameEl.value || model.displayName;
               const resolvedBaseUrl = baseUrlEl.value || provider.baseUrl || "";
               const bits = [
                 "Provider: " + provider.label,
-                "Model ID: " + model.modelId,
+                "Model ID: " + resolvedModelId,
+                "Label: " + resolvedDisplayName,
                 resolvedBaseUrl ? "Base URL: " + resolvedBaseUrl : "Base URL: provider default",
                 model.useResponsesApi ? "Responses API: enabled" : "Responses API: disabled",
               ];
@@ -2979,6 +3009,8 @@ def render_config_ui_server() -> str:
               return {
                 provider: providerEl.value,
                 modelPreset: modelEl.value,
+                customModelId: customModelIdEl.value,
+                customDisplayName: customDisplayNameEl.value,
                 baseUrl: baseUrlEl.value,
                 apiKey: apiKeyEl.value,
                 tavilyApiKey: tavilyEl.value,
@@ -3001,7 +3033,24 @@ def render_config_ui_server() -> str:
               initialValues.modelPreset = "";
               updateModelOptions();
             });
-            modelEl.addEventListener("change", updateResolved);
+            modelEl.addEventListener("change", () => {
+              const model = currentModel();
+              if (!customModelIdEl.dataset.touched) {
+                customModelIdEl.value = model.modelId || "";
+              }
+              if (!customDisplayNameEl.dataset.touched) {
+                customDisplayNameEl.value = model.displayName || "";
+              }
+              updateResolved();
+            });
+            customModelIdEl.addEventListener("input", () => {
+              customModelIdEl.dataset.touched = "true";
+              updateResolved();
+            });
+            customDisplayNameEl.addEventListener("input", () => {
+              customDisplayNameEl.dataset.touched = "true";
+              updateResolved();
+            });
             baseUrlEl.addEventListener("input", () => {
               baseUrlEl.dataset.touched = "true";
               updateResolved();
@@ -3011,6 +3060,8 @@ def render_config_ui_server() -> str:
 
             updateProviderOptions();
             updateModelOptions();
+            customModelIdEl.value = initialValues.customModelId || "";
+            customDisplayNameEl.value = initialValues.customDisplayName || "";
             apiKeyEl.value = initialValues.apiKey || "";
             baseUrlEl.value = initialValues.baseUrl || "";
             tavilyEl.value = initialValues.tavilyApiKey || "";
