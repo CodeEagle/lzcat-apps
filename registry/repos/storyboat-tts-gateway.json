@@ -6,6 +6,7 @@
   "publish_to_store": false,
   "dockerfile_path": "Dockerfile",
   "build_context": ".",
+  "image_owner": "CyberMegaWorld",
   "image_targets": [
     "storyboat-tts-gateway"
   ],

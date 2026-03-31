@@ -817,8 +817,12 @@ def build_with_dockerfile(
     return target_image
 
 
-def compute_target_image(env: dict[str, str], image_name: str, head_sha: str) -> str:
-    owner_lower = env.get("GITHUB_REPOSITORY_OWNER", "codeagle").lower()
+def resolve_image_owner(config: dict[str, Any], env: dict[str, str]) -> str:
+    return str(config.get("image_owner", "")).strip() or env.get("GITHUB_REPOSITORY_OWNER", "CodeEagle")
+
+
+def compute_target_image(owner: str, image_name: str, head_sha: str) -> str:
+    owner_lower = owner.lower()
     return f"ghcr.io/{owner_lower}/{image_name.lower()}:{head_sha[:12]}"
 
 
@@ -849,7 +853,8 @@ def build_target_image(
     dry_run: bool = False,
 ) -> str:
     name_lower = str(config.get("image_name", "")).strip().lower() or app_name.lower()
-    target_image = compute_target_image(env, name_lower, head_sha)
+    image_owner = resolve_image_owner(config, env)
+    target_image = compute_target_image(image_owner, name_lower, head_sha)
     build_strategy = str(config.get("build_strategy", "")).strip()
     docker_platform = str(config.get("docker_platform", "")).strip()
     build_args = dict(config.get("build_args", {}))
@@ -1053,7 +1058,8 @@ def build_service_images(
             build_args = dict(global_build_args)
             build_args.update(dict(item.get("build_args", {})))
             build_context = str(item.get("build_context") or ".").strip()
-            target_image = compute_target_image(env, image_name, head_sha)
+            image_owner = str(item.get("image_owner", "")).strip() or resolve_image_owner(config, env)
+            target_image = compute_target_image(image_owner, image_name, head_sha)
 
             if build_strategy == "upstream_with_target_template":
                 template_rel = str(item.get("dockerfile_path") or "").strip()
