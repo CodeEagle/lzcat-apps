@@ -1,0 +1,31 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.storayboat-tts-gateway
+version: '0.2.0'
+min_os_version: 1.3.8
+name: StorayBoat TTS Gateway
+description: Unified TTS gateway for Edge TTS and Kokoro, with timestamps, multipart bundle, and SSE job streaming
+license: NOASSERTION
+homepage: https://github.com/CodeEagle/StorayBoatTTSGateway
+author: CodeEagle
+application:
+  subdomain: storayboat-tts-gateway
+  public_path:
+    - /
+  upstreams:
+    - location: /
+      backend: http://storayboat-tts-gateway:5051/
+services:
+  storayboat-tts-gateway:
+    image: registry.lazycat.cloud/placeholder/storayboat-tts-gateway:latest
+    environment:
+      - KOKORO_FASTAPI_BASE_URL=http://kokoro-fastapi:8880
+      - KOKORO_FASTAPI_TIMEOUT=120
+  kokoro-fastapi:
+    image: registry.lazycat.cloud/placeholder/kokoro-fastapi:latest
+locales:
+  en:
+    name: StorayBoat TTS Gateway
+    description: Unified TTS gateway for Edge TTS and Kokoro, with timestamps, multipart bundle, and SSE job streaming
+  zh:
+    name: StorayBoat TTS Gateway
+    description: 统一 Edge TTS 与 Kokoro 的 TTS 网关，支持时间戳、multipart 打包和 SSE 任务流

@@ -1,0 +1,23 @@
+{
+  "enabled": true,
+  "upstream_repo": "CodeEagle/StorayBoatTTSGateway",
+  "check_strategy": "github_tag",
+  "build_strategy": "target_repo_dockerfile",
+  "publish_to_store": false,
+  "dockerfile_path": "Dockerfile",
+  "build_context": ".",
+  "image_targets": [
+    "storayboat-tts-gateway"
+  ],
+  "service_port": 5051,
+  "dependencies": [
+    {
+      "target_service": "kokoro-fastapi",
+      "source_image": "ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.4"
+    }
+  ],
+  "docker_platform": "linux/amd64",
+  "build_args": {
+    "UPSTREAM_REF": "434e621fd04ccd0c2bb1347d62051853fadd0f6c"
+  }
+}
