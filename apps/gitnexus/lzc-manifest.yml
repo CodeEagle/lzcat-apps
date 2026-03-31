@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.gitnexus
-version: 1.4.9
+version: '1.4.10'
 min_os_version: 1.3.8
 name: GitNexus
 description: (LazyCat Auto-build) Zero-Server Code Intelligence Engine - Client-side knowledge graph creator with backend support
@@ -18,7 +18,7 @@ application:
       disable_trim_location: true
 services:
   gitnexus:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/gitnexus:817daa06f7704412
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/gitnexus:c5de0749fd3d5a23
     environment:
       - NODE_ENV=production
       - HOME=/data
