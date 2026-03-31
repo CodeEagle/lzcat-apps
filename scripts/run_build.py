@@ -325,10 +325,19 @@ def clone_repo(repo: str, token: str, destination: Path) -> tuple[str, str]:
     return branch, head_sha
 
 
+def resolve_container_cli(env: dict[str, str]) -> str:
+    cli = str(env.get("LZCAT_CONTAINER_CLI", "")).strip()
+    return cli or "docker"
+
+
 def docker_login_ghcr(env: dict[str, str]) -> None:
     ghcr_token = resolve_gh_token(env)
     ghcr_username = env.get("GHCR_USERNAME") or env.get("GITHUB_REPOSITORY_OWNER") or "github-actions"
-    login_cmd = f"printf '%s' '{ghcr_token}' | podman login ghcr.io -u '{ghcr_username}' --password-stdin"
+    container_cli = resolve_container_cli(env)
+    login_cmd = (
+        f"printf '%s' '{ghcr_token}' | "
+        f"{container_cli} login ghcr.io -u '{ghcr_username}' --password-stdin"
+    )
     last_error: RuntimeError | None = None
     for attempt in range(1, 4):
         try:
@@ -762,7 +771,8 @@ def build_with_dockerfile(
     context = build_root / build_context_rel
     if not dockerfile.exists():
         raise RuntimeError(f"Dockerfile not found: {dockerfile}")
-    args = ["podman", "build"]
+    container_cli = resolve_container_cli(env)
+    args = [container_cli, "build"]
     if platform:
         args.extend(["--platform", platform])
     args.extend(["-f", str(dockerfile), "-t", target_image])
@@ -791,7 +801,7 @@ def build_with_dockerfile(
         for attempt in range(1, max_attempts + 1):
             try:
                 run_streaming(
-                    ["podman", "push", target_image],
+                    [container_cli, "push", target_image],
                     env=env,
                     label=f"docker push {target_image}",
                     inactivity_timeout=parse_int_env(env, "LZCAT_PUSH_INACTIVITY_TIMEOUT", 600),
@@ -871,6 +881,7 @@ def build_target_image(
         return source_image
 
     docker_login_ghcr(env)
+    container_cli = resolve_container_cli(env)
     if build_strategy == "official_image" and official_registry:
         tag_candidates = [source_version, build_version]
         if official_fallback_tag:
@@ -880,7 +891,7 @@ def build_target_image(
                 continue
             source_image = f"{official_registry}:{tag}"
             inspect = subprocess.run(
-                ["podman", "manifest", "inspect", source_image],
+                [container_cli, "manifest", "inspect", source_image],
                 text=True,
                 capture_output=True,
                 check=False,
@@ -934,7 +945,7 @@ def build_target_image(
                     )
                 )
             log(f"Building Docker image from precompiled binary: {target_image}")
-            build_cmd = ["podman", "build"]
+            build_cmd = [container_cli, "build"]
             if docker_platform:
                 build_cmd.extend(["--platform", docker_platform])
             build_cmd.extend(["-t", target_image, "."])
@@ -943,7 +954,7 @@ def build_target_image(
                 log(f"[DRY RUN] Skipping docker push: {target_image}")
             else:
                 log(f"Pushing Docker image: {target_image}")
-                sh(["podman", "push", target_image], env=env, capture=False)
+                sh([container_cli, "push", target_image], env=env, capture=False)
             return target_image
         finally:
             shutil.rmtree(build_root, ignore_errors=True)
