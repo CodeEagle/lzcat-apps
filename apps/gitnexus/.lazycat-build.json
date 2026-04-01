@@ -1,7 +1,7 @@
 {
   "upstream_repo": "abhigyanpatwari/GitNexus",
-  "source_version": "v1.4.10",
-  "build_version": "1.4.10",
-  "build_label": "v1.4.10@20260331T125748Z",
-  "last_checked_at": "2026-03-31T12:57:48.355529+00:00"
+  "source_version": "v1.5.2",
+  "build_version": "1.5.2",
+  "build_label": "v1.5.2@20260401T124518Z",
+  "last_checked_at": "2026-04-01T12:45:18.906658+00:00"
 }
