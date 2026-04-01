@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.better-ccflare
-version: '3.3.18'
+version: '3.3.19'
 min_os_version: 1.3.8
 name: better-ccflare
 description: (LazyCat Auto-build) Claude API proxy with dashboard, request analytics, and account load balancing
@@ -16,7 +16,7 @@ application:
       backend: http://better-ccflare:8080/
 services:
   better-ccflare:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/better-ccflare-lzcat:781b2670a56db6a3
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/better-ccflare-lzcat:cf658377a4a32bbd
     environment:
       - PORT=8080
       - BETTER_CCFLARE_HOST=0.0.0.0
