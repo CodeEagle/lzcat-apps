@@ -1,7 +1,7 @@
 {
   "upstream_repo": "BIT-DataLab/Edit-Banana",
-  "source_version": "b21af8d",
-  "build_version": "1.0.2",
-  "build_label": "b21af8d@20260331T124704Z",
-  "last_checked_at": "2026-03-31T12:47:04.290638+00:00"
+  "source_version": "716ccdd",
+  "build_version": "1.0.3",
+  "build_label": "716ccdd@20260401T124104Z",
+  "last_checked_at": "2026-04-01T12:41:04.138523+00:00"
 }
