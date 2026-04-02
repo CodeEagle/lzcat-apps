@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.cc-gateway
-version: 0.1.0
+version: '0.1.1'
 min_os_version: 1.3.8
 name: cc-gateway
 description: AI API identity gateway — reverse proxy that normalizes device fingerprints and telemetry for privacy-preserving API proxying
@@ -23,7 +23,7 @@ services:
     depends_on:
       - gateway
   gateway:
-    image: registry.lazycat.cloud/placeholder/cc-gateway:gateway
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/cc-gateway-gateway:809f3cc1d9564cc3
     binds:
       - /lzcapp/var/data/cc-gateway:/app/config
     setup_script: |
