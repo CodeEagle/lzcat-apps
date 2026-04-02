@@ -35,6 +35,8 @@ services:
       - DEER_FLOW_CONFIG_ENV_PATH=/deer-flow-state/config/model.env
       - DEER_FLOW_READY_MARKER=/deer-flow-state/config/.lazycat-config-ready
       - DEER_FLOW_EXTENSIONS_CONFIG_PATH=/deer-flow-state/config/extensions_config.json
+      - "{{ if index .U \"model.api_key\" }}OPENAI_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENAI_API_KEY={{ end }}"
+      - "{{ if index .U \"model.api_key\" }}OPENROUTER_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENROUTER_API_KEY={{ end }}"
       - "{{ if index .U \"model.provider_preset\" }}DEER_FLOW_MODEL_PROVIDER_PRESET={{ index .U \"model.provider_preset\" }}{{ else }}DEER_FLOW_MODEL_PROVIDER_PRESET=openai{{ end }}"
       - "{{ if index .U \"model.name\" }}DEER_FLOW_MODEL_NAME={{ index .U \"model.name\" }}{{ else }}DEER_FLOW_MODEL_NAME=default-chat{{ end }}"
       - "{{ if index .U \"model.display_name\" }}DEER_FLOW_MODEL_DISPLAY_NAME={{ index .U \"model.display_name\" }}{{ else }}DEER_FLOW_MODEL_DISPLAY_NAME=Default Chat Model{{ end }}"
@@ -51,6 +53,8 @@ services:
     image: registry.lazycat.cloud/invokerlaw/library/nginx:f14898f5b3ebfb0b
     command: sh -lc 'mkdir -p /deer-flow-state/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /deer-flow-state/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /deer-flow-state/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && sh /lzcapp/pkg/content/render-deer-flow-config.sh && if [ -f /deer-flow-state/config/model.env ]; then set -a && . /deer-flow-state/config/model.env && set +a; fi && exec nginx -g "daemon off;"'
     environment:
+      - "{{ if index .U \"model.api_key\" }}OPENAI_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENAI_API_KEY={{ end }}"
+      - "{{ if index .U \"model.api_key\" }}OPENROUTER_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENROUTER_API_KEY={{ end }}"
       - "{{ if index .U \"model.provider_preset\" }}DEER_FLOW_MODEL_PROVIDER_PRESET={{ index .U \"model.provider_preset\" }}{{ else }}DEER_FLOW_MODEL_PROVIDER_PRESET=openai{{ end }}"
       - "{{ if index .U \"model.name\" }}DEER_FLOW_MODEL_NAME={{ index .U \"model.name\" }}{{ else }}DEER_FLOW_MODEL_NAME=default-chat{{ end }}"
       - "{{ if index .U \"model.display_name\" }}DEER_FLOW_MODEL_DISPLAY_NAME={{ index .U \"model.display_name\" }}{{ else }}DEER_FLOW_MODEL_DISPLAY_NAME=Default Chat Model{{ end }}"
@@ -71,6 +75,8 @@ services:
       - BETTER_AUTH_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-better-auth
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
+      - "{{ if index .U \"model.api_key\" }}OPENAI_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENAI_API_KEY={{ end }}"
+      - "{{ if index .U \"model.api_key\" }}OPENROUTER_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENROUTER_API_KEY={{ end }}"
       - "{{ if index .U \"model.provider_preset\" }}DEER_FLOW_MODEL_PROVIDER_PRESET={{ index .U \"model.provider_preset\" }}{{ else }}DEER_FLOW_MODEL_PROVIDER_PRESET=openai{{ end }}"
       - "{{ if index .U \"model.name\" }}DEER_FLOW_MODEL_NAME={{ index .U \"model.name\" }}{{ else }}DEER_FLOW_MODEL_NAME=default-chat{{ end }}"
       - "{{ if index .U \"model.display_name\" }}DEER_FLOW_MODEL_DISPLAY_NAME={{ index .U \"model.display_name\" }}{{ else }}DEER_FLOW_MODEL_DISPLAY_NAME=Default Chat Model{{ end }}"
@@ -107,6 +113,8 @@ services:
       - INFOQUEST_API_KEY
       - FIRECRAWL_API_KEY
       - GITHUB_TOKEN
+      - "{{ if index .U \"model.api_key\" }}OPENAI_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENAI_API_KEY={{ end }}"
+      - "{{ if index .U \"model.api_key\" }}OPENROUTER_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENROUTER_API_KEY={{ end }}"
       - "{{ if index .U \"model.provider_preset\" }}DEER_FLOW_MODEL_PROVIDER_PRESET={{ index .U \"model.provider_preset\" }}{{ else }}DEER_FLOW_MODEL_PROVIDER_PRESET=openai{{ end }}"
       - "{{ if index .U \"model.name\" }}DEER_FLOW_MODEL_NAME={{ index .U \"model.name\" }}{{ else }}DEER_FLOW_MODEL_NAME=default-chat{{ end }}"
       - "{{ if index .U \"model.display_name\" }}DEER_FLOW_MODEL_DISPLAY_NAME={{ index .U \"model.display_name\" }}{{ else }}DEER_FLOW_MODEL_DISPLAY_NAME=Default Chat Model{{ end }}"
@@ -144,6 +152,8 @@ services:
       - INFOQUEST_API_KEY
       - FIRECRAWL_API_KEY
       - GITHUB_TOKEN
+      - "{{ if index .U \"model.api_key\" }}OPENAI_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENAI_API_KEY={{ end }}"
+      - "{{ if index .U \"model.api_key\" }}OPENROUTER_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENROUTER_API_KEY={{ end }}"
       - "{{ if index .U \"model.provider_preset\" }}DEER_FLOW_MODEL_PROVIDER_PRESET={{ index .U \"model.provider_preset\" }}{{ else }}DEER_FLOW_MODEL_PROVIDER_PRESET=openai{{ end }}"
       - "{{ if index .U \"model.name\" }}DEER_FLOW_MODEL_NAME={{ index .U \"model.name\" }}{{ else }}DEER_FLOW_MODEL_NAME=default-chat{{ end }}"
       - "{{ if index .U \"model.display_name\" }}DEER_FLOW_MODEL_DISPLAY_NAME={{ index .U \"model.display_name\" }}{{ else }}DEER_FLOW_MODEL_DISPLAY_NAME=Default Chat Model{{ end }}"

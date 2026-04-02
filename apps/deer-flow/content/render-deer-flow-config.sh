@@ -21,38 +21,54 @@ model_name="${DEER_FLOW_MODEL_NAME:-default-chat}"
 display_name="${DEER_FLOW_MODEL_DISPLAY_NAME:-Default Chat Model}"
 model_id="${DEER_FLOW_MODEL_ID:-gpt-4.1-mini}"
 base_url="${DEER_FLOW_MODEL_BASE_URL:-}"
-api_key_value="${DEER_FLOW_MODEL_API_KEY:-}"
-api_key_ref='\$DEER_FLOW_MODEL_API_KEY'
 use_responses_api="${DEER_FLOW_MODEL_USE_RESPONSES_API:-false}"
 temperature="${DEER_FLOW_MODEL_TEMPERATURE:-0.7}"
 
-if [ "$provider" = "openrouter" ] && [ -z "$base_url" ]; then
-  base_url="https://openrouter.ai/api/v1"
+api_key_ref='$OPENAI_API_KEY'
+api_key_value="${OPENAI_API_KEY:-${DEER_FLOW_MODEL_API_KEY:-}}"
+if [ "$provider" = "openrouter" ]; then
+  api_key_ref='$OPENROUTER_API_KEY'
+  api_key_value="${OPENROUTER_API_KEY:-${DEER_FLOW_MODEL_API_KEY:-}}"
+  if [ -z "$base_url" ]; then
+    base_url="https://openrouter.ai/api/v1"
+  fi
 fi
 
 {
-  echo "# Generated from LazyCat deployment parameters."
-  echo "# Re-open App Detail -> Deployment Parameters to update this config."
-  echo "config_version: 3"
-  echo "log_level: info"
-  echo
-  echo "models:"
+  cat <<'EOF'
+# Configuration for the DeerFlow application
+#
+# This file is generated for LazyCat, but keeps the upstream DeerFlow layout
+# and field names so runtime behavior stays aligned with the default project.
+
+config_version: 5
+
+log_level: info
+
+token_usage:
+  enabled: false
+
+models:
+EOF
   echo "  - name: $(quote_yaml "$model_name")"
   echo "    display_name: $(quote_yaml "$display_name")"
   echo "    use: langchain_openai:ChatOpenAI"
   echo "    model: $(quote_yaml "$model_id")"
   echo "    api_key: $api_key_ref"
-  echo "    max_tokens: 4096"
-  echo "    temperature: $temperature"
   if [ -n "$base_url" ]; then
     echo "    base_url: $(quote_yaml "$base_url")"
   fi
+  echo "    request_timeout: 600.0"
+  echo "    max_retries: 2"
+  echo "    max_tokens: 4096"
+  echo "    temperature: $temperature"
+  echo "    supports_vision: true"
   if [ "$use_responses_api" = "true" ]; then
     echo "    use_responses_api: true"
     echo "    output_version: responses/v1"
   fi
-  echo
   cat <<'EOF'
+
 tool_groups:
   - name: web
   - name: file:read

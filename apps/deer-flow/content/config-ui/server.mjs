@@ -82,12 +82,15 @@ function deriveInitialValues(schema, persisted) {
   const provider = findProvider(schema, providerId) || schema.providers?.[0] || null;
   const modelPresetFromState = persisted.DEER_FLOW_MODEL_PRESET || "";
   const modelPresetFromEnv = provider?.models?.find((item) => item.modelId === (process.env.DEER_FLOW_MODEL_ID || ""))?.id || "";
+  const providerApiKey = provider?.id === "openrouter"
+    ? (persisted.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY || "")
+    : (persisted.OPENAI_API_KEY || process.env.OPENAI_API_KEY || "");
   const modelPreset = modelPresetFromState || modelPresetFromEnv || provider?.defaultModel || provider?.models?.[0]?.id || "";
   return {
     provider: provider?.id || "",
     modelPreset,
     baseUrl: persisted.DEER_FLOW_MODEL_BASE_URL || process.env.DEER_FLOW_MODEL_BASE_URL || provider?.baseUrl || "",
-    apiKey: persisted.DEER_FLOW_MODEL_API_KEY || process.env.DEER_FLOW_MODEL_API_KEY || "",
+    apiKey: providerApiKey || persisted.DEER_FLOW_MODEL_API_KEY || process.env.DEER_FLOW_MODEL_API_KEY || "",
     tavilyApiKey: persisted.TAVILY_API_KEY || process.env.TAVILY_API_KEY || "",
     jinaApiKey: persisted.JINA_API_KEY || process.env.JINA_API_KEY || "",
   };
@@ -120,6 +123,8 @@ function validateAndMaterialize(schema, submitted) {
     DEER_FLOW_MODEL_USE_RESPONSES_API: model.useResponsesApi ? "true" : "false",
     DEER_FLOW_MODEL_TEMPERATURE: String(model.temperature ?? "0.7"),
     DEER_FLOW_MODEL_API_KEY: String(submitted.apiKey || "").trim(),
+    OPENAI_API_KEY: provider.id === "openrouter" ? "" : String(submitted.apiKey || "").trim(),
+    OPENROUTER_API_KEY: provider.id === "openrouter" ? String(submitted.apiKey || "").trim() : "",
     TAVILY_API_KEY: String(submitted.tavilyApiKey || "").trim(),
     JINA_API_KEY: String(submitted.jinaApiKey || "").trim(),
   };
@@ -210,7 +215,7 @@ function renderPage(payload) {
         <div class="field">
           <label for="apiKey">API Key</label>
           <input id="apiKey" type="password" autocomplete="off" placeholder="Paste the provider API key">
-          <div class="hint">Stored in the app data directory and exposed to DeerFlow as <code>DEER_FLOW_MODEL_API_KEY</code>.</div>
+          <div class="hint">Stored in the app data directory and exposed as <code>OPENAI_API_KEY</code> or <code>OPENROUTER_API_KEY</code>, depending on the selected provider.</div>
         </div>
         <div class="field">
           <label for="baseUrl">Base URL</label>

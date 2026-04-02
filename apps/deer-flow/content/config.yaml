@@ -1,9 +1,15 @@
-# DeerFlow config template for LazyCat single-node deployment.
-# This template is intentionally boot-safe: no model API key is required at startup.
-# The packaged config-ui writes model.env, and render-deer-flow-config.sh rewrites this file from it.
+# Configuration for the DeerFlow application
+#
+# This packaged template follows the upstream DeerFlow 2.0 layout.
+# LazyCat rewrites the `models` section from the config UI so the runtime keeps
+# using DeerFlow's default field names and environment-variable conventions.
 
-config_version: 3
+config_version: 5
+
 log_level: info
+
+token_usage:
+  enabled: false
 
 models: []
 

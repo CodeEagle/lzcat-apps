@@ -1,6 +1,6 @@
 {
   "title": "Configure DeerFlow",
-  "description": "Pick a hosted provider preset and default model. The package writes the result back into config.yaml and only then starts DeerFlow.",
+  "description": "Pick a hosted provider preset and default model. The package writes a DeerFlow-compatible default config and only then starts the app.",
   "submitLabel": "Save and Start",
   "defaultProvider": "openai",
   "providers": [
