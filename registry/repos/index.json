@@ -33,6 +33,8 @@
     "storyboat-tts-gateway.json",
     "fastclaw.json",
     "vibevoice.json",
-    "crucix.json"
+    "crucix.json",
+    "multica.json",
+    "cc-gateway.json"
   ]
 }
