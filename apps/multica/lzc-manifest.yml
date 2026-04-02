@@ -14,10 +14,10 @@ application:
   upstreams:
     -
       location: /
-      backend: http://gateway:80/
+      backend: http://web:3000/
 services:
   multica:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica:5c7472ef4f3fcf8f
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica:cd10636ace57c590
     depends_on:
       - postgres
     command: sh -lc './migrate up && exec ./server'
@@ -25,13 +25,14 @@ services:
       - PORT=8080
       - DATABASE_URL=postgres://multica:multica@postgres:5432/multica?sslmode=disable
       - JWT_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt
-  gateway:
-    image: registry.lazycat.cloud/invokerlaw/library/nginx:f14898f5b3ebfb0b
+  web:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica-web:c8e416b9ab64e484
     depends_on:
       - multica
-    binds:
-      - /lzcapp/pkg/content/nginx/default.conf:/etc/nginx/conf.d/default.conf
-      - /lzcapp/pkg/content/nginx/index.html:/usr/share/nginx/html/index.html
+    command: sh -lc 'cd apps/web && pnpm dev --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}'
+    environment:
+      - REMOTE_API_URL=http://multica:8080
+      - FRONTEND_PORT=3000
   postgres:
     image: registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c
     environment:
