@@ -1,0 +1,13 @@
+gateway:
+  # 客户端通过 ANTHROPIC_CUSTOM_HEADERS: Proxy-Authorization: Bearer <Token> 连接时允许的 Token 列表
+  client_tokens:
+    - "YOUR_LOCAL_TOKEN"
+
+identity:
+  # 你想对外展现的面具 ID 和邮箱
+  device_id: "00000000-0000-0000-0000-000000000000"
+  email: "anonymous@example.com"
+  
+auth:
+  # 你需要从原生终端提取真正的长期 refresh_token 放在这里，网关会帮你自动续签免去所有烦恼
+  refresh_token: "YOUR_EXTRACTED_REFRESH_TOKEN_HERE"

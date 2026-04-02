@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CC GATEWAY | 系统终端</title>
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --text-color: #00f0ff;
+            --accent-1: #ff003c;
+            --accent-2: #fcee0a;
+            --font-main: 'Courier New', Courier, monospace;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-main);
+            margin: 0;
+            padding: 2rem;
+            background-image: 
+                linear-gradient(rgba(0, 240, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+            overflow-x: hidden;
+        }
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 100;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 1px solid var(--text-color);
+            padding: 2rem;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2), inset 0 0 20px rgba(0, 240, 255, 0.05);
+            position: relative;
+            background: rgba(11, 12, 16, 0.85);
+            backdrop-filter: blur(5px);
+        }
+        .container::before {
+            content: "SYS.INIT_";
+            position: absolute;
+            top: -10px;
+            left: 20px;
+            background: var(--bg-color);
+            padding: 0 10px;
+            color: var(--accent-2);
+            font-weight: bold;
+        }
+        h1 {
+            color: var(--accent-1);
+            text-transform: uppercase;
+            text-shadow: 2px 0 0 rgba(0, 240, 255, 0.5), -2px 0 0 rgba(252, 238, 10, 0.5);
+            margin-top: 0;
+            font-size: 2.5rem;
+        }
+        h2 {
+            border-bottom: 1px solid var(--text-color);
+            padding-bottom: 0.5rem;
+            color: var(--accent-2);
+            margin-top: 2rem;
+        }
+        .glitch {
+            animation: glitch-anim 2s infinite linear alternate-reverse;
+        }
+        .code-block {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--accent-1);
+            border-left: 4px solid var(--accent-1);
+            padding: 1.5rem;
+            color: #fff;
+            overflow-x: auto;
+            position: relative;
+            line-height: 1.5;
+            white-space: pre;
+        }
+        .code-block::after {
+            content: "CLICK TO COPY_";
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            color: var(--text-color);
+            opacity: 0.7;
+        }
+        .code-block:hover::after {
+            opacity: 1;
+        }
+        .highlight { color: var(--accent-2); }
+        .comment { color: #888; }
+        
+        .footer {
+            margin-top: 3rem;
+            text-align: center;
+            font-size: 0.8rem;
+            opacity: 0.7;
+            border-top: 1px dashed var(--text-color);
+            padding-top: 1rem;
+        }
+
+        @keyframes glitch-anim {
+            0% { clip-path: inset(10% 0 80% 0); transform: translate(-2px, 2px); }
+            20% { clip-path: inset(80% 0 5% 0); transform: translate(2px, -2px); }
+            40% { clip-path: inset(30% 0 40% 0); transform: translate(-2px, 0); }
+            60% { clip-path: inset(60% 0 10% 0); transform: translate(2px, 2px); }
+            80% { clip-path: inset(5% 0 80% 0); transform: translate(-2px, -2px); }
+            100% { clip-path: inset(40% 0 30% 0); transform: translate(0, 0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div class="container">
+        <h1 class="glitch">CC GATEWAY // 伪装协议已激活</h1>
+        <p>欢迎来到 <span class="highlight">Claude Code Telemetry 净化网关</span>。此系统提供 API 遥测的身份洗白与环境保护。</p>
+        <p>所有经过此网关的请求，将被统一抹去原始终端指纹与设备特征。</p>
+        
+        <h2>// 接入指令</h2>
+        <p>在你的开发机终端中，配置以下环境变量即可黑入本网关：</p>
+        
+        <div class="code-block" id="cmd-block" onclick="copyCode()">
+<span class="comment"># 劫持全量 Claude Code 流量指向本网关</span>
+export ANTHROPIC_BASE_URL="http://${window.location.host}"
+
+<span class="comment"># 阻断所有侧信道遥测监控 (Datadog/GrowthBook/Version)</span>
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+
+<span class="comment"># 绕过身份拦截器（网关接管鉴权）</span>
+export CLAUDE_CODE_OAUTH_TOKEN="gateway-managed"
+
+<span class="comment"># 网关接入许可密令（需与服务端 config.yaml 配置一致）</span>
+export ANTHROPIC_CUSTOM_HEADERS="Proxy-Authorization: Bearer <span class="highlight">YOUR_LOCAL_TOKEN</span>"</div>
+
+        <h2>// 服务端配置指南</h2>
+        <p>此网关需要您的原始凭证来进行底层对话，初次启动请按以下步骤完成劫持配置：</p>
+        <ol>
+            <li>访问该应用的文件管理，找到并编辑 <code>/lzcapp/var/data/cc-gateway/config.yaml</code> 文件。</li>
+            <li>在支持的且您已登录过的系统终端中键入 <span style="background:#222;padding:2px 5px;">bash scripts/extract-token.sh</span> 以提取高权限 OAuth <code>refresh_token</code>。</li>
+            <li>填入对应的 <code>refresh_token</code> 及您想设定的 <code>client_tokens</code> 接口密令。</li>
+            <li>在管理控制台重启该应用以使配置生效。</li>
+        </ol>
+
+        <div class="footer">
+            SYSTEM STATUS: ONLINE // ZERO_LOGS_MODE: ACTIVE
+            <br>
+            <br>
+            Powered by LazyCat
+        </div>
+    </div>
+    
+    <script>
+        // 动态注入 Host
+        const host = window.location.protocol + '//' + window.location.host;
+        const codeBlock = document.getElementById('cmd-block');
+        const rawCode = codeBlock.innerHTML;
+        codeBlock.innerHTML = rawCode.replace('http://${window.location.host}', host);
+        
+        function copyCode() {
+            const lines = [
+                'export ANTHROPIC_BASE_URL="' + host + '"',
+                'export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1',
+                'export CLAUDE_CODE_OAUTH_TOKEN="gateway-managed"',
+                'export ANTHROPIC_CUSTOM_HEADERS="Proxy-Authorization: Bearer YOUR_LOCAL_TOKEN"'
+            ];
+            navigator.clipboard.writeText(lines.join('\\n')).then(() => {
+                alert('终端代码已复制_');
+            });
+        }
+    </script>
+</body>
+</html>

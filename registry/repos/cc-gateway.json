@@ -1,0 +1,27 @@
+{
+  "enabled": true,
+  "upstream_repo": "motiful/cc-gateway",
+  "check_strategy": "github_release",
+  "build_strategy": "upstream_dockerfile",
+  "publish_to_store": false,
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "custom",
+  "service_port": 8443,
+  "service_cmd": [],
+  "image_targets": [
+    "gateway"
+  ],
+  "dependencies": [],
+  "service_builds": [
+    {
+      "target_service": "gateway",
+      "build_strategy": "upstream_dockerfile",
+      "source_dockerfile_path": "Dockerfile",
+      "build_context": ".",
+      "build_args": {},
+      "image_name": "cc-gateway-gateway"
+    }
+  ],
+  "docker_platform": "linux/amd64"
+}
