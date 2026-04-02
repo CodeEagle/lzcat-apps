@@ -119,6 +119,10 @@ title:
 
 summarization:
   enabled: true
+
+checkpointer:
+  type: sqlite
+  connection_string: /app/backend/.langgraph_api/checkpoints.db
 EOF
 } > "$CONFIG_PATH"
 
