@@ -14,10 +14,19 @@ application:
   upstreams:
     -
       location: /
-      backend: http://postgres:5432/
+      backend: http://multica:8080/
 services:
+  multica:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica:708046de96aa2d74
+    depends_on:
+      - postgres
+    command: sh -lc './migrate up && exec ./server'
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgres://multica:multica@postgres:5432/multica?sslmode=disable
+      - JWT_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt
   postgres:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica:33743fa32ef3d724
+    image: registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c
     environment:
       - POSTGRES_DB=multica
       - POSTGRES_USER=multica
