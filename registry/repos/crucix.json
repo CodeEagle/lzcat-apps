@@ -1,0 +1,27 @@
+{
+  "enabled": true,
+  "upstream_repo": "calesthio/Crucix",
+  "check_strategy": "commit_sha",
+  "build_strategy": "upstream_dockerfile",
+  "publish_to_store": false,
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "custom",
+  "service_port": 3117,
+  "service_cmd": [],
+  "image_targets": [
+    "crucix"
+  ],
+  "dependencies": [],
+  "service_builds": [
+    {
+      "target_service": "crucix",
+      "build_strategy": "upstream_dockerfile",
+      "source_dockerfile_path": "Dockerfile",
+      "build_context": ".",
+      "build_args": {},
+      "image_name": "crucix-crucix"
+    }
+  ],
+  "docker_platform": "linux/amd64"
+}

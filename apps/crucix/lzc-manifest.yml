@@ -1,0 +1,63 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.crucix
+version: 2.0.1
+min_os_version: 1.3.8
+name: Crucix
+description: Local intelligence engine with a live OSINT dashboard, periodic sweeps, and optional LLM-powered alerts.
+license: AGPL-3.0
+homepage: https://github.com/calesthio/Crucix
+author: Crucix
+application:
+  subdomain: crucix
+  public_path:
+    - /
+  environment:
+    - PORT=3117
+    - REFRESH_INTERVAL_MINUTES=15
+    - FRED_API_KEY=
+    - FIRMS_MAP_KEY=
+    - EIA_API_KEY=
+    - AISSTREAM_API_KEY=
+    - ACLED_EMAIL=
+    - ACLED_PASSWORD=
+    - CLOUDFLARE_API_TOKEN=
+    - LLM_PROVIDER=
+    - LLM_API_KEY=
+    - LLM_MODEL=
+    - OLLAMA_BASE_URL=
+    - TELEGRAM_BOT_TOKEN=
+    - TELEGRAM_CHAT_ID=
+    - TELEGRAM_CHANNELS=
+    - TELEGRAM_POLL_INTERVAL=5000
+    - DISCORD_BOT_TOKEN=
+    - DISCORD_CHANNEL_ID=
+    - DISCORD_GUILD_ID=
+    - DISCORD_WEBHOOK_URL=
+  upstreams:
+    -
+      location: /
+      backend: http://crucix:3117/
+services:
+  crucix:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/crucix-crucix:7b095ba0efba3e21
+    environment:
+      - PORT=3117
+      - REFRESH_INTERVAL_MINUTES=15
+    binds:
+      - /lzcapp/var/data/crucix/crucix/runs:/app/runs
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -qO-
+        - http://127.0.0.1:3117/api/health
+      interval: 60s
+      timeout: 10s
+      retries: 3
+locales:
+  en:
+    name: Crucix
+    description: Local intelligence engine with a live OSINT dashboard, periodic sweeps, and optional LLM-powered alerts.
+  zh:
+    name: Crucix
+    description: 本地情报引擎，提供实时 OSINT 仪表盘、定时扫描与可选 LLM 告警。
