@@ -1,0 +1,13 @@
+FROM node:20-alpine AS runtime
+RUN corepack enable
+WORKDIR /src
+COPY . .
+RUN pnpm install --frozen-lockfile
+# LazyCat migration patch: allow login UI to continue when /auth/send-code fails.
+# Backend still accepts master code 888888 in non-production APP_ENV.
+RUN sed -i "s/await sendCode(email);/await sendCode(email).catch(() => {});/g" '/src/apps/web/app/(auth)/login/page.tsx'
+ENV NODE_ENV=production
+ENV FRONTEND_PORT=3000
+ENV REMOTE_API_URL=http://multica:8080
+EXPOSE 3000
+CMD ["sh", "-lc", "cd apps/web && pnpm dev --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}"]

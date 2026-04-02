@@ -2442,6 +2442,8 @@ def apply_app_post_process(repo_root: Path, finalized: dict[str, Any], analysis:
         return post_process_signoz(repo_root)
     if finalized["slug"] == "deer-flow" and upstream_repo == "bytedance/deer-flow":
         return post_process_deer_flow(repo_root)
+    if finalized["slug"] == "multica" and upstream_repo == "multica-ai/multica":
+        return post_process_multica(repo_root)
     return []
 
 
@@ -2469,6 +2471,96 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: dict[str, Any
         note = "frontend 启动前会先按容器环境重写 .env，再以 NODE_ENV=development 执行 runtime-env-cra，避免空字符串变量被判定为缺失。"
         if note not in startup_notes:
             startup_notes.append(note)
+
+    if finalized.get("slug") == "multica" and upstream_repo == "multica-ai/multica":
+        finalized["service_port"] = 3000
+        finalized["image_targets"] = ["multica", "web"]
+        finalized["dependencies"] = [{"target_service": "postgres", "source_image": "pgvector/pgvector:pg17"}]
+        finalized["service_builds"] = [
+            {
+                "target_service": "multica",
+                "build_strategy": "upstream_dockerfile",
+                "source_dockerfile_path": "Dockerfile",
+                "build_context": ".",
+                "build_args": {},
+                "image_name": "multica",
+            },
+            {
+                "target_service": "web",
+                "build_strategy": "upstream_with_target_template",
+                "dockerfile_path": "Dockerfile.web.template",
+                "source_dockerfile_path": "Dockerfile.web.lazycat",
+                "build_context": ".",
+                "build_args": {},
+                "image_name": "multica-web",
+            },
+        ]
+        finalized["application"] = {
+            "subdomain": "multica",
+            "public_path": ["/"],
+            "upstreams": [{"location": "/", "backend": "http://web:3000/"}],
+        }
+        finalized["services"] = {
+            "multica": {
+                "image": "registry.lazycat.cloud/placeholder/multica:multica",
+                "depends_on": ["postgres"],
+                "environment": [
+                    "PORT=8080",
+                    "DATABASE_URL=postgres://multica:multica@postgres:5432/multica?sslmode=disable",
+                    "JWT_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt",
+                ],
+                "command": "sh -lc './migrate up && exec ./server'",
+            },
+            "web": {
+                "image": "registry.lazycat.cloud/placeholder/multica:web",
+                "depends_on": ["multica"],
+                "environment": [
+                    "REMOTE_API_URL=http://multica:8080",
+                    "FRONTEND_PORT=3000",
+                ],
+                "command": "sh -lc 'cd apps/web && pnpm dev --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}'",
+            },
+            "postgres": {
+                "image": "registry.lazycat.cloud/placeholder/multica:postgres",
+                "environment": [
+                    "POSTGRES_DB=multica",
+                    "POSTGRES_USER=multica",
+                    "POSTGRES_PASSWORD=multica",
+                ],
+                "binds": ["/lzcapp/var/db/multica/postgres-v2:/var/lib/postgresql/data"],
+            },
+        }
+
+        env_entries = bm.ensure_list(finalized.get("env_vars"))
+
+        def upsert_env(name: str, value: str, description: str) -> None:
+            for item in env_entries:
+                if isinstance(item, dict) and str(item.get("name", "")).strip() == name:
+                    item["value"] = value
+                    item["required"] = False
+                    item["description"] = description
+                    return
+            env_entries.append({"name": name, "value": value, "required": False, "description": description})
+
+        upsert_env(
+            "DATABASE_URL",
+            "postgres://multica:multica@postgres:5432/multica?sslmode=disable",
+            "连接内置 postgres 服务（由迁移器重写默认 localhost）",
+        )
+        upsert_env("PORT", "8080", "Multica server 监听端口")
+        upsert_env(
+            "JWT_SECRET",
+            "${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt",
+            "服务端 JWT 签名密钥",
+        )
+        finalized["env_vars"] = env_entries
+
+        notes = bm.ensure_list(finalized.get("startup_notes"))
+        notes.append("检测到 compose 仅包含 PostgreSQL，已自动补齐 web + backend + postgres 三服务拓扑。")
+        notes.append("已将 DATABASE_URL 默认值从 localhost 改写为 postgres 服务名，避免容器内回环连接失败。")
+        notes.append("web 服务默认以 dev 模式启动；若浏览器出现 HMR WebSocket 报错，可忽略，不影响主流程。")
+        notes.append("已对登录页注入容错补丁：/auth/send-code 失败时仍允许进入验证码步骤（开发态可用 888888）。")
+        finalized["startup_notes"] = notes
 
     if finalized.get("slug") == "deer-flow" and upstream_repo == "bytedance/deer-flow":
         finalized["include_content"] = True
@@ -4164,6 +4256,34 @@ def post_process_deer_flow(repo_root: Path) -> list[str]:
     return outputs
 
 
+def post_process_multica(repo_root: Path) -> list[str]:
+    app_dir = repo_root / "apps" / "multica"
+    app_dir.mkdir(parents=True, exist_ok=True)
+    template_path = app_dir / "Dockerfile.web.template"
+    template_path.write_text(
+        textwrap.dedent(
+            """\
+            FROM node:20-alpine AS runtime
+            RUN corepack enable
+            WORKDIR /src
+            COPY . .
+            RUN pnpm install --frozen-lockfile
+            # LazyCat migration patch: allow login UI to continue when /auth/send-code fails.
+            # Backend still accepts master code 888888 in non-production APP_ENV.
+            RUN sed -i "s/await sendCode(email);/await sendCode(email).catch(() => {});/g" '/src/apps/web/app/(auth)/login/page.tsx'
+            ENV NODE_ENV=production
+            ENV FRONTEND_PORT=3000
+            ENV REMOTE_API_URL=http://multica:8080
+            EXPOSE 3000
+            CMD ["sh", "-lc", "cd apps/web && pnpm dev --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}"]
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    return [str(template_path)]
+
+
 def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
     issues: list[str] = []
     app_dir = repo_root / "apps" / slug
@@ -4234,13 +4354,13 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
 
 
 def detect_gh_token(env: dict[str, str]) -> str:
-    token = env.get("GH_PAT") or env.get("GH_TOKEN") or env.get("GITHUB_TOKEN")
-    if token:
-        return token
     if command_exists("gh"):
         token = sh(["gh", "auth", "token"], check=False)
         if token:
             return token
+    token = env.get("GH_PAT") or env.get("GH_TOKEN") or env.get("GITHUB_TOKEN")
+    if token:
+        return token
     return ""
 
 
@@ -4263,9 +4383,26 @@ def run_local_build(
     full_install: bool,
     env: dict[str, str],
 ) -> subprocess.CompletedProcess[str]:
-    cmd = ["bash", "./scripts/local_build.sh", slug, "--force-build"]
-    if full_install:
-        cmd.extend(["--install", "--with-docker", "--no-dry-run"])
+    lpk_output = repo_root / "dist" / f"{slug}.lpk"
+    cmd = [
+        "python3",
+        str(repo_root / "scripts" / "run_build.py"),
+        "--config-root",
+        str(repo_root / "registry"),
+        "--config-file",
+        f"{slug}.json",
+        "--artifact-repo",
+        "CodeEagle/lzcat-artifacts",
+        "--app-root",
+        str(repo_root / "apps" / slug),
+        "--lzcat-apps-root",
+        str(repo_root),
+        "--lpk-output",
+        str(lpk_output),
+        "--force-build",
+    ]
+    if not full_install:
+        cmd.append("--dry-run")
     proc = subprocess.Popen(
         cmd,
         cwd=str(repo_root),
@@ -4281,7 +4418,36 @@ def run_local_build(
         lines.append(line)
     proc.wait()
     output = "".join(lines)
-    return subprocess.CompletedProcess(cmd, proc.returncode, stdout=output, stderr="")
+    if proc.returncode != 0:
+        return subprocess.CompletedProcess(cmd, proc.returncode, stdout=output, stderr="")
+
+    if full_install:
+        install_cmd = ["lzc-cli", "app", "install", str(lpk_output)]
+        package_id = manifest_package_id(repo_root, slug)
+        uninstall_output = ""
+        if package_id:
+            uninstall_result = subprocess.run(
+                ["lzc-cli", "app", "uninstall", package_id],
+                cwd=str(repo_root),
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            uninstall_output = (uninstall_result.stdout or "") + (uninstall_result.stderr or "")
+        install_result = subprocess.run(
+            install_cmd,
+            cwd=str(repo_root),
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        install_output = uninstall_output + (install_result.stdout or "") + (install_result.stderr or "")
+        combined = output + install_output
+        return subprocess.CompletedProcess(install_cmd, install_result.returncode, stdout=combined, stderr="")
+
+    return subprocess.CompletedProcess(cmd, 0, stdout=output, stderr="")
 
 
 def manifest_package_id(repo_root: Path, slug: str) -> str:
@@ -4304,6 +4470,13 @@ def main() -> int:
     repo_root = Path(args.repo_root).resolve() if args.repo_root else Path(__file__).resolve().parents[1]
     env = os.environ.copy()
     runtime_name, runtime_env, cleanup_runtime = prepare_container_env(env)
+    gh_token = detect_gh_token(runtime_env)
+    if gh_token:
+        # Keep all aliases in sync so downstream scripts don't accidentally
+        # pick a stale token due to environment-variable precedence.
+        runtime_env["GH_PAT"] = gh_token
+        runtime_env["GH_TOKEN"] = gh_token
+        runtime_env["GITHUB_TOKEN"] = gh_token
     lzc_cli_token = detect_lzc_cli_token(runtime_env)
     if lzc_cli_token:
         runtime_env["LZC_CLI_TOKEN"] = lzc_cli_token
@@ -4346,7 +4519,7 @@ def main() -> int:
             next_step="进入 [3/10] 注册目标 app",
         )
 
-        finalized = bm.finalize_spec(analysis["spec"], detect_gh_token(runtime_env), fetch_upstream=False)
+        finalized = bm.finalize_spec(analysis["spec"], gh_token, fetch_upstream=False)
         finalized = apply_generated_app_fixes(finalized, analysis)
         config_path = repo_root / "registry" / "repos" / f"{finalized['slug']}.json"
         app_dir = repo_root / "apps" / finalized["slug"]
@@ -4458,8 +4631,8 @@ def main() -> int:
                 "触发并监听构建",
                 conclusion="本地构建失败，自动流程停在构建阶段。",
                 outputs=[str(app_dir), str(repo_root / "dist" / f"{finalized['slug']}.lpk")],
-                scripts=["scripts/full-migrate.sh", "scripts/local_build.sh"],
-                risks=[build_result.stderr.strip() or "local_build 返回非零退出码"],
+                scripts=["scripts/full-migrate.sh", "scripts/run_build.py"],
+                risks=[build_result.stderr.strip() or "run_build 返回非零退出码"],
                 next_step="停止，修复构建错误后重跑同一命令即可继续",
             )
             return 1
@@ -4469,7 +4642,7 @@ def main() -> int:
             "触发并监听构建",
             conclusion="本地构建命令执行成功。",
             outputs=[str(repo_root / "dist" / f"{finalized['slug']}.lpk")],
-            scripts=["scripts/full-migrate.sh", "scripts/local_build.sh"],
+            scripts=["scripts/full-migrate.sh", "scripts/run_build.py"],
             risks=[] if full_install else [f"当前使用 `{runtime_name}` 做 dry-run 构建，未执行远端 copy-image / install"],
             next_step="进入 [9/10] 下载并核对 .lpk",
         )
@@ -4481,7 +4654,7 @@ def main() -> int:
                 "下载并核对 .lpk",
                 conclusion="构建阶段未产出本地 .lpk，流程停在产物阶段。",
                 outputs=[str(lpk_path)],
-                scripts=["scripts/full-migrate.sh", "scripts/local_build.sh"],
+                scripts=["scripts/full-migrate.sh", "scripts/run_build.py"],
                 risks=["dist 目录中未发现期望的 lpk 文件"],
                 next_step="停止",
             )
@@ -4492,7 +4665,7 @@ def main() -> int:
             "下载并核对 .lpk",
             conclusion="已拿到本地构建产物并完成基本核对。",
             outputs=[f"{lpk_path} (sha256={file_sha256(lpk_path)})"],
-            scripts=["scripts/full-migrate.sh", "scripts/local_build.sh"],
+            scripts=["scripts/full-migrate.sh", "scripts/run_build.py"],
             risks=[] if full_install else ["当前产物来自 dry-run，本步未覆盖真实 release/download 链路"],
             next_step="进入 [10/10] 安装验收并复盘",
         )
@@ -4516,7 +4689,7 @@ def main() -> int:
             "安装验收并复盘",
             conclusion="已执行安装命令，并完成一次基础状态查询。",
             outputs=[str(lpk_path), f"package={package_id}", f"status={status_output or '无输出'}"],
-            scripts=["scripts/full-migrate.sh", "scripts/local_build.sh", "lzc-cli app status"],
+            scripts=["scripts/full-migrate.sh", "scripts/run_build.py", "lzc-cli app status"],
             risks=[],
             next_step="完成",
         )
