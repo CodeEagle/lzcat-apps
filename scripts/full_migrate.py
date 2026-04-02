@@ -10,6 +10,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import tarfile
 import tempfile
 import textwrap
 from pathlib import Path
@@ -130,6 +131,7 @@ SOURCE_BUILD_STRATEGIES = {
     "upstream_dockerfile",
     "upstream_with_target_template",
 }
+DEFAULT_AIPOD_GATEWAY_IMAGE = "registry.lazycat.cloud/catdogai/caddy-aipod:65e058ce"
 
 
 def sh(
@@ -285,6 +287,27 @@ def fetch_text(url: str) -> str:
         return response.read().decode("utf-8")
 
 
+def download_github_archive(repo: str, dest_root: Path) -> Path:
+    repo_meta = bm.github_api_json(f"repos/{repo}")
+    default_branch = "main"
+    if isinstance(repo_meta, dict):
+        default_branch = str(repo_meta.get("default_branch") or default_branch)
+
+    archive_url = f"https://codeload.github.com/{repo}/tar.gz/refs/heads/{default_branch}"
+    archive_path = dest_root / f"{repo.replace('/', '-')}-{default_branch}.tar.gz"
+    req = request.Request(archive_url, headers={"User-Agent": "lzcat-full-migrate"})
+    with request.urlopen(req, timeout=180) as response, archive_path.open("wb") as handle:
+        shutil.copyfileobj(response, handle)
+
+    with tarfile.open(archive_path, "r:gz") as tar:
+        tar.extractall(dest_root, filter="data")
+
+    extracted_dirs = sorted(path for path in dest_root.iterdir() if path.is_dir())
+    if not extracted_dirs:
+        raise RuntimeError(f"未能从 GitHub archive 解出仓库目录：{repo}")
+    return extracted_dirs[0]
+
+
 def prepare_source(normalized: dict[str, Any]) -> tuple[Path | None, list[str], callable]:
     if normalized["kind"] == "local_repo":
         return normalized["path"], [str(normalized["path"])], lambda: None
@@ -293,17 +316,7 @@ def prepare_source(normalized: dict[str, Any]) -> tuple[Path | None, list[str], 
     outputs: list[str] = []
 
     if normalized["kind"] == "github_repo":
-        repo_dir = temp_root / normalized["upstream_repo"].split("/", 1)[1]
-        sh([
-            "git",
-            "clone",
-            "--depth",
-            "1",
-            "--recurse-submodules",
-            "--shallow-submodules",
-            normalized["homepage"] + ".git",
-            str(repo_dir),
-        ])
+        repo_dir = download_github_archive(normalized["upstream_repo"], temp_root)
         outputs.append(str(repo_dir))
         return repo_dir, outputs, lambda: shutil.rmtree(temp_root, ignore_errors=True)
 
@@ -389,6 +402,80 @@ def readme_excerpt(readmes: list[Path]) -> str:
         except OSError:
             continue
     return "\n".join(chunks)
+
+
+def gpu_project_excerpt(source_dir: Path, readmes: list[Path]) -> str:
+    chunks: list[str] = []
+    seen: set[Path] = set()
+    candidates = list(readmes[:3])
+    candidates.extend(sorted((source_dir / "docs").glob("*.md"))[:6])
+    pyproject = source_dir / "pyproject.toml"
+    if pyproject.exists():
+        candidates.append(pyproject)
+    for path in candidates:
+        if path in seen or not path.exists():
+            continue
+        seen.add(path)
+        try:
+            chunks.append(path.read_text(encoding="utf-8", errors="ignore").lower())
+        except OSError:
+            continue
+    return "\n".join(chunks)
+
+
+def infer_gpu_service_port(source_dir: Path, text: str) -> int:
+    if (source_dir / "demo" / "web" / "app.py").exists():
+        return 3000
+    if "gradio demo" in text or "launch gradio demo" in text:
+        return 7860
+    return 8000
+
+
+def detect_gpu_first_ml_project(
+    source_dir: Path,
+    compose_file: Path | None,
+    dockerfile: Path | None,
+    readmes: list[Path],
+) -> dict[str, Any] | None:
+    if compose_file or dockerfile:
+        return None
+
+    text = gpu_project_excerpt(source_dir, readmes)
+    if not text:
+        return None
+
+    strong_markers = [
+        "nvidia deep learning container",
+        "--gpus all",
+        "cuda environment",
+        "flash attention",
+        "flash_attention",
+        "vllm",
+    ]
+    service_markers = [
+        "gradio demo",
+        "websocket demo",
+        "real-time websocket demo",
+        "launch gradio demo",
+        "text-to-speech",
+        "speech recognition",
+    ]
+    strong_hits = [marker for marker in strong_markers if marker in text]
+    service_hits = [marker for marker in service_markers if marker in text]
+
+    if len(strong_hits) < 2 or not service_hits:
+        return None
+
+    return {
+        "reason": (
+            "检测到该仓库更像 GPU-first 的语音/推理研究项目。"
+            f" 依据：README / docs 明确要求 {', '.join(strong_hits[:4])}，且主要入口是 {', '.join(service_hits[:3])}。"
+            " 按当前 SOP，应优先评估 LazyCat AIPod / AI 应用路线，而不是继续强压到 CPU/Docker 微服容器。"
+        ),
+        "service_port": infer_gpu_service_port(source_dir, text),
+        "strong_hits": strong_hits,
+        "service_hits": service_hits,
+    }
 
 
 def detect_non_service_native_project(
@@ -1549,6 +1636,96 @@ def choose_route_for_binary(slug: str, meta: dict[str, Any], binary: dict[str, A
     }
 
 
+def render_aipod_gateway_setup_script() -> str:
+    return textwrap.dedent(
+        """\
+        cat <<'EOF' > /etc/caddy/Caddyfile
+        {
+                auto_https off
+                http_port 80
+                https_port 0
+        }
+        :80 {
+                handle {
+                        route {
+                                lzcaipod
+                                root * /lzcapp/pkg/content/ui/
+                                try_files {path} /index.html
+                                header Cache-Control "max-age=60, private, must-revalidate"
+                                file_server
+                        }
+                }
+        }
+        EOF
+        cat /etc/caddy/Caddyfile
+        """
+    ).strip()
+
+
+def choose_route_for_gpu_aipod(
+    slug: str,
+    meta: dict[str, Any],
+    gpu_info: dict[str, Any],
+    official_image: dict[str, Any] | None,
+) -> dict[str, Any]:
+    project_name = str(meta.get("project_name") or bm.titleize_slug(slug))
+    ai_service_name = slug
+    ai_service_port = int(gpu_info.get("service_port") or 8000)
+    ai_service_image = official_image["image"] if official_image else f"registry.lazycat.cloud/placeholder/{slug}-ai:bootstrap"
+    return {
+        "slug": slug,
+        "project_name": project_name,
+        "description": str(meta.get("description") or f"{slug} on LazyCat AIPod"),
+        "description_zh": f"（迁移初稿）{project_name} 的懒猫微服 + 算力舱版本",
+        "upstream_repo": str(meta.get("upstream_repo", "")),
+        "homepage": str(meta.get("homepage", "")),
+        "license": str(meta.get("license") or "TODO"),
+        "author": str(meta.get("author") or "TODO"),
+        "version": str(meta.get("version") or "0.1.0"),
+        "check_strategy": str(meta.get("check_strategy", "github_release")),
+        "build_strategy": "official_image",
+        "official_image_registry": DEFAULT_AIPOD_GATEWAY_IMAGE,
+        "service_port": 80,
+        "image_targets": ["gateway"],
+        "services": {
+            "gateway": {
+                "image": "registry.lazycat.cloud/placeholder/gateway:bootstrap",
+                "setup_script": render_aipod_gateway_setup_script(),
+                "healthcheck": {
+                    "test": ["CMD-SHELL", "curl -f http://127.0.0.1:80/ >/dev/null || exit 1"],
+                    "interval": "30s",
+                    "timeout": "10s",
+                    "retries": 10,
+                },
+            }
+        },
+        "application": {
+            "subdomain": slug,
+            "public_path": ["/"],
+            "upstreams": [{"location": "/", "backend": "http://gateway:80/"}],
+        },
+        "include_content": True,
+        "ai_pod_service": "./ai-pod-service",
+        "ai_pod_service_name": ai_service_name,
+        "ai_pod_service_port": ai_service_port,
+        "ai_pod_image": ai_service_image,
+        "aipod": {"shortcut": {"disable": False}},
+        "usage": "此应用需结合算力舱使用。",
+        "env_vars": [],
+        "data_paths": [],
+        "startup_notes": [
+            gpu_info["reason"],
+            "已自动改走 AIPod 骨架：微服侧保留 gateway/content，GPU 推理服务迁到 ai-pod-service。",
+            f"当前 AI 服务预估端口为 {ai_service_port}，预期域名为 https://{ai_service_name}-ai.{{{{ .S.BoxDomain }}}} 。",
+            "若上游没有公开官方镜像，需后续手动补齐 ai-pod-service/docker-compose.yml 的真实镜像与启动命令。",
+        ],
+        "_risks": [
+            "当前只生成 AIPod 初稿骨架，真实 GPU 服务镜像、命令、挂载与代理仍需继续补齐",
+        ],
+        "_post_write": {},
+    }
+
+
 def choose_route_for_image(source: str) -> dict[str, Any]:
     raw = source.strip()
     slug = sanitize_token(image_repository(raw).split("/")[-1])
@@ -1622,6 +1799,7 @@ def analyze_source(normalized: dict[str, Any], source_dir: Path | None) -> dict[
     env_files = list_env_files(source_dir)
     readmes = list_readmes(source_dir)
     native_project_reason = detect_non_service_native_project(source_dir, compose_file, dockerfile, readmes)
+    gpu_first_reason = detect_gpu_first_ml_project(source_dir, compose_file, dockerfile, readmes)
     official_image = detect_official_image_from_readmes(readmes)
     binary = parse_release_binary_candidate(upstream_repo) if upstream_repo else None
 
@@ -1655,6 +1833,8 @@ def analyze_source(normalized: dict[str, Any], source_dir: Path | None) -> dict[
             spec = choose_route_for_compose(slug, meta, source_dir, compose_file, dockerfile, env_files)
     elif native_project_reason:
         raise ValueError(native_project_reason)
+    elif gpu_first_reason:
+        spec = choose_route_for_gpu_aipod(slug, meta, gpu_first_reason, official_image)
     elif dockerfile:
         spec = choose_route_for_dockerfile(slug, meta, source_dir, dockerfile, env_files)
     elif upstream_repo:

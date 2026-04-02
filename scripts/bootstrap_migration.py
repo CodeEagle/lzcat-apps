@@ -389,6 +389,18 @@ def build_cli_spec(args: argparse.Namespace) -> dict[str, Any]:
         spec["setup_script"] = args.setup_script
     if args.include_content:
         spec["include_content"] = True
+    if args.ai_pod_service:
+        spec["ai_pod_service"] = args.ai_pod_service
+    if args.ai_pod_service_name:
+        spec["ai_pod_service_name"] = args.ai_pod_service_name
+    if args.ai_pod_service_port:
+        spec["ai_pod_service_port"] = args.ai_pod_service_port
+    if args.ai_pod_image:
+        spec["ai_pod_image"] = args.ai_pod_image
+    if args.aipod_shortcut_disable:
+        spec["aipod"] = {"shortcut": {"disable": True}}
+    if args.usage:
+        spec["usage"] = args.usage
     if args.public_path:
         spec["public_path"] = args.public_path
     if args.image_target:
@@ -540,6 +552,13 @@ def finalize_spec(raw: dict[str, Any], token: str, fetch_upstream: bool) -> dict
     if ensure_list(application.get("routes")):
         include_content = True
 
+    ai_pod_service = str(raw.get("ai_pod_service") or "").strip()
+    ai_pod_service_name = normalize_slug(str(raw.get("ai_pod_service_name") or slug).strip()) or slug
+    ai_pod_service_port = int(raw.get("ai_pod_service_port") or raw.get("service_port") or 8000)
+    ai_pod_image = str(raw.get("ai_pod_image") or default_placeholder_image(f"{slug}-ai")).strip()
+    aipod = prune_empty(dict(raw.get("aipod") or {}))
+    usage = str(raw.get("usage") or "").strip()
+
     return {
         "slug": slug,
         "project_name": project_name,
@@ -573,6 +592,12 @@ def finalize_spec(raw: dict[str, Any], token: str, fetch_upstream: bool) -> dict
         "data_paths": data_paths,
         "startup_notes": startup_notes,
         "include_content": include_content,
+        "ai_pod_service": ai_pod_service,
+        "ai_pod_service_name": ai_pod_service_name,
+        "ai_pod_service_port": ai_pod_service_port,
+        "ai_pod_image": ai_pod_image,
+        "aipod": aipod,
+        "usage": usage,
         "icon_path": str(raw.get("icon_path", "")).strip(),
         "source_version": str(upstream_meta.get("source_version", "")).strip(),
         "default_branch": str(upstream_meta.get("default_branch", "")).strip(),
@@ -638,16 +663,20 @@ def build_manifest(spec: dict[str, Any]) -> dict[str, Any]:
         "license": spec["license"],
         "homepage": spec["homepage"],
         "author": spec["author"],
+        "usage": spec["usage"],
+        "aipod": spec["aipod"],
         "application": spec["application"],
         "services": services,
         "locales": {
             "en": {
                 "name": spec["project_name"],
                 "description": spec["description"],
+                "usage": spec["usage"],
             },
             "zh": {
                 "name": spec["project_name"],
                 "description": spec["description_zh"],
+                "usage": spec["usage"],
             },
         },
     }
@@ -669,6 +698,8 @@ def render_build_yml(spec: dict[str, Any]) -> str:
     }
     if spec["include_content"]:
         payload["contentdir"] = "./content"
+    if spec["ai_pod_service"]:
+        payload["ai-pod-service"] = spec["ai_pod_service"]
     rendered = "\n".join(render_yaml_mapping(payload)) + "\n"
     return rendered.replace('lzc-sdk-version: 0.1\n', "lzc-sdk-version: '0.1'\n", 1)
 
@@ -717,6 +748,9 @@ def render_readme(spec: dict[str, Any]) -> str:
         "3. 如果是源码构建，补齐 `Dockerfile` / `Dockerfile.template`、`content/`、`overlay_paths` 等资产。",
         f"4. 初稿补全后执行 `./scripts/local_build.sh {spec['slug']} --check-only`，再进入实际构建与验收。",
     ]
+    if spec["ai_pod_service"]:
+        next_steps.insert(3, "4. 补齐 `ai-pod-service/docker-compose.yml` 中的真实 GPU 服务镜像、启动命令、卷挂载与 `-ai` 路由标签。")
+        next_steps[-1] = f"5. 初稿补全后执行 `./scripts/local_build.sh {spec['slug']} --check-only`，再进入实际构建与验收。"
 
     parts = [
         f"# {spec['project_name']}",
@@ -739,8 +773,27 @@ def render_readme(spec: dict[str, Any]) -> str:
         "### Services",
         *service_lines,
         "",
-        "## 环境变量",
+        "## AIPod",
     ]
+
+    if spec["ai_pod_service"]:
+        parts.extend(
+            [
+                "",
+                f"- AI Pod Service Dir: `{spec['ai_pod_service']}`",
+                f"- AI Service Name: `{spec['ai_pod_service_name']}`",
+                f"- AI Service Port: `{spec['ai_pod_service_port']}`",
+                f"- AI Service Host: `https://{spec['ai_pod_service_name']}-ai.{{{{ .S.BoxDomain }}}}`",
+                "- 当前骨架已包含算力舱目录，但仍需把真实 GPU 服务镜像、命令、路由与前端代理补齐。",
+                "",
+            ]
+        )
+    else:
+        parts.extend(["", "当前未启用 AIPod / AI 服务。", ""])
+
+    parts.extend([
+        "## 环境变量",
+    ])
 
     if env_rows:
         parts.extend(["", markdown_table(["变量名", "必填", "默认值", "说明"], env_rows)])
@@ -807,6 +860,9 @@ def render_checklist(spec: dict[str, Any]) -> str:
         f"- VERSION: {spec['version']}",
         f"- IMAGE: {spec['official_image_registry'] or 'TODO'}",
         f"- PORT: {spec['service_port']}",
+        f"- AI_POD_SERVICE: {spec['ai_pod_service'] or '无'}",
+        f"- AI_POD_SERVICE_NAME: {spec['ai_pod_service_name'] if spec['ai_pod_service'] else '无'}",
+        f"- AI_POD_SERVICE_PORT: {spec['ai_pod_service_port'] if spec['ai_pod_service'] else '无'}",
         f"- CHECK_STRATEGY: {spec['check_strategy']}",
         f"- BUILD_STRATEGY: {spec['build_strategy']}",
         "",
@@ -823,6 +879,7 @@ def render_checklist(spec: dict[str, Any]) -> str:
         "- [ ] Dockerfile / Containerfile / compose / helm / entrypoint / startup script 的真实启动入口",
         "- [ ] README / 部署文档 / `.env.example` / sample config 中声明的环境变量",
         "- [ ] 数据目录、配置目录、缓存目录、上传目录、日志目录、临时目录的真实读写路径",
+        "- [ ] 若启用 AIPod，确认 `ai-pod-service/docker-compose.yml` 中的真实镜像、服务端口、`-ai` Host 规则与 `traefik-shared-network` 配置",
         "- [ ] 首次启动初始化命令、迁移命令、建库建表命令、管理员初始化命令",
         "- [ ] 数据库、Redis、对象存储、auth / OAuth / JWT / callback / secret 等外部依赖配置",
         "- [ ] 每个真实目录是否需要预创建、由谁创建、以什么 owner/group/mode 创建",
@@ -913,6 +970,92 @@ def create_content_dir(app_dir: Path) -> None:
         )
 
 
+def create_aipod_content(app_dir: Path, spec: dict[str, Any]) -> list[Path]:
+    written: list[Path] = []
+    ui_dir = app_dir / "content" / "ui"
+    ui_dir.mkdir(parents=True, exist_ok=True)
+    index_path = ui_dir / "index.html"
+    index_html = f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{spec["project_name"]}</title>
+  <style>
+    body {{ font-family: sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; }}
+    main {{ max-width: 720px; margin: 0 auto; padding: 48px 20px; }}
+    code {{ background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 6px; }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>{spec["project_name"]}</h1>
+    <p>此页为 AIPod 骨架占位页。当前应用已启用算力舱服务目录，但仍需补齐真实 GPU 服务镜像、命令与前端转发。</p>
+    <p>预期 AI 服务入口：<code>https://{spec["ai_pod_service_name"]}-ai.{{{{ .S.BoxDomain }}}}</code></p>
+    <p>请继续检查 <code>ai-pod-service/docker-compose.yml</code> 与 <code>lzc-manifest.yml</code>，再进入构建与验收。</p>
+  </main>
+</body>
+</html>
+"""
+    if not index_path.exists():
+        index_path.write_text(index_html, encoding="utf-8")
+        written.append(index_path)
+    return written
+
+
+def render_aipod_compose(spec: dict[str, Any]) -> str:
+    service_name = spec["ai_pod_service_name"]
+    host_name = f"{service_name}-ai"
+    port = spec["ai_pod_service_port"]
+    image = spec["ai_pod_image"]
+    return "\n".join(
+        [
+            "services:",
+            f"  {service_name}:",
+            f"    image: {image}",
+            "    restart: unless-stopped",
+            "    environment:",
+            f"      SERVICE_PORT: \"{port}\"",
+            "    volumes:",
+            "      - ${LZC_AGENT_DATA_DIR}/data:/data",
+            "      - ${LZC_AGENT_CACHE_DIR}/cache:/cache",
+            "    labels:",
+            "      - \"traefik.enable=true\"",
+            f"      - \"traefik.http.routers.${{LZC_SERVICE_ID}}-{service_name}.rule=Host(`{host_name}`)\"",
+            f"      - \"traefik.http.services.${{LZC_SERVICE_ID}}-{service_name}.loadbalancer.server.port={port}\"",
+            "    networks:",
+            "      - traefik-shared-network",
+            "",
+            "networks:",
+            "  traefik-shared-network:",
+            "    external: true",
+            "    name: traefik-shared-network",
+            "",
+        ]
+    )
+
+
+def create_ai_pod_service_dir(app_dir: Path, spec: dict[str, Any], force: bool) -> list[Path]:
+    written: list[Path] = []
+    service_dir = app_dir / spec["ai_pod_service"]
+    service_dir.mkdir(parents=True, exist_ok=True)
+    readme_path = service_dir / "README.md"
+    compose_path = service_dir / "docker-compose.yml"
+    readme_content = (
+        f"# ai-pod-service\n\n"
+        f"算力舱 GPU 服务骨架目录，当前服务名为 `{spec['ai_pod_service_name']}`，"
+        f"预期对外主机名为 `{spec['ai_pod_service_name']}-ai`。\n"
+        "请把占位镜像替换为真实 GPU 服务镜像，并补齐命令、卷、健康检查与依赖。\n"
+    )
+    if force or not readme_path.exists():
+        readme_path.write_text(readme_content, encoding="utf-8")
+        written.append(readme_path)
+    if force or not compose_path.exists():
+        compose_path.write_text(render_aipod_compose(spec), encoding="utf-8")
+        written.append(compose_path)
+    return written
+
+
 def write_files(repo_root: Path, spec: dict[str, Any], force: bool) -> list[Path]:
     app_dir = repo_root / "apps" / spec["slug"]
     registry_dir = repo_root / "registry" / "repos"
@@ -970,6 +1113,11 @@ def write_files(repo_root: Path, spec: dict[str, Any], force: bool) -> list[Path
     if spec["include_content"]:
         create_content_dir(app_dir)
         written.append(app_dir / "content" / "README.md")
+        if spec["ai_pod_service"]:
+            written.extend(create_aipod_content(app_dir, spec))
+
+    if spec["ai_pod_service"]:
+        written.extend(create_ai_pod_service_dir(app_dir, spec, force))
 
     if spec["dockerfile_path"]:
         dockerfile_path = app_dir / spec["dockerfile_path"]
@@ -1039,6 +1187,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--healthcheck-url", default="", help="Simple HTTP healthcheck URL")
     parser.add_argument("--icon-path", default="", help="Optional icon.png source path")
     parser.add_argument("--include-content", action="store_true", help="Create content/ and set contentdir in lzc-build.yml")
+    parser.add_argument("--ai-pod-service", default="", help="AI Pod service directory, e.g. ./ai-pod-service")
+    parser.add_argument("--ai-pod-service-name", default="", help="AI service name used for <name>-ai routing")
+    parser.add_argument("--ai-pod-service-port", type=int, default=0, help="Primary AI Pod container port")
+    parser.add_argument("--ai-pod-image", default="", help="AI Pod service image")
+    parser.add_argument("--aipod-shortcut-disable", action="store_true", help="Disable AI browser shortcut")
+    parser.add_argument("--usage", default="", help="Optional usage/help text for manifest")
     parser.add_argument("--no-fetch-upstream", action="store_true", help="Do not call GitHub API for missing metadata")
     parser.add_argument("--force", action="store_true", help="Overwrite managed files if they already exist")
     parser.add_argument("--dry-run", action="store_true", help="Resolve inputs and print the scaffold plan without writing files")
