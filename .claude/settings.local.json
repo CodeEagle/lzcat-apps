@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth:*)",
+      "Bash(gh repo:*)",
+      "mcp__plugin_context-mode_context-mode__fetch_and_index",
+      "mcp__plugin_context-mode_context-mode__search",
+      "Bash(python3 -c \"import yaml; yaml.safe_load\\(open\\(''/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/crucix/lzc-manifest.yml''\\)\\)\")",
+      "Bash(node:*)"
+    ]
+  }
+}
