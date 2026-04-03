@@ -14,5 +14,6 @@ auth:
 
 oauth:
   refresh_token: "YOUR_EXTRACTED_REFRESH_TOKEN_HERE" 
-logger:
+logging:
   level: "info"
+  audit: true

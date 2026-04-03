@@ -1,0 +1,38 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.htmly
+version: '3.1.1'
+min_os_version: 1.3.8
+name: HTMLy
+description: (LazyCat Auto-build) Databaseless PHP blogging platform and flat-file CMS
+license: GPL-2.0
+homepage: https://www.htmly.com
+author: danpros
+application:
+  subdomain: htmly
+  public_path:
+    - /
+  upstreams:
+    - location: /
+      backend: http://htmly:80/
+services:
+  htmly:
+    image: registry.lazycat.cloud/placeholder/htmly:latest
+    environment:
+      - TZ=Asia/Shanghai
+    binds:
+      - /lzcapp/var/data/htmly/content:/var/www/html/content
+      - /lzcapp/var/data/htmly/cache:/var/www/html/cache
+      - /lzcapp/var/data/htmly/config:/var/www/html/config
+    setup_script: |
+      mkdir -p /var/www/html/content /var/www/html/cache /var/www/html/config /var/www/html/config/users
+      cp -an /opt/htmly-dist/content/. /var/www/html/content/ 2>/dev/null || true
+      cp -an /opt/htmly-dist/cache/. /var/www/html/cache/ 2>/dev/null || true
+      cp -an /opt/htmly-dist/config/. /var/www/html/config/ 2>/dev/null || true
+      chown -R www-data:www-data /var/www/html/content /var/www/html/cache /var/www/html/config
+locales:
+  en:
+    name: HTMLy
+    description: (LazyCat Auto-build) Databaseless PHP blogging platform and flat-file CMS
+  zh:
+    name: HTMLy
+    description: （懒猫微服自动构建）无数据库 PHP 博客与 Flat-File CMS
