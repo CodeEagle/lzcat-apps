@@ -196,6 +196,28 @@ def is_transient_push_error(message: str) -> bool:
     return any(marker in lowered for marker in transient_markers)
 
 
+def is_transient_copy_image_error(message: str) -> bool:
+    lowered = message.lower()
+    transient_markers = (
+        "unexpected token '<'",
+        "is not valid json",
+        "<html>",
+        "502",
+        "503",
+        "504",
+        "bad gateway",
+        "gateway timeout",
+        "service unavailable",
+        "timeout",
+        "timed out",
+        "temporarily unavailable",
+        "connection reset",
+        "econnreset",
+        "socket hang up",
+    )
+    return any(marker in lowered for marker in transient_markers)
+
+
 def normalize_build_version(value: str) -> str:
     version = value.strip()
     version = version[1:] if version.startswith("v") else version
@@ -566,53 +588,74 @@ def ensure_registry_anonymous_pullable(image: str) -> None:
 def copy_image_to_lazycat(source_image: str, env: dict[str, str]) -> tuple[str, dict[str, Any]]:
     ensure_registry_anonymous_pullable(source_image)
     log(f"Copying image to LazyCat registry: {source_image}")
-    started = time.monotonic()
-    proc = subprocess.Popen(
-        ["lzc-cli", "appstore", "copy-image", source_image],
-        env=env,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
-    lines: list[str] = []
-    announced_waiting = False
-    announced_upload = False
-    assert proc.stdout is not None
-    for line in proc.stdout:
-        print(line, end="", flush=True)
-        lines.append(line)
-        normalized = strip_ansi(line).strip().lower()
-        if not normalized:
-            continue
-        if "waiting" in normalized and not announced_waiting:
-            log(f"[copy-image] Waiting for LazyCat registry to accept {source_image}")
-            announced_waiting = True
-            continue
-        if "uploading" in normalized and not announced_upload:
-            log(f"[copy-image] Upload started for {source_image}")
-            announced_upload = True
-    proc.wait()
-    output = strip_ansi("".join(lines)).strip()
-    if proc.returncode != 0:
-        raise RuntimeError(
-            f"Command failed ({proc.returncode}): lzc-cli appstore copy-image {source_image}\n"
-            f"output:\n{output}"
+    max_attempts = max(1, parse_int_env(env, "LZCAT_COPY_IMAGE_MAX_ATTEMPTS", 3))
+    last_error: RuntimeError | None = None
+
+    for attempt in range(1, max_attempts + 1):
+        started = time.monotonic()
+        proc = subprocess.Popen(
+            ["lzc-cli", "appstore", "copy-image", source_image],
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
         )
-    match = re.search(r"(registry\.lazycat\.cloud/[A-Za-z0-9_/.:-]+)", output)
-    if not match:
-        raise RuntimeError(f"Failed to extract LazyCat image from output:\n{output}")
-    target_image = match.group(1)
-    elapsed = time.monotonic() - started
-    log(
-        f"[copy-image] Completed in {elapsed:.1f}s: {source_image} -> {target_image}"
-    )
-    return target_image, {
-        "source_image": source_image,
-        "target_image": target_image,
-        "elapsed_seconds": round(elapsed, 3),
-        "saw_waiting": announced_waiting,
-        "saw_upload_started": announced_upload,
-    }
+        lines: list[str] = []
+        announced_waiting = False
+        announced_upload = False
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            print(line, end="", flush=True)
+            lines.append(line)
+            normalized = strip_ansi(line).strip().lower()
+            if not normalized:
+                continue
+            if "waiting" in normalized and not announced_waiting:
+                log(f"[copy-image] Waiting for LazyCat registry to accept {source_image}")
+                announced_waiting = True
+                continue
+            if "uploading" in normalized and not announced_upload:
+                log(f"[copy-image] Upload started for {source_image}")
+                announced_upload = True
+        proc.wait()
+        output = strip_ansi("".join(lines)).strip()
+
+        if proc.returncode == 0:
+            match = re.search(r"(registry\.lazycat\.cloud/[A-Za-z0-9_/.:-]+)", output)
+            if match:
+                target_image = match.group(1)
+                elapsed = time.monotonic() - started
+                log(
+                    f"[copy-image] Completed in {elapsed:.1f}s: {source_image} -> {target_image}"
+                )
+                return target_image, {
+                    "source_image": source_image,
+                    "target_image": target_image,
+                    "elapsed_seconds": round(elapsed, 3),
+                    "saw_waiting": announced_waiting,
+                    "saw_upload_started": announced_upload,
+                }
+            last_error = RuntimeError(f"Failed to extract LazyCat image from output:\n{output}")
+        else:
+            last_error = RuntimeError(
+                f"Command failed ({proc.returncode}): lzc-cli appstore copy-image {source_image}\n"
+                f"output:\n{output}"
+            )
+
+        assert last_error is not None
+        if attempt < max_attempts and is_transient_copy_image_error(str(last_error)):
+            delay = min(30, 5 * attempt)
+            log(
+                f"Transient copy-image failure for {source_image} "
+                f"(attempt {attempt}/{max_attempts}): {str(last_error).splitlines()[0]}"
+            )
+            log(f"Retrying copy-image in {delay}s")
+            time.sleep(delay)
+            continue
+        raise last_error
+
+    assert last_error is not None
+    raise last_error
 
 
 def publish_release_asset(
