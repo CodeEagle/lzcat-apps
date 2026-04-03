@@ -23,9 +23,6 @@
   "service_builds": [
     {
       "target_service": "frontend",
-      "additional_target_services": [
-        "config-ui"
-      ],
       "build_strategy": "upstream_dockerfile",
       "source_dockerfile_path": "frontend/Dockerfile",
       "build_context": ".",

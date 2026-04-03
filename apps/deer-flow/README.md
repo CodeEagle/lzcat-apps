@@ -16,7 +16,6 @@
 - Service Port: `2026`
 
 ### Services
-- `config-ui` -> `registry.lazycat.cloud/placeholder/deer-flow:frontend`
 - `nginx` -> `registry.lazycat.cloud/placeholder/deer-flow:nginx`
 - `frontend` -> `registry.lazycat.cloud/placeholder/deer-flow:frontend`
 - `gateway` -> `registry.lazycat.cloud/placeholder/deer-flow:gateway`
@@ -51,11 +50,9 @@
 ## 首次启动/验收提醒
 
 - 自动扫描到 compose 文件：docker/docker-compose.yaml
-- 首次访问会进入应用内配置页，用户通过下拉选项选择模型提供方和默认模型后再启动 DeerFlow。
-- 配置完成后可随时访问 `/settings/config` 重新修改。
+- 首次安装和后续重配置均使用 `lzc-deploy-params.yml` 提供的官方部署参数页。
 - 当前默认走 LocalSandboxProvider，避免依赖 Docker Socket 或 Kubernetes provisioner。
-- 服务启动前会根据应用内表单状态自动渲染 `/lzcapp/var/data/deer-flow/config/config.yaml`。
-- 当前内置的是 OpenAI / OpenRouter 下拉选项；如果后续要支持更多 provider，可继续扩展 schema 和渲染脚本。
+- 服务启动前会读取部署参数，并同步写回 `/lzcapp/var/data/deer-flow/config/model.env` 和 `/lzcapp/var/data/deer-flow/config/config.yaml`。
 
 ## 下一步
 
