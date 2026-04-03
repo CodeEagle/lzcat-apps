@@ -41,6 +41,8 @@ services:
         email: "anonymous@example.com"
       auth:
         refresh_token: "YOUR_EXTRACTED_REFRESH_TOKEN_HERE"
+        tokens:
+          - "YOUR_CLAUDE_SESSION_TOKEN_HERE"
       CONFEOF
         fi
       fi

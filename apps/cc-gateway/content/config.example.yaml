@@ -11,3 +11,5 @@ identity:
 auth:
   # 你需要从原生终端提取真正的长期 refresh_token 放在这里，网关会帮你自动续签免去所有烦恼
   refresh_token: "YOUR_EXTRACTED_REFRESH_TOKEN_HERE"
+  tokens:
+    - "YOUR_CLAUDE_SESSION_TOKEN_HERE"

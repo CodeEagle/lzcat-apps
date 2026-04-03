@@ -16,7 +16,8 @@
       "Bash(mkdir -p /Users/lincoln.law/.claude/projects/-Volumes-ORICO-Development-Github-lzcat-lzcat-apps/memory/)",
       "Bash(__NEW_LINE_684a78e249ec4138__ cat:*)",
       "Read(//cp \\\\/lzcapp\\\\/pkg\\\\/content\\\\/config.example.yaml/**)",
-      "Bash(sh fix.sh)"
+      "Bash(sh fix.sh)",
+      "Bash(gh workflow:*)"
     ]
   }
 }
