@@ -93,6 +93,8 @@ def yaml_scalar(value: Any) -> str:
     text = str(value)
     if not text:
         return '""'
+    if "{{" in text or "}}" in text:
+        return "'" + text.replace("'", "''") + "'"
     if text in {"null", "Null", "NULL", "~", "true", "false", "yes", "no", "on", "off"}:
         return json.dumps(text, ensure_ascii=False)
     if text.startswith(("-", "?", ":", "@", "`", "!", "*", "&", "%", "{", "}", "[", "]", ",")):
