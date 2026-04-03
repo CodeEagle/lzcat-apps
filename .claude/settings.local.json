@@ -6,7 +6,17 @@
       "mcp__plugin_context-mode_context-mode__fetch_and_index",
       "mcp__plugin_context-mode_context-mode__search",
       "Bash(python3 -c \"import yaml; yaml.safe_load\\(open\\(''/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/crucix/lzc-manifest.yml''\\)\\)\")",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(gh api:*)",
+      "Bash(python3:*)",
+      "Bash(cat:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(mkdir -p /Users/lincoln.law/.claude/projects/-Volumes-ORICO-Development-Github-lzcat-lzcat-apps/memory/)",
+      "Bash(__NEW_LINE_684a78e249ec4138__ cat:*)",
+      "Read(//cp \\\\/lzcapp\\\\/pkg\\\\/content\\\\/config.example.yaml/**)",
+      "Bash(sh fix.sh)"
     ]
   }
 }
