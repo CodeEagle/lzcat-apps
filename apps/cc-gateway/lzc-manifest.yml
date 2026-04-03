@@ -42,6 +42,8 @@ services:
           - "{{ .U.auth_token }}"
       oauth:
         refresh_token: "{{ .U.oauth_refresh_token }}"
+      logger:
+        level: "info"
       CONFEOF
       fi
 
