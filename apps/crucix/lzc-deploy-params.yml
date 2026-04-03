@@ -2,11 +2,11 @@ params:
   - id: llm.provider
     type: string
     name: LLM Provider
-    description: "Required. Enter a provider such as openai, anthropic, gemini, codex, openrouter, minimax, mistral, ollama, or grok. Enter disabled to skip AI trade ideas for now. After install, reconfigure from LazyCat's native deployment-params entry when your system version exposes it."
+    description: "Required. Enter a provider such as openai, anthropic, gemini, codex, openrouter, minimax, mistral, ollama, or grok. Enter disabled to skip AI-powered trade ideas for now. You can reconfigure later from Deployment Parameters in the app details page."
   - id: llm.api_key
     type: string
     name: LLM API Key
-    description: "Optional credential for the selected provider. Leave empty to skip. After install, reconfigure from LazyCat's native deployment-params entry when your system version exposes it."
+    description: "Optional credential for the selected provider. Leave empty to skip. The configured values will be written into the app .env before startup, and you can reconfigure later from Deployment Parameters in the app details page."
     default_value: ""
     optional: true
   - id: llm.model

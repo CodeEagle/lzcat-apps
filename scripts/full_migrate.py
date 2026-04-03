@@ -135,6 +135,8 @@ SOURCE_BUILD_STRATEGIES = {
 }
 DEFAULT_AIPOD_GATEWAY_IMAGE = "registry.lazycat.cloud/catdogai/caddy-aipod:65e058ce"
 FRONTEND_HINT_DIRS = ("web", "frontend", "ui", "site", "app", "demo")
+BOX_CONFIG_PATH = Path.home() / ".config" / "lazycat" / "box-config.json"
+MAX_ICON_BYTES = 200 * 1024
 
 
 @dataclass(frozen=True)
@@ -216,6 +218,13 @@ def file_sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def load_json_file(path: Path) -> dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
 
 
 def command_exists(name: str) -> bool:
@@ -2777,6 +2786,8 @@ def apply_app_post_process(repo_root: Path, finalized: dict[str, Any], analysis:
         return post_process_deer_flow(repo_root)
     if finalized["slug"] == "multica" and upstream_repo == "multica-ai/multica":
         return post_process_multica(repo_root)
+    if matches_basic_llm_dotenv_profile(finalized, analysis):
+        return post_process_basic_llm_dotenv(repo_root, finalized["slug"])
     return []
 
 
@@ -2888,7 +2899,7 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: AnalysisResul
             "自动扫描到 compose 文件：docker/docker-compose.yaml",
             "首次访问会进入应用内配置页，用户通过下拉选项选择模型提供方和默认模型后再启动 DeerFlow。",
             "配置完成后可随时访问 `/settings/config` 重新修改。",
-            "App Detail 中也会保留 Deployment Parameters 入口，作为高级默认值配置入口。",
+            "Deployment Parameters 适合作为首次安装或重装时的高级默认值输入；入口展示位置以当前 LazyCat 系统版本为准。",
             "当前默认走 LocalSandboxProvider，避免依赖 Docker Socket 或 Kubernetes provisioner。",
             "服务启动前会根据应用内表单状态自动渲染 `/deer-flow-state/config/config.yaml`。",
             "当前内置的是 OpenAI / OpenRouter 下拉选项；如果后续要支持更多 provider，可继续扩展 schema 和渲染脚本。",
@@ -2931,7 +2942,7 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: AnalysisResul
             },
             "langgraph": {
                 "image": "registry.lazycat.cloud/placeholder/deer-flow:langgraph",
-                "command": deer_flow_bootstrap_command("mkdir -p /app/backend/.langgraph_api && cd /app/backend && uv run langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port 2024", wait_for_ready=True),
+                "command": deer_flow_bootstrap_command("mkdir -p /app/backend/.langgraph_api && cd /app/backend && (python /lzcapp/pkg/content/backfill-langgraph-state.py >/tmp/backfill-langgraph-state.log 2>&1 &) && uv run langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port 2024", wait_for_ready=True),
                 "environment": deer_flow_runtime_env(include_tracing=True),
                 "binds": [
                     "/lzcapp/var/data/deer-flow/runtime:/deer-flow-state",
@@ -2940,6 +2951,16 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: AnalysisResul
                 ],
             },
         }
+
+    if matches_basic_llm_dotenv_profile(finalized, analysis):
+        apply_persisted_env_service_profile(
+            finalized,
+            service_name=finalized.get("slug", "app"),
+            state_slug=finalized.get("slug", "app"),
+            state_env_prefix=slug_to_env_prefix(finalized.get("slug", "app")),
+            note_prefix="LLM",
+            note_description="检测到应用要求通过 `.env` 提供 LLM_PROVIDER / credentials；迁移器已强制接入 Deployment Parameters，并在启动前把这些值写入持久化 `.env`。",
+        )
 
     return finalized
 
@@ -3025,6 +3046,8 @@ def deer_flow_config_ui_env() -> list[str]:
 
 def deer_flow_deploy_param_env() -> list[str]:
     return [
+        '{{ if index .U "model.api_key" }}OPENAI_API_KEY={{ index .U "model.api_key" }}{{ else }}OPENAI_API_KEY={{ end }}',
+        '{{ if index .U "model.api_key" }}OPENROUTER_API_KEY={{ index .U "model.api_key" }}{{ else }}OPENROUTER_API_KEY={{ end }}',
         '{{ if index .U "model.provider_preset" }}DEER_FLOW_MODEL_PROVIDER_PRESET={{ index .U "model.provider_preset" }}{{ else }}DEER_FLOW_MODEL_PROVIDER_PRESET=openai{{ end }}',
         '{{ if index .U "model.name" }}DEER_FLOW_MODEL_NAME={{ index .U "model.name" }}{{ else }}DEER_FLOW_MODEL_NAME=default-chat{{ end }}',
         '{{ if index .U "model.display_name" }}DEER_FLOW_MODEL_DISPLAY_NAME={{ index .U "model.display_name" }}{{ else }}DEER_FLOW_MODEL_DISPLAY_NAME=Default Chat Model{{ end }}',
@@ -3064,37 +3087,52 @@ def render_deer_flow_config_script() -> str:
         display_name="${DEER_FLOW_MODEL_DISPLAY_NAME:-Default Chat Model}"
         model_id="${DEER_FLOW_MODEL_ID:-gpt-4.1-mini}"
         base_url="${DEER_FLOW_MODEL_BASE_URL:-}"
-        api_key_value="${DEER_FLOW_MODEL_API_KEY:-}"
-        api_key_ref='\\$DEER_FLOW_MODEL_API_KEY'
         use_responses_api="${DEER_FLOW_MODEL_USE_RESPONSES_API:-false}"
         temperature="${DEER_FLOW_MODEL_TEMPERATURE:-0.7}"
 
-        if [ "$provider" = "openrouter" ] && [ -z "$base_url" ]; then
-          base_url="https://openrouter.ai/api/v1"
+        api_key_ref='$OPENAI_API_KEY'
+        api_key_value="${OPENAI_API_KEY:-${DEER_FLOW_MODEL_API_KEY:-}}"
+        if [ "$provider" = "openrouter" ]; then
+          api_key_ref='$OPENROUTER_API_KEY'
+          api_key_value="${OPENROUTER_API_KEY:-${DEER_FLOW_MODEL_API_KEY:-}}"
+          if [ -z "$base_url" ]; then
+            base_url="https://openrouter.ai/api/v1"
+          fi
         fi
 
         {
-          echo "# Generated from LazyCat deployment parameters."
-          echo "# Re-open App Detail -> Deployment Parameters to update this config."
-          echo "config_version: 3"
-          echo "log_level: info"
-          echo
-          echo "models:"
+          cat <<'EOF'
+        # Configuration for the DeerFlow application
+        #
+        # This file is generated for LazyCat, but keeps the upstream DeerFlow layout
+        # and field names so runtime behavior stays aligned with the default project.
+
+        config_version: 5
+
+        log_level: info
+
+        token_usage:
+          enabled: false
+
+        models:
+        EOF
           echo "  - name: $(quote_yaml "$model_name")"
           echo "    display_name: $(quote_yaml "$display_name")"
           echo "    use: langchain_openai:ChatOpenAI"
           echo "    model: $(quote_yaml "$model_id")"
           echo "    api_key: $api_key_ref"
-          echo "    max_tokens: 4096"
-          echo "    temperature: $temperature"
           if [ -n "$base_url" ]; then
             echo "    base_url: $(quote_yaml "$base_url")"
           fi
+          echo "    request_timeout: 600.0"
+          echo "    max_retries: 2"
+          echo "    max_tokens: 4096"
+          echo "    temperature: $temperature"
+          echo "    supports_vision: true"
           if [ "$use_responses_api" = "true" ]; then
             echo "    use_responses_api: true"
             echo "    output_version: responses/v1"
           fi
-          echo
           cat <<'EOF'
         tool_groups:
           - name: web
@@ -3146,6 +3184,10 @@ def render_deer_flow_config_script() -> str:
 
         summarization:
           enabled: true
+
+        checkpointer:
+          type: sqlite
+          connection_string: /app/backend/.langgraph_api/checkpoints.db
         EOF
         } > "$CONFIG_PATH"
 
@@ -3245,15 +3287,16 @@ def render_config_ui_server() -> str:
           const provider = findProvider(schema, providerId) || schema.providers?.[0] || null;
           const modelPresetFromState = persisted.DEER_FLOW_MODEL_PRESET || "";
           const modelPresetFromEnv = provider?.models?.find((item) => item.modelId === (process.env.DEER_FLOW_MODEL_ID || ""))?.id || "";
+          const providerApiKey = provider?.id === "openrouter"
+            ? (persisted.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY || "")
+            : (persisted.OPENAI_API_KEY || process.env.OPENAI_API_KEY || "");
           const modelPreset = modelPresetFromState || modelPresetFromEnv || provider?.defaultModel || provider?.models?.[0]?.id || "";
           const selectedModel = findModel(provider, modelPreset) || provider?.models?.[0] || null;
           return {
             provider: provider?.id || "",
             modelPreset,
-            customModelId: persisted.DEER_FLOW_MODEL_ID || process.env.DEER_FLOW_MODEL_ID || selectedModel?.modelId || "",
-            customDisplayName: persisted.DEER_FLOW_MODEL_DISPLAY_NAME || process.env.DEER_FLOW_MODEL_DISPLAY_NAME || selectedModel?.displayName || "",
             baseUrl: persisted.DEER_FLOW_MODEL_BASE_URL || process.env.DEER_FLOW_MODEL_BASE_URL || provider?.baseUrl || "",
-            apiKey: persisted.DEER_FLOW_MODEL_API_KEY || process.env.DEER_FLOW_MODEL_API_KEY || "",
+            apiKey: providerApiKey || persisted.DEER_FLOW_MODEL_API_KEY || process.env.DEER_FLOW_MODEL_API_KEY || "",
             tavilyApiKey: persisted.TAVILY_API_KEY || process.env.TAVILY_API_KEY || "",
             jinaApiKey: persisted.JINA_API_KEY || process.env.JINA_API_KEY || "",
           };
@@ -3271,26 +3314,23 @@ def render_config_ui_server() -> str:
           if (!String(submitted.apiKey || "").trim()) {
             throw new Error("API Key is required before DeerFlow can start.");
           }
-          const customModelId = String(submitted.customModelId || "").trim();
-          if (!customModelId) {
-            throw new Error("Model ID is required before DeerFlow can start.");
-          }
           const submittedBaseUrl = String(submitted.baseUrl || "").trim();
           const resolvedBaseUrl = submittedBaseUrl || provider.baseUrl || "";
           if (provider.requiresBaseUrl && !resolvedBaseUrl) {
             throw new Error("Base URL is required for the custom OpenAI-compatible provider.");
           }
-          const customDisplayName = String(submitted.customDisplayName || "").trim();
           return {
             DEER_FLOW_MODEL_PROVIDER_PRESET: provider.id,
             DEER_FLOW_MODEL_PRESET: model.id,
             DEER_FLOW_MODEL_NAME: model.name,
-            DEER_FLOW_MODEL_DISPLAY_NAME: customDisplayName || model.displayName,
-            DEER_FLOW_MODEL_ID: customModelId,
+            DEER_FLOW_MODEL_DISPLAY_NAME: model.displayName,
+            DEER_FLOW_MODEL_ID: model.modelId,
             DEER_FLOW_MODEL_BASE_URL: resolvedBaseUrl,
             DEER_FLOW_MODEL_USE_RESPONSES_API: model.useResponsesApi ? "true" : "false",
             DEER_FLOW_MODEL_TEMPERATURE: String(model.temperature ?? "0.7"),
             DEER_FLOW_MODEL_API_KEY: String(submitted.apiKey || "").trim(),
+            OPENAI_API_KEY: provider.id === "openrouter" ? "" : String(submitted.apiKey || "").trim(),
+            OPENROUTER_API_KEY: provider.id === "openrouter" ? String(submitted.apiKey || "").trim() : "",
             TAVILY_API_KEY: String(submitted.tavilyApiKey || "").trim(),
             JINA_API_KEY: String(submitted.jinaApiKey || "").trim(),
           };
@@ -3374,26 +3414,14 @@ def render_config_ui_server() -> str:
                 <div class="field">
                   <label for="modelPreset">Default Model</label>
                   <select id="modelPreset"></select>
-                  <div id="modelHint" class="hint">Pick a preset, or use it as a starting point and edit the model ID below.</div>
-                </div>
-              </div>
-              <div class="grid">
-                <div class="field">
-                  <label for="customModelId">Model ID</label>
-                  <input id="customModelId" type="text" autocomplete="off" placeholder="gpt-4.1-mini">
-                  <div class="hint">Supports manual input. The preset only provides a suggested default.</div>
-                </div>
-                <div class="field">
-                  <label for="customDisplayName">Display Name</label>
-                  <input id="customDisplayName" type="text" autocomplete="off" placeholder="Optional custom label">
-                  <div class="hint">Optional. If left empty, the selected preset label is used.</div>
+                  <div id="modelHint" class="hint"></div>
                 </div>
               </div>
               <div class="grid">
                 <div class="field">
                   <label for="apiKey">API Key</label>
                   <input id="apiKey" type="password" autocomplete="off" placeholder="Paste the provider API key">
-                  <div class="hint">Stored in the app data directory and exposed to DeerFlow as <code>DEER_FLOW_MODEL_API_KEY</code>.</div>
+                  <div class="hint">Stored in the app data directory and exposed as <code>OPENAI_API_KEY</code> or <code>OPENROUTER_API_KEY</code>, depending on the selected provider.</div>
                 </div>
                 <div class="field">
                   <label for="baseUrl">Base URL</label>
@@ -3428,8 +3456,6 @@ def render_config_ui_server() -> str:
             const initialValues = __VALUES_JSON__;
             const providerEl = document.getElementById("provider");
             const modelEl = document.getElementById("modelPreset");
-            const customModelIdEl = document.getElementById("customModelId");
-            const customDisplayNameEl = document.getElementById("customDisplayName");
             const apiKeyEl = document.getElementById("apiKey");
             const baseUrlEl = document.getElementById("baseUrl");
             const baseUrlHintEl = document.getElementById("baseUrlHint");
@@ -3471,13 +3497,6 @@ def render_config_ui_server() -> str:
               const fallback = provider.defaultModel || provider.models[0]?.id || "";
               const selected = (provider.models || []).some((item) => item.id === initialValues.modelPreset) ? initialValues.modelPreset : fallback;
               modelEl.value = selected;
-              const model = currentModel();
-              if (!customModelIdEl.dataset.touched || providerEl.dataset.providerChanged === "true") {
-                customModelIdEl.value = initialValues.customModelId || model?.modelId || "";
-              }
-              if (!customDisplayNameEl.dataset.touched || providerEl.dataset.providerChanged === "true") {
-                customDisplayNameEl.value = initialValues.customDisplayName || model?.displayName || "";
-              }
               updateBaseUrlField();
               updateResolved();
             }
@@ -3504,13 +3523,11 @@ def render_config_ui_server() -> str:
               const provider = currentProvider();
               const model = currentModel();
               modelHintEl.textContent = model.summary || "";
-              const resolvedModelId = customModelIdEl.value || model.modelId;
-              const resolvedDisplayName = customDisplayNameEl.value || model.displayName;
               const resolvedBaseUrl = baseUrlEl.value || provider.baseUrl || "";
               const bits = [
                 "Provider: " + provider.label,
-                "Model ID: " + resolvedModelId,
-                "Label: " + resolvedDisplayName,
+                "Model ID: " + model.modelId,
+                "Label: " + model.displayName,
                 resolvedBaseUrl ? "Base URL: " + resolvedBaseUrl : "Base URL: provider default",
                 model.useResponsesApi ? "Responses API: enabled" : "Responses API: disabled",
               ];
@@ -3527,8 +3544,6 @@ def render_config_ui_server() -> str:
               return {
                 provider: providerEl.value,
                 modelPreset: modelEl.value,
-                customModelId: customModelIdEl.value,
-                customDisplayName: customDisplayNameEl.value,
                 baseUrl: baseUrlEl.value,
                 apiKey: apiKeyEl.value,
                 tavilyApiKey: tavilyEl.value,
@@ -3552,21 +3567,6 @@ def render_config_ui_server() -> str:
               updateModelOptions();
             });
             modelEl.addEventListener("change", () => {
-              const model = currentModel();
-              if (!customModelIdEl.dataset.touched) {
-                customModelIdEl.value = model.modelId || "";
-              }
-              if (!customDisplayNameEl.dataset.touched) {
-                customDisplayNameEl.value = model.displayName || "";
-              }
-              updateResolved();
-            });
-            customModelIdEl.addEventListener("input", () => {
-              customModelIdEl.dataset.touched = "true";
-              updateResolved();
-            });
-            customDisplayNameEl.addEventListener("input", () => {
-              customDisplayNameEl.dataset.touched = "true";
               updateResolved();
             });
             baseUrlEl.addEventListener("input", () => {
@@ -3578,8 +3578,6 @@ def render_config_ui_server() -> str:
 
             updateProviderOptions();
             updateModelOptions();
-            customModelIdEl.value = initialValues.customModelId || "";
-            customDisplayNameEl.value = initialValues.customDisplayName || "";
             apiKeyEl.value = initialValues.apiKey || "";
             baseUrlEl.value = initialValues.baseUrl || "";
             tavilyEl.value = initialValues.tavilyApiKey || "";
@@ -4333,6 +4331,131 @@ def render_deer_flow_config_validator() -> str:
     )
 
 
+def render_deer_flow_backfill_script() -> str:
+    return textwrap.dedent(
+        """\
+        #!/usr/bin/env python3
+        \"\"\"Backfill LangGraph thread state from persisted thread values.
+
+        DeerFlow UI thread detail relies on `/threads/{id}/state` and `/history`.
+        In some deployments, `/threads/search` and `/threads/{id}` still contain
+        `values` after restart while `/state` and `/history` are empty. This script
+        repairs those threads by writing `values` back to `/threads/{id}/state`.
+        \"\"\"
+
+        from __future__ import annotations
+
+        import json
+        import os
+        import time
+        import urllib.error
+        import urllib.request
+
+
+        BASE_URL = os.environ.get("DEER_FLOW_INTERNAL_LANGGRAPH_BASE_URL", "http://127.0.0.1:2024").rstrip("/")
+        TIMEOUT = 10
+
+
+        def request_json(method: str, path: str, payload: dict | None = None) -> dict | list:
+            data = None
+            headers = {"accept": "application/json"}
+            if payload is not None:
+                data = json.dumps(payload).encode("utf-8")
+                headers["content-type"] = "application/json"
+            req = urllib.request.Request(f"{BASE_URL}{path}", data=data, headers=headers, method=method)
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                raw = resp.read()
+            if not raw:
+                return {}
+            return json.loads(raw.decode("utf-8"))
+
+
+        def wait_until_ready(max_wait_seconds: int = 120) -> bool:
+            deadline = time.time() + max_wait_seconds
+            while time.time() < deadline:
+                try:
+                    request_json("POST", "/threads/search", {"limit": 1, "offset": 0})
+                    return True
+                except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError):
+                    time.sleep(2)
+            return False
+
+
+        def state_is_empty(state: dict) -> bool:
+            values = state.get("values")
+            return not isinstance(values, dict) or len(values) == 0
+
+
+        def run() -> int:
+            if not wait_until_ready():
+                print("[backfill] LangGraph API not ready; skip.")
+                return 0
+
+            print(f"[backfill] API ready: {BASE_URL}")
+            fixed = 0
+            skipped = 0
+            failed = 0
+            total = 0
+            offset = 0
+            page_size = 100
+
+            while True:
+                batch = request_json(
+                    "POST",
+                    "/threads/search",
+                    {"limit": page_size, "offset": offset, "sort_by": "updated_at", "sort_order": "desc"},
+                )
+                if isinstance(batch, dict):
+                    threads = batch.get("data") or batch.get("threads") or []
+                else:
+                    threads = batch
+
+                if not threads:
+                    break
+
+                for item in threads:
+                    thread_id = item.get("thread_id")
+                    if not thread_id:
+                        continue
+                    total += 1
+                    try:
+                        state = request_json("GET", f"/threads/{thread_id}/state")
+                        if isinstance(state, dict) and not state_is_empty(state):
+                            skipped += 1
+                            continue
+
+                        thread = request_json("GET", f"/threads/{thread_id}")
+                        values = thread.get("values") if isinstance(thread, dict) else None
+                        if not isinstance(values, dict) or len(values) == 0:
+                            skipped += 1
+                            continue
+
+                        resp = request_json("POST", f"/threads/{thread_id}/state", {"values": values})
+                        checkpoint_id = resp.get("checkpoint_id") if isinstance(resp, dict) else None
+                        if checkpoint_id:
+                            fixed += 1
+                            print(f"[backfill] fixed {thread_id}")
+                        else:
+                            failed += 1
+                            print(f"[backfill] failed {thread_id}: no checkpoint_id")
+                    except Exception as exc:  # noqa: BLE001
+                        failed += 1
+                        print(f"[backfill] failed {thread_id}: {exc}")
+
+                if len(threads) < page_size:
+                    break
+                offset += len(threads)
+
+            print(f"[backfill] done total={total} fixed={fixed} skipped={skipped} failed={failed}")
+            return 0
+
+
+        if __name__ == "__main__":
+            raise SystemExit(run())
+        """
+    )
+
+
 def post_process_deer_flow(repo_root: Path) -> list[str]:
     app_dir = repo_root / "apps" / "deer-flow"
     content_dir = app_dir / "content"
@@ -4409,12 +4532,18 @@ def post_process_deer_flow(repo_root: Path) -> list[str]:
         ),
         content_dir / "config.yaml": textwrap.dedent(
             """\
-            # DeerFlow config template for LazyCat single-node deployment.
-            # This template is intentionally boot-safe: no model API key is required at startup.
-            # The packaged config-ui writes model.env, and render-deer-flow-config.sh rewrites this file from it.
+            # Configuration for the DeerFlow application
+            #
+            # This packaged template follows the upstream DeerFlow 2.0 layout.
+            # LazyCat rewrites the `models` section from the config UI so the runtime keeps
+            # using DeerFlow's default field names and environment-variable conventions.
 
-            config_version: 3
+            config_version: 5
+
             log_level: info
+
+            token_usage:
+              enabled: false
 
             models: []
 
@@ -4468,6 +4597,10 @@ def post_process_deer_flow(repo_root: Path) -> list[str]:
 
             summarization:
               enabled: true
+
+            checkpointer:
+              type: sqlite
+              connection_string: /app/backend/.langgraph_api/checkpoints.db
             """
         ),
         content_dir / "extensions_config.json": textwrap.dedent(
@@ -4478,6 +4611,7 @@ def post_process_deer_flow(repo_root: Path) -> list[str]:
             }
             """
         ),
+        content_dir / "backfill-langgraph-state.py": render_deer_flow_backfill_script(),
         content_dir / "render-deer-flow-config.sh": render_deer_flow_config_script(),
         config_ui_dir / "server.mjs": render_config_ui_server(),
         config_ui_dir / "deer-flow-schema.json": render_deer_flow_config_ui_schema(),
@@ -4496,7 +4630,261 @@ def post_process_deer_flow(repo_root: Path) -> list[str]:
     for path, content in writes.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
-        if path.suffix in {".sh", ".mjs"}:
+        if path.suffix in {".sh", ".mjs", ".py"}:
+            path.chmod(0o755)
+        outputs.append(str(path))
+    return outputs
+
+
+def render_persist_env_bootstrap(
+    *,
+    state_dir_env: str,
+    config_dir_env: str,
+    config_path_env: str,
+    env_names: list[str],
+    preserve_existing_names: list[str] | None = None,
+    app_dir: str = "/app",
+    app_env_path: str = "/app/.env",
+) -> str:
+    preserve_existing_names = preserve_existing_names or []
+    env_names_literal = ", ".join(json.dumps(name) for name in env_names)
+    preserve_literal = ", ".join(json.dumps(name) for name in preserve_existing_names)
+    return textwrap.dedent(
+        f"""\
+        import {{ access, mkdir, readFile, writeFile }} from "node:fs/promises";
+        import {{ constants as fsConstants }} from "node:fs";
+        import {{ spawn }} from "node:child_process";
+
+        const APP_DIR = {json.dumps(app_dir)};
+        const STATE_DIR = process.env.{state_dir_env} || "/app-state";
+        const CONFIG_DIR = process.env.{config_dir_env} || `${{STATE_DIR}}/config`;
+        const CONFIG_PATH = process.env.{config_path_env} || `${{CONFIG_DIR}}/.env`;
+        const DOTENV_PATH = {json.dumps(app_env_path)};
+        const ENV_NAMES = [{env_names_literal}];
+        const PRESERVE_EXISTING_NAMES = new Set([{preserve_literal}]);
+        const RUNTIME_MANIFEST_PATH = "/lzcapp/run/manifest.yml";
+        const PACKAGE_MANIFEST_PATH = "/lzcapp/pkg/manifest.yml";
+
+        async function exists(path) {{
+          try {{
+            await access(path, fsConstants.F_OK);
+            return true;
+          }} catch {{
+            return false;
+          }}
+        }}
+
+        function envContent(values, comment) {{
+          return [
+            comment,
+            ...Object.entries(values).map(([key, value]) => `${{key}}=${{String(value || "").replace(/\\r?\\n/g, " ").trim()}}`),
+            "",
+          ].join("\\n");
+        }}
+
+        function parseEnvText(raw) {{
+          const result = {{}};
+          for (const line of String(raw || "").split(/\\r?\\n/)) {{
+            const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+            if (!match) continue;
+            result[match[1]] = match[2] || "";
+          }}
+          return result;
+        }}
+
+        function parseManifestEnv(raw) {{
+          const result = {{}};
+          for (const line of String(raw || "").split(/\\r?\\n/)) {{
+            const match = line.match(/^\\s*-\\s+([A-Za-z_][A-Za-z0-9_]*)=(.*)\\s*$/);
+            if (!match) continue;
+            const key = match[1];
+            if (!ENV_NAMES.includes(key)) continue;
+            result[key] = match[2] || "";
+          }}
+          return result;
+        }}
+
+        async function manifestEnv() {{
+          for (const path of [RUNTIME_MANIFEST_PATH, PACKAGE_MANIFEST_PATH]) {{
+            if (!(await exists(path))) continue;
+            const raw = await readFile(path, "utf8").catch(() => "");
+            const parsed = parseManifestEnv(raw);
+            if (Object.keys(parsed).length > 0) return parsed;
+          }}
+          return {{}};
+        }}
+
+        async function runtimeEnv() {{
+          const rendered = await manifestEnv();
+          return Object.fromEntries(ENV_NAMES.map((name) => [name, process.env[name] || rendered[name] || ""]));
+        }}
+
+        async function syncConfigFiles() {{
+          await mkdir(CONFIG_DIR, {{ recursive: true }});
+          const content = envContent(await runtimeEnv(), "# Generated by LazyCat bootstrap.");
+          await writeFile(CONFIG_PATH, content, "utf8");
+          await writeFile(DOTENV_PATH, content, "utf8");
+        }}
+
+        async function mergeExistingSecrets() {{
+          if (!(await exists(CONFIG_PATH))) return;
+          const existing = parseEnvText(await readFile(CONFIG_PATH, "utf8").catch(() => ""));
+          for (const name of PRESERVE_EXISTING_NAMES) {{
+            if (!process.env[name] && existing[name]) {{
+              process.env[name] = existing[name];
+            }}
+          }}
+        }}
+
+        await mergeExistingSecrets();
+        await syncConfigFiles();
+
+        const child = spawn("node", ["server.mjs"], {{
+          cwd: APP_DIR,
+          env: {{
+            ...process.env,
+            PORT: process.env.PORT || "3117",
+          }},
+          stdio: "inherit",
+        }});
+
+        child.on("exit", (code, signal) => {{
+          if (signal) process.exit(0);
+          process.exit(code ?? 0);
+        }});
+        """
+    )
+
+
+def slug_to_env_prefix(slug: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9]+", "_", str(slug or "app")).strip("_")
+    return cleaned.upper() or "APP"
+
+
+def matches_basic_llm_dotenv_profile(finalized: dict[str, Any], analysis: AnalysisResult) -> bool:
+    services = finalized.get("services")
+    if not isinstance(services, dict) or len(services) != 1:
+        return False
+    service_name = next(iter(services.keys()))
+    if service_name != finalized.get("slug"):
+        return False
+
+    application = finalized.get("application")
+    app_env = [str(item) for item in application.get("environment", [])] if isinstance(application, dict) else []
+    env_docs = finalized.get("env_vars")
+    env_doc_names = {
+        str(item.get("name", "")).strip()
+        for item in bm.ensure_list(env_docs)
+        if isinstance(item, dict)
+    }
+    joined_env = "\n".join(app_env)
+    required_markers = ("LLM_PROVIDER", "LLM_API_KEY", "LLM_MODEL", "OLLAMA_BASE_URL")
+    has_required_app_env = all(marker in joined_env for marker in required_markers)
+    has_required_env_docs = all(marker in env_doc_names for marker in required_markers)
+    return has_required_app_env or has_required_env_docs
+
+
+def apply_persisted_env_service_profile(
+    finalized: dict[str, Any],
+    *,
+    service_name: str,
+    state_slug: str,
+    state_env_prefix: str,
+    note_prefix: str,
+    note_description: str,
+) -> None:
+    finalized["include_content"] = True
+    startup_notes = finalized.setdefault("startup_notes", [])
+    if note_description not in startup_notes:
+        startup_notes.append(note_description)
+    state_note = (
+        f"{note_prefix} 配置持久化到 `/lzcapp/var/data/{state_slug}/runtime/config/.env`，"
+        f"容器内路径映射为 `/{state_slug}-state/config/.env`。"
+    )
+    if state_note not in startup_notes:
+        startup_notes.append(state_note)
+
+    application = finalized.get("application", {})
+    app_env = [str(item) for item in application.get("environment", [])] if isinstance(application, dict) else []
+    service = finalized.get("services", {}).get(service_name)
+    if not isinstance(service, dict):
+        return
+
+    state_root = f"/{state_slug}-state"
+    service["command"] = f"sh -lc 'mkdir -p {state_root}/config && cd /app && node /lzcapp/pkg/content/bootstrap.mjs'"
+    service_env = [str(item) for item in service.get("environment", [])]
+    profile_env = [
+        f"{state_env_prefix}_STATE_DIR={state_root}",
+        f"{state_env_prefix}_CONFIG_DIR={state_root}/config",
+        f"{state_env_prefix}_CONFIG_PATH={state_root}/config/.env",
+    ]
+    for item in profile_env + app_env:
+        if item not in service_env:
+            service_env.append(item)
+    service["environment"] = service_env
+
+    binds = [str(item) for item in service.get("binds", [])]
+    runtime_bind = f"/lzcapp/var/data/{state_slug}/runtime:{state_root}"
+    legacy_bind = f"/lzcapp/var/data/{state_slug}/config:/lzcapp/var/data/{state_slug}/config"
+    binds = [item for item in binds if item != legacy_bind]
+    if runtime_bind not in binds:
+        binds.append(runtime_bind)
+    service["binds"] = binds
+
+
+def render_basic_llm_deploy_params() -> str:
+    return textwrap.dedent(
+        """\
+        params:
+          - id: llm.provider
+            type: string
+            name: LLM Provider
+            description: "Required. Enter a provider such as openai, anthropic, gemini, codex, openrouter, minimax, mistral, ollama, or grok. Enter disabled to skip AI-powered features for now. You can reconfigure later from Deployment Parameters in the app details page."
+          - id: llm.api_key
+            type: string
+            name: LLM API Key
+            description: "Optional credential for the selected provider. Leave empty to skip. The configured values will be written into the app .env before startup."
+            default_value: ""
+            optional: true
+          - id: llm.model
+            type: string
+            name: LLM Model
+            description: "Optional model override. Leave empty to use the provider default."
+            default_value: ""
+            optional: true
+          - id: llm.base_url
+            type: string
+            name: LLM Base URL
+            description: "Optional custom base URL, mainly for Ollama or OpenAI-compatible endpoints."
+            default_value: ""
+            optional: true
+        """
+    )
+
+
+def post_process_basic_llm_dotenv(repo_root: Path, slug: str) -> list[str]:
+    app_dir = repo_root / "apps" / slug
+    content_dir = app_dir / "content"
+    content_dir.mkdir(parents=True, exist_ok=True)
+    env_prefix = slug_to_env_prefix(slug)
+
+    writes = {
+        app_dir / "lzc-deploy-params.yml": render_basic_llm_deploy_params(),
+        content_dir / "README.md": f"This directory contains runtime helpers for {bm.titleize_slug(slug)} on LazyCat.\n",
+        content_dir / "bootstrap.mjs": render_persist_env_bootstrap(
+            state_dir_env=f"{env_prefix}_STATE_DIR",
+            config_dir_env=f"{env_prefix}_CONFIG_DIR",
+            config_path_env=f"{env_prefix}_CONFIG_PATH",
+            env_names=["LLM_PROVIDER", "LLM_API_KEY", "LLM_MODEL", "OLLAMA_BASE_URL"],
+            preserve_existing_names=["LLM_API_KEY"],
+        ),
+    }
+
+    outputs: list[str] = []
+    for path, content in writes.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        if path.suffix in {".sh", ".mjs", ".py"}:
             path.chmod(0o755)
         outputs.append(str(path))
     return outputs
@@ -5179,6 +5567,7 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
     index_path = repo_root / "registry" / "repos" / "index.json"
     manifest_path = app_dir / "lzc-manifest.yml"
     build_path = app_dir / "lzc-build.yml"
+    deploy_params_path = app_dir / "lzc-deploy-params.yml"
 
     for required in (manifest_path, build_path, config_path, index_path, app_dir / "README.md", app_dir / "icon.png"):
         if not required.exists():
@@ -5186,6 +5575,15 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
 
     if issues:
         return False, issues
+
+    icon_path = app_dir / "icon.png"
+    icon_size = icon_path.stat().st_size
+    if icon_size <= 0:
+        issues.append("icon.png is empty")
+    elif icon_size > MAX_ICON_BYTES:
+        issues.append(
+            f"icon.png is too large ({icon_size} bytes); keep it under {MAX_ICON_BYTES} bytes to avoid store/build issues"
+        )
 
     try:
         config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -5254,8 +5652,25 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
             issues.append(f"service {service_name} defines both command and setup_script")
 
     build_yml = build_path.read_text(encoding="utf-8")
-    if "/lzcapp/pkg/content/" in manifest_path.read_text(encoding="utf-8") and "contentdir:" not in build_yml:
+    manifest_text = manifest_path.read_text(encoding="utf-8")
+    if "/lzcapp/pkg/content/" in manifest_text and "contentdir:" not in build_yml:
         issues.append("manifest references /lzcapp/pkg/content but lzc-build.yml is missing contentdir")
+    if ('index .U "' in manifest_text or "{{ if .U" in manifest_text or "{{ if index .U" in manifest_text) and not deploy_params_path.exists():
+        issues.append("manifest uses deployment parameter templates but apps/<slug>/lzc-deploy-params.yml is missing")
+
+    for service_name, payload in services.items():
+        if not isinstance(payload, dict):
+            continue
+        command_text = stringify_command(payload.get("command"))
+        binds = [str(item) for item in bm.ensure_list(payload.get("binds"))]
+        if "/lzcapp/pkg/content/bootstrap.mjs" in command_text and not any(bind.endswith(":/app-state") or ":/crucix-state" in bind or ":/deer-flow-state" in bind for bind in binds):
+            issues.append(
+                f"service {service_name} uses bootstrap.mjs but no dedicated state-dir bind was found; prefer /lzcapp/var/data/{slug}/runtime:/app-state-style mapping"
+            )
+        if "/lzcapp/var/data/" in command_text and "/config" in command_text and any(":/lzcapp/var/data/" in bind for bind in binds):
+            issues.append(
+                f"service {service_name} writes config directly under /lzcapp/var/data inside the container; prefer binding host runtime to a normal container path like /app-state or /{slug}-state"
+            )
 
     return not issues, issues
 
@@ -5272,16 +5687,28 @@ def detect_gh_token(env: dict[str, str]) -> tuple[str, str]:
     return "", ""
 
 
-def detect_lzc_cli_token(env: dict[str, str]) -> str:
+def detect_lzc_cli_token(env: dict[str, str]) -> tuple[str, str]:
     token = env.get("LZC_CLI_TOKEN", "").strip()
     if token:
-        return token
+        return token, "env:LZC_CLI_TOKEN"
     if command_exists("lzc-cli"):
         config_value = sh(["lzc-cli", "config", "get", "token"], check=False).strip()
         if config_value:
             parts = config_value.split()
             if len(parts) >= 2:
-                return parts[-1].strip()
+                return parts[-1].strip(), "lzc-cli config get token"
+    box_config = load_json_file(BOX_CONFIG_PATH)
+    token = str(box_config.get("token", "")).strip()
+    if token:
+        return token, str(BOX_CONFIG_PATH)
+    return "", ""
+
+
+def detect_image_owner(env: dict[str, str]) -> str:
+    for name in ("GHCR_USERNAME", "GITHUB_REPOSITORY_OWNER"):
+        value = env.get(name, "").strip()
+        if value:
+            return value
     return ""
 
 
@@ -5416,9 +5843,10 @@ def main() -> int:
         runtime_env["GH_PAT"] = gh_token
         runtime_env["GH_TOKEN"] = gh_token
         runtime_env["GITHUB_TOKEN"] = gh_token
-    lzc_cli_token = detect_lzc_cli_token(runtime_env)
+    lzc_cli_token, lzc_cli_token_source = detect_lzc_cli_token(runtime_env)
     if lzc_cli_token:
         runtime_env["LZC_CLI_TOKEN"] = lzc_cli_token
+    image_owner = detect_image_owner(runtime_env)
 
     normalized = normalize_source(args.source)
     source_dir: Path | None = None
@@ -5429,6 +5857,10 @@ def main() -> int:
     step1_outputs = [f"source={args.source}", f"kind={normalized.kind}", f"build_mode={requested_build_mode}"]
     if gh_token_source:
         step1_outputs.append(f"gh_token_source={gh_token_source}")
+    if lzc_cli_token_source:
+        step1_outputs.append(f"lzc_token_source={lzc_cli_token_source}")
+    if image_owner:
+        step1_outputs.append(f"image_owner={image_owner}")
     step1_risks: list[str] = []
     try:
         step_state.current_step = 1
@@ -5466,6 +5898,15 @@ def main() -> int:
 
         step_state.current_step = 3
         finalized = bm.finalize_spec(analysis.spec, gh_token, fetch_upstream=False)
+        if (
+            image_owner
+            and (
+                str(finalized.get("build_strategy", "")).strip() in SOURCE_BUILD_STRATEGIES
+                or bool(finalized.get("service_builds"))
+            )
+            and not str(finalized.get("image_owner", "")).strip()
+        ):
+            finalized["image_owner"] = image_owner
         finalized = apply_generated_app_fixes(finalized, analysis)
         config_path = repo_root / "registry" / "repos" / f"{finalized['slug']}.json"
         app_dir = repo_root / "apps" / finalized["slug"]
