@@ -17,7 +17,7 @@ application:
       backend: http://web:3000/
 services:
   multica:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica:df7f85ff816ef41b
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica:8761c855df7286fb
     depends_on:
       - postgres
     command: sh -lc 'until ./migrate up; do echo "waiting for postgres..."; sleep 2; done; exec ./server'
@@ -28,7 +28,7 @@ services:
       - RESEND_API_KEY={{ default "" .U.resend_api_key }}
       - RESEND_FROM_EMAIL={{ default "noreply@multica.ai" .U.resend_from_email }}
   web:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica-web:380ec8162e277a59
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica-web:476dbd5013c46956
     depends_on:
       - multica
     command: sh -lc "sed -i \"s/await sendCode(email);/await sendCode(email).catch(() => {});/g\" '/src/apps/web/app/(auth)/login/page.tsx'; cd apps/web && pnpm build && exec pnpm start --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}"
