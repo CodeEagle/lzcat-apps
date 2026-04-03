@@ -25,15 +25,26 @@ services:
   gateway:
     image: registry.lazycat.cloud/invokerlaw/codeeagle/cc-gateway-gateway:0124713629368e10
     binds:
-      - /lzcapp/var/data/cc-gateway/config.yaml:/app/config.yaml
+      - /lzcapp/var/data/cc-gateway:/app/data
     setup_script: |
-      mkdir -p /lzcapp/var/data/cc-gateway
-      if [ -d /lzcapp/var/data/cc-gateway/config.yaml ]; then
-        rm -rf /lzcapp/var/data/cc-gateway/config.yaml
+      rm -rf /app/config.yaml 2>/dev/null || true
+      if [ ! -f /app/data/config.yaml ]; then
+        if [ -f /app/config.example.yaml ]; then
+          cp /app/config.example.yaml /app/data/config.yaml
+        else
+          cat << 'CONFEOF' > /app/data/config.yaml
+      gateway:
+        client_tokens:
+          - "YOUR_LOCAL_TOKEN"
+      identity:
+        device_id: "104e14cfe0075eb20755b4fb9b6045620803517c2f6d6ed95818d04260000000"
+        email: "anonymous@example.com"
+      auth:
+        refresh_token: "YOUR_EXTRACTED_REFRESH_TOKEN_HERE"
+      CONFEOF
+        fi
       fi
-      if [ ! -f /lzcapp/var/data/cc-gateway/config.yaml ]; then
-        cp /lzcapp/pkg/content/config.example.yaml /lzcapp/var/data/cc-gateway/config.yaml
-      fi
+      ln -sf /app/data/config.yaml /app/config.yaml
 locales:
   en:
     name: cc-gateway
