@@ -2475,7 +2475,11 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: dict[str, Any
     if finalized.get("slug") == "multica" and upstream_repo == "multica-ai/multica":
         finalized["service_port"] = 3000
         finalized["image_targets"] = ["multica", "web"]
-        finalized["dependencies"] = [{"target_service": "postgres", "source_image": "pgvector/pgvector:pg17"}]
+        finalized["dependencies"] = [
+            {"target_service": "postgres", "source_image": "pgvector/pgvector:pg17"},
+            {"target_service": "dbfix", "source_image": "pgvector/pgvector:pg17"},
+            {"target_service": "dbfix_task_queue", "source_image": "pgvector/pgvector:pg17"},
+        ]
         finalized["service_builds"] = [
             {
                 "target_service": "multica",
