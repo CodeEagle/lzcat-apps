@@ -21,10 +21,10 @@ application:
     - ACLED_EMAIL=
     - ACLED_PASSWORD=
     - CLOUDFLARE_API_TOKEN=
-    - "{{ if and (index .U \"llm.provider\") (ne (index .U \"llm.provider\") \"disabled\") }}LLM_PROVIDER={{ index .U \"llm.provider\" }}{{ else }}LLM_PROVIDER={{ end }}"
-    - "{{ if index .U \"llm.api_key\" }}LLM_API_KEY={{ index .U \"llm.api_key\" }}{{ else }}LLM_API_KEY={{ end }}"
-    - "{{ if index .U \"llm.model\" }}LLM_MODEL={{ index .U \"llm.model\" }}{{ else }}LLM_MODEL={{ end }}"
-    - "{{ if index .U \"llm.base_url\" }}OLLAMA_BASE_URL={{ index .U \"llm.base_url\" }}{{ else }}OLLAMA_BASE_URL={{ end }}"
+    - '{{ if and (index .U "llm.provider") (ne (index .U "llm.provider") "disabled") }}LLM_PROVIDER={{ index .U "llm.provider" }}{{ else }}LLM_PROVIDER={{ end }}'
+    - '{{ if index .U "llm.api_key" }}LLM_API_KEY={{ index .U "llm.api_key" }}{{ else }}LLM_API_KEY={{ end }}'
+    - '{{ if index .U "llm.model" }}LLM_MODEL={{ index .U "llm.model" }}{{ else }}LLM_MODEL={{ end }}'
+    - '{{ if index .U "llm.base_url" }}OLLAMA_BASE_URL={{ index .U "llm.base_url" }}{{ else }}OLLAMA_BASE_URL={{ end }}'
     - TELEGRAM_BOT_TOKEN=
     - TELEGRAM_CHAT_ID=
     - TELEGRAM_CHANNELS=
@@ -47,10 +47,10 @@ services:
       - CRUCIX_STATE_DIR=/crucix-state
       - CRUCIX_CONFIG_DIR=/crucix-state/config
       - CRUCIX_CONFIG_PATH=/crucix-state/config/.env
-      - "{{ if and (index .U \"llm.provider\") (ne (index .U \"llm.provider\") \"disabled\") }}LLM_PROVIDER={{ index .U \"llm.provider\" }}{{ else }}LLM_PROVIDER={{ end }}"
-      - "{{ if index .U \"llm.api_key\" }}LLM_API_KEY={{ index .U \"llm.api_key\" }}{{ else }}LLM_API_KEY={{ end }}"
-      - "{{ if index .U \"llm.model\" }}LLM_MODEL={{ index .U \"llm.model\" }}{{ else }}LLM_MODEL={{ end }}"
-      - "{{ if index .U \"llm.base_url\" }}OLLAMA_BASE_URL={{ index .U \"llm.base_url\" }}{{ else }}OLLAMA_BASE_URL={{ end }}"
+      - '{{ if and (index .U "llm.provider") (ne (index .U "llm.provider") "disabled") }}LLM_PROVIDER={{ index .U "llm.provider" }}{{ else }}LLM_PROVIDER={{ end }}'
+      - '{{ if index .U "llm.api_key" }}LLM_API_KEY={{ index .U "llm.api_key" }}{{ else }}LLM_API_KEY={{ end }}'
+      - '{{ if index .U "llm.model" }}LLM_MODEL={{ index .U "llm.model" }}{{ else }}LLM_MODEL={{ end }}'
+      - '{{ if index .U "llm.base_url" }}OLLAMA_BASE_URL={{ index .U "llm.base_url" }}{{ else }}OLLAMA_BASE_URL={{ end }}'
     binds:
       - /lzcapp/var/data/crucix/crucix/runs:/app/runs
       - /lzcapp/var/data/crucix/runtime:/crucix-state

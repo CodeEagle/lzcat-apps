@@ -5657,6 +5657,8 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
         issues.append("manifest references /lzcapp/pkg/content but lzc-build.yml is missing contentdir")
     if ('index .U "' in manifest_text or "{{ if .U" in manifest_text or "{{ if index .U" in manifest_text) and not deploy_params_path.exists():
         issues.append("manifest uses deployment parameter templates but apps/<slug>/lzc-deploy-params.yml is missing")
+    if '\\"' in manifest_text and "{{" in manifest_text and ".U" in manifest_text:
+        issues.append("manifest contains backslash-escaped quotes inside deployment templates; use YAML single-quoted template strings instead of \\\"")
 
     for service_name, payload in services.items():
         if not isinstance(payload, dict):
