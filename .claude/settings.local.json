@@ -17,7 +17,11 @@
       "Bash(__NEW_LINE_684a78e249ec4138__ cat:*)",
       "Read(//cp \\\\/lzcapp\\\\/pkg\\\\/content\\\\/config.example.yaml/**)",
       "Bash(sh fix.sh)",
-      "Bash(gh workflow:*)"
+      "Bash(gh workflow:*)",
+      "Bash(grep -A 8 'tokens:' git add apps/cc-gateway/lzc-manifest.yml git commit -m \"fix\\(cc-gateway\\): auto-migrate old config.yaml to include missing auth.tokens\" git push gh workflow run trigger-build.yml --ref main -f target_repo=cc-gateway -f force_build=true)",
+      "Read(//Volumes/ORICO/Development/Github/lzcat/lzcat-apps/**)",
+      "Bash(git pull:*)",
+      "Bash(grep -A 10 \"oauth:\" git add . git commit -m \"fix\\(cc-gateway\\): fix config schema expecting oauth.refresh_token instead of auth.refresh_token\" git pull --rebase git push gh workflow run trigger-build.yml --ref main -f target_repo=cc-gateway -f force_build=true)"
     ]
   }
 }

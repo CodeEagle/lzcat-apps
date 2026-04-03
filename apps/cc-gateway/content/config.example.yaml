@@ -8,7 +8,7 @@ identity:
   device_id: "104e14cfe0075eb20755b4fb9b6045620803517c2f6d6ed95818d04260000000"
   email: "anonymous@example.com"
   
-auth:
+oauth:
   # 你需要从原生终端提取真正的长期 refresh_token 放在这里，网关会帮你自动续签免去所有烦恼
   refresh_token: "YOUR_EXTRACTED_REFRESH_TOKEN_HERE"
   tokens:
