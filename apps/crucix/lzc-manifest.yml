@@ -39,7 +39,7 @@ application:
       backend: http://crucix:3117/
 services:
   crucix:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/crucix-crucix:e318d0376c0f33ec
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/crucix-crucix:1b7aef26963fc5de
     command: sh -lc 'mkdir -p /crucix-state/config && cd /app && node /lzcapp/pkg/content/bootstrap.mjs'
     environment:
       - PORT=3117
