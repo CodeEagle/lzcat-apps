@@ -55,7 +55,7 @@
 - `NEXT_PUBLIC_WS_URL`: From .env.example (required=False)
 
 ## 预填数据路径
-- `/var/lib/postgresql/data` <= `/lzcapp/var/db/multica/postgres` (From compose service postgres)
+- `/var/lib/postgresql/data` <= `/lzcapp/var/db/multica/postgres-v4` (From compose service postgres)
 
 ## 预填启动说明
 - 自动扫描到 compose 文件：docker-compose.yml
@@ -75,7 +75,7 @@
 ## 当前服务拓扑初稿
 - `postgres`
   image: `registry.lazycat.cloud/placeholder/multica:postgres`
-  binds: `/lzcapp/var/db/multica/postgres:/var/lib/postgresql/data`
+  binds: `/lzcapp/var/db/multica/postgres-v4:/var/lib/postgresql/data`
   environment: `POSTGRES_DB=multica, POSTGRES_USER=multica, POSTGRES_PASSWORD=multica`
 
 ## 退出条件

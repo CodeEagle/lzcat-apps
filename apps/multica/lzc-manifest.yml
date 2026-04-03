@@ -43,7 +43,7 @@ services:
       - POSTGRES_USER=multica
       - POSTGRES_PASSWORD=multica
     binds:
-      - /lzcapp/var/db/multica/postgres-v3:/var/lib/postgresql/data
+      - /lzcapp/var/db/multica/postgres-v4:/var/lib/postgresql/data
   dbfix:
     image: registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c
     depends_on:

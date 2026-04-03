@@ -2533,7 +2533,7 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: dict[str, Any
                     "POSTGRES_USER=multica",
                     "POSTGRES_PASSWORD=multica",
                 ],
-                "binds": ["/lzcapp/var/db/multica/postgres-v2:/var/lib/postgresql/data"],
+                "binds": ["/lzcapp/var/db/multica/postgres-v4:/var/lib/postgresql/data"],
             },
         }
 

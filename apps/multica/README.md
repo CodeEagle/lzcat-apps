@@ -77,7 +77,7 @@
 
 | 宿主路径 | 容器路径 | 说明 |
 | --- | --- | --- |
-| /lzcapp/var/db/multica/postgres | /var/lib/postgresql/data | From compose service postgres |
+| /lzcapp/var/db/multica/postgres-v4 | /var/lib/postgresql/data | From compose service postgres |
 
 ## 首次启动/验收提醒
 
