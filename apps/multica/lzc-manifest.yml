@@ -37,7 +37,7 @@ services:
       - FRONTEND_PORT=3000
       - NODE_ENV=production
   postgres:
-    image: registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica:16adc24c180656a4
     environment:
       - POSTGRES_DB=multica
       - POSTGRES_USER=multica
