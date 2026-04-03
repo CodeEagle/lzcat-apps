@@ -1,7 +1,7 @@
 {
   "upstream_repo": "tombii/better-ccflare",
-  "source_version": "v3.3.19",
-  "build_version": "3.3.19",
-  "build_label": "v3.3.19@20260401T123428Z",
-  "last_checked_at": "2026-04-01T12:34:28.631999+00:00"
+  "source_version": "v3.3.20",
+  "build_version": "3.3.20",
+  "build_label": "v3.3.20@20260403T005435Z",
+  "last_checked_at": "2026-04-03T00:54:35.900344+00:00"
 }
