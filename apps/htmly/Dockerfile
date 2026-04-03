@@ -14,11 +14,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfreetype6-dev \
     libicu-dev \
     libjpeg62-turbo-dev \
+    libonig-dev \
     libpng-dev \
     libwebp-dev \
     libxml2-dev \
     libzip-dev \
-    patch \
     unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j"$(nproc)" gd intl mbstring xml zip \
@@ -33,10 +33,40 @@ WORKDIR ${HTMLY_DIST}
 RUN curl -fsSL "https://codeload.github.com/danpros/htmly/tar.gz/refs/tags/${SOURCE_VERSION}" \
     | tar -xz --strip-components=1 -C "${HTMLY_DIST}"
 
-COPY install.php.patch /tmp/install.php.patch
+RUN php <<'PHP'
+<?php
+$path = getenv('HTMLY_DIST') . '/install.php';
+$text = file_get_contents($path);
+if ($text === false) {
+    fwrite(STDERR, "failed to read install.php\n");
+    exit(1);
+}
+$old = <<<'OLD'
+        if (!is__writable("./")) {
+            $message->error('no permission to write in the Directory.');
+        }
+OLD;
+$new = <<<'NEW'
+        foreach (array("./config", "./content", "./cache") as $path) {
+            if (!is__writable($path)) {
+                $message->error('no permission to write in ' . $path . '.');
+            }
+        }
+NEW;
+if (strpos($text, $old) === false) {
+    fwrite(STDERR, "install.php writable check block not found\n");
+    exit(1);
+}
+$text = str_replace($old, $new, $text);
+$text = str_replace('unlink(__FILE__);', '@unlink(__FILE__);', $text, $count);
+if ($count !== 1) {
+    fwrite(STDERR, "install.php unlink call not patched\n");
+    exit(1);
+}
+file_put_contents($path, $text);
+PHP
 
-RUN patch -d "${HTMLY_DIST}" -p0 < /tmp/install.php.patch \
-    && rm -rf /var/www/html/* \
+RUN rm -rf /var/www/html/* \
     && cp -a "${HTMLY_DIST}"/. /var/www/html/ \
     && chown -R www-data:www-data /var/www/html
 
