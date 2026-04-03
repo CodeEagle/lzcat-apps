@@ -45,18 +45,22 @@ services:
       CONFEOF
       fi
 
-      # Legacy structure auto-migration rules
-      if ! grep -q "  tokens:" /app/data/config.yaml; then
-        echo "  tokens:" >> /app/data/config.yaml
-        echo "    - "{{ index .U "auth_token" }}"" >> /app/data/config.yaml
-      fi
-      if ! grep -q "oauth:" /app/data/config.yaml; then
-        sed -i 's/auth:/oauth:/g' /app/data/config.yaml || true
-        echo "auth:" >> /app/data/config.yaml
-        echo "  tokens:" >> /app/data/config.yaml
-        echo "    - "{{ index .U "auth_token" }}"" >> /app/data/config.yaml
+      # Auto-migrate legacy structures
+      if grep -q "^auth:" /app/data/config.yaml && ! grep -q "^oauth:" /app/data/config.yaml; then
+        sed -i 's/^auth:/oauth:/g' /app/data/config.yaml || true
       fi
       
+      if ! grep -q "^auth:" /app/data/config.yaml; then
+        echo "" >> /app/data/config.yaml
+        echo "auth:" >> /app/data/config.yaml
+        echo "  tokens:" >> /app/data/config.yaml
+        echo "    - \"{{ index .U \"auth_token\" }}\"" >> /app/data/config.yaml
+      else
+        if ! grep -E -q "^  tokens:" /app/data/config.yaml; then
+          sed -i '/^auth:/a \ \ tokens:
+    - "{{ index .U \"auth_token\" }}"' /app/data/config.yaml
+        fi
+      fi
       ln -sf /app/data/config.yaml /app/config.yaml
 locales:
   en:
