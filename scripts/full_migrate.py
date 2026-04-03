@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -13,6 +14,7 @@ import subprocess
 import tarfile
 import tempfile
 import textwrap
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from urllib import error, request
@@ -132,6 +134,56 @@ SOURCE_BUILD_STRATEGIES = {
     "upstream_with_target_template",
 }
 DEFAULT_AIPOD_GATEWAY_IMAGE = "registry.lazycat.cloud/catdogai/caddy-aipod:65e058ce"
+FRONTEND_HINT_DIRS = ("web", "frontend", "ui", "site", "app", "demo")
+
+
+@dataclass(frozen=True)
+class NormalizedSource:
+    kind: str
+    source: str
+    path: Path | None
+    upstream_repo: str = ""
+    homepage: str = ""
+
+
+@dataclass
+class FrontendAppInfo:
+    app_root: Path
+    install_root: Path
+    package_manager: str
+    runtime: str
+    build_command: str
+    service_port: int
+    output_path: str
+    startup_command: list[str]
+    rationale: str
+
+
+@dataclass
+class AnalysisResult:
+    slug: str
+    route: str
+    spec: dict[str, Any]
+    compose_file: Path | None = None
+    dockerfile: Path | None = None
+    env_files: list[Path] = field(default_factory=list)
+    readmes: list[Path] = field(default_factory=list)
+    risks: list[str] = field(default_factory=list)
+
+
+@dataclass
+class BuildExecutionResult:
+    command: list[str]
+    returncode: int
+    stdout: str
+    stderr: str
+    lpk_path: Path | None = None
+
+
+@dataclass
+class StepState:
+    current_step: int = 1
+BUILD_MODES = ("auto", "build", "install", "reinstall", "validate-only")
 
 
 def sh(
@@ -241,44 +293,43 @@ def infer_local_git_upstream(path: Path) -> tuple[str, str]:
     return repo, homepage
 
 
-def normalize_source(source: str) -> dict[str, Any]:
+def normalize_source(source: str) -> NormalizedSource:
     expanded = Path(source).expanduser()
     if expanded.exists() and expanded.is_dir():
         upstream_repo, homepage = infer_local_git_upstream(expanded.resolve())
-        return {
-            "kind": "local_repo",
-            "source": source,
-            "path": expanded.resolve(),
-            "upstream_repo": upstream_repo,
-            "homepage": homepage,
-        }
+        return NormalizedSource(
+            kind="local_repo",
+            source=source,
+            path=expanded.resolve(),
+            upstream_repo=upstream_repo,
+            homepage=homepage,
+        )
 
     github_repo = parse_github_repo(source)
     if github_repo:
-        return {
-            "kind": "github_repo",
-            "source": source,
-            "path": None,
-            "upstream_repo": github_repo,
-            "homepage": f"https://github.com/{github_repo}",
-        }
+        return NormalizedSource(
+            kind="github_repo",
+            source=source,
+            path=None,
+            upstream_repo=github_repo,
+            homepage=f"https://github.com/{github_repo}",
+        )
 
     if source.startswith(("http://", "https://")) and source.endswith((".yml", ".yaml")):
-        return {
-            "kind": "compose_url",
-            "source": source,
-            "path": None,
-            "upstream_repo": parse_raw_github_compose_url(source) or "",
-            "homepage": parse_raw_github_compose_url(source) and f"https://github.com/{parse_raw_github_compose_url(source)}" or "",
-        }
+        upstream_repo = parse_raw_github_compose_url(source) or ""
+        return NormalizedSource(
+            kind="compose_url",
+            source=source,
+            path=None,
+            upstream_repo=upstream_repo,
+            homepage=f"https://github.com/{upstream_repo}" if upstream_repo else "",
+        )
 
-    return {
-        "kind": "docker_image",
-        "source": source,
-        "path": None,
-        "upstream_repo": "",
-        "homepage": "",
-    }
+    return NormalizedSource(
+        kind="docker_image",
+        source=source,
+        path=None,
+    )
 
 
 def fetch_text(url: str) -> str:
@@ -308,22 +359,23 @@ def download_github_archive(repo: str, dest_root: Path) -> Path:
     return extracted_dirs[0]
 
 
-def prepare_source(normalized: dict[str, Any]) -> tuple[Path | None, list[str], callable]:
-    if normalized["kind"] == "local_repo":
-        return normalized["path"], [str(normalized["path"])], lambda: None
+def prepare_source(normalized: NormalizedSource) -> tuple[Path | None, list[str], callable]:
+    if normalized.kind == "local_repo":
+        assert normalized.path is not None
+        return normalized.path, [str(normalized.path)], lambda: None
 
     temp_root = Path(tempfile.mkdtemp(prefix="lzcat-full-migrate-"))
     outputs: list[str] = []
 
-    if normalized["kind"] == "github_repo":
-        repo_dir = download_github_archive(normalized["upstream_repo"], temp_root)
+    if normalized.kind == "github_repo":
+        repo_dir = download_github_archive(normalized.upstream_repo, temp_root)
         outputs.append(str(repo_dir))
         return repo_dir, outputs, lambda: shutil.rmtree(temp_root, ignore_errors=True)
 
-    if normalized["kind"] == "compose_url":
-        compose_name = Path(normalized["source"]).name or "compose.yml"
+    if normalized.kind == "compose_url":
+        compose_name = Path(normalized.source).name or "compose.yml"
         compose_path = temp_root / compose_name
-        compose_path.write_text(fetch_text(normalized["source"]), encoding="utf-8")
+        compose_path.write_text(fetch_text(normalized.source), encoding="utf-8")
         outputs.append(str(compose_path))
         return temp_root, outputs, lambda: shutil.rmtree(temp_root, ignore_errors=True)
 
@@ -392,6 +444,158 @@ def list_env_files(source_dir: Path) -> list[Path]:
 
 def list_readmes(source_dir: Path) -> list[Path]:
     return sorted(source_dir.rglob("README*"), key=lambda p: (len(p.relative_to(source_dir).parts), str(p)))
+
+
+def list_package_json_files(source_dir: Path) -> list[Path]:
+    candidates: list[Path] = []
+    for path in source_dir.rglob("package.json"):
+        try:
+            relative = path.relative_to(source_dir)
+        except ValueError:
+            continue
+        if "node_modules" in relative.parts:
+            continue
+        candidates.append(path)
+    return sorted(candidates, key=lambda p: (len(p.relative_to(source_dir).parts), str(p)))
+
+
+def load_json_file(path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def detect_package_manager(source_dir: Path, app_root: Path) -> tuple[str, Path] | None:
+    current = app_root
+    while True:
+        if (current / "pnpm-lock.yaml").exists() or (current / "pnpm-workspace.yaml").exists():
+            return "pnpm", current
+        if (current / "package-lock.json").exists():
+            return "npm", current
+        if (current / "yarn.lock").exists():
+            return "yarn", current
+        if current == source_dir:
+            break
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
+    return None
+
+
+def score_frontend_candidate(source_dir: Path, package_json_path: Path, payload: dict[str, Any]) -> int:
+    scripts = payload.get("scripts") if isinstance(payload.get("scripts"), dict) else {}
+    build_script = str(scripts.get("build") or "").strip()
+    if not build_script:
+        return -1000
+    score = 0
+    rel = package_json_path.parent.relative_to(source_dir)
+    if rel == Path("."):
+        score += 30
+    if any(part.lower() in FRONTEND_HINT_DIRS for part in rel.parts):
+        score += 60
+    if any(part.lower() in LOW_PRIORITY_DOCKERFILE_DIRS for part in rel.parts):
+        score -= 80
+    deps: dict[str, Any] = {}
+    for key in ("dependencies", "devDependencies"):
+        block = payload.get(key)
+        if isinstance(block, dict):
+            deps.update({str(name): value for name, value in block.items()})
+    dep_names = set(deps)
+    if "nitro" in dep_names or "vite" in dep_names or "astro" in dep_names or "next" in dep_names:
+        score += 40
+    if "vite build" in build_script or "next build" in build_script or "astro build" in build_script:
+        score += 40
+    if (package_json_path.parent / "index.html").exists():
+        score += 20
+    if (package_json_path.parent / "nitro.config.ts").exists() or (package_json_path.parent / "nitro.config.js").exists():
+        score += 40
+    return score
+
+
+def detect_frontend_app(source_dir: Path) -> FrontendAppInfo | None:
+    candidates = list_package_json_files(source_dir)
+    if not candidates:
+        return None
+
+    ranked: list[tuple[int, Path, dict[str, Any]]] = []
+    for package_json_path in candidates:
+        payload = load_json_file(package_json_path)
+        if not payload:
+            continue
+        score = score_frontend_candidate(source_dir, package_json_path, payload)
+        if score > 0:
+            ranked.append((score, package_json_path, payload))
+
+    if not ranked:
+        return None
+
+    _, package_json_path, payload = sorted(ranked, key=lambda item: (item[0], str(item[1])), reverse=True)[0]
+    app_root = package_json_path.parent
+    manager = detect_package_manager(source_dir, app_root)
+    if not manager:
+        return None
+    package_manager, install_root = manager
+    scripts = payload.get("scripts") if isinstance(payload.get("scripts"), dict) else {}
+    build_script = str(scripts.get("build") or "").strip()
+    deps: dict[str, Any] = {}
+    for key in ("dependencies", "devDependencies"):
+        block = payload.get(key)
+        if isinstance(block, dict):
+            deps.update({str(name): value for name, value in block.items()})
+    dep_names = set(deps)
+    vite_config = app_root / "vite.config.ts"
+    vite_text = vite_config.read_text(encoding="utf-8", errors="ignore") if vite_config.exists() else ""
+
+    rel_app_root = app_root.relative_to(source_dir)
+    rel_install_root = install_root.relative_to(source_dir)
+    build_root_desc = "." if rel_app_root == Path(".") else str(rel_app_root)
+
+    if package_manager == "pnpm":
+        build_command = "pnpm build" if rel_app_root == rel_install_root else f"pnpm --dir {shlex.quote(str(rel_app_root))} build"
+    elif package_manager == "npm":
+        if install_root != app_root:
+            return None
+        build_command = "npm run build"
+    else:
+        if install_root != app_root:
+            return None
+        build_command = "yarn build"
+
+    if (
+        "nitro" in dep_names
+        or (app_root / "nitro.config.ts").exists()
+        or (app_root / "nitro.config.js").exists()
+        or "nitro(" in vite_text
+    ):
+        return FrontendAppInfo(
+            app_root=app_root,
+            install_root=install_root,
+            package_manager=package_manager,
+            runtime="nitro",
+            build_command=build_command,
+            service_port=3000,
+            output_path=str(rel_app_root / ".output"),
+            startup_command=["node", ".output/server/index.mjs"],
+            rationale=f"检测到前端应用目录 `{build_root_desc}` 使用 Nitro 构建，需按 Node server 运行时封装。",
+        )
+
+    if "vite" in dep_names or "astro" in dep_names or "vite build" in build_script or "astro build" in build_script:
+        return FrontendAppInfo(
+            app_root=app_root,
+            install_root=install_root,
+            package_manager=package_manager,
+            runtime="static",
+            build_command=build_command,
+            service_port=80,
+            output_path=str(rel_app_root / "dist"),
+            startup_command=[],
+            rationale=f"检测到前端应用目录 `{build_root_desc}` 使用静态站构建，可按 nginx 托管产物封装。",
+        )
+
+    return None
 
 
 def readme_excerpt(readmes: list[Path]) -> str:
@@ -1356,6 +1560,172 @@ def choose_route_for_dockerfile(
     }
 
 
+def render_frontend_nitro_dockerfile(frontend: FrontendAppInfo, source_dir: Path, upstream_repo: str) -> str:
+    rel_app_root = frontend.app_root.relative_to(source_dir)
+    app_root_ref = str(rel_app_root)
+    install_root_ref = str(frontend.install_root.relative_to(source_dir))
+    install_lines = {
+        "pnpm": "RUN corepack enable \\\n    && corepack prepare pnpm@10.12.1 --activate \\\n    && pnpm install --frozen-lockfile \\\n    && " + frontend.build_command,
+        "npm": "RUN npm ci \\\n    && " + frontend.build_command,
+        "yarn": "RUN corepack enable \\\n    && yarn install --frozen-lockfile \\\n    && " + frontend.build_command,
+    }
+    build_section = install_lines[frontend.package_manager]
+    return textwrap.dedent(
+        f"""\
+        FROM node:20-bookworm AS builder
+
+        ARG UPSTREAM_REPO={upstream_repo or "TODO/TODO"}
+        ARG UPSTREAM_REF=main
+        ARG SOURCE_VERSION=unknown
+        ARG BUILD_VERSION=0.1.0
+
+        RUN apt-get update \\
+            && apt-get install -y --no-install-recommends ca-certificates curl \\
+            && rm -rf /var/lib/apt/lists/*
+
+        WORKDIR /src
+
+        RUN curl -fsSL "https://codeload.github.com/${{UPSTREAM_REPO}}/tar.gz/${{UPSTREAM_REF}}" \\
+            | tar -xz --strip-components=1 -C /src
+
+        WORKDIR /src/{install_root_ref}
+
+        {build_section}
+
+        FROM node:20-alpine
+
+        ARG SOURCE_VERSION=unknown
+        ARG BUILD_VERSION=0.1.0
+
+        LABEL org.opencontainers.image.version="${{BUILD_VERSION}}" \\
+              org.opencontainers.image.revision="${{SOURCE_VERSION}}"
+
+        ENV NODE_ENV=production \\
+            NITRO_HOST=0.0.0.0 \\
+            NITRO_PORT={frontend.service_port} \\
+            HOST=0.0.0.0 \\
+            PORT={frontend.service_port}
+
+        WORKDIR /app
+
+        COPY --from=builder /src/{app_root_ref}/.output/ ./.output/
+
+        EXPOSE {frontend.service_port}
+
+        CMD ["node", ".output/server/index.mjs"]
+        """
+    ).strip() + "\n"
+
+
+def render_frontend_static_dockerfile(frontend: FrontendAppInfo, source_dir: Path, upstream_repo: str) -> str:
+    rel_app_root = frontend.app_root.relative_to(source_dir)
+    app_root_ref = str(rel_app_root)
+    install_root_ref = str(frontend.install_root.relative_to(source_dir))
+    install_lines = {
+        "pnpm": "RUN corepack enable \\\n    && corepack prepare pnpm@10.12.1 --activate \\\n    && pnpm install --frozen-lockfile \\\n    && " + frontend.build_command,
+        "npm": "RUN npm ci \\\n    && " + frontend.build_command,
+        "yarn": "RUN corepack enable \\\n    && yarn install --frozen-lockfile \\\n    && " + frontend.build_command,
+    }
+    build_section = install_lines[frontend.package_manager]
+    return textwrap.dedent(
+        f"""\
+        FROM node:20-bookworm AS builder
+
+        ARG UPSTREAM_REPO={upstream_repo or "TODO/TODO"}
+        ARG UPSTREAM_REF=main
+        ARG SOURCE_VERSION=unknown
+        ARG BUILD_VERSION=0.1.0
+
+        RUN apt-get update \\
+            && apt-get install -y --no-install-recommends ca-certificates curl \\
+            && rm -rf /var/lib/apt/lists/*
+
+        WORKDIR /src
+
+        RUN curl -fsSL "https://codeload.github.com/${{UPSTREAM_REPO}}/tar.gz/${{UPSTREAM_REF}}" \\
+            | tar -xz --strip-components=1 -C /src
+
+        WORKDIR /src/{install_root_ref}
+
+        {build_section}
+
+        FROM nginx:1.27-alpine
+
+        ARG SOURCE_VERSION=unknown
+        ARG BUILD_VERSION=0.1.0
+
+        LABEL org.opencontainers.image.version="${{BUILD_VERSION}}" \\
+              org.opencontainers.image.revision="${{SOURCE_VERSION}}"
+
+        RUN rm -rf /usr/share/nginx/html/*
+
+        COPY --from=builder /src/{app_root_ref}/dist/ /usr/share/nginx/html/
+
+        EXPOSE 80
+
+        CMD ["nginx", "-g", "daemon off;"]
+        """
+    ).strip() + "\n"
+
+
+def choose_route_for_frontend(
+    slug: str,
+    meta: dict[str, Any],
+    source_root: Path,
+    frontend: FrontendAppInfo,
+) -> dict[str, Any]:
+    project_name = str(meta.get("project_name") or bm.titleize_slug(slug))
+    if frontend.runtime == "nitro":
+        dockerfile = render_frontend_nitro_dockerfile(frontend, source_root, str(meta.get("upstream_repo", "")))
+    else:
+        dockerfile = render_frontend_static_dockerfile(frontend, source_root, str(meta.get("upstream_repo", "")))
+
+    notes = [
+        frontend.rationale,
+        f"构建目录：`{frontend.app_root.relative_to(source_root)}`；安装根目录：`{frontend.install_root.relative_to(source_root)}`。",
+        f"自动推断构建命令：`{frontend.build_command}`。",
+    ]
+    if frontend.runtime == "nitro":
+        notes.append("运行时按 Nitro Node server 封装，而不是把 `.output/public` 误当纯静态目录。")
+    else:
+        notes.append("运行时按静态站处理，由 nginx 托管构建产物目录。")
+
+    return {
+        "slug": slug,
+        "project_name": project_name,
+        "description": str(meta.get("description") or f"{slug} on LazyCat"),
+        "description_zh": f"（迁移初稿）{project_name} 的懒猫微服前端版本",
+        "upstream_repo": str(meta.get("upstream_repo", "")),
+        "homepage": str(meta.get("homepage", "")),
+        "license": str(meta.get("license") or "TODO"),
+        "author": str(meta.get("author") or "TODO"),
+        "version": str(meta.get("version") or "0.1.0"),
+        "check_strategy": str(meta.get("check_strategy") or "commit_sha"),
+        "build_strategy": "target_repo_dockerfile",
+        "dockerfile_path": "Dockerfile",
+        "build_context": ".",
+        "service_port": frontend.service_port,
+        "image_targets": [f"{slug}-web"],
+        "services": {
+            f"{slug}-web": {
+                "image": f"registry.lazycat.cloud/placeholder/{slug}:bootstrap",
+            }
+        },
+        "application": {
+            "subdomain": slug,
+            "public_path": ["/"],
+            "upstreams": [{"location": "/", "backend": f"http://{slug}-web:{frontend.service_port}/"}],
+        },
+        "env_vars": [],
+        "data_paths": [],
+        "startup_notes": notes,
+        "_risks": [],
+        "_post_write": {
+            "Dockerfile": dockerfile,
+        },
+    }
+
+
 def render_native_desktop_novnc_dockerfile(project_name: str) -> str:
     return f"""FROM debian:bookworm AS builder
 
@@ -1560,42 +1930,6 @@ def choose_route_for_native_desktop(
             "Dockerfile.template": render_native_desktop_novnc_dockerfile(project_name),
         },
     }
-    if healthcheck:
-        service[slug]["healthcheck"] = healthcheck
-    binds = [f"{entry['host']}:{entry['container']}" for entry in data_paths]
-    if binds:
-        service[slug]["binds"] = binds
-
-    return {
-        "slug": slug,
-        "project_name": str(meta.get("project_name") or bm.titleize_slug(slug)),
-        "description": str(meta.get("description") or f"{slug} on LazyCat"),
-        "description_zh": f"（迁移初稿）{bm.titleize_slug(slug)} 的懒猫微服版本",
-        "upstream_repo": str(meta.get("upstream_repo", "")),
-        "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
-        "author": str(meta.get("author") or "TODO"),
-        "version": str(meta.get("version") or "0.1.0"),
-        "check_strategy": str(meta.get("check_strategy", "github_release")),
-        "build_strategy": build_strategy,
-        "dockerfile_path": local_dockerfile_path,
-        "service_port": port,
-        "image_targets": [slug],
-        "services": service,
-        "application": {
-            "subdomain": slug,
-            "public_path": ["/"],
-            "upstreams": [{"location": "/", "backend": f"http://{slug}:{port}/"}],
-        },
-        "env_vars": parse_env_files(env_files),
-        "data_paths": data_paths,
-        "startup_notes": [
-            f"自动扫描到 Dockerfile：{dockerfile_path.name}",
-            "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
-        ],
-        "_risks": [],
-        "_post_write": post_write,
-    }
 
 
 def choose_route_for_binary(slug: str, meta: dict[str, Any], binary: dict[str, Any]) -> dict[str, Any]:
@@ -1767,37 +2101,34 @@ def choose_route_for_image(source: str) -> dict[str, Any]:
     }
 
 
-def analyze_source(normalized: dict[str, Any], source_dir: Path | None) -> dict[str, Any]:
-    upstream_repo = normalized["upstream_repo"]
+def analyze_source(normalized: NormalizedSource, source_dir: Path | None) -> AnalysisResult:
+    upstream_repo = normalized.upstream_repo
     repo_name = upstream_repo.split("/", 1)[1] if upstream_repo else ""
-    slug = bm.normalize_slug(repo_name or Path(normalized["source"]).stem or normalized["source"].split("/")[-1])
+    slug = bm.normalize_slug(repo_name or Path(normalized.source).stem or normalized.source.split("/")[-1])
 
     meta = bm.fetch_upstream_metadata(upstream_repo, "github_release") if upstream_repo else {}
     meta.update({
         "upstream_repo": upstream_repo,
-        "homepage": meta.get("homepage") or normalized.get("homepage", ""),
+        "homepage": meta.get("homepage") or normalized.homepage,
         "check_strategy": "github_release",
     })
 
-    if normalized["kind"] == "docker_image":
-        spec = choose_route_for_image(normalized["source"])
+    if normalized.kind == "docker_image":
+        spec = choose_route_for_image(normalized.source)
         spec["slug"] = slug or spec["slug"]
-        return {
-            "slug": spec["slug"],
-            "route": spec["build_strategy"],
-            "spec": spec,
-            "compose_file": None,
-            "dockerfile": None,
-            "env_files": [],
-            "readmes": [],
-            "risks": spec["_risks"],
-        }
+        return AnalysisResult(
+            slug=spec["slug"],
+            route=spec["build_strategy"],
+            spec=spec,
+            risks=list(spec["_risks"]),
+        )
 
     assert source_dir is not None
     compose_file = select_compose_file(source_dir)
     dockerfile = select_dockerfile(source_dir)
     env_files = list_env_files(source_dir)
     readmes = list_readmes(source_dir)
+    frontend_app = detect_frontend_app(source_dir)
     native_project_reason = detect_non_service_native_project(source_dir, compose_file, dockerfile, readmes)
     gpu_first_reason = detect_gpu_first_ml_project(source_dir, compose_file, dockerfile, readmes)
     official_image = detect_official_image_from_readmes(readmes)
@@ -1837,11 +2168,13 @@ def analyze_source(normalized: dict[str, Any], source_dir: Path | None) -> dict[
         spec = choose_route_for_gpu_aipod(slug, meta, gpu_first_reason, official_image)
     elif dockerfile:
         spec = choose_route_for_dockerfile(slug, meta, source_dir, dockerfile, env_files)
+    elif frontend_app:
+        spec = choose_route_for_frontend(slug, meta, source_dir, frontend_app)
     elif upstream_repo:
         if binary:
             spec = choose_route_for_binary(slug, meta, binary)
         else:
-            raise ValueError("未发现 compose、Dockerfile 或可识别的 release binary")
+            raise ValueError("未发现 compose、Dockerfile、可识别的前端应用或 release binary")
     else:
         raise ValueError("当前输入不是 GitHub 仓库，也没有可分析的 compose/Dockerfile")
 
@@ -1865,16 +2198,16 @@ def analyze_source(normalized: dict[str, Any], source_dir: Path | None) -> dict[
         f"扫描到 README：{', '.join(path.name for path in readmes[:3])}" if readmes else "未扫描到 README",
     ]
 
-    return {
-        "slug": spec["slug"],
-        "route": spec["build_strategy"],
-        "spec": spec,
-        "compose_file": compose_file,
-        "dockerfile": dockerfile,
-        "env_files": env_files,
-        "readmes": readmes,
-        "risks": spec.get("_risks", []),
-    }
+    return AnalysisResult(
+        slug=spec["slug"],
+        route=spec["build_strategy"],
+        spec=spec,
+        compose_file=compose_file,
+        dockerfile=dockerfile,
+        env_files=env_files,
+        readmes=readmes,
+        risks=list(spec.get("_risks", [])),
+    )
 
 
 def apply_post_write(repo_root: Path, slug: str, post_write: dict[str, str]) -> list[str]:
@@ -2436,8 +2769,8 @@ def post_process_signoz(repo_root: Path) -> list[str]:
     return outputs
 
 
-def apply_app_post_process(repo_root: Path, finalized: dict[str, Any], analysis: dict[str, Any]) -> list[str]:
-    upstream_repo = str(finalized.get("upstream_repo") or analysis["spec"].get("upstream_repo") or "").strip()
+def apply_app_post_process(repo_root: Path, finalized: dict[str, Any], analysis: AnalysisResult) -> list[str]:
+    upstream_repo = str(finalized.get("upstream_repo") or analysis.spec.get("upstream_repo") or "").strip()
     if finalized["slug"] == "signoz" and upstream_repo == "SigNoz/signoz":
         return post_process_signoz(repo_root)
     if finalized["slug"] == "deer-flow" and upstream_repo == "bytedance/deer-flow":
@@ -2447,8 +2780,8 @@ def apply_app_post_process(repo_root: Path, finalized: dict[str, Any], analysis:
     return []
 
 
-def apply_generated_app_fixes(finalized: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
-    upstream_repo = str(finalized.get("upstream_repo") or analysis["spec"].get("upstream_repo") or "").strip()
+def apply_generated_app_fixes(finalized: dict[str, Any], analysis: AnalysisResult) -> dict[str, Any]:
+    upstream_repo = str(finalized.get("upstream_repo") or analysis.spec.get("upstream_repo") or "").strip()
 
     if (
         str(finalized.get("build_strategy", "")).strip() in SOURCE_BUILD_STRATEGIES
@@ -2473,102 +2806,7 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: dict[str, Any
             startup_notes.append(note)
 
     if finalized.get("slug") == "multica" and upstream_repo == "multica-ai/multica":
-        finalized["service_port"] = 3000
-        finalized["image_targets"] = ["multica", "web"]
-        finalized["dependencies"] = [
-            {"target_service": "postgres", "source_image": "pgvector/pgvector:pg17"},
-            {"target_service": "dbfix", "source_image": "pgvector/pgvector:pg17"},
-            {"target_service": "dbfix_task_queue", "source_image": "pgvector/pgvector:pg17"},
-            {"target_service": "db_audit", "source_image": "pgvector/pgvector:pg17"},
-        ]
-        finalized["service_builds"] = [
-            {
-                "target_service": "multica",
-                "build_strategy": "upstream_dockerfile",
-                "source_dockerfile_path": "Dockerfile",
-                "build_context": ".",
-                "build_args": {},
-                "image_name": "multica",
-            },
-            {
-                "target_service": "web",
-                "build_strategy": "upstream_with_target_template",
-                "dockerfile_path": "Dockerfile.web.template",
-                "source_dockerfile_path": "Dockerfile.web.lazycat",
-                "build_context": ".",
-                "build_args": {},
-                "image_name": "multica-web",
-            },
-        ]
-        finalized["application"] = {
-            "subdomain": "multica",
-            "public_path": ["/"],
-            "upstreams": [{"location": "/", "backend": "http://web:3000/"}],
-        }
-        finalized["services"] = {
-            "multica": {
-                "image": "registry.lazycat.cloud/placeholder/multica:multica",
-                "depends_on": ["postgres"],
-                "environment": [
-                    "PORT=8080",
-                    "DATABASE_URL=postgres://multica:multica@postgres:5432/multica?sslmode=disable",
-                    "JWT_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt",
-                    'RESEND_API_KEY={{ default "" .U.resend_api_key }}',
-                    'RESEND_FROM_EMAIL={{ default "noreply@multica.ai" .U.resend_from_email }}',
-                ],
-                "command": "sh -lc 'until ./migrate up; do echo \"waiting for postgres...\"; sleep 2; done; exec ./server'",
-            },
-            "web": {
-                "image": "registry.lazycat.cloud/placeholder/multica:web",
-                "depends_on": ["multica"],
-                "environment": [
-                    "REMOTE_API_URL=http://multica:8080",
-                    "FRONTEND_PORT=3000",
-                ],
-                "command": "sh -lc 'cd apps/web && pnpm dev --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}'",
-            },
-            "postgres": {
-                "image": "registry.lazycat.cloud/placeholder/multica:postgres",
-                "environment": [
-                    "POSTGRES_DB=multica",
-                    "POSTGRES_USER=multica",
-                    "POSTGRES_PASSWORD=multica",
-                ],
-                "binds": ["/lzcapp/var/db/multica/postgres-v4:/var/lib/postgresql/data"],
-            },
-        }
-
-        env_entries = bm.ensure_list(finalized.get("env_vars"))
-
-        def upsert_env(name: str, value: str, description: str) -> None:
-            for item in env_entries:
-                if isinstance(item, dict) and str(item.get("name", "")).strip() == name:
-                    item["value"] = value
-                    item["required"] = False
-                    item["description"] = description
-                    return
-            env_entries.append({"name": name, "value": value, "required": False, "description": description})
-
-        upsert_env(
-            "DATABASE_URL",
-            "postgres://multica:multica@postgres:5432/multica?sslmode=disable",
-            "连接内置 postgres 服务（由迁移器重写默认 localhost）",
-        )
-        upsert_env("PORT", "8080", "Multica server 监听端口")
-        upsert_env(
-            "JWT_SECRET",
-            "${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt",
-            "服务端 JWT 签名密钥",
-        )
-        finalized["env_vars"] = env_entries
-
-        notes = bm.ensure_list(finalized.get("startup_notes"))
-        notes.append("检测到 compose 仅包含 PostgreSQL，已自动补齐 web + backend + postgres 三服务拓扑。")
-        notes.append("已将 DATABASE_URL 默认值从 localhost 改写为 postgres 服务名，避免容器内回环连接失败。")
-        notes.append("web 服务默认以 dev 模式启动；若浏览器出现 HMR WebSocket 报错，可忽略，不影响主流程。")
-        notes.append("已对登录页注入容错补丁：/auth/send-code 失败时仍允许进入验证码步骤（开发态可用 888888）。")
-        notes.append("支持通过 lzc-deploy-params.yml 配置 RESEND 邮件参数；若未配置则需在日志中查看验证码。")
-        finalized["startup_notes"] = notes
+        finalized.update(build_multica_profile())
 
     if finalized.get("slug") == "deer-flow" and upstream_repo == "bytedance/deer-flow":
         finalized["include_content"] = True
@@ -4264,6 +4502,627 @@ def post_process_deer_flow(repo_root: Path) -> list[str]:
     return outputs
 
 
+def encode_base64_text(text: str) -> str:
+    return base64.b64encode(text.encode("utf-8")).decode("ascii")
+
+
+def render_encoded_sql_command(database_url: str, sql: str, target_name: str) -> str:
+    encoded = encode_base64_text(sql)
+    return (
+        "sh -lc 'until pg_isready -h postgres -U multica >/dev/null 2>&1; do sleep 1; done; "
+        f"printf %s {encoded} | base64 -d >/tmp/{target_name}.sql; "
+        f'psql "{database_url}" -v ON_ERROR_STOP=0 -f /tmp/{target_name}.sql >/dev/null 2>&1 || true; '
+        "sleep infinity'"
+    )
+
+
+def render_encoded_shell_command(script: str, target_name: str) -> str:
+    encoded = encode_base64_text(script)
+    return (
+        "sh -lc '"
+        f"printf %s {encoded} | base64 -d >/tmp/{target_name}.sh; "
+        f"chmod +x /tmp/{target_name}.sh; exec /tmp/{target_name}.sh'"
+    )
+
+
+def render_multica_dbfix_sql() -> str:
+    return textwrap.dedent(
+        """\
+        CREATE EXTENSION IF NOT EXISTS pgcrypto;
+        CREATE TABLE IF NOT EXISTS "user" (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            avatar_url TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS workspace (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            name TEXT NOT NULL,
+            slug TEXT UNIQUE NOT NULL,
+            description TEXT,
+            settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        ALTER TABLE workspace ADD COLUMN IF NOT EXISTS context TEXT;
+        ALTER TABLE workspace ADD COLUMN IF NOT EXISTS repos JSONB NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE workspace ADD COLUMN IF NOT EXISTS issue_prefix TEXT NOT NULL DEFAULT '';
+        ALTER TABLE workspace ADD COLUMN IF NOT EXISTS issue_counter INT NOT NULL DEFAULT 0;
+        UPDATE workspace SET issue_prefix = 'WS' WHERE issue_prefix = '';
+        CREATE TABLE IF NOT EXISTS member (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+            role TEXT NOT NULL DEFAULT 'member',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            UNIQUE(workspace_id, user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_member_workspace ON member(workspace_id);
+        CREATE TABLE IF NOT EXISTS agent (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            avatar_url TEXT,
+            runtime_mode TEXT NOT NULL DEFAULT 'local',
+            runtime_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+            visibility TEXT NOT NULL DEFAULT 'private',
+            status TEXT NOT NULL DEFAULT 'offline',
+            max_concurrent_tasks INT NOT NULL DEFAULT 6,
+            owner_id UUID REFERENCES "user"(id),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        ALTER TABLE agent ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
+        ALTER TABLE agent ADD COLUMN IF NOT EXISTS tools JSONB NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE agent ADD COLUMN IF NOT EXISTS triggers JSONB NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE agent ADD COLUMN IF NOT EXISTS instructions TEXT NOT NULL DEFAULT '';
+        ALTER TABLE agent ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ DEFAULT NULL;
+        ALTER TABLE agent ADD COLUMN IF NOT EXISTS archived_by UUID DEFAULT NULL REFERENCES "user"(id);
+        ALTER TABLE agent ADD COLUMN IF NOT EXISTS runtime_id UUID;
+        CREATE INDEX IF NOT EXISTS idx_agent_workspace ON agent(workspace_id);
+        CREATE TABLE IF NOT EXISTS issue (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            description TEXT,
+            status TEXT NOT NULL DEFAULT 'backlog',
+            priority TEXT NOT NULL DEFAULT 'none',
+            assignee_type TEXT,
+            assignee_id UUID,
+            creator_type TEXT NOT NULL DEFAULT 'member',
+            creator_id UUID NOT NULL,
+            parent_issue_id UUID REFERENCES issue(id) ON DELETE SET NULL,
+            acceptance_criteria JSONB NOT NULL DEFAULT '[]'::jsonb,
+            context_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+            position DOUBLE PRECISION NOT NULL DEFAULT 0,
+            due_date TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        ALTER TABLE issue ADD COLUMN IF NOT EXISTS number INT NOT NULL DEFAULT 0;
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_issue_workspace_number') THEN
+                ALTER TABLE issue ADD CONSTRAINT uq_issue_workspace_number UNIQUE (workspace_id, number);
+            END IF;
+        END
+        $$;
+        CREATE INDEX IF NOT EXISTS idx_issue_workspace ON issue(workspace_id);
+        CREATE INDEX IF NOT EXISTS idx_issue_assignee ON issue(assignee_type, assignee_id);
+        CREATE INDEX IF NOT EXISTS idx_issue_status ON issue(workspace_id, status);
+        CREATE INDEX IF NOT EXISTS idx_issue_parent ON issue(parent_issue_id);
+        CREATE INDEX IF NOT EXISTS idx_issue_workspace_number ON issue(workspace_id, number);
+        CREATE TABLE IF NOT EXISTS issue_label (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            color TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS issue_to_label (
+            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
+            label_id UUID NOT NULL REFERENCES issue_label(id) ON DELETE CASCADE,
+            PRIMARY KEY (issue_id, label_id)
+        );
+        CREATE TABLE IF NOT EXISTS issue_dependency (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
+            depends_on_issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
+            type TEXT NOT NULL DEFAULT 'blocks'
+        );
+        CREATE TABLE IF NOT EXISTS comment (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
+            author_type TEXT NOT NULL,
+            author_id UUID NOT NULL,
+            content TEXT NOT NULL,
+            type TEXT NOT NULL DEFAULT 'comment',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        ALTER TABLE comment ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES comment(id) ON DELETE CASCADE;
+        ALTER TABLE comment ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES workspace(id) ON DELETE CASCADE;
+        UPDATE comment
+        SET workspace_id = issue.workspace_id
+        FROM issue
+        WHERE comment.issue_id = issue.id AND comment.workspace_id IS NULL;
+        CREATE INDEX IF NOT EXISTS idx_comment_issue ON comment(issue_id);
+        CREATE TABLE IF NOT EXISTS inbox_item (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            recipient_type TEXT NOT NULL,
+            recipient_id UUID NOT NULL,
+            type TEXT NOT NULL,
+            severity TEXT NOT NULL DEFAULT 'info',
+            issue_id UUID REFERENCES issue(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            body TEXT,
+            read BOOLEAN NOT NULL DEFAULT FALSE,
+            archived BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        ALTER TABLE inbox_item ADD COLUMN IF NOT EXISTS actor_type TEXT;
+        ALTER TABLE inbox_item ADD COLUMN IF NOT EXISTS actor_id UUID;
+        ALTER TABLE inbox_item ADD COLUMN IF NOT EXISTS details JSONB DEFAULT '{}'::jsonb;
+        CREATE INDEX IF NOT EXISTS idx_inbox_recipient ON inbox_item(recipient_type, recipient_id, read);
+        CREATE TABLE IF NOT EXISTS daemon_connection (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            agent_id UUID NOT NULL REFERENCES agent(id) ON DELETE CASCADE,
+            daemon_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'disconnected',
+            last_heartbeat_at TIMESTAMPTZ,
+            runtime_info JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_daemon_agent') THEN
+                ALTER TABLE daemon_connection ADD CONSTRAINT uq_daemon_agent UNIQUE (agent_id, daemon_id);
+            END IF;
+        END
+        $$;
+        CREATE TABLE IF NOT EXISTS activity_log (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            issue_id UUID REFERENCES issue(id) ON DELETE CASCADE,
+            actor_type TEXT,
+            actor_id UUID,
+            action TEXT NOT NULL,
+            details JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_activity_log_issue ON activity_log(issue_id);
+        CREATE TABLE IF NOT EXISTS verification_code (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            email TEXT NOT NULL,
+            code TEXT NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            used BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_verification_code_email ON verification_code(email, used, expires_at);
+        ALTER TABLE verification_code ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
+        CREATE TABLE IF NOT EXISTS personal_access_token (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            token_prefix TEXT NOT NULL,
+            expires_at TIMESTAMPTZ,
+            last_used_at TIMESTAMPTZ,
+            revoked BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_pat_user ON personal_access_token(user_id, revoked);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_pat_token_hash ON personal_access_token(token_hash);
+        CREATE TABLE IF NOT EXISTS skill (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            content TEXT NOT NULL DEFAULT '',
+            config JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_by UUID REFERENCES "user"(id),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            UNIQUE(workspace_id, name)
+        );
+        CREATE TABLE IF NOT EXISTS skill_file (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            skill_id UUID NOT NULL REFERENCES skill(id) ON DELETE CASCADE,
+            path TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            UNIQUE(skill_id, path)
+        );
+        CREATE TABLE IF NOT EXISTS agent_skill (
+            agent_id UUID NOT NULL REFERENCES agent(id) ON DELETE CASCADE,
+            skill_id UUID NOT NULL REFERENCES skill(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            PRIMARY KEY (agent_id, skill_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_skill_workspace ON skill(workspace_id);
+        CREATE INDEX IF NOT EXISTS idx_skill_file_skill ON skill_file(skill_id);
+        CREATE INDEX IF NOT EXISTS idx_agent_skill_skill ON agent_skill(skill_id);
+        CREATE INDEX IF NOT EXISTS idx_agent_skill_agent ON agent_skill(agent_id);
+        CREATE TABLE IF NOT EXISTS issue_subscriber (
+            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
+            user_type TEXT NOT NULL,
+            user_id UUID NOT NULL,
+            reason TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            PRIMARY KEY (issue_id, user_type, user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_issue_subscriber_user ON issue_subscriber(user_type, user_id);
+        CREATE TABLE IF NOT EXISTS comment_reaction (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            comment_id UUID NOT NULL REFERENCES comment(id) ON DELETE CASCADE,
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            actor_type TEXT NOT NULL,
+            actor_id UUID NOT NULL,
+            emoji TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            UNIQUE (comment_id, actor_type, actor_id, emoji)
+        );
+        CREATE INDEX IF NOT EXISTS idx_comment_reaction_comment_id ON comment_reaction(comment_id);
+        CREATE TABLE IF NOT EXISTS issue_reaction (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            actor_type TEXT NOT NULL,
+            actor_id UUID NOT NULL,
+            emoji TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            UNIQUE (issue_id, actor_type, actor_id, emoji)
+        );
+        CREATE INDEX IF NOT EXISTS idx_issue_reaction_issue_id ON issue_reaction(issue_id);
+        CREATE TABLE IF NOT EXISTS attachment (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            issue_id UUID REFERENCES issue(id) ON DELETE CASCADE,
+            comment_id UUID REFERENCES comment(id) ON DELETE CASCADE,
+            uploader_type TEXT NOT NULL,
+            uploader_id UUID NOT NULL,
+            filename TEXT NOT NULL,
+            url TEXT NOT NULL,
+            content_type TEXT NOT NULL,
+            size_bytes BIGINT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_attachment_issue ON attachment(issue_id) WHERE issue_id IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_attachment_comment ON attachment(comment_id) WHERE comment_id IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_attachment_workspace ON attachment(workspace_id);
+        CREATE TABLE IF NOT EXISTS daemon_token (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            token_hash TEXT NOT NULL,
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            daemon_id TEXT NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_daemon_token_hash ON daemon_token(token_hash);
+        CREATE INDEX IF NOT EXISTS idx_daemon_token_workspace_daemon ON daemon_token(workspace_id, daemon_id);
+        """
+    )
+
+
+def render_multica_dbfix_task_queue_sql() -> str:
+    return textwrap.dedent(
+        """\
+        CREATE TABLE IF NOT EXISTS agent_runtime (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            daemon_id TEXT,
+            name TEXT NOT NULL,
+            runtime_mode TEXT NOT NULL DEFAULT 'local',
+            provider TEXT NOT NULL DEFAULT 'codex',
+            status TEXT NOT NULL DEFAULT 'offline',
+            device_info TEXT NOT NULL DEFAULT '',
+            metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+            last_seen_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        DELETE FROM agent_runtime a USING agent_runtime b
+        WHERE a.id < b.id
+          AND a.workspace_id = b.workspace_id
+          AND a.daemon_id = b.daemon_id
+          AND a.provider = b.provider
+          AND a.daemon_id IS NOT NULL;
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_agent_runtime_workspace_daemon_provider') THEN
+                ALTER TABLE agent_runtime ADD CONSTRAINT uq_agent_runtime_workspace_daemon_provider UNIQUE (workspace_id, daemon_id, provider);
+            END IF;
+        END
+        $$;
+        CREATE INDEX IF NOT EXISTS idx_agent_runtime_workspace ON agent_runtime(workspace_id);
+        CREATE INDEX IF NOT EXISTS idx_agent_runtime_status ON agent_runtime(workspace_id, status);
+        CREATE TABLE IF NOT EXISTS agent_task_queue (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            agent_id UUID NOT NULL REFERENCES agent(id) ON DELETE CASCADE,
+            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
+            status TEXT NOT NULL DEFAULT 'queued',
+            priority INTEGER NOT NULL DEFAULT 0,
+            dispatched_at TIMESTAMPTZ,
+            started_at TIMESTAMPTZ,
+            completed_at TIMESTAMPTZ,
+            result JSONB,
+            error TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS context JSONB NOT NULL DEFAULT '{}'::jsonb;
+        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS runtime_id UUID;
+        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS session_id TEXT;
+        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS work_dir TEXT;
+        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS trigger_comment_id UUID REFERENCES comment(id) ON DELETE SET NULL;
+        CREATE INDEX IF NOT EXISTS idx_agent_task_queue_agent ON agent_task_queue(agent_id, status);
+        CREATE INDEX IF NOT EXISTS idx_agent_task_queue_pending
+            ON agent_task_queue(agent_id, priority DESC, created_at ASC)
+            WHERE status IN ('queued', 'dispatched');
+        CREATE INDEX IF NOT EXISTS idx_agent_task_queue_runtime_pending
+            ON agent_task_queue(runtime_id, priority DESC, created_at ASC)
+            WHERE status IN ('queued', 'dispatched');
+        CREATE TABLE IF NOT EXISTS daemon_pairing_session (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            token TEXT NOT NULL UNIQUE,
+            daemon_id TEXT NOT NULL,
+            device_name TEXT NOT NULL,
+            runtime_name TEXT NOT NULL,
+            runtime_type TEXT NOT NULL,
+            runtime_version TEXT NOT NULL DEFAULT '',
+            workspace_id UUID REFERENCES workspace(id) ON DELETE CASCADE,
+            approved_by UUID REFERENCES "user"(id) ON DELETE SET NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            approved_at TIMESTAMPTZ,
+            claimed_at TIMESTAMPTZ,
+            expires_at TIMESTAMPTZ NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_daemon_pairing_session_token ON daemon_pairing_session(token);
+        CREATE INDEX IF NOT EXISTS idx_daemon_pairing_session_status_expires ON daemon_pairing_session(status, expires_at);
+        CREATE TABLE IF NOT EXISTS runtime_usage (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            runtime_id UUID NOT NULL REFERENCES agent_runtime(id) ON DELETE CASCADE,
+            date DATE NOT NULL,
+            provider TEXT NOT NULL,
+            model TEXT NOT NULL DEFAULT '',
+            input_tokens BIGINT NOT NULL DEFAULT 0,
+            output_tokens BIGINT NOT NULL DEFAULT 0,
+            cache_read_tokens BIGINT NOT NULL DEFAULT 0,
+            cache_write_tokens BIGINT NOT NULL DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            UNIQUE (runtime_id, date, provider, model)
+        );
+        CREATE INDEX IF NOT EXISTS idx_runtime_usage_runtime_date ON runtime_usage(runtime_id, date DESC);
+        CREATE TABLE IF NOT EXISTS task_message (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            task_id UUID NOT NULL REFERENCES agent_task_queue(id) ON DELETE CASCADE,
+            seq INTEGER NOT NULL,
+            type TEXT NOT NULL,
+            tool TEXT,
+            content TEXT,
+            input JSONB,
+            output TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_task_message_task_id_seq ON task_message(task_id, seq);
+        """
+    )
+
+
+def render_multica_db_audit_script(database_url: str) -> str:
+    return textwrap.dedent(
+        f"""\
+        #!/bin/sh
+        set -eu
+
+        until pg_isready -h postgres -U multica >/dev/null 2>&1; do
+          sleep 1
+        done
+
+        until psql "{database_url}" -Atc "SELECT 1 FROM pg_catalog.pg_tables WHERE schemaname='public' AND tablename='runtime_usage';" | grep -q 1; do
+          sleep 1
+        done
+
+        report="$(psql "{database_url}" -Atc "WITH expected_tables(kind,name) AS (VALUES ('table','user'),('table','workspace'),('table','member'),('table','agent'),('table','issue'),('table','issue_label'),('table','issue_to_label'),('table','issue_dependency'),('table','comment'),('table','inbox_item'),('table','agent_task_queue'),('table','daemon_connection'),('table','activity_log'),('table','agent_runtime'),('table','daemon_pairing_session'),('table','skill'),('table','skill_file'),('table','agent_skill'),('table','verification_code'),('table','personal_access_token'),('table','runtime_usage'),('table','issue_subscriber'),('table','comment_reaction'),('table','task_message'),('table','issue_reaction'),('table','attachment'),('table','daemon_token')), expected_indexes(kind,name) AS (VALUES ('index','idx_pat_token_hash'),('index','idx_daemon_token_hash'),('index','idx_daemon_token_workspace_daemon'),('index','idx_runtime_usage_runtime_date'),('index','idx_issue_workspace_number'),('index','idx_agent_workspace'),('index','idx_inbox_recipient')), expected_constraints(kind,name) AS (VALUES ('constraint','uq_agent_runtime_workspace_daemon_provider'),('constraint','uq_issue_workspace_number'),('constraint','uq_daemon_agent')), expected_columns(kind,table_name,name) AS (VALUES ('column','agent','description'),('column','agent','runtime_id'),('column','agent','archived_at'),('column','agent','instructions'),('column','issue','number'),('column','inbox_item','actor_type'),('column','inbox_item','details'),('column','comment','workspace_id'),('column','personal_access_token','token_prefix'),('column','skill','content')), missing_tables AS (SELECT kind, name FROM expected_tables e LEFT JOIN pg_catalog.pg_tables t ON t.schemaname='public' AND t.tablename=e.name WHERE t.tablename IS NULL), missing_indexes AS (SELECT kind, name FROM expected_indexes e LEFT JOIN pg_catalog.pg_indexes i ON i.schemaname='public' AND i.indexname=e.name WHERE i.indexname IS NULL), missing_constraints AS (SELECT kind, name FROM expected_constraints e LEFT JOIN pg_catalog.pg_constraint c ON c.conname=e.name WHERE c.conname IS NULL), missing_columns AS (SELECT kind, table_name || '.' || name AS name FROM expected_columns e LEFT JOIN information_schema.columns c ON c.table_schema='public' AND c.table_name=e.table_name AND c.column_name=e.name WHERE c.column_name IS NULL) SELECT kind || ':' || name FROM missing_tables UNION ALL SELECT kind || ':' || name FROM missing_indexes UNION ALL SELECT kind || ':' || name FROM missing_constraints UNION ALL SELECT kind || ':' || name FROM missing_columns ORDER BY 1;")"
+
+        if [ -n "$report" ]; then
+          echo "[schema-audit] missing schema objects:"
+          echo "$report"
+        else
+          echo "[schema-audit] all required tables, indexes, constraints, and columns exist"
+        fi
+
+        sleep infinity
+        """
+    )
+
+
+def render_multica_db_smoke_script(database_url: str) -> str:
+    return textwrap.dedent(
+        rf"""\
+        #!/bin/sh
+        set -eu
+
+        until pg_isready -h postgres -U multica >/dev/null 2>&1; do
+          sleep 1
+        done
+
+        until psql "{database_url}" -Atc "SELECT 1 FROM pg_catalog.pg_tables WHERE schemaname='public' AND tablename='runtime_usage';" | grep -q 1; do
+          sleep 1
+        done
+
+        psql "{database_url}" -v ON_ERROR_STOP=1 \\
+          -c "BEGIN;" \\
+          -c "DO \$$ DECLARE v_user UUID := gen_random_uuid(); v_workspace UUID := gen_random_uuid(); v_runtime UUID; BEGIN INSERT INTO \\"user\\" (id, name, email) VALUES (v_user, 'schema smoke', 'smoke_' || replace(v_user::text, '-', '') || '@example.com'); INSERT INTO workspace (id, name, slug, issue_prefix, issue_counter) VALUES (v_workspace, 'schema smoke', 'smoke-' || substr(replace(v_workspace::text, '-', ''), 1, 12), 'SMK', 0); INSERT INTO member (id, workspace_id, user_id, role) VALUES (gen_random_uuid(), v_workspace, v_user, 'owner'); INSERT INTO agent_runtime (workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at) VALUES (v_workspace, 'schema-smoke-daemon', 'Schema Smoke Runtime', 'local', 'codex', 'online', 'schema-smoke', '{{}}'::jsonb, now()) ON CONFLICT (workspace_id, daemon_id, provider) DO UPDATE SET updated_at = now(), last_seen_at = now() RETURNING id INTO v_runtime; INSERT INTO personal_access_token (id, user_id, name, token_hash, token_prefix, created_at) VALUES (gen_random_uuid(), v_user, 'schema smoke', md5('schema-smoke-token'), 'mul_smoke', now()); INSERT INTO daemon_token (id, token_hash, workspace_id, daemon_id, expires_at, created_at) VALUES (gen_random_uuid(), md5('schema-smoke-daemon-token'), v_workspace, 'schema-smoke-daemon', now() + interval '1 day', now()); INSERT INTO runtime_usage (id, runtime_id, date, provider, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, created_at, updated_at) VALUES (gen_random_uuid(), v_runtime, current_date, 'codex', 'schema-smoke', 0, 0, 0, 0, now(), now()) ON CONFLICT (runtime_id, date, provider, model) DO UPDATE SET updated_at = now(); END \$$;" \\
+          -c "ROLLBACK;"
+
+        echo "[schema-smoke] transactional write checks passed"
+        sleep infinity
+        """
+    )
+
+
+def build_multica_profile() -> dict[str, Any]:
+    database_url = "postgres://multica:multica@postgres:5432/multica?sslmode=disable"
+    profile: dict[str, Any] = {
+        "service_port": 3000,
+        "image_targets": ["multica", "web"],
+        "dependencies": [
+            {"target_service": "postgres", "source_image": "pgvector/pgvector:pg17"},
+            {"target_service": "dbfix", "source_image": "pgvector/pgvector:pg17"},
+            {"target_service": "dbfix_task_queue", "source_image": "pgvector/pgvector:pg17"},
+            {"target_service": "db_audit", "source_image": "pgvector/pgvector:pg17"},
+            {"target_service": "db_smoke", "source_image": "pgvector/pgvector:pg17"},
+        ],
+        "service_builds": [
+            {
+                "target_service": "multica",
+                "build_strategy": "upstream_dockerfile",
+                "source_dockerfile_path": "Dockerfile",
+                "build_context": ".",
+                "build_args": {},
+                "image_name": "multica",
+            },
+            {
+                "target_service": "web",
+                "build_strategy": "upstream_with_target_template",
+                "dockerfile_path": "Dockerfile.web.template",
+                "source_dockerfile_path": "Dockerfile.web.lazycat",
+                "build_context": ".",
+                "build_args": {},
+                "image_name": "multica-web",
+            },
+        ],
+        "application": {
+            "subdomain": "multica",
+            "public_path": ["/"],
+            "upstreams": [{"location": "/", "backend": "http://web:3000/"}],
+        },
+        "services": {
+            "multica": {
+                "image": "registry.lazycat.cloud/placeholder/multica:multica",
+                "depends_on": ["postgres", "dbfix", "dbfix_task_queue"],
+                "environment": [
+                    "PORT=8080",
+                    f"DATABASE_URL={database_url}",
+                    "JWT_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt",
+                    'RESEND_API_KEY={{ default "" .U.resend_api_key }}',
+                    'RESEND_FROM_EMAIL={{ default "noreply@multica.ai" .U.resend_from_email }}',
+                ],
+                "command": (
+                    "sh -lc 'until ./migrate up; do echo \"waiting for postgres...\"; sleep 2; done; "
+                    "until psql \"$DATABASE_URL\" -Atc "
+                    "\"SELECT 1 FROM pg_catalog.pg_tables WHERE schemaname='\\''public'\\'' AND tablename='\\''runtime_usage'\\'';\" "
+                    "| grep -q 1; do echo \"waiting for schema bootstrap...\"; sleep 2; done; exec ./server'"
+                ),
+            },
+            "web": {
+                "image": "registry.lazycat.cloud/placeholder/multica:web",
+                "depends_on": ["multica"],
+                "environment": [
+                    "REMOTE_API_URL=http://multica:8080",
+                    "FRONTEND_PORT=3000",
+                    "NODE_ENV=production",
+                ],
+                "command": (
+                    'sh -lc "sed -i \\"s/await sendCode(email);/await sendCode(email).catch(() => {});/g\\" '
+                    "'/src/apps/web/app/(auth)/login/page.tsx'; cd apps/web && pnpm build && "
+                    'exec pnpm start --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}"'
+                ),
+            },
+            "postgres": {
+                "image": "registry.lazycat.cloud/placeholder/multica:postgres",
+                "environment": [
+                    "POSTGRES_DB=multica",
+                    "POSTGRES_USER=multica",
+                    "POSTGRES_PASSWORD=multica",
+                ],
+                "binds": ["/lzcapp/var/db/multica/postgres-v4:/var/lib/postgresql/data"],
+            },
+            "dbfix": {
+                "image": "registry.lazycat.cloud/placeholder/multica:postgres",
+                "depends_on": ["postgres"],
+                "command": render_encoded_sql_command(database_url, render_multica_dbfix_sql(), "dbfix"),
+            },
+            "dbfix_task_queue": {
+                "image": "registry.lazycat.cloud/placeholder/multica:postgres",
+                "depends_on": ["postgres"],
+                "command": render_encoded_sql_command(
+                    database_url, render_multica_dbfix_task_queue_sql(), "dbfix_task_queue"
+                ),
+            },
+            "db_audit": {
+                "image": "registry.lazycat.cloud/placeholder/multica:postgres",
+                "depends_on": ["postgres", "dbfix", "dbfix_task_queue"],
+                "command": render_encoded_shell_command(render_multica_db_audit_script(database_url), "db_audit"),
+            },
+            "db_smoke": {
+                "image": "registry.lazycat.cloud/placeholder/multica:postgres",
+                "depends_on": ["postgres", "dbfix", "dbfix_task_queue"],
+                "command": render_encoded_shell_command(render_multica_db_smoke_script(database_url), "db_smoke"),
+            },
+        },
+        "env_vars": [
+            {
+                "name": "DATABASE_URL",
+                "value": database_url,
+                "required": False,
+                "description": "连接内置 postgres 服务（由迁移器重写默认 localhost）",
+            },
+            {
+                "name": "PORT",
+                "value": "8080",
+                "required": False,
+                "description": "Multica server 监听端口",
+            },
+            {
+                "name": "JWT_SECRET",
+                "value": "${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt",
+                "required": False,
+                "description": "服务端 JWT 签名密钥",
+            },
+        ],
+        "startup_notes": [
+            "检测到 compose 仅包含 PostgreSQL，已自动补齐 web + backend + postgres 三服务拓扑。",
+            "已将 DATABASE_URL 默认值从 localhost 改写为 postgres 服务名，避免容器内回环连接失败。",
+            "web 服务默认以 production 模式启动，避免 HMR WebSocket 噪音和开发态反向代理问题。",
+            "已对登录页注入容错补丁：/auth/send-code 失败时仍允许进入验证码步骤（开发态可用 888888）。",
+            "支持通过 lzc-deploy-params.yml 配置 RESEND 邮件参数；若未配置则需在日志中查看验证码。",
+            "数据库 bootstrap 改为 encoded SQL -> 临时文件 -> psql -f，避免 shell/heredoc 引号破坏 SQL。",
+        ],
+    }
+    validate_multica_profile(profile)
+    return profile
+
+
+def validate_multica_profile(profile: dict[str, Any]) -> None:
+    services = profile.get("services")
+    if not isinstance(services, dict):
+        raise ValueError("multica profile missing services")
+    required_services = {"multica", "web", "postgres", "dbfix", "dbfix_task_queue", "db_audit", "db_smoke"}
+    missing = sorted(required_services - set(services))
+    if missing:
+        raise ValueError(f"multica profile missing services: {', '.join(missing)}")
+    web_environment = "\n".join(str(item) for item in services["web"].get("environment", []))
+    if "NODE_ENV=production" not in web_environment:
+        raise ValueError("multica web command must run in production mode")
+    if "base64 -d >/tmp/dbfix.sql" not in str(services["dbfix"].get("command", "")):
+        raise ValueError("multica dbfix must execute encoded sql file")
+    if "base64 -d >/tmp/dbfix_task_queue.sql" not in str(services["dbfix_task_queue"].get("command", "")):
+        raise ValueError("multica dbfix_task_queue must execute encoded sql file")
+    if "base64 -d >/tmp/db_audit.sh" not in str(services["db_audit"].get("command", "")):
+        raise ValueError("multica db_audit must execute encoded shell script")
+    if "base64 -d >/tmp/db_smoke.sh" not in str(services["db_smoke"].get("command", "")):
+        raise ValueError("multica db_smoke must execute encoded shell script")
+
+
 def post_process_multica(repo_root: Path) -> list[str]:
     app_dir = repo_root / "apps" / "multica"
     app_dir.mkdir(parents=True, exist_ok=True)
@@ -4284,7 +5143,7 @@ def post_process_multica(repo_root: Path) -> list[str]:
             ENV FRONTEND_PORT=3000
             ENV REMOTE_API_URL=http://multica:8080
             EXPOSE 3000
-            CMD ["sh", "-lc", "cd apps/web && pnpm dev --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}"]
+            CMD ["sh", "-lc", "cd apps/web && pnpm build && exec pnpm start --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}"]
             """
         ),
         encoding="utf-8",
@@ -4337,6 +5196,22 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
     if f"{slug}.json" not in index.get("repos", []):
         issues.append(f"{slug}.json not registered in registry/repos/index.json")
 
+    workflow_sync_script = repo_root / "scripts" / "sync_trigger_build_options.py"
+    if workflow_sync_script.exists():
+        sync_check = subprocess.run(
+            ["python3", str(workflow_sync_script), "--check"],
+            cwd=str(repo_root),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if sync_check.returncode != 0:
+            details = (sync_check.stdout or sync_check.stderr or "").strip()
+            issues.append(
+                "trigger-build workflow options are out of sync with registry/repos/index.json"
+                + (f": {details}" if details else "")
+            )
+
     manifest = load_yaml(manifest_path)
     if not isinstance(manifest, dict):
         issues.append("manifest is not valid yaml mapping")
@@ -4371,6 +5246,9 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
         issues.append("official_image strategy requires official_image_registry")
     if config.get("build_strategy") == "precompiled_binary" and not str(config.get("precompiled_binary_url", "")).strip():
         issues.append("precompiled_binary strategy requires precompiled_binary_url")
+    dockerfile_path = str(config.get("dockerfile_path", "")).strip()
+    if dockerfile_path and not (app_dir / dockerfile_path).exists():
+        issues.append(f"configured dockerfile_path is missing: {app_dir / dockerfile_path}")
     for service_name, payload in services.items():
         if isinstance(payload, dict) and payload.get("command") and payload.get("setup_script"):
             issues.append(f"service {service_name} defines both command and setup_script")
@@ -4382,15 +5260,16 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
     return not issues, issues
 
 
-def detect_gh_token(env: dict[str, str]) -> str:
+def detect_gh_token(env: dict[str, str]) -> tuple[str, str]:
+    for name in ("GH_TOKEN", "GITHUB_TOKEN", "GH_PAT"):
+        token = env.get(name, "").strip()
+        if token:
+            return token, name
     if command_exists("gh"):
         token = sh(["gh", "auth", "token"], check=False)
         if token:
-            return token
-    token = env.get("GH_PAT") or env.get("GH_TOKEN") or env.get("GITHUB_TOKEN")
-    if token:
-        return token
-    return ""
+            return token, "gh auth token"
+    return "", ""
 
 
 def detect_lzc_cli_token(env: dict[str, str]) -> str:
@@ -4409,9 +5288,9 @@ def detect_lzc_cli_token(env: dict[str, str]) -> str:
 def run_local_build(
     repo_root: Path,
     slug: str,
-    full_install: bool,
+    build_mode: str,
     env: dict[str, str],
-) -> subprocess.CompletedProcess[str]:
+) -> BuildExecutionResult:
     lpk_output = repo_root / "dist" / f"{slug}.lpk"
     cmd = [
         "python3",
@@ -4430,7 +5309,7 @@ def run_local_build(
         str(lpk_output),
         "--force-build",
     ]
-    if not full_install:
+    if build_mode == "build":
         cmd.append("--dry-run")
     proc = subprocess.Popen(
         cmd,
@@ -4448,13 +5327,19 @@ def run_local_build(
     proc.wait()
     output = "".join(lines)
     if proc.returncode != 0:
-        return subprocess.CompletedProcess(cmd, proc.returncode, stdout=output, stderr="")
+        return BuildExecutionResult(
+            command=cmd,
+            returncode=proc.returncode,
+            stdout=output,
+            stderr=output,
+            lpk_path=lpk_output,
+        )
 
-    if full_install:
+    if build_mode in {"install", "reinstall"}:
         install_cmd = ["lzc-cli", "app", "install", str(lpk_output)]
         package_id = manifest_package_id(repo_root, slug)
         uninstall_output = ""
-        if package_id:
+        if build_mode == "reinstall" and package_id:
             uninstall_result = subprocess.run(
                 ["lzc-cli", "app", "uninstall", package_id],
                 cwd=str(repo_root),
@@ -4474,9 +5359,21 @@ def run_local_build(
         )
         install_output = uninstall_output + (install_result.stdout or "") + (install_result.stderr or "")
         combined = output + install_output
-        return subprocess.CompletedProcess(install_cmd, install_result.returncode, stdout=combined, stderr="")
+        return BuildExecutionResult(
+            command=install_cmd,
+            returncode=install_result.returncode,
+            stdout=combined,
+            stderr=install_output,
+            lpk_path=lpk_output,
+        )
 
-    return subprocess.CompletedProcess(cmd, 0, stdout=output, stderr="")
+    return BuildExecutionResult(
+        command=cmd,
+        returncode=0,
+        stdout=output,
+        stderr="",
+        lpk_path=lpk_output,
+    )
 
 
 def manifest_package_id(repo_root: Path, slug: str) -> str:
@@ -4485,12 +5382,25 @@ def manifest_package_id(repo_root: Path, slug: str) -> str:
     return match.group(1).strip() if match else ""
 
 
+def tail_text(text: str, max_lines: int = 40) -> str:
+    lines = [line.rstrip() for line in text.splitlines() if line.strip()]
+    if not lines:
+        return ""
+    return "\n".join(lines[-max_lines:])
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run LazyCat migration SOP from a single upstream address.")
     parser.add_argument("source", help="GitHub repo URL, owner/repo, compose URL, docker image, or local repo path")
     parser.add_argument("--repo-root", default="", help="Path to lzcat-apps repository root")
     parser.add_argument("--force", action="store_true", help="Overwrite managed files if the target app already exists")
     parser.add_argument("--no-build", action="store_true", help="Stop after preflight instead of attempting build/install")
+    parser.add_argument(
+        "--build-mode",
+        choices=BUILD_MODES,
+        default="auto",
+        help="Build action after preflight: auto/build/install/reinstall/validate-only",
+    )
     return parser.parse_args()
 
 
@@ -4499,7 +5409,7 @@ def main() -> int:
     repo_root = Path(args.repo_root).resolve() if args.repo_root else Path(__file__).resolve().parents[1]
     env = os.environ.copy()
     runtime_name, runtime_env, cleanup_runtime = prepare_container_env(env)
-    gh_token = detect_gh_token(runtime_env)
+    gh_token, gh_token_source = detect_gh_token(runtime_env)
     if gh_token:
         # Keep all aliases in sync so downstream scripts don't accidentally
         # pick a stale token due to environment-variable precedence.
@@ -4513,42 +5423,49 @@ def main() -> int:
     normalized = normalize_source(args.source)
     source_dir: Path | None = None
     cleanup = lambda: None
+    step_state = StepState()
 
-    step1_outputs = [f"source={args.source}", f"kind={normalized['kind']}"]
+    requested_build_mode = "validate-only" if args.no_build else args.build_mode
+    step1_outputs = [f"source={args.source}", f"kind={normalized.kind}", f"build_mode={requested_build_mode}"]
+    if gh_token_source:
+        step1_outputs.append(f"gh_token_source={gh_token_source}")
     step1_risks: list[str] = []
     try:
+        step_state.current_step = 1
         source_dir, extra_outputs, cleanup = prepare_source(normalized)
         step1_outputs.extend(extra_outputs)
         step_report(
             1,
             "收集上游信息",
-            conclusion=f"已识别输入类型为 `{normalized['kind']}`，并准备好可分析的上游材料。",
+            conclusion=f"已识别输入类型为 `{normalized.kind}`，并准备好可分析的上游材料。",
             outputs=step1_outputs,
-            scripts=["scripts/full-migrate.sh", "git clone" if normalized["kind"] == "github_repo" else "无"],
+            scripts=["scripts/full-migrate.sh", "git clone" if normalized.kind == "github_repo" else "无"],
             risks=step1_risks,
             next_step="进入 [2/10] 选择移植路线",
         )
 
+        step_state.current_step = 2
         analysis = analyze_source(normalized, source_dir)
         step2_outputs = [
-            f"slug={analysis['slug']}",
-            f"route={analysis['route']}",
+            f"slug={analysis.slug}",
+            f"route={analysis.route}",
         ]
-        if analysis["compose_file"]:
-            step2_outputs.append(f"compose={analysis['compose_file']}")
-        if analysis["dockerfile"]:
-            step2_outputs.append(f"dockerfile={analysis['dockerfile']}")
+        if analysis.compose_file:
+            step2_outputs.append(f"compose={analysis.compose_file}")
+        if analysis.dockerfile:
+            step2_outputs.append(f"dockerfile={analysis.dockerfile}")
         step_report(
             2,
             "选择移植路线",
-            conclusion=f"已自动推断构建路线为 `{analysis['route']}`。",
+            conclusion=f"已自动推断构建路线为 `{analysis.route}`。",
             outputs=step2_outputs,
             scripts=["scripts/full-migrate.sh"],
-            risks=analysis["risks"],
+            risks=analysis.risks,
             next_step="进入 [3/10] 注册目标 app",
         )
 
-        finalized = bm.finalize_spec(analysis["spec"], gh_token, fetch_upstream=False)
+        step_state.current_step = 3
+        finalized = bm.finalize_spec(analysis.spec, gh_token, fetch_upstream=False)
         finalized = apply_generated_app_fixes(finalized, analysis)
         config_path = repo_root / "registry" / "repos" / f"{finalized['slug']}.json"
         app_dir = repo_root / "apps" / finalized["slug"]
@@ -4562,6 +5479,7 @@ def main() -> int:
             next_step="进入 [4/10] 建立项目骨架",
         )
 
+        step_state.current_step = 4
         effective_force = args.force
         try:
             written = bm.write_files(repo_root, finalized, effective_force)
@@ -4571,7 +5489,7 @@ def main() -> int:
             effective_force = True
             finalized.setdefault("_risks", []).append("目标 app 已存在，自动覆盖当前托管文件后继续")
             written = bm.write_files(repo_root, finalized, effective_force)
-        post_written = apply_post_write(repo_root, finalized["slug"], analysis["spec"].get("_post_write", {}))
+        post_written = apply_post_write(repo_root, finalized["slug"], analysis.spec.get("_post_write", {}))
         post_written.extend(apply_app_post_process(repo_root, finalized, analysis))
         step_report(
             4,
@@ -4583,16 +5501,18 @@ def main() -> int:
             next_step="进入 [5/10] 编写 lzc-manifest.yml",
         )
 
+        step_state.current_step = 5
         step_report(
             5,
             "编写 lzc-manifest.yml",
             conclusion="manifest 已按自动推断的服务拓扑、入口端口、环境变量和持久化目录生成初稿。",
             outputs=[str(app_dir / "lzc-manifest.yml")],
             scripts=["scripts/full-migrate.sh", "scripts/bootstrap_migration.py"],
-            risks=analysis["risks"],
+            risks=analysis.risks,
             next_step="进入 [6/10] 补齐剩余文件",
         )
 
+        step_state.current_step = 6
         step6_outputs = [str(app_dir / "README.md"), str(app_dir / "lzc-build.yml"), str(app_dir / "UPSTREAM_DEPLOYMENT_CHECKLIST.md")]
         step6_outputs.extend(post_written)
         step_report(
@@ -4605,6 +5525,7 @@ def main() -> int:
             next_step="进入 [7/10] 运行预检",
         )
 
+        step_state.current_step = 7
         ok, issues = preflight_check(repo_root, finalized["slug"])
         if not ok:
             step_report(
@@ -4628,11 +5549,12 @@ def main() -> int:
             next_step="进入 [8/10] 触发并监听构建",
         )
 
-        if args.no_build:
+        step_state.current_step = 8
+        if requested_build_mode == "validate-only":
             step_report(
                 8,
                 "触发并监听构建",
-                conclusion="按 `--no-build` 要求，自动流程在预检后停止。",
+                conclusion="按 validate-only 模式要求，自动流程在预检后停止。",
                 outputs=[str(app_dir)],
                 scripts=["scripts/full-migrate.sh"],
                 risks=[],
@@ -4652,16 +5574,32 @@ def main() -> int:
             )
             return 1
 
-        full_install = bool(runtime_env.get("LZC_CLI_TOKEN")) and command_exists("lzc-cli")
-        build_result = run_local_build(repo_root, finalized["slug"], full_install=full_install, env=runtime_env)
+        auto_install_capable = bool(runtime_env.get("LZC_CLI_TOKEN")) and command_exists("lzc-cli")
+        if requested_build_mode == "auto":
+            effective_build_mode = "reinstall" if auto_install_capable else "build"
+        else:
+            effective_build_mode = requested_build_mode
+        if effective_build_mode in {"install", "reinstall"} and not auto_install_capable:
+            step_report(
+                8,
+                "触发并监听构建",
+                conclusion=f"当前模式 `{effective_build_mode}` 需要 lzc-cli 与有效 token，但本机条件不足。",
+                outputs=[str(app_dir)],
+                scripts=["scripts/full-migrate.sh", "scripts/run_build.py"],
+                risks=["缺少 lzc-cli 或 LZC_CLI_TOKEN，无法执行安装链路"],
+                next_step="停止，补齐 lzc-cli/token 或改用 --build-mode build",
+            )
+            return 1
+        build_result = run_local_build(repo_root, finalized["slug"], build_mode=effective_build_mode, env=runtime_env)
         if build_result.returncode != 0:
+            failure_excerpt = tail_text(build_result.stderr or build_result.stdout)
             step_report(
                 8,
                 "触发并监听构建",
                 conclusion="本地构建失败，自动流程停在构建阶段。",
                 outputs=[str(app_dir), str(repo_root / "dist" / f"{finalized['slug']}.lpk")],
                 scripts=["scripts/full-migrate.sh", "scripts/run_build.py"],
-                risks=[build_result.stderr.strip() or "run_build 返回非零退出码"],
+                risks=[failure_excerpt or "run_build 返回非零退出码"],
                 next_step="停止，修复构建错误后重跑同一命令即可继续",
             )
             return 1
@@ -4672,10 +5610,11 @@ def main() -> int:
             conclusion="本地构建命令执行成功。",
             outputs=[str(repo_root / "dist" / f"{finalized['slug']}.lpk")],
             scripts=["scripts/full-migrate.sh", "scripts/run_build.py"],
-            risks=[] if full_install else [f"当前使用 `{runtime_name}` 做 dry-run 构建，未执行远端 copy-image / install"],
+            risks=[] if effective_build_mode in {"install", "reinstall"} else [f"当前使用 `{runtime_name}` 执行 `{effective_build_mode}`，未覆盖远端 copy-image / install"],
             next_step="进入 [9/10] 下载并核对 .lpk",
         )
 
+        step_state.current_step = 9
         lpk_path = repo_root / "dist" / f"{finalized['slug']}.lpk"
         if not lpk_path.exists():
             step_report(
@@ -4695,11 +5634,12 @@ def main() -> int:
             conclusion="已拿到本地构建产物并完成基本核对。",
             outputs=[f"{lpk_path} (sha256={file_sha256(lpk_path)})"],
             scripts=["scripts/full-migrate.sh", "scripts/run_build.py"],
-            risks=[] if full_install else ["当前产物来自 dry-run，本步未覆盖真实 release/download 链路"],
+            risks=[] if effective_build_mode in {"install", "reinstall"} else [f"当前产物来自 `{effective_build_mode}`，未覆盖真实 release/download 链路"],
             next_step="进入 [10/10] 安装验收并复盘",
         )
 
-        if not full_install:
+        if effective_build_mode == "build":
+            step_state.current_step = 10
             step_report(
                 10,
                 "安装验收并复盘",
@@ -4711,6 +5651,7 @@ def main() -> int:
             )
             return 0
 
+        step_state.current_step = 10
         package_id = manifest_package_id(repo_root, finalized["slug"])
         status_output = sh(["lzc-cli", "app", "status", package_id], check=False)
         step_report(
@@ -4725,7 +5666,7 @@ def main() -> int:
         return 0
     except Exception as exc:
         step_report(
-            1 if source_dir is None else 2,
+            step_state.current_step,
             "自动迁移失败",
             conclusion="自动流程在当前步骤抛出异常。",
             outputs=[str(exc)],
