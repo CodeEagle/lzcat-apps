@@ -39,10 +39,11 @@ services:
       identity:
         device_id: "104e14cfe0075eb20755b4fb9b6045620803517c2f6d6ed95818d04260000000"
         email: "anonymous@example.com"
-      oauth:
-        refresh_token: "YOUR_EXTRACTED_REFRESH_TOKEN_HERE"
+      auth:
         tokens:
           - "YOUR_CLAUDE_SESSION_TOKEN_HERE"
+      oauth:
+        refresh_token: "YOUR_EXTRACTED_REFRESH_TOKEN_HERE"
       CONFEOF
         fi
       fi
@@ -51,8 +52,12 @@ services:
         echo "    - \"YOUR_CLAUDE_SESSION_TOKEN_HERE\"" >> /app/data/config.yaml
       fi
       if ! grep -q "oauth:" /app/data/config.yaml; then
-        echo "oauth:" >> /app/data/config.yaml
-        echo "  refresh_token: \"YOUR_EXTRACTED_REFRESH_TOKEN_HERE\"" >> /app/data/config.yaml
+        sed -i 's/auth:/oauth:/g' /app/data/config.yaml || true
+      fi
+      if ! grep -q "^auth:" /app/data/config.yaml; then
+        echo "auth:" >> /app/data/config.yaml
+        echo "  tokens:" >> /app/data/config.yaml
+        echo "    - \"YOUR_CLAUDE_SESSION_TOKEN_HERE\"" >> /app/data/config.yaml
       fi
       ln -sf /app/data/config.yaml /app/config.yaml
 locales:
