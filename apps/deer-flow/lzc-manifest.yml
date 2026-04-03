@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.deer-flow
-version: '0.1.19'
+version: '0.1.20'
 min_os_version: 1.3.8
 name: deer-flow
 description: An open-source long-horizon SuperAgent harness that researches, codes, and creates. With the help of sandboxes, memories, tools, skill, subagents and message gateway, it handles different levels of tasks that could take minutes to hours.
@@ -38,7 +38,7 @@ services:
       - /lzcapp/pkg/content/nginx.conf:/etc/nginx/nginx.conf
       - /lzcapp/var/data/deer-flow/runtime:/deer-flow-state
   frontend:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-frontend:f28cdacd213a2492
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-frontend:431e7062fe153044
     command: sh -lc 'mkdir -p /deer-flow-state/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /deer-flow-state/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /deer-flow-state/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && sh /lzcapp/pkg/content/render-deer-flow-config.sh && if [ -f /deer-flow-state/config/model.env ]; then set -a && . /deer-flow-state/config/model.env && set +a; fi && cd /app/frontend && pnpm dev --hostname 0.0.0.0 --port 3000'
     environment:
       - BETTER_AUTH_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-better-auth
@@ -59,7 +59,7 @@ services:
     binds:
       - /lzcapp/var/data/deer-flow/runtime:/deer-flow-state
   gateway:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-gateway:a75176b8adb5daa9
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-gateway:21143130c893f467
     command: sh -lc 'mkdir -p /deer-flow-state/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /deer-flow-state/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /deer-flow-state/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && sh /lzcapp/pkg/content/render-deer-flow-config.sh && if [ -f /deer-flow-state/config/model.env ]; then set -a && . /deer-flow-state/config/model.env && set +a; fi && echo "[deer-flow] waiting for model configuration"; until [ -f /deer-flow-state/config/.lazycat-config-ready ]; do sleep 2; done && cd /app/backend && PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --workers 2'
     environment:
       - CI=true
@@ -98,7 +98,7 @@ services:
       - /lzcapp/var/data/deer-flow/runtime:/deer-flow-state
       - /lzcapp/var/data/deer-flow/runtime:/app/backend/.deer-flow
   langgraph:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-langgraph:428c491e9617c946
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-langgraph:ebdc148fd7bc0376
     command: sh -lc 'mkdir -p /deer-flow-state/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /deer-flow-state/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /deer-flow-state/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && sh /lzcapp/pkg/content/render-deer-flow-config.sh && if [ -f /deer-flow-state/config/model.env ]; then set -a && . /deer-flow-state/config/model.env && set +a; fi && echo "[deer-flow] waiting for model configuration"; until [ -f /deer-flow-state/config/.lazycat-config-ready ]; do sleep 2; done && mkdir -p /app/backend/.langgraph_api && cd /app/backend && (python /lzcapp/pkg/content/backfill-langgraph-state.py >/tmp/backfill-langgraph-state.log 2>&1 &) && uv run langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port 2024'
     environment:
       - CI=true
