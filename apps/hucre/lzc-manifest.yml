@@ -1,6 +1,6 @@
 lzc-sdk-version: "0.1"
 package: fun.selfstudio.app.migration.hucre
-version: '0.1.0'
+version: '0.1.1'
 min_os_version: 1.3.8
 name: hucre
 description: (LazyCat Auto-build) Spreadsheet playground for hucre XLSX, CSV, and ODS engine
@@ -13,11 +13,15 @@ application:
     - /
   upstreams:
     - location: /
-      backend: http://hucre-web:80/
+      backend: http://hucre-web:3000/
 services:
   hucre-web:
     image: registry.lazycat.cloud/invokerlaw/codeeagle/hucre:3fc3c94e390771d0
-    environment: []
+    environment:
+      - NITRO_HOST=0.0.0.0
+      - NITRO_PORT=3000
+      - HOST=0.0.0.0
+      - PORT=3000
     binds: []
 locales:
   en:

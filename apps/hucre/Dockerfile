@@ -19,7 +19,7 @@ RUN corepack enable \
     && pnpm install --frozen-lockfile \
     && pnpm --dir web build
 
-FROM nginx:1.27-alpine
+FROM node:20-alpine
 
 ARG SOURCE_VERSION=unknown
 ARG BUILD_VERSION=0.1.0
@@ -27,10 +27,16 @@ ARG BUILD_VERSION=0.1.0
 LABEL org.opencontainers.image.version="${BUILD_VERSION}" \
       org.opencontainers.image.revision="${SOURCE_VERSION}"
 
-RUN rm -rf /usr/share/nginx/html/*
+ENV NODE_ENV=production \
+    NITRO_HOST=0.0.0.0 \
+    NITRO_PORT=3000 \
+    HOST=0.0.0.0 \
+    PORT=3000
 
-COPY --from=builder /src/web/.output/public/ /usr/share/nginx/html/
+WORKDIR /app
 
-EXPOSE 80
+COPY --from=builder /src/web/.output/ ./.output/
 
-CMD ["nginx", "-g", "daemon off;"]
+EXPOSE 3000
+
+CMD ["node", ".output/server/index.mjs"]
