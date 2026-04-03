@@ -1,0 +1,13 @@
+params:
+  - id: resend_api_key
+    type: string
+    name: Resend API Key
+    description: 用于发送登录验证码邮件。留空时不会发送邮件，验证码需要在应用日志中查看。
+    optional: true
+
+  - id: resend_from_email
+    type: string
+    name: Resend From Email
+    description: 发件人邮箱地址（例如 no-reply@yourdomain.com）。未填写时默认使用 noreply@multica.ai。
+    default_value: noreply@multica.ai
+    optional: true

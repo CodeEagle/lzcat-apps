@@ -2508,6 +2508,8 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: dict[str, Any
                     "PORT=8080",
                     "DATABASE_URL=postgres://multica:multica@postgres:5432/multica?sslmode=disable",
                     "JWT_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt",
+                    'RESEND_API_KEY={{ default "" .U.resend_api_key }}',
+                    'RESEND_FROM_EMAIL={{ default "noreply@multica.ai" .U.resend_from_email }}',
                 ],
                 "command": "sh -lc './migrate up && exec ./server'",
             },
@@ -2560,6 +2562,7 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: dict[str, Any
         notes.append("已将 DATABASE_URL 默认值从 localhost 改写为 postgres 服务名，避免容器内回环连接失败。")
         notes.append("web 服务默认以 dev 模式启动；若浏览器出现 HMR WebSocket 报错，可忽略，不影响主流程。")
         notes.append("已对登录页注入容错补丁：/auth/send-code 失败时仍允许进入验证码步骤（开发态可用 888888）。")
+        notes.append("支持通过 lzc-deploy-params.yml 配置 RESEND 邮件参数；若未配置则需在日志中查看验证码。")
         finalized["startup_notes"] = notes
 
     if finalized.get("slug") == "deer-flow" and upstream_repo == "bytedance/deer-flow":
@@ -4260,6 +4263,7 @@ def post_process_multica(repo_root: Path) -> list[str]:
     app_dir = repo_root / "apps" / "multica"
     app_dir.mkdir(parents=True, exist_ok=True)
     template_path = app_dir / "Dockerfile.web.template"
+    deploy_params_path = app_dir / "lzc-deploy-params.yml"
     template_path.write_text(
         textwrap.dedent(
             """\
@@ -4280,8 +4284,28 @@ def post_process_multica(repo_root: Path) -> list[str]:
         ),
         encoding="utf-8",
     )
+    deploy_params_path.write_text(
+        textwrap.dedent(
+            """\
+            params:
+              - id: resend_api_key
+                type: string
+                name: Resend API Key
+                description: 用于发送登录验证码邮件。留空时不会发送邮件，验证码需要在应用日志中查看。
+                optional: true
 
-    return [str(template_path)]
+              - id: resend_from_email
+                type: string
+                name: Resend From Email
+                description: 发件人邮箱地址（例如 no-reply@yourdomain.com）。未填写时默认使用 noreply@multica.ai。
+                default_value: noreply@multica.ai
+                optional: true
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    return [str(template_path), str(deploy_params_path)]
 
 
 def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:

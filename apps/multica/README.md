@@ -62,6 +62,17 @@
 | NEXT_PUBLIC_API_URL | No | http://localhost:8080 | From .env.example |
 | NEXT_PUBLIC_WS_URL | No | ws://localhost:8080/ws | From .env.example |
 
+## 部署参数（manifest render）
+
+本应用已接入 `lzc-deploy-params.yml`，安装/重配置时可填写：
+
+- `resend_api_key`
+- `resend_from_email`
+
+用途：
+- 配置后：验证码通过邮件发送。
+- 未配置：后端不会实际发邮件，验证码需要在应用日志里查看。
+
 ## 数据目录
 
 | 宿主路径 | 容器路径 | 说明 |
