@@ -2515,7 +2515,7 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: dict[str, Any
                     'RESEND_API_KEY={{ default "" .U.resend_api_key }}',
                     'RESEND_FROM_EMAIL={{ default "noreply@multica.ai" .U.resend_from_email }}',
                 ],
-                "command": "sh -lc './migrate up && exec ./server'",
+                "command": "sh -lc 'until ./migrate up; do echo \"waiting for postgres...\"; sleep 2; done; exec ./server'",
             },
             "web": {
                 "image": "registry.lazycat.cloud/placeholder/multica:web",
