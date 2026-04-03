@@ -36,11 +36,9 @@
 
 ## 预填启动说明
 - 自动扫描到 compose 文件：docker/docker-compose.yaml
-- 首次访问会进入应用内配置页，用户通过下拉选项选择模型提供方和默认模型后再启动 DeerFlow。
-- 配置完成后可随时访问 `/settings/config` 重新修改。
+- 首次安装和后续重配置均使用 `lzc-deploy-params.yml` 提供的官方部署参数页。
 - 当前默认走 LocalSandboxProvider，避免依赖 Docker Socket 或 Kubernetes provisioner。
-- 服务启动前会根据应用内表单状态自动渲染 `/lzcapp/var/data/deer-flow/config/config.yaml`。
-- 当前内置的是 OpenAI / OpenRouter 下拉选项；如果后续要支持更多 provider，可继续扩展 schema 和渲染脚本。
+- 服务启动前会读取部署参数，并同步写回 `/lzcapp/var/data/deer-flow/config/model.env` 和 `/lzcapp/var/data/deer-flow/config/config.yaml`。
 
 ## 必扫清单
 - [ ] Dockerfile / Containerfile / compose / helm / entrypoint / startup script 的真实启动入口
@@ -51,9 +49,6 @@
 - [ ] 每个真实目录是否需要预创建、由谁创建、以什么 owner/group/mode 创建
 
 ## 当前服务拓扑初稿
-- `config-ui`
-  image: `registry.lazycat.cloud/placeholder/deer-flow:frontend`
-  environment: `PORT=3210, CONFIG_UI_APP_NAME=DeerFlow, CONFIG_UI_SCHEMA_PATH=/lzcapp/pkg/content/config-ui/deer-flow-schema.json, CONFIG_UI_STATE_PATH=/lzcapp/var/data/deer-flow/config/model.env, CONFIG_UI_READY_MARKER=/lzcapp/var/data/deer-flow/config/.lazycat-config-ready, CONFIG_UI_RENDER_COMMAND=sh /lzcapp/pkg/content/render-deer-flow-config.sh, CONFIG_UI_SETTINGS_PATH=/settings/config, DEER_FLOW_MODEL_PROVIDER_PRESET=openai, DEER_FLOW_MODEL_NAME=default-chat, DEER_FLOW_MODEL_DISPLAY_NAME=Default Chat Model, DEER_FLOW_MODEL_ID=gpt-4.1-mini, DEER_FLOW_MODEL_BASE_URL=, DEER_FLOW_MODEL_API_KEY=, DEER_FLOW_MODEL_USE_RESPONSES_API=false, DEER_FLOW_MODEL_TEMPERATURE=0.7, TAVILY_API_KEY=, JINA_API_KEY=`
 - `nginx`
   image: `registry.lazycat.cloud/placeholder/deer-flow:nginx`
   binds: `/lzcapp/pkg/content/nginx.conf:/etc/nginx/nginx.conf`

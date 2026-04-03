@@ -2,7 +2,7 @@ params:
   - id: model.provider_preset
     type: string
     name: Provider Preset
-    description: "Advanced defaults for DeerFlow. Preferred day-to-day UX is /settings/config."
+    description: "DeerFlow 启动时会读取这些部署参数，并同步写回运行时 config.yaml。"
     default_value: "openai"
     optional: true
   - id: model.name
@@ -32,7 +32,7 @@ params:
   - id: model.api_key
     type: string
     name: API Key
-    description: "Optional advanced default."
+    description: "必填才能让默认模型正常工作。启动时会同步写回运行时 config.yaml。"
     default_value: ""
     optional: true
   - id: model.use_responses_api
