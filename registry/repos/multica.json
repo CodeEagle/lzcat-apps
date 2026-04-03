@@ -29,6 +29,10 @@
     {
       "target_service": "db_audit",
       "source_image": "pgvector/pgvector:pg17"
+    },
+    {
+      "target_service": "db_smoke",
+      "source_image": "pgvector/pgvector:pg17"
     }
   ],
   "service_builds": [
