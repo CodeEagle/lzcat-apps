@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -46,8 +47,23 @@ def sync_workflow(index_path: Path = INDEX_PATH, workflow_path: Path = WORKFLOW_
     return True
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Sync trigger-build workflow options from registry/repos/index.json")
+    parser.add_argument("--check", action="store_true", help="Exit non-zero if workflow options are out of sync")
+    return parser.parse_args()
+
+
 def main() -> int:
-    print("updated" if sync_workflow() else "unchanged")
+    args = parse_args()
+    changed = sync_workflow()
+    if args.check:
+        if changed:
+            print("out-of-sync")
+            return 1
+        print("in-sync")
+        return 0
+
+    print("updated" if changed else "unchanged")
     return 0
 
 

@@ -1,0 +1,25 @@
+name: Validate Trigger Build Options
+
+on:
+  pull_request:
+    paths:
+      - "registry/repos/index.json"
+      - ".github/workflows/trigger-build.yml"
+      - "scripts/sync_trigger_build_options.py"
+  push:
+    branches:
+      - main
+    paths:
+      - "registry/repos/index.json"
+      - ".github/workflows/trigger-build.yml"
+      - "scripts/sync_trigger_build_options.py"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Verify trigger-build options are in sync
+        run: python3 scripts/sync_trigger_build_options.py --check
