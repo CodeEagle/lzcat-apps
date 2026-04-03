@@ -2826,7 +2826,6 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: AnalysisResul
         finalized["service_builds"] = [
             {
                 "target_service": "frontend",
-                "additional_target_services": ["config-ui"],
                 "build_strategy": "upstream_dockerfile",
                 "source_dockerfile_path": "frontend/Dockerfile",
                 "build_context": ".",
@@ -2897,20 +2896,11 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: AnalysisResul
         ]
         finalized["startup_notes"] = [
             "自动扫描到 compose 文件：docker/docker-compose.yaml",
-            "首次访问会进入应用内配置页，用户通过下拉选项选择模型提供方和默认模型后再启动 DeerFlow。",
-            "配置完成后可随时访问 `/settings/config` 重新修改。",
-            "Deployment Parameters 适合作为首次安装或重装时的高级默认值输入；入口展示位置以当前 LazyCat 系统版本为准。",
+            "首次安装和后续重配置均使用 `lzc-deploy-params.yml` 提供的官方部署参数页。",
             "当前默认走 LocalSandboxProvider，避免依赖 Docker Socket 或 Kubernetes provisioner。",
-            "服务启动前会根据应用内表单状态自动渲染 `/deer-flow-state/config/config.yaml`。",
-            "当前内置的是 OpenAI / OpenRouter 下拉选项；如果后续要支持更多 provider，可继续扩展 schema 和渲染脚本。",
+            "服务启动前会读取部署参数，并同步写回 `/deer-flow-state/config/model.env` 和 `/deer-flow-state/config/config.yaml`。",
         ]
         finalized["services"] = {
-            "config-ui": {
-                "image": "registry.lazycat.cloud/placeholder/deer-flow:frontend",
-                "command": deer_flow_config_ui_command(),
-                "environment": deer_flow_config_ui_env(),
-                "binds": ["/lzcapp/var/data/deer-flow/runtime:/deer-flow-state"],
-            },
             "nginx": {
                 "image": "registry.lazycat.cloud/placeholder/deer-flow:nginx",
                 "environment": deer_flow_deploy_param_env(),
@@ -3022,28 +3012,6 @@ def deer_flow_bootstrap_command(final_cmd: str, *, wait_for_ready: bool = False)
     return "sh -lc " + shlex.quote(" && ".join(segments))
 
 
-def deer_flow_config_ui_command() -> str:
-    return deer_flow_bootstrap_command("cd /app/frontend && node /lzcapp/pkg/content/config-ui/server.mjs")
-
-
-def deer_flow_config_ui_env() -> list[str]:
-    return [
-        "PORT=3210",
-        "CONFIG_UI_APP_NAME=DeerFlow",
-        "CONFIG_UI_SCHEMA_PATH=/lzcapp/pkg/content/config-ui/deer-flow-schema.json",
-        "CONFIG_UI_STATE_PATH=/deer-flow-state/config/model.env",
-        "CONFIG_UI_READY_MARKER=/deer-flow-state/config/.lazycat-config-ready",
-        "CONFIG_UI_RENDER_COMMAND=sh /lzcapp/pkg/content/render-deer-flow-config.sh",
-        "CONFIG_UI_SETTINGS_PATH=/settings/config",
-        "DEER_FLOW_SHARED_STATE_DIR=/deer-flow-state",
-        "DEER_FLOW_CONFIG_DIR=/deer-flow-state/config",
-        "DEER_FLOW_CONFIG_PATH=/deer-flow-state/config/config.yaml",
-        "DEER_FLOW_CONFIG_ENV_PATH=/deer-flow-state/config/model.env",
-        "DEER_FLOW_READY_MARKER=/deer-flow-state/config/.lazycat-config-ready",
-        "DEER_FLOW_EXTENSIONS_CONFIG_PATH=/deer-flow-state/config/extensions_config.json",
-    ] + deer_flow_deploy_param_env()
-
-
 def deer_flow_deploy_param_env() -> list[str]:
     return [
         '{{ if index .U "model.api_key" }}OPENAI_API_KEY={{ index .U "model.api_key" }}{{ else }}OPENAI_API_KEY={{ end }}',
@@ -3073,32 +3041,69 @@ def render_deer_flow_config_script() -> str:
         CONFIG_DIR="$(dirname "$CONFIG_PATH")"
         mkdir -p "$CONFIG_DIR"
 
+        capture_env() {
+          var_name="$1"
+          eval "printf '%s\\n' \\"\\${$var_name-}\\""
+        }
+
         quote_yaml() {
           printf '"%s"' "$(printf '%s' "$1" | sed 's/\\\\/\\\\\\\\/g; s/"/\\\\"/g')"
         }
 
-        if [ -f "$CONFIG_ENV_PATH" ]; then
-          # shellcheck disable=SC1090
-          . "$CONFIG_ENV_PATH"
-        fi
-
-        provider="${DEER_FLOW_MODEL_PROVIDER_PRESET:-openai}"
-        model_name="${DEER_FLOW_MODEL_NAME:-default-chat}"
-        display_name="${DEER_FLOW_MODEL_DISPLAY_NAME:-Default Chat Model}"
-        model_id="${DEER_FLOW_MODEL_ID:-gpt-4.1-mini}"
-        base_url="${DEER_FLOW_MODEL_BASE_URL:-}"
-        use_responses_api="${DEER_FLOW_MODEL_USE_RESPONSES_API:-false}"
-        temperature="${DEER_FLOW_MODEL_TEMPERATURE:-0.7}"
+        provider="$(capture_env DEER_FLOW_MODEL_PROVIDER_PRESET)"
+        [ -n "$provider" ] || provider="openai"
+        model_name="$(capture_env DEER_FLOW_MODEL_NAME)"
+        [ -n "$model_name" ] || model_name="default-chat"
+        display_name="$(capture_env DEER_FLOW_MODEL_DISPLAY_NAME)"
+        [ -n "$display_name" ] || display_name="Default Chat Model"
+        model_id="$(capture_env DEER_FLOW_MODEL_ID)"
+        [ -n "$model_id" ] || model_id="gpt-4.1-mini"
+        base_url="$(capture_env DEER_FLOW_MODEL_BASE_URL)"
+        use_responses_api="$(capture_env DEER_FLOW_MODEL_USE_RESPONSES_API)"
+        [ -n "$use_responses_api" ] || use_responses_api="false"
+        temperature="$(capture_env DEER_FLOW_MODEL_TEMPERATURE)"
+        [ -n "$temperature" ] || temperature="0.7"
+        tavily_api_key="$(capture_env TAVILY_API_KEY)"
+        jina_api_key="$(capture_env JINA_API_KEY)"
+        openai_api_key="$(capture_env OPENAI_API_KEY)"
+        openrouter_api_key="$(capture_env OPENROUTER_API_KEY)"
+        model_api_key="$(capture_env DEER_FLOW_MODEL_API_KEY)"
 
         api_key_ref='$OPENAI_API_KEY'
-        api_key_value="${OPENAI_API_KEY:-${DEER_FLOW_MODEL_API_KEY:-}}"
+        api_key_value="${openai_api_key:-$model_api_key}"
         if [ "$provider" = "openrouter" ]; then
           api_key_ref='$OPENROUTER_API_KEY'
-          api_key_value="${OPENROUTER_API_KEY:-${DEER_FLOW_MODEL_API_KEY:-}}"
+          api_key_value="${openrouter_api_key:-$model_api_key}"
           if [ -z "$base_url" ]; then
             base_url="https://openrouter.ai/api/v1"
           fi
         fi
+
+        normalized_openai_api_key="$openai_api_key"
+        normalized_openrouter_api_key="$openrouter_api_key"
+        if [ "$provider" = "openrouter" ]; then
+          normalized_openai_api_key=""
+          normalized_openrouter_api_key="$api_key_value"
+        else
+          normalized_openai_api_key="$api_key_value"
+          normalized_openrouter_api_key=""
+        fi
+
+        cat > "$CONFIG_ENV_PATH" <<EOF
+        # Generated by DeerFlow startup sync.
+        DEER_FLOW_MODEL_PROVIDER_PRESET=$(quote_yaml "$provider")
+        DEER_FLOW_MODEL_NAME=$(quote_yaml "$model_name")
+        DEER_FLOW_MODEL_DISPLAY_NAME=$(quote_yaml "$display_name")
+        DEER_FLOW_MODEL_ID=$(quote_yaml "$model_id")
+        DEER_FLOW_MODEL_BASE_URL=$(quote_yaml "$base_url")
+        DEER_FLOW_MODEL_USE_RESPONSES_API=$(quote_yaml "$use_responses_api")
+        DEER_FLOW_MODEL_TEMPERATURE=$(quote_yaml "$temperature")
+        DEER_FLOW_MODEL_API_KEY=$(quote_yaml "$api_key_value")
+        OPENAI_API_KEY=$(quote_yaml "$normalized_openai_api_key")
+        OPENROUTER_API_KEY=$(quote_yaml "$normalized_openrouter_api_key")
+        TAVILY_API_KEY=$(quote_yaml "$tavily_api_key")
+        JINA_API_KEY=$(quote_yaml "$jina_api_key")
+        EOF
 
         {
           cat <<'EOF'
@@ -3792,10 +3797,6 @@ def render_deer_flow_nginx_conf() -> str:
 
             resolver 127.0.0.11 valid=10s ipv6=off;
 
-            upstream config_ui {
-                server config-ui:3210;
-            }
-
             upstream gateway {
                 server gateway:8001;
             }
@@ -3824,32 +3825,6 @@ def render_deer_flow_nginx_conf() -> str:
 
                 if ($request_method = 'OPTIONS') {
                     return 204;
-                }
-
-                location = /__config_ready {
-                    internal;
-                    proxy_pass http://config_ui/internal/ready;
-                    proxy_pass_request_body off;
-                    proxy_set_header Content-Length "";
-                    proxy_set_header X-Original-URI $request_uri;
-                }
-
-                location = /settings/config {
-                    proxy_pass http://config_ui/settings/config;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                location ^~ /__config/ {
-                    proxy_pass http://config_ui;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
                 }
 
                 location /api/langgraph/ {
@@ -3963,7 +3938,7 @@ def render_deer_flow_nginx_conf() -> str:
                 }
 
                 location /health {
-                    proxy_pass http://config_ui/health;
+                    proxy_pass http://frontend/;
                     proxy_http_version 1.1;
                     proxy_set_header Host $host;
                     proxy_set_header X-Real-IP $remote_addr;
@@ -3972,8 +3947,6 @@ def render_deer_flow_nginx_conf() -> str:
                 }
 
                 location / {
-                    auth_request /__config_ready;
-                    error_page 401 = /settings/config;
                     proxy_pass http://frontend;
                     proxy_http_version 1.1;
                     proxy_set_header Host $host;
@@ -4460,9 +4433,7 @@ def post_process_deer_flow(repo_root: Path) -> list[str]:
     app_dir = repo_root / "apps" / "deer-flow"
     content_dir = app_dir / "content"
     skills_dir = content_dir / "skills"
-    config_ui_dir = content_dir / "config-ui"
     skills_dir.mkdir(parents=True, exist_ok=True)
-    config_ui_dir.mkdir(parents=True, exist_ok=True)
 
     writes = {
         app_dir / "lzc-deploy-params.yml": textwrap.dedent(
@@ -4471,7 +4442,7 @@ def post_process_deer_flow(repo_root: Path) -> list[str]:
               - id: model.provider_preset
                 type: string
                 name: Provider Preset
-                description: "Advanced defaults for DeerFlow. Preferred day-to-day UX is /settings/config."
+                description: "DeerFlow 启动时会读取这些部署参数，并同步写回运行时 config.yaml。"
                 default_value: "openai"
                 optional: true
               - id: model.name
@@ -4501,7 +4472,7 @@ def post_process_deer_flow(repo_root: Path) -> list[str]:
               - id: model.api_key
                 type: string
                 name: API Key
-                description: "Optional advanced default."
+                description: "必填才能让默认模型正常工作。启动时会同步写回运行时 config.yaml。"
                 default_value: ""
                 optional: true
               - id: model.use_responses_api
@@ -4535,8 +4506,8 @@ def post_process_deer_flow(repo_root: Path) -> list[str]:
             # Configuration for the DeerFlow application
             #
             # This packaged template follows the upstream DeerFlow 2.0 layout.
-            # LazyCat rewrites the `models` section from the config UI so the runtime keeps
-            # using DeerFlow's default field names and environment-variable conventions.
+            # LazyCat rewrites the `models` section from deployment parameters so the runtime
+            # keeps using DeerFlow's default field names and environment-variable conventions.
 
             config_version: 5
 
@@ -4613,8 +4584,6 @@ def post_process_deer_flow(repo_root: Path) -> list[str]:
         ),
         content_dir / "backfill-langgraph-state.py": render_deer_flow_backfill_script(),
         content_dir / "render-deer-flow-config.sh": render_deer_flow_config_script(),
-        config_ui_dir / "server.mjs": render_config_ui_server(),
-        config_ui_dir / "deer-flow-schema.json": render_deer_flow_config_ui_schema(),
         content_dir / "nginx.conf": render_deer_flow_nginx_conf(),
         skills_dir / "README.md": textwrap.dedent(
             """\
