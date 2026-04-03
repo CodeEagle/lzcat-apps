@@ -22,7 +22,7 @@ services:
       - postgres
       - dbfix
       - dbfix_task_queue
-    command: sh -lc 'until ./migrate up; do echo "waiting for postgres..."; sleep 2; done; until psql "$DATABASE_URL" -Atc "SELECT 1 FROM pg_catalog.pg_tables WHERE schemaname='\''public'\'' AND tablename='\''daemon_token'\'';" | grep -q 1; do echo "waiting for schema bootstrap..."; sleep 2; done; exec ./server'
+    command: sh -lc 'until ./migrate up; do echo "waiting for postgres..."; sleep 2; done; until psql "$DATABASE_URL" -Atc "SELECT 1 FROM pg_catalog.pg_tables WHERE schemaname='\''public'\'' AND tablename='\''runtime_usage'\'';" | grep -q 1; do echo "waiting for schema bootstrap..."; sleep 2; done; exec ./server'
     environment:
       - PORT=8080
       - DATABASE_URL=postgres://multica:multica@postgres:5432/multica?sslmode=disable
@@ -50,19 +50,396 @@ services:
     image: registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c
     depends_on:
       - postgres
-    command: sh -lc 'until pg_isready -h postgres -U multica >/dev/null 2>&1; do sleep 1; done; psql "postgres://multica:multica@postgres:5432/multica?sslmode=disable" -v ON_ERROR_STOP=0 -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" -c "CREATE TABLE IF NOT EXISTS \"user\" (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, avatar_url TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());" -c "CREATE TABLE IF NOT EXISTS workspace (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT NOT NULL, slug TEXT UNIQUE NOT NULL, description TEXT, context TEXT, settings JSONB NOT NULL DEFAULT '\''{}'\''::jsonb, repos JSONB NOT NULL DEFAULT '\''[]'\''::jsonb, issue_prefix TEXT NOT NULL DEFAULT '\''ISS'\'', issue_counter INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());" -c "ALTER TABLE workspace ADD COLUMN IF NOT EXISTS context TEXT;" -c "ALTER TABLE workspace ADD COLUMN IF NOT EXISTS repos JSONB NOT NULL DEFAULT '\''[]'\''::jsonb;" -c "ALTER TABLE workspace ADD COLUMN IF NOT EXISTS issue_prefix TEXT NOT NULL DEFAULT '\'''\'';" -c "ALTER TABLE workspace ADD COLUMN IF NOT EXISTS issue_counter INT NOT NULL DEFAULT 0;" -c "UPDATE workspace SET issue_prefix = '\''WS'\'' WHERE issue_prefix = '\'''\'';" -c "CREATE TABLE IF NOT EXISTS member (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE, user_id UUID NOT NULL REFERENCES \"user\"(id) ON DELETE CASCADE, role TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE(workspace_id, user_id));" -c "CREATE TABLE IF NOT EXISTS verification_code (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), email TEXT NOT NULL, code TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL, used BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMPTZ NOT NULL DEFAULT now());" -c "CREATE INDEX IF NOT EXISTS idx_verification_code_email ON verification_code(email, used, expires_at);" -c "ALTER TABLE verification_code ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;" -c "CREATE TABLE IF NOT EXISTS personal_access_token (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id UUID NOT NULL REFERENCES \"user\"(id) ON DELETE CASCADE, name TEXT NOT NULL, token_hash TEXT NOT NULL, token_prefix TEXT NOT NULL, expires_at TIMESTAMPTZ, last_used_at TIMESTAMPTZ, revoked BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMPTZ NOT NULL DEFAULT now());" -c "CREATE INDEX IF NOT EXISTS idx_pat_user ON personal_access_token(user_id, revoked);" -c "CREATE UNIQUE INDEX IF NOT EXISTS idx_pat_token_hash ON personal_access_token(token_hash);" -c "CREATE TABLE IF NOT EXISTS daemon_token (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), token_hash TEXT NOT NULL, workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE, daemon_id TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now());" -c "CREATE UNIQUE INDEX IF NOT EXISTS idx_daemon_token_hash ON daemon_token(token_hash);" -c "CREATE INDEX IF NOT EXISTS idx_daemon_token_workspace_daemon ON daemon_token(workspace_id, daemon_id);" >/dev/null 2>&1 || true; sleep infinity'
+    command: |
+      sh -lc '
+        until pg_isready -h postgres -U multica >/dev/null 2>&1; do sleep 1; done
+        psql "postgres://multica:multica@postgres:5432/multica?sslmode=disable" -v ON_ERROR_STOP=0 <<'"'"'SQL'"'"'
+        CREATE EXTENSION IF NOT EXISTS pgcrypto;
+        CREATE TABLE IF NOT EXISTS "user" (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            avatar_url TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS workspace (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            name TEXT NOT NULL,
+            slug TEXT UNIQUE NOT NULL,
+            description TEXT,
+            settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        ALTER TABLE workspace ADD COLUMN IF NOT EXISTS context TEXT;
+        ALTER TABLE workspace ADD COLUMN IF NOT EXISTS repos JSONB NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE workspace ADD COLUMN IF NOT EXISTS issue_prefix TEXT NOT NULL DEFAULT '';
+        ALTER TABLE workspace ADD COLUMN IF NOT EXISTS issue_counter INT NOT NULL DEFAULT 0;
+        UPDATE workspace SET issue_prefix = 'WS' WHERE issue_prefix = '';
+        CREATE TABLE IF NOT EXISTS member (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+            role TEXT NOT NULL DEFAULT 'member',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            UNIQUE(workspace_id, user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_member_workspace ON member(workspace_id);
+        CREATE TABLE IF NOT EXISTS agent (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            avatar_url TEXT,
+            runtime_mode TEXT NOT NULL DEFAULT 'local',
+            runtime_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+            visibility TEXT NOT NULL DEFAULT 'private',
+            status TEXT NOT NULL DEFAULT 'offline',
+            max_concurrent_tasks INT NOT NULL DEFAULT 6,
+            owner_id UUID REFERENCES "user"(id),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        ALTER TABLE agent ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
+        ALTER TABLE agent ADD COLUMN IF NOT EXISTS tools JSONB NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE agent ADD COLUMN IF NOT EXISTS triggers JSONB NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE agent ADD COLUMN IF NOT EXISTS instructions TEXT NOT NULL DEFAULT '';
+        ALTER TABLE agent ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ DEFAULT NULL;
+        ALTER TABLE agent ADD COLUMN IF NOT EXISTS archived_by UUID DEFAULT NULL REFERENCES "user"(id);
+        ALTER TABLE agent ADD COLUMN IF NOT EXISTS runtime_id UUID;
+        CREATE INDEX IF NOT EXISTS idx_agent_workspace ON agent(workspace_id);
+        CREATE TABLE IF NOT EXISTS issue (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            description TEXT,
+            status TEXT NOT NULL DEFAULT 'backlog',
+            priority TEXT NOT NULL DEFAULT 'none',
+            assignee_type TEXT,
+            assignee_id UUID,
+            creator_type TEXT NOT NULL DEFAULT 'member',
+            creator_id UUID NOT NULL,
+            parent_issue_id UUID REFERENCES issue(id) ON DELETE SET NULL,
+            acceptance_criteria JSONB NOT NULL DEFAULT '[]'::jsonb,
+            context_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+            position DOUBLE PRECISION NOT NULL DEFAULT 0,
+            due_date TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        ALTER TABLE issue ADD COLUMN IF NOT EXISTS number INT NOT NULL DEFAULT 0;
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_issue_workspace_number') THEN
+                ALTER TABLE issue ADD CONSTRAINT uq_issue_workspace_number UNIQUE (workspace_id, number);
+            END IF;
+        END $$;
+        CREATE INDEX IF NOT EXISTS idx_issue_workspace ON issue(workspace_id);
+        CREATE INDEX IF NOT EXISTS idx_issue_assignee ON issue(assignee_type, assignee_id);
+        CREATE INDEX IF NOT EXISTS idx_issue_status ON issue(workspace_id, status);
+        CREATE INDEX IF NOT EXISTS idx_issue_parent ON issue(parent_issue_id);
+        CREATE INDEX IF NOT EXISTS idx_issue_workspace_number ON issue(workspace_id, number);
+        CREATE TABLE IF NOT EXISTS issue_label (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            color TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS issue_to_label (
+            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
+            label_id UUID NOT NULL REFERENCES issue_label(id) ON DELETE CASCADE,
+            PRIMARY KEY (issue_id, label_id)
+        );
+        CREATE TABLE IF NOT EXISTS issue_dependency (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
+            depends_on_issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
+            type TEXT NOT NULL DEFAULT 'blocks'
+        );
+        CREATE TABLE IF NOT EXISTS comment (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
+            author_type TEXT NOT NULL,
+            author_id UUID NOT NULL,
+            content TEXT NOT NULL,
+            type TEXT NOT NULL DEFAULT 'comment',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        ALTER TABLE comment ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES comment(id) ON DELETE CASCADE;
+        ALTER TABLE comment ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES workspace(id) ON DELETE CASCADE;
+        UPDATE comment SET workspace_id = issue.workspace_id FROM issue WHERE comment.issue_id = issue.id AND comment.workspace_id IS NULL;
+        CREATE INDEX IF NOT EXISTS idx_comment_issue ON comment(issue_id);
+        CREATE TABLE IF NOT EXISTS inbox_item (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            recipient_type TEXT NOT NULL,
+            recipient_id UUID NOT NULL,
+            type TEXT NOT NULL,
+            severity TEXT NOT NULL DEFAULT 'info',
+            issue_id UUID REFERENCES issue(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            body TEXT,
+            read BOOLEAN NOT NULL DEFAULT FALSE,
+            archived BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        ALTER TABLE inbox_item ADD COLUMN IF NOT EXISTS actor_type TEXT;
+        ALTER TABLE inbox_item ADD COLUMN IF NOT EXISTS actor_id UUID;
+        ALTER TABLE inbox_item ADD COLUMN IF NOT EXISTS details JSONB DEFAULT '{}'::jsonb;
+        CREATE INDEX IF NOT EXISTS idx_inbox_recipient ON inbox_item(recipient_type, recipient_id, read);
+        CREATE TABLE IF NOT EXISTS daemon_connection (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            agent_id UUID NOT NULL REFERENCES agent(id) ON DELETE CASCADE,
+            daemon_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'disconnected',
+            last_heartbeat_at TIMESTAMPTZ,
+            runtime_info JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_daemon_agent') THEN
+                ALTER TABLE daemon_connection ADD CONSTRAINT uq_daemon_agent UNIQUE (agent_id, daemon_id);
+            END IF;
+        END $$;
+        CREATE TABLE IF NOT EXISTS activity_log (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            issue_id UUID REFERENCES issue(id) ON DELETE CASCADE,
+            actor_type TEXT,
+            actor_id UUID,
+            action TEXT NOT NULL,
+            details JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_activity_log_issue ON activity_log(issue_id);
+        CREATE TABLE IF NOT EXISTS verification_code (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            email TEXT NOT NULL,
+            code TEXT NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            used BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_verification_code_email ON verification_code(email, used, expires_at);
+        ALTER TABLE verification_code ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
+        CREATE TABLE IF NOT EXISTS personal_access_token (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            token_prefix TEXT NOT NULL,
+            expires_at TIMESTAMPTZ,
+            last_used_at TIMESTAMPTZ,
+            revoked BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_pat_user ON personal_access_token(user_id, revoked);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_pat_token_hash ON personal_access_token(token_hash);
+        CREATE TABLE IF NOT EXISTS skill (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            content TEXT NOT NULL DEFAULT '',
+            config JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_by UUID REFERENCES "user"(id),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            UNIQUE(workspace_id, name)
+        );
+        CREATE TABLE IF NOT EXISTS skill_file (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            skill_id UUID NOT NULL REFERENCES skill(id) ON DELETE CASCADE,
+            path TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            UNIQUE(skill_id, path)
+        );
+        CREATE TABLE IF NOT EXISTS agent_skill (
+            agent_id UUID NOT NULL REFERENCES agent(id) ON DELETE CASCADE,
+            skill_id UUID NOT NULL REFERENCES skill(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            PRIMARY KEY (agent_id, skill_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_skill_workspace ON skill(workspace_id);
+        CREATE INDEX IF NOT EXISTS idx_skill_file_skill ON skill_file(skill_id);
+        CREATE INDEX IF NOT EXISTS idx_agent_skill_skill ON agent_skill(skill_id);
+        CREATE INDEX IF NOT EXISTS idx_agent_skill_agent ON agent_skill(agent_id);
+        CREATE TABLE IF NOT EXISTS issue_subscriber (
+            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
+            user_type TEXT NOT NULL,
+            user_id UUID NOT NULL,
+            reason TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            PRIMARY KEY (issue_id, user_type, user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_issue_subscriber_user ON issue_subscriber(user_type, user_id);
+        CREATE TABLE IF NOT EXISTS comment_reaction (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            comment_id UUID NOT NULL REFERENCES comment(id) ON DELETE CASCADE,
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            actor_type TEXT NOT NULL,
+            actor_id UUID NOT NULL,
+            emoji TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            UNIQUE (comment_id, actor_type, actor_id, emoji)
+        );
+        CREATE INDEX IF NOT EXISTS idx_comment_reaction_comment_id ON comment_reaction(comment_id);
+        CREATE TABLE IF NOT EXISTS issue_reaction (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            actor_type TEXT NOT NULL,
+            actor_id UUID NOT NULL,
+            emoji TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            UNIQUE (issue_id, actor_type, actor_id, emoji)
+        );
+        CREATE INDEX IF NOT EXISTS idx_issue_reaction_issue_id ON issue_reaction(issue_id);
+        CREATE TABLE IF NOT EXISTS attachment (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            issue_id UUID REFERENCES issue(id) ON DELETE CASCADE,
+            comment_id UUID REFERENCES comment(id) ON DELETE CASCADE,
+            uploader_type TEXT NOT NULL,
+            uploader_id UUID NOT NULL,
+            filename TEXT NOT NULL,
+            url TEXT NOT NULL,
+            content_type TEXT NOT NULL,
+            size_bytes BIGINT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_attachment_issue ON attachment(issue_id) WHERE issue_id IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_attachment_comment ON attachment(comment_id) WHERE comment_id IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_attachment_workspace ON attachment(workspace_id);
+        CREATE TABLE IF NOT EXISTS daemon_token (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            token_hash TEXT NOT NULL,
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            daemon_id TEXT NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_daemon_token_hash ON daemon_token(token_hash);
+        CREATE INDEX IF NOT EXISTS idx_daemon_token_workspace_daemon ON daemon_token(workspace_id, daemon_id);
+        SQL
+        sleep infinity
+      '
   dbfix_task_queue:
     image: registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c
     depends_on:
       - postgres
-    command: sh -lc 'until pg_isready -h postgres -U multica >/dev/null 2>&1; do sleep 1; done; psql "postgres://multica:multica@postgres:5432/multica?sslmode=disable" -v ON_ERROR_STOP=0 -c "CREATE TABLE IF NOT EXISTS agent_task_queue (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), agent_id UUID NOT NULL, issue_id UUID NOT NULL, status TEXT NOT NULL DEFAULT '\''pending'\'', priority INTEGER NOT NULL DEFAULT 0, dispatched_at TIMESTAMPTZ, started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ, result JSONB, error TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), context JSONB NOT NULL DEFAULT '\''{}'\''::jsonb, runtime_id UUID, session_id TEXT, work_dir TEXT, trigger_comment_id UUID);" -c "CREATE TABLE IF NOT EXISTS agent_runtime (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), workspace_id UUID NOT NULL, daemon_id TEXT, name TEXT NOT NULL DEFAULT '\''runtime'\'', runtime_mode TEXT NOT NULL DEFAULT '\''local'\'', provider TEXT NOT NULL DEFAULT '\''codex'\'', status TEXT NOT NULL DEFAULT '\''offline'\'', device_info TEXT NOT NULL DEFAULT '\'''\'' , metadata JSONB NOT NULL DEFAULT '\''{}'\''::jsonb, last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(), created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());" -c "DELETE FROM agent_runtime a USING agent_runtime b WHERE a.id < b.id AND a.workspace_id = b.workspace_id AND a.daemon_id = b.daemon_id AND a.provider = b.provider AND a.daemon_id IS NOT NULL;" -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '\''uq_agent_runtime_workspace_daemon_provider'\'') THEN ALTER TABLE agent_runtime ADD CONSTRAINT uq_agent_runtime_workspace_daemon_provider UNIQUE (workspace_id, daemon_id, provider); END IF; END \$\$;" -c "CREATE INDEX IF NOT EXISTS idx_agent_runtime_workspace ON agent_runtime(workspace_id);" -c "CREATE INDEX IF NOT EXISTS idx_agent_runtime_status ON agent_runtime(workspace_id, status);" -c "CREATE TABLE IF NOT EXISTS runtime_usage (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), runtime_id UUID NOT NULL REFERENCES agent_runtime(id) ON DELETE CASCADE, date DATE NOT NULL, provider TEXT NOT NULL, model TEXT NOT NULL DEFAULT '\'''\'' , input_tokens BIGINT NOT NULL DEFAULT 0, output_tokens BIGINT NOT NULL DEFAULT 0, cache_read_tokens BIGINT NOT NULL DEFAULT 0, cache_write_tokens BIGINT NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE (runtime_id, date, provider, model));" -c "CREATE INDEX IF NOT EXISTS idx_runtime_usage_runtime_date ON runtime_usage(runtime_id, date DESC);" >/dev/null 2>&1 || true; sleep infinity'
+    command: |
+      sh -lc '
+        until pg_isready -h postgres -U multica >/dev/null 2>&1; do sleep 1; done
+        psql "postgres://multica:multica@postgres:5432/multica?sslmode=disable" -v ON_ERROR_STOP=0 <<'"'"'SQL'"'"'
+        CREATE TABLE IF NOT EXISTS agent_runtime (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+            daemon_id TEXT,
+            name TEXT NOT NULL,
+            runtime_mode TEXT NOT NULL DEFAULT 'local',
+            provider TEXT NOT NULL DEFAULT 'codex',
+            status TEXT NOT NULL DEFAULT 'offline',
+            device_info TEXT NOT NULL DEFAULT '',
+            metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+            last_seen_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        DELETE FROM agent_runtime a USING agent_runtime b
+        WHERE a.id < b.id
+          AND a.workspace_id = b.workspace_id
+          AND a.daemon_id = b.daemon_id
+          AND a.provider = b.provider
+          AND a.daemon_id IS NOT NULL;
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_agent_runtime_workspace_daemon_provider') THEN
+                ALTER TABLE agent_runtime ADD CONSTRAINT uq_agent_runtime_workspace_daemon_provider UNIQUE (workspace_id, daemon_id, provider);
+            END IF;
+        END $$;
+        CREATE INDEX IF NOT EXISTS idx_agent_runtime_workspace ON agent_runtime(workspace_id);
+        CREATE INDEX IF NOT EXISTS idx_agent_runtime_status ON agent_runtime(workspace_id, status);
+        CREATE TABLE IF NOT EXISTS agent_task_queue (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            agent_id UUID NOT NULL REFERENCES agent(id) ON DELETE CASCADE,
+            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
+            status TEXT NOT NULL DEFAULT 'queued',
+            priority INTEGER NOT NULL DEFAULT 0,
+            dispatched_at TIMESTAMPTZ,
+            started_at TIMESTAMPTZ,
+            completed_at TIMESTAMPTZ,
+            result JSONB,
+            error TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS context JSONB NOT NULL DEFAULT '{}'::jsonb;
+        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS runtime_id UUID;
+        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS session_id TEXT;
+        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS work_dir TEXT;
+        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS trigger_comment_id UUID REFERENCES comment(id) ON DELETE SET NULL;
+        CREATE INDEX IF NOT EXISTS idx_agent_task_queue_agent ON agent_task_queue(agent_id, status);
+        CREATE INDEX IF NOT EXISTS idx_agent_task_queue_pending ON agent_task_queue(agent_id, priority DESC, created_at ASC) WHERE status IN ('queued', 'dispatched');
+        CREATE INDEX IF NOT EXISTS idx_agent_task_queue_runtime_pending ON agent_task_queue(runtime_id, priority DESC, created_at ASC) WHERE status IN ('queued', 'dispatched');
+        CREATE TABLE IF NOT EXISTS daemon_pairing_session (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            token TEXT NOT NULL UNIQUE,
+            daemon_id TEXT NOT NULL,
+            device_name TEXT NOT NULL,
+            runtime_name TEXT NOT NULL,
+            runtime_type TEXT NOT NULL,
+            runtime_version TEXT NOT NULL DEFAULT '',
+            workspace_id UUID REFERENCES workspace(id) ON DELETE CASCADE,
+            approved_by UUID REFERENCES "user"(id) ON DELETE SET NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            approved_at TIMESTAMPTZ,
+            claimed_at TIMESTAMPTZ,
+            expires_at TIMESTAMPTZ NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_daemon_pairing_session_token ON daemon_pairing_session(token);
+        CREATE INDEX IF NOT EXISTS idx_daemon_pairing_session_status_expires ON daemon_pairing_session(status, expires_at);
+        CREATE TABLE IF NOT EXISTS runtime_usage (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            runtime_id UUID NOT NULL REFERENCES agent_runtime(id) ON DELETE CASCADE,
+            date DATE NOT NULL,
+            provider TEXT NOT NULL,
+            model TEXT NOT NULL DEFAULT '',
+            input_tokens BIGINT NOT NULL DEFAULT 0,
+            output_tokens BIGINT NOT NULL DEFAULT 0,
+            cache_read_tokens BIGINT NOT NULL DEFAULT 0,
+            cache_write_tokens BIGINT NOT NULL DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            UNIQUE (runtime_id, date, provider, model)
+        );
+        CREATE INDEX IF NOT EXISTS idx_runtime_usage_runtime_date ON runtime_usage(runtime_id, date DESC);
+        CREATE TABLE IF NOT EXISTS task_message (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            task_id UUID NOT NULL REFERENCES agent_task_queue(id) ON DELETE CASCADE,
+            seq INTEGER NOT NULL,
+            type TEXT NOT NULL,
+            tool TEXT,
+            content TEXT,
+            input JSONB,
+            output TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_task_message_task_id_seq ON task_message(task_id, seq);
+        SQL
+        sleep infinity
+      '
   db_audit:
     image: registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c
     depends_on:
       - postgres
       - dbfix
       - dbfix_task_queue
-    command: sh -lc "until pg_isready -h postgres -U multica >/dev/null 2>&1; do sleep 1; done; until psql \"postgres://multica:multica@postgres:5432/multica?sslmode=disable\" -Atc \"SELECT 1 FROM pg_catalog.pg_tables WHERE schemaname='public' AND tablename='runtime_usage';\" | grep -q 1; do sleep 1; done; report=\$(psql \"postgres://multica:multica@postgres:5432/multica?sslmode=disable\" -Atc \"WITH expected_tables(kind,name) AS (VALUES ('table','user'),('table','workspace'),('table','member'),('table','agent'),('table','issue'),('table','issue_label'),('table','issue_to_label'),('table','issue_dependency'),('table','comment'),('table','inbox_item'),('table','agent_task_queue'),('table','daemon_connection'),('table','activity_log'),('table','agent_runtime'),('table','daemon_pairing_session'),('table','skill'),('table','skill_file'),('table','agent_skill'),('table','verification_code'),('table','personal_access_token'),('table','runtime_usage'),('table','issue_subscriber'),('table','comment_reaction'),('table','task_message'),('table','issue_reaction'),('table','attachment'),('table','daemon_token')), expected_indexes(kind,name) AS (VALUES ('index','idx_pat_token_hash'),('index','idx_daemon_token_hash'),('index','idx_daemon_token_workspace_daemon'),('index','idx_runtime_usage_runtime_date')), expected_constraints(kind,name) AS (VALUES ('constraint','uq_agent_runtime_workspace_daemon_provider')), missing_tables AS (SELECT kind, name FROM expected_tables e LEFT JOIN pg_catalog.pg_tables t ON t.schemaname='public' AND t.tablename=e.name WHERE t.tablename IS NULL), missing_indexes AS (SELECT kind, name FROM expected_indexes e LEFT JOIN pg_catalog.pg_indexes i ON i.schemaname='public' AND i.indexname=e.name WHERE i.indexname IS NULL), missing_constraints AS (SELECT kind, name FROM expected_constraints e LEFT JOIN pg_catalog.pg_constraint c ON c.conname=e.name WHERE c.conname IS NULL) SELECT kind || ':' || name FROM missing_tables UNION ALL SELECT kind || ':' || name FROM missing_indexes UNION ALL SELECT kind || ':' || name FROM missing_constraints ORDER BY 1;\"); if [ -n \"\$report\" ]; then echo \"[schema-audit] missing schema objects:\"; echo \"\$report\"; else echo \"[schema-audit] all required tables, indexes, and constraints exist\"; fi; sleep infinity"
+    command: sh -lc "until pg_isready -h postgres -U multica >/dev/null 2>&1; do sleep 1; done; until psql \"postgres://multica:multica@postgres:5432/multica?sslmode=disable\" -Atc \"SELECT 1 FROM pg_catalog.pg_tables WHERE schemaname='public' AND tablename='runtime_usage';\" | grep -q 1; do sleep 1; done; report=\$(psql \"postgres://multica:multica@postgres:5432/multica?sslmode=disable\" -Atc \"WITH expected_tables(kind,name) AS (VALUES ('table','user'),('table','workspace'),('table','member'),('table','agent'),('table','issue'),('table','issue_label'),('table','issue_to_label'),('table','issue_dependency'),('table','comment'),('table','inbox_item'),('table','agent_task_queue'),('table','daemon_connection'),('table','activity_log'),('table','agent_runtime'),('table','daemon_pairing_session'),('table','skill'),('table','skill_file'),('table','agent_skill'),('table','verification_code'),('table','personal_access_token'),('table','runtime_usage'),('table','issue_subscriber'),('table','comment_reaction'),('table','task_message'),('table','issue_reaction'),('table','attachment'),('table','daemon_token')), expected_indexes(kind,name) AS (VALUES ('index','idx_pat_token_hash'),('index','idx_daemon_token_hash'),('index','idx_daemon_token_workspace_daemon'),('index','idx_runtime_usage_runtime_date'),('index','idx_issue_workspace_number'),('index','idx_agent_workspace'),('index','idx_inbox_recipient')), expected_constraints(kind,name) AS (VALUES ('constraint','uq_agent_runtime_workspace_daemon_provider'),('constraint','uq_issue_workspace_number'),('constraint','uq_daemon_agent')), expected_columns(kind,table_name,name) AS (VALUES ('column','agent','description'),('column','agent','runtime_id'),('column','agent','archived_at'),('column','agent','instructions'),('column','issue','number'),('column','inbox_item','actor_type'),('column','inbox_item','details'),('column','comment','workspace_id'),('column','personal_access_token','token_prefix'),('column','skill','content')),
+        missing_tables AS (SELECT kind, name FROM expected_tables e LEFT JOIN pg_catalog.pg_tables t ON t.schemaname='public' AND t.tablename=e.name WHERE t.tablename IS NULL), missing_indexes AS (SELECT kind, name FROM expected_indexes e LEFT JOIN pg_catalog.pg_indexes i ON i.schemaname='public' AND i.indexname=e.name WHERE i.indexname IS NULL), missing_constraints AS (SELECT kind, name FROM expected_constraints e LEFT JOIN pg_catalog.pg_constraint c ON c.conname=e.name WHERE c.conname IS NULL), missing_columns AS (SELECT kind, table_name || '.' || name AS name FROM expected_columns e LEFT JOIN information_schema.columns c ON c.table_schema='public' AND c.table_name=e.table_name AND c.column_name=e.name WHERE c.column_name IS NULL) SELECT kind || ':' || name FROM missing_tables UNION ALL SELECT kind || ':' || name FROM missing_indexes UNION ALL SELECT kind || ':' || name FROM missing_constraints UNION ALL SELECT kind || ':' || name FROM missing_columns ORDER BY 1;\"); if [ -n \"$report\" ]; then echo \"[schema-audit] missing schema objects:\"; echo \"$report\"; else echo \"[schema-audit] all required tables, indexes, constraints, and columns exist\"; fi; sleep infinity"
   db_smoke:
     image: registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c
     depends_on:
