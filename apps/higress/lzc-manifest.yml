@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.higress
-version: v2.2.0
+version: '2.2.0'
 min_os_version: 1.3.8
 name: Higress
 description: (LazyCat Auto-build) AI Native API Gateway
@@ -16,7 +16,7 @@ application:
       backend: http://higress:8001/
 services:
   higress:
-    image: registry.lazycat.cloud/invokerlaw/higress/all-in-one:15bea94f98bb807f
+    image: registry.lazycat.cloud/invokerlaw/higress/all-in-one:33987ebb391d3192
     environment:
       # Higress 控制台端口
       - HIGRESS_CONSOLE_PORT=8001
