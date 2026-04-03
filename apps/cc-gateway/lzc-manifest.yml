@@ -57,8 +57,7 @@ services:
         echo "    - \"{{ .U.auth_token }}\"" >> /app/data/config.yaml
       else
         if ! grep -E -q "^  tokens:" /app/data/config.yaml; then
-          sed -i '/^auth:/a \ \ tokens:
-    - "{{ .U.auth_token }}"' /app/data/config.yaml
+          sed -i '/^auth:/a \ \ tokens:\n    - "{{ .U.auth_token }}"' /app/data/config.yaml
         fi
       fi
       ln -sf /app/data/config.yaml /app/config.yaml
