@@ -2479,6 +2479,7 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: dict[str, Any
             {"target_service": "postgres", "source_image": "pgvector/pgvector:pg17"},
             {"target_service": "dbfix", "source_image": "pgvector/pgvector:pg17"},
             {"target_service": "dbfix_task_queue", "source_image": "pgvector/pgvector:pg17"},
+            {"target_service": "db_audit", "source_image": "pgvector/pgvector:pg17"},
         ]
         finalized["service_builds"] = [
             {
