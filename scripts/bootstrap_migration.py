@@ -371,6 +371,7 @@ def build_cli_spec(args: argparse.Namespace) -> dict[str, Any]:
         "dockerfile_path",
         "build_context",
         "docker_platform",
+        "image_owner",
         "icon_path",
     ):
         value = getattr(args, key)
@@ -579,6 +580,7 @@ def finalize_spec(raw: dict[str, Any], token: str, fetch_upstream: bool) -> dict
         "dockerfile_path": dockerfile_path,
         "build_context": build_context,
         "docker_platform": str(raw.get("docker_platform", "")).strip(),
+        "image_owner": str(raw.get("image_owner", "")).strip(),
         "overlay_paths": overlay_paths,
         "image_targets": image_targets,
         "dependencies": dependencies,
@@ -630,6 +632,8 @@ def build_registry_config(spec: dict[str, Any]) -> dict[str, Any]:
         payload["overlay_paths"] = spec["overlay_paths"]
     if spec["docker_platform"]:
         payload["docker_platform"] = spec["docker_platform"]
+    if spec["image_owner"]:
+        payload["image_owner"] = spec["image_owner"]
     if spec["build_args"]:
         payload["build_args"] = spec["build_args"]
     return payload
@@ -1172,6 +1176,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dockerfile-path", default="", help="Dockerfile or template path under apps/<slug>/")
     parser.add_argument("--build-context", default="", help="Docker build context")
     parser.add_argument("--docker-platform", default="", help="Optional docker platform override")
+    parser.add_argument("--image-owner", default="", help="Optional GHCR owner override for source-built images")
     parser.add_argument("--service-name", default="", help="Primary service name for simple single-service scaffolds")
     parser.add_argument("--service-port", type=int, default=0, help="Primary container port")
     parser.add_argument("--backend", default="", help="Primary backend URL, e.g. http://web:3000/")

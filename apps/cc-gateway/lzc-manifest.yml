@@ -28,41 +28,32 @@ services:
       - /lzcapp/var/data/cc-gateway:/app/data
     setup_script: |
       rm -rf /app/config.yaml 2>/dev/null || true
-      # Generate initial config dynamically using LazyCat advanced manifest render parameters
+      # Initialize missing persistent data
       if [ ! -f /app/data/config.yaml ]; then
-        cat << 'CONFEOF' > /app/data/config.yaml
-      gateway:
-        client_tokens:
-          - "{{ .U.client_token }}"
-      identity:
-        device_id: "{{ stable_secret "cc_device_id" | substr 0 64 }}"
-        email: "{{ .U.user_email }}"
-      auth:
-        tokens:
-          - "{{ .U.auth_token }}"
-      oauth:
-        refresh_token: "{{ .U.oauth_refresh_token }}"
-      logging:
-        level: "info"
-        audit: true
-      CONFEOF
-      fi
-
-      # Auto-migrate legacy structures
-      if grep -q "^auth:" /app/data/config.yaml && ! grep -q "^oauth:" /app/data/config.yaml; then
-        sed -i 's/^auth:/oauth:/g' /app/data/config.yaml || true
+        cp /lzcapp/pkg/content/config.example.yaml /app/data/config.yaml
       fi
       
-      if ! grep -q "^auth:" /app/data/config.yaml; then
-        echo "" >> /app/data/config.yaml
-        echo "auth:" >> /app/data/config.yaml
-        echo "  tokens:" >> /app/data/config.yaml
-        echo "    - \"{{ .U.auth_token }}\"" >> /app/data/config.yaml
-      else
-        if ! grep -E -q "^  tokens:" /app/data/config.yaml; then
-          sed -i '/^auth:/a \ \ tokens:\n    - "{{ .U.auth_token }}"' /app/data/config.yaml
-        fi
-      fi
+      # Use Node.js to safely rewrite user parameters into config.yaml
+      # Every time Deploy UI is used, this template renders new values and injects them
+      node -e '
+      const fs = require("fs");
+      let c = fs.readFileSync("/app/data/config.yaml", "utf8");
+      
+      c = c.replace(/email:\s*".*?"/, `email: "{{ .U.user_email }}"`);
+      c = c.replace(/refresh_token:\s*".*?"/, `refresh_token: "{{ .U.oauth_refresh_token }}"`);
+      c = c.replace(/device_id:\s*".*?"/, `device_id: "{{ stable_secret "cc_device_id" | substr 0 64 }}"`);
+      c = c.replace(/(client_tokens:\s*\n\s*-\s*)".*?"/, `$1"{{ .U.client_token }}"`);
+      c = c.replace(/(auth:\s*\n\s*tokens:\s*\n\s*-\s*)".*?"/, `$1"{{ .U.auth_token }}"`);
+      
+      // Auto-migrate structural changes natively
+      if(!c.includes("oauth:")) {
+         c = c.replace(/auth:/, "oauth:");
+         c += "\nauth:\n  tokens:\n    - \"{{ .U.auth_token }}\"\n";
+      }
+      
+      fs.writeFileSync("/app/data/config.yaml", c);
+      '
+      
       ln -sf /app/data/config.yaml /app/config.yaml
 locales:
   en:
