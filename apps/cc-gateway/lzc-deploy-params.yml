@@ -1,0 +1,19 @@
+params:
+  - id: oauth_refresh_token
+    type: string
+    name: "Claude OAuth Refresh Token (Required)"
+    description: "从原生终端提取真正的长期 refresh_token 放在这里，网关会帮你自动续签免去所有烦恼"
+  - id: auth_token
+    type: string
+    name: "Claude Session Token (Required)"
+    description: "您的 Claude Session Token"
+  - id: client_token
+    type: string
+    name: "Proxy Client Token"
+    description: "客户端通过 Proxy-Authorization: Bearer <Token> 连接时允许使用的密码/Token"
+    default_value: "lazycat_cc_gateway"
+  - id: user_email
+    type: string
+    name: "Device Account Email"
+    description: "你想对外展现的面具邮箱"
+    default_value: "anonymous@example.com"

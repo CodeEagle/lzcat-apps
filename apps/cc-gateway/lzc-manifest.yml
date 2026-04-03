@@ -28,37 +28,35 @@ services:
       - /lzcapp/var/data/cc-gateway:/app/data
     setup_script: |
       rm -rf /app/config.yaml 2>/dev/null || true
+      # Generate initial config dynamically using LazyCat advanced manifest render parameters
       if [ ! -f /app/data/config.yaml ]; then
-        if [ -f /app/config.example.yaml ]; then
-          cp /app/config.example.yaml /app/data/config.yaml
-        else
-          cat << 'CONFEOF' > /app/data/config.yaml
+        cat << 'CONFEOF' > /app/data/config.yaml
       gateway:
         client_tokens:
-          - "YOUR_LOCAL_TOKEN"
+          - "{{ .U.client_token }}"
       identity:
-        device_id: "104e14cfe0075eb20755b4fb9b6045620803517c2f6d6ed95818d04260000000"
-        email: "anonymous@example.com"
+        device_id: "{{ stable_secret "cc_device_id" | substr 0 64 }}"
+        email: "{{ .U.user_email }}"
       auth:
         tokens:
-          - "YOUR_CLAUDE_SESSION_TOKEN_HERE"
+          - "{{ index .U "auth_token" }}"
       oauth:
-        refresh_token: "YOUR_EXTRACTED_REFRESH_TOKEN_HERE"
+        refresh_token: "{{ index .U "oauth_refresh_token" }}"
       CONFEOF
-        fi
       fi
+
+      # Legacy structure auto-migration rules
       if ! grep -q "  tokens:" /app/data/config.yaml; then
         echo "  tokens:" >> /app/data/config.yaml
-        echo "    - \"YOUR_CLAUDE_SESSION_TOKEN_HERE\"" >> /app/data/config.yaml
+        echo "    - "{{ index .U "auth_token" }}"" >> /app/data/config.yaml
       fi
       if ! grep -q "oauth:" /app/data/config.yaml; then
         sed -i 's/auth:/oauth:/g' /app/data/config.yaml || true
-      fi
-      if ! grep -q "^auth:" /app/data/config.yaml; then
         echo "auth:" >> /app/data/config.yaml
         echo "  tokens:" >> /app/data/config.yaml
-        echo "    - \"YOUR_CLAUDE_SESSION_TOKEN_HERE\"" >> /app/data/config.yaml
+        echo "    - "{{ index .U "auth_token" }}"" >> /app/data/config.yaml
       fi
+      
       ln -sf /app/data/config.yaml /app/config.yaml
 locales:
   en:
