@@ -17,7 +17,7 @@ application:
       backend: http://web:3000/
 services:
   multica:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica:ba8b2dd301b4e7cc
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica:7f54f40718eeaca2
     depends_on:
       - postgres
       - dbfix
@@ -30,7 +30,7 @@ services:
       - RESEND_API_KEY={{ default "" .U.resend_api_key }}
       - RESEND_FROM_EMAIL={{ default "noreply@multica.ai" .U.resend_from_email }}
   web:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica-web:fa270036899bcd37
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica-web:186a7bd8f977afb0
     depends_on:
       - multica
     command: sh -lc "sed -i \"s/await sendCode(email);/await sendCode(email).catch(() => {});/g\" '/src/apps/web/app/(auth)/login/page.tsx'; cd apps/web && pnpm build && exec pnpm start --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}"
