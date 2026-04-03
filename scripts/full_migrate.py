@@ -2791,6 +2791,29 @@ def apply_app_post_process(repo_root: Path, finalized: dict[str, Any], analysis:
     return []
 
 
+def set_deploy_param_sync_profile(
+    finalized: dict[str, Any],
+    *,
+    script_relpath: str,
+    targets: list[str],
+) -> None:
+    finalized["deploy_param_sync"] = {
+        "script_relpath": script_relpath,
+        "targets": list(dict.fromkeys(str(item).strip() for item in targets if str(item).strip())),
+    }
+
+
+def render_deploy_param_sync_note(finalized: dict[str, Any]) -> str | None:
+    payload = finalized.get("deploy_param_sync")
+    if not isinstance(payload, dict):
+        return None
+    targets = [str(item).strip() for item in bm.ensure_list(payload.get("targets")) if str(item).strip()]
+    if not targets:
+        return None
+    rendered = " 和 ".join(f"`{item}`" for item in targets)
+    return f"服务启动前会读取部署参数，并同步写回 {rendered}。"
+
+
 def apply_generated_app_fixes(finalized: dict[str, Any], analysis: AnalysisResult) -> dict[str, Any]:
     upstream_repo = str(finalized.get("upstream_repo") or analysis.spec.get("upstream_repo") or "").strip()
 
@@ -2820,6 +2843,14 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: AnalysisResul
         finalized.update(build_multica_profile())
 
     if finalized.get("slug") == "deer-flow" and upstream_repo == "bytedance/deer-flow":
+        set_deploy_param_sync_profile(
+            finalized,
+            script_relpath="content/render-deer-flow-config.sh",
+            targets=[
+                "/deer-flow-state/config/model.env",
+                "/deer-flow-state/config/config.yaml",
+            ],
+        )
         finalized["include_content"] = True
         finalized["image_targets"] = ["frontend", "gateway", "langgraph"]
         finalized["dependencies"] = [{"target_service": "nginx", "source_image": "nginx:alpine"}]
@@ -2898,8 +2929,10 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: AnalysisResul
             "自动扫描到 compose 文件：docker/docker-compose.yaml",
             "首次安装和后续重配置均使用 `lzc-deploy-params.yml` 提供的官方部署参数页。",
             "当前默认走 LocalSandboxProvider，避免依赖 Docker Socket 或 Kubernetes provisioner。",
-            "服务启动前会读取部署参数，并同步写回 `/deer-flow-state/config/model.env` 和 `/deer-flow-state/config/config.yaml`。",
         ]
+        sync_note = render_deploy_param_sync_note(finalized)
+        if sync_note:
+            finalized["startup_notes"].append(sync_note)
         finalized["services"] = {
             "nginx": {
                 "image": "registry.lazycat.cloud/placeholder/deer-flow:nginx",
@@ -5622,12 +5655,22 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
 
     build_yml = build_path.read_text(encoding="utf-8")
     manifest_text = manifest_path.read_text(encoding="utf-8")
+    deploy_param_sync = config.get("deploy_param_sync")
     if "/lzcapp/pkg/content/" in manifest_text and "contentdir:" not in build_yml:
         issues.append("manifest references /lzcapp/pkg/content but lzc-build.yml is missing contentdir")
     if ('index .U "' in manifest_text or "{{ if .U" in manifest_text or "{{ if index .U" in manifest_text) and not deploy_params_path.exists():
         issues.append("manifest uses deployment parameter templates but apps/<slug>/lzc-deploy-params.yml is missing")
     if '\\"' in manifest_text and "{{" in manifest_text and ".U" in manifest_text:
         issues.append("manifest contains backslash-escaped quotes inside deployment templates; use YAML single-quoted template strings instead of \\\"")
+    if isinstance(deploy_param_sync, dict):
+        script_relpath = str(deploy_param_sync.get("script_relpath", "")).strip()
+        if not script_relpath:
+            issues.append("deploy_param_sync is missing script_relpath")
+        elif not (app_dir / script_relpath).exists():
+            issues.append(f"deploy_param_sync script is missing: {app_dir / script_relpath}")
+        targets = [str(item).strip() for item in bm.ensure_list(deploy_param_sync.get("targets")) if str(item).strip()]
+        if not targets:
+            issues.append("deploy_param_sync must declare at least one target file")
 
     for service_name, payload in services.items():
         if not isinstance(payload, dict):

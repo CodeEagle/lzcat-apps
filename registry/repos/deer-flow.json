@@ -9,6 +9,13 @@
   "dockerfile_type": "custom",
   "service_port": 2026,
   "service_cmd": [],
+  "deploy_param_sync": {
+    "script_relpath": "content/render-deer-flow-config.sh",
+    "targets": [
+      "/deer-flow-state/config/model.env",
+      "/deer-flow-state/config/config.yaml"
+    ]
+  },
   "image_targets": [
     "frontend",
     "gateway",
