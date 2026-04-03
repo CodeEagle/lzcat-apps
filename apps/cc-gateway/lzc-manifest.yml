@@ -39,9 +39,9 @@ services:
         email: "{{ .U.user_email }}"
       auth:
         tokens:
-          - "{{ index .U "auth_token" }}"
+          - "{{ .U.auth_token }}"
       oauth:
-        refresh_token: "{{ index .U "oauth_refresh_token" }}"
+        refresh_token: "{{ .U.oauth_refresh_token }}"
       CONFEOF
       fi
 
@@ -54,11 +54,11 @@ services:
         echo "" >> /app/data/config.yaml
         echo "auth:" >> /app/data/config.yaml
         echo "  tokens:" >> /app/data/config.yaml
-        echo "    - \"{{ index .U \"auth_token\" }}\"" >> /app/data/config.yaml
+        echo "    - \"{{ .U.auth_token }}\"" >> /app/data/config.yaml
       else
         if ! grep -E -q "^  tokens:" /app/data/config.yaml; then
           sed -i '/^auth:/a \ \ tokens:
-    - "{{ index .U \"auth_token\" }}"' /app/data/config.yaml
+    - "{{ .U.auth_token }}"' /app/data/config.yaml
         fi
       fi
       ln -sf /app/data/config.yaml /app/config.yaml
