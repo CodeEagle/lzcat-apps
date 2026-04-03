@@ -23,7 +23,7 @@ services:
     depends_on:
       - gateway
   gateway:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/cc-gateway-gateway:bdebf484fbd677c9
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/cc-gateway-gateway:9082c1de01984407
     binds:
       - /lzcapp/var/data/cc-gateway:/app/data
     setup_script: |
