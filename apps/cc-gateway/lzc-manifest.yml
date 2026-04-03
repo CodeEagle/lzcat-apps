@@ -46,6 +46,10 @@ services:
       CONFEOF
         fi
       fi
+      if ! grep -q "tokens:" /app/data/config.yaml; then
+        echo "  tokens:" >> /app/data/config.yaml
+        echo "    - \"YOUR_CLAUDE_SESSION_TOKEN_HERE\"" >> /app/data/config.yaml
+      fi
       ln -sf /app/data/config.yaml /app/config.yaml
 locales:
   en:
