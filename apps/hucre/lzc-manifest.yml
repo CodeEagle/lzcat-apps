@@ -1,0 +1,28 @@
+lzc-sdk-version: "0.1"
+package: fun.selfstudio.app.migration.hucre
+version: "0.1.0"
+min_os_version: 1.3.8
+name: hucre
+description: (LazyCat Auto-build) Spreadsheet playground for hucre XLSX, CSV, and ODS engine
+license: MIT
+homepage: https://github.com/productdevbook/hucre
+author: productdevbook
+application:
+  subdomain: hucre
+  public_path:
+    - /
+  upstreams:
+    - location: /
+      backend: http://hucre-web:80/
+services:
+  hucre-web:
+    image: registry.lazycat.cloud/placeholder/hucre:web
+    environment: []
+    binds: []
+locales:
+  en:
+    name: hucre
+    description: (LazyCat Auto-build) Browser playground for hucre spreadsheet features
+  zh:
+    name: hucre
+    description: （懒猫微服自动构建）hucre 电子表格引擎之浏览器演示站
