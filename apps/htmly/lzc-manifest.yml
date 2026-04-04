@@ -16,7 +16,7 @@ application:
       backend: http://htmly:80/
 services:
   htmly:
-    image: registry.lazycat.cloud/placeholder/htmly:latest
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/htmly:da1314b1762d11d5
     environment:
       - TZ=Asia/Shanghai
     binds:
