@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.crucix
-version: '2.0.1'
+version: '2.0.2'
 min_os_version: 1.3.8
 name: Crucix
 description: Local intelligence engine with a live OSINT dashboard, periodic sweeps, and optional LLM-powered alerts.
@@ -39,7 +39,7 @@ application:
       backend: http://crucix:3117/
 services:
   crucix:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/crucix-crucix:1b7aef26963fc5de
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/crucix-crucix:b7e789c00eaca236
     command: sh -lc 'mkdir -p /crucix-state/config && cd /app && node /lzcapp/pkg/content/bootstrap.mjs'
     environment:
       - PORT=3117

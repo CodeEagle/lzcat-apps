@@ -1,7 +1,7 @@
 {
   "upstream_repo": "calesthio/Crucix",
-  "source_version": "212fefd",
-  "build_version": "2.0.1",
-  "build_label": "212fefd@20260403T095345Z",
-  "last_checked_at": "2026-04-03T09:53:45.588579+00:00"
+  "source_version": "7a5015e",
+  "build_version": "2.0.2",
+  "build_label": "7a5015e@20260404T010654Z",
+  "last_checked_at": "2026-04-04T01:06:54.792829+00:00"
 }
