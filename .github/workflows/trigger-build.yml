@@ -66,6 +66,11 @@ on:
         required: false
         default: true
         type: boolean
+      skip_docker:
+        description: "Skip Docker build and reuse current manifest image URLs"
+        required: false
+        default: false
+        type: boolean
       publish_to_store:
         description: "Publish generated package to LazyCat App Store"
         required: false
@@ -114,6 +119,7 @@ jobs:
           INPUT_TARGET_REPO: ${{ inputs.target_repo }}
           INPUT_TARGET_VERSION: ${{ inputs.target_version }}
           INPUT_FORCE_BUILD: ${{ inputs.force_build }}
+          INPUT_SKIP_DOCKER: ${{ inputs.skip_docker }}
           INPUT_PUBLISH_TO_STORE: ${{ inputs.publish_to_store }}
           INPUT_CHECK_ONLY: ${{ inputs.check_only }}
         run: |
@@ -133,6 +139,7 @@ jobs:
       config_file: ${{ matrix.config_file }}
       target_version: ${{ matrix.target_version }}
       force_build: ${{ matrix.force_build }}
+      skip_docker: ${{ matrix.skip_docker }}
       publish_to_store: ${{ matrix.publish_to_store }}
       check_only: ${{ matrix.check_only }}
     secrets: inherit

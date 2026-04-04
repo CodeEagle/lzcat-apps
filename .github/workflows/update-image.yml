@@ -17,6 +17,10 @@ on:
         required: false
         type: boolean
         default: false
+      skip_docker:
+        required: false
+        type: boolean
+        default: false
       publish_to_store:
         required: false
         type: boolean
@@ -76,6 +80,9 @@ jobs:
           fi
           if [ "${{ inputs.force_build }}" = "true" ]; then
             args+=(--force-build)
+          fi
+          if [ "${{ inputs.skip_docker }}" = "true" ]; then
+            args+=(--skip-docker)
           fi
           if [ "${{ inputs.publish_to_store }}" = "true" ]; then
             args+=(--publish-to-store)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -75,8 +76,66 @@ def write_output(name: str, value: str) -> None:
         handle.write(f"{name}={value}\n")
 
 
+def read_changed_files_since_previous_commit(repo_root: Path) -> list[str]:
+    probe = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD^"],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if probe.returncode != 0:
+        return []
+
+    diff = subprocess.run(
+        ["git", "diff", "--name-only", "HEAD^", "HEAD"],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if diff.returncode != 0:
+        return []
+    return [line.strip() for line in diff.stdout.splitlines() if line.strip()]
+
+
+def should_auto_skip_docker(
+    *,
+    event_name: str,
+    target_repo: str,
+    target_version: str,
+    explicit_skip_docker: bool,
+    repo_root: Path,
+) -> bool:
+    if event_name != "workflow_dispatch":
+        return False
+    if not target_repo or target_version or explicit_skip_docker:
+        return False
+
+    changed_files = read_changed_files_since_previous_commit(repo_root)
+    if not changed_files:
+        return False
+
+    app_prefix = f"apps/{target_repo}/"
+    allowed_exact = {
+        f"{app_prefix}icon.png",
+    }
+    allowed_prefixes = (
+        f"{app_prefix}content/",
+    )
+
+    for path in changed_files:
+        if path in allowed_exact:
+            continue
+        if any(path.startswith(prefix) for prefix in allowed_prefixes):
+            continue
+        return False
+    return True
+
+
 def main() -> int:
     config_root = Path(os.environ["CONFIG_ROOT"]).resolve()
+    repo_root = config_root.parent
     event_name = os.environ.get("GITHUB_EVENT_NAME", "")
     event = load_event_payload()
     payload = event.get("client_payload", {}) if isinstance(event, dict) else {}
@@ -95,6 +154,23 @@ def main() -> int:
         os.environ.get("INPUT_FORCE_BUILD"),
         parse_bool(payload.get("force_build"), False),
     )
+    skip_docker = parse_bool(
+        os.environ.get("INPUT_SKIP_DOCKER"),
+        parse_bool(payload.get("skip_docker"), False),
+    )
+    if should_auto_skip_docker(
+        event_name=event_name,
+        target_repo=target_repo,
+        target_version=target_version,
+        explicit_skip_docker=skip_docker,
+        repo_root=repo_root,
+    ):
+        skip_docker = True
+        print(
+            f"Auto-enabled skip_docker for {target_repo}: "
+            "latest commit only changed package assets (icon/content).",
+            file=sys.stderr,
+        )
     publish_to_store = parse_bool(
         os.environ.get("INPUT_PUBLISH_TO_STORE"),
         parse_bool(payload.get("publish_to_store"), False),
@@ -128,6 +204,7 @@ def main() -> int:
                 "config_file": config["_config_file"],
                 "target_version": target_version,
                 "force_build": force_build,
+                "skip_docker": skip_docker,
                 "publish_to_store": publish_to_store,
                 "check_only": check_only,
             }
