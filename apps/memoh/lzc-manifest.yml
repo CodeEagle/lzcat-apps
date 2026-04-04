@@ -42,8 +42,26 @@ services:
     depends_on:
       - postgres
     entrypoint: /bin/sh
-    command: >-
-      -lc 'printf %s IyEvYmluL3NoCnNldCAtZXUKbWtkaXIgLXAgL2x6Y2FwcC92YXIvZGF0YS9tZW1vaC9jb25maWcKQ09ORklHX0ZJTEU9L2x6Y2FwcC92YXIvZGF0YS9tZW1vaC9jb25maWcvY29uZmlnLnRvbWwKaWYgWyAhIC1mICIkQ09ORklHX0ZJTEUiIF07IHRoZW4KY2F0ID4gIiRDT05GSUdfRklMRSIgPDxFT0YKW2xvZ10KbGV2ZWwgPSAiaW5mbyIKZm9ybWF0ID0gInRleHQiCgpbc2VydmVyXQphZGRyID0gInNlcnZlcjo4MDgwIgoKW2FkbWluXQp1c2VybmFtZSA9ICJhZG1pbiIKcGFzc3dvcmQgPSAiJHtMQVpZQ0FUX0FQUF9JRH0tYWRtaW4iCmVtYWlsID0gImFkbWluQCR7TEFaWUNBVF9BUFBfRE9NQUlOfSIKClthdXRoXQpqd3Rfc2VjcmV0ID0gIiR7TEFaWUNBVF9BUFBfSUR9LSR7TEFaWUNBVF9CT1hfRE9NQUlOfS1qd3QiCmp3dF9leHBpcmVzX2luID0gIjE2OGgiCgp0aW1lem9uZSA9ICJVVEMiCgpbY29udGFpbmVyZF0Kc29ja2V0X3BhdGggPSAiL3J1bi9jb250YWluZXJkL2NvbnRhaW5lcmQuc29jayIKbmFtZXNwYWNlID0gImRlZmF1bHQiCgpbd29ya3NwYWNlXQpkZWZhdWx0X2ltYWdlID0gImRlYmlhbjpib29rd29ybS1zbGltIgpzbmFwc2hvdHRlciA9ICJvdmVybGF5ZnMiCmRhdGFfcm9vdCA9ICIvb3B0L21lbW9oL2RhdGEiCnJ1bnRpbWVfZGlyID0gIi9vcHQvbWVtb2gvcnVudGltZSIKCltwb3N0Z3Jlc10KaG9zdCA9ICJwb3N0Z3JlcyIKcG9ydCA9IDU0MzIKdXNlciA9ICJtZW1vaCIKcGFzc3dvcmQgPSAibWVtb2gxMjMiCmRhdGFiYXNlID0gIm1lbW9oIgpzc2xtb2RlID0gImRpc2FibGUiCgpbcWRyYW50XQpiYXNlX3VybCA9ICJodHRwOi8vcWRyYW50OjYzMzQiCmFwaV9rZXkgPSAiIgp0aW1lb3V0X3NlY29uZHMgPSAxMAoKW2Jyb3dzZXJfZ2F0ZXdheV0KaG9zdCA9ICJicm93c2VyIgpwb3J0ID0gODA4MwpzZXJ2ZXJfYWRkciA9ICJzZXJ2ZXI6ODA4MCIKClt3ZWJdCmhvc3QgPSAiMC4wLjAuMCIKcG9ydCA9IDgwODIKRU9GCmZpCmNwICIkQ09ORklHX0ZJTEUiIC9hcHAvY29uZmlnLnRvbWwKZXhlYyAvYXBwL21lbW9oLXNlcnZlciBtaWdyYXRlIHVwCg== | base64 -d > /tmp/memoh-migrate.sh; chmod +x /tmp/memoh-migrate.sh; exec /tmp/memoh-migrate.sh'
+    setup_script: |
+      mkdir -p /lzcapp/var/data/memoh/config
+      CONFIG_FILE=/lzcapp/var/data/memoh/config/config.toml
+      if [ ! -f "$CONFIG_FILE" ]; then
+        printf "%s\n" "[log]" "level = \"info\"" "format = \"text\"" "" "[server]" "addr = \"0.0.0.0:8080\"" "" "[admin]" "username = \"admin\"" "password = \"${LAZYCAT_APP_ID}-admin\"" "email = \"admin@${LAZYCAT_APP_DOMAIN}\"" "" "[auth]" "jwt_secret = \"${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt\"" "jwt_expires_in = \"168h\"" "" "timezone = \"UTC\"" "" "[containerd]" "socket_path = \"/run/containerd/containerd.sock\"" "namespace = \"default\"" "" "[workspace]" "default_image = \"debian:bookworm-slim\"" "snapshotter = \"overlayfs\"" "data_root = \"/opt/memoh/data\"" "runtime_dir = \"/opt/memoh/runtime\"" "" "[postgres]" "host = \"postgres\"" "port = 5432" "user = \"memoh\"" "password = \"memoh123\"" "database = \"memoh\"" "sslmode = \"disable\"" "" "[qdrant]" "base_url = \"http://qdrant:6334\"" "api_key = \"\"" "timeout_seconds = 10" "" "[browser_gateway]" "host = \"browser\"" "port = 8083" "server_addr = \"server:8080\"" "" "[web]" "host = \"0.0.0.0\"" "port = 8082" > "$CONFIG_FILE"
+      fi
+    command: |
+      set -eu
+      CONFIG_FILE=/lzcapp/var/data/memoh/config/config.toml
+      cp "$CONFIG_FILE" /app/config.toml
+      /app/memoh-server migrate up
+      touch /tmp/migrate-ready
+      exec tail -f /dev/null
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - test -f /tmp/migrate-ready
+      interval: 5s
+      timeout: 5s
+      retries: 12
   server:
     image: registry.lazycat.cloud/invokerlaw/memohai/server:fbe606b354312cfb
     depends_on:
@@ -54,12 +72,55 @@ services:
       - /lzcapp/var/data/memoh/server/cni:/var/lib/cni
       - /lzcapp/var/data/memoh/server/data:/opt/memoh/data
     entrypoint: /bin/sh
-    command: >-
-      -lc 'printf %s IyEvYmluL3NoCnNldCAtZXUKbWtkaXIgLXAgL2x6Y2FwcC92YXIvZGF0YS9tZW1vaC9jb25maWcgL29wdC9tZW1vaC9kYXRhIC92YXIvbGliL2NuaSAvdmFyL2xpYi9jb250YWluZXJkIC9ydW4vY29udGFpbmVyZApDT05GSUdfRklMRT0vbHpjYXBwL3Zhci9kYXRhL21lbW9oL2NvbmZpZy9jb25maWcudG9tbAppZiBbICEgLWYgIiRDT05GSUdfRklMRSIgXTsgdGhlbgpjYXQgPiAiJENPTkZJR19GSUxFIiA8PEVPRgpbbG9nXQpsZXZlbCA9ICJpbmZvIgpmb3JtYXQgPSAidGV4dCIKCltzZXJ2ZXJdCmFkZHIgPSAic2VydmVyOjgwODAiCgpbYWRtaW5dCnVzZXJuYW1lID0gImFkbWluIgpwYXNzd29yZCA9ICIke0xBWllDQVRfQVBQX0lEfS1hZG1pbiIKZW1haWwgPSAiYWRtaW5AJHtMQVpZQ0FUX0FQUF9ET01BSU59IgoKW2F1dGhdCmp3dF9zZWNyZXQgPSAiJHtMQVpZQ0FUX0FQUF9JRH0tJHtMQVpZQ0FUX0JPWF9ET01BSU59LWp3dCIKand0X2V4cGlyZXNfaW4gPSAiMTY4aCIKCnRpbWV6b25lID0gIlVUQyIKCltjb250YWluZXJkXQpzb2NrZXRfcGF0aCA9ICIvcnVuL2NvbnRhaW5lcmQvY29udGFpbmVyZC5zb2NrIgpuYW1lc3BhY2UgPSAiZGVmYXVsdCIKClt3b3Jrc3BhY2VdCmRlZmF1bHRfaW1hZ2UgPSAiZGViaWFuOmJvb2t3b3JtLXNsaW0iCnNuYXBzaG90dGVyID0gIm92ZXJsYXlmcyIKZGF0YV9yb290ID0gIi9vcHQvbWVtb2gvZGF0YSIKcnVudGltZV9kaXIgPSAiL29wdC9tZW1vaC9ydW50aW1lIgoKW3Bvc3RncmVzXQpob3N0ID0gInBvc3RncmVzIgpwb3J0ID0gNTQzMgp1c2VyID0gIm1lbW9oIgpwYXNzd29yZCA9ICJtZW1vaDEyMyIKZGF0YWJhc2UgPSAibWVtb2giCnNzbG1vZGUgPSAiZGlzYWJsZSIKCltxZHJhbnRdCmJhc2VfdXJsID0gImh0dHA6Ly9xZHJhbnQ6NjMzNCIKYXBpX2tleSA9ICIiCnRpbWVvdXRfc2Vjb25kcyA9IDEwCgpbYnJvd3Nlcl9nYXRld2F5XQpob3N0ID0gImJyb3dzZXIiCnBvcnQgPSA4MDgzCnNlcnZlcl9hZGRyID0gInNlcnZlcjo4MDgwIgoKW3dlYl0KaG9zdCA9ICIwLjAuMC4wIgpwb3J0ID0gODA4MgpFT0YKZmkKY3AgIiRDT05GSUdfRklMRSIgL2FwcC9jb25maWcudG9tbAppcCBsaW5rIGRlbGV0ZSBjbmkwIDI+L2Rldi9udWxsIHx8IHRydWUKcm0gLXJmIC92YXIvbGliL2NuaS9uZXR3b3Jrcy8qIC92YXIvbGliL2NuaS9yZXN1bHRzLyogMj4vZGV2L251bGwgfHwgdHJ1ZQpzeXNjdGwgLXcgbmV0LmlwdjQuaXBfZm9yd2FyZD0xIDI+L2Rldi9udWxsIHx8IHRydWUKaXB0YWJsZXMgLXQgbmF0IC1DIFBPU1RST1VUSU5HIC1zIDEwLjg4LjAuMC8xNiAhIC1vIGNuaTAgLWogTUFTUVVFUkFERSAyPi9kZXYvbnVsbCB8fCBpcHRhYmxlcyAtdCBuYXQgLUEgUE9TVFJPVVRJTkcgLXMgMTAuODguMC4wLzE2ICEgLW8gY25pMCAtaiBNQVNRVUVSQURFIDI+L2Rldi9udWxsIHx8IHRydWUKaWYgWyAtZiAvc3lzL2ZzL2Nncm91cC9jZ3JvdXAuY29udHJvbGxlcnMgXSAmJiBbIC13IC9zeXMvZnMvY2dyb3VwIF07IHRoZW4KICBta2RpciAtcCAvc3lzL2ZzL2Nncm91cC9pbml0IDI+L2Rldi9udWxsIHx8IHRydWUKICBpZiBbIC1kIC9zeXMvZnMvY2dyb3VwL2luaXQgXTsgdGhlbgogICAgd2hpbGUgcmVhZCAtciBwaWQ7IGRvCiAgICAgIGVjaG8gIiRwaWQiID4gL3N5cy9mcy9jZ3JvdXAvaW5pdC9jZ3JvdXAucHJvY3MgMj4vZGV2L251bGwgfHwgdHJ1ZQogICAgZG9uZSA8IC9zeXMvZnMvY2dyb3VwL2Nncm91cC5wcm9jcwogIGZpCiAgc2VkIC1lICdzLyAvICsvZycgLWUgJ3MvXi8rLycgPCAvc3lzL2ZzL2Nncm91cC9jZ3JvdXAuY29udHJvbGxlcnMgPiAvc3lzL2ZzL2Nncm91cC9jZ3JvdXAuc3VidHJlZV9jb250cm9sIDI+L2Rldi9udWxsIHx8IHRydWUKZWxzZQogIGVjaG8gJ1ttZW1vaF0gc2tpcCBjZ3JvdXAgdjIgZGVsZWdhdGlvbjogL3N5cy9mcy9jZ3JvdXAgaXMgbm90IHdyaXRhYmxlJwpmaQpjb250YWluZXJkICYKQ09OVEFJTkVSRF9QSUQ9JCEKZm9yIGkgaW4gJChzZXEgMSAzMCk7IGRvCiAgaWYgY3RyIHZlcnNpb24gPi9kZXYvbnVsbCAyPiYxOyB0aGVuCiAgICBicmVhawogIGZpCiAgc2xlZXAgMQpkb25lCmlmICEgY3RyIHZlcnNpb24gPi9kZXYvbnVsbCAyPiYxOyB0aGVuCiAgZWNobyAnRVJST1I6IGNvbnRhaW5lcmQgbm90IHJlc3BvbnNpdmUgYWZ0ZXIgMzBzJwogIGV4aXQgMQpmaQp0cmFwICdraWxsICIkU0VSVkVSX1BJRCIgMj4vZGV2L251bGw7IGtpbGwgIiRDT05UQUlORVJEX1BJRCIgMj4vZGV2L251bGw7IHdhaXQnIFRFUk0gSU5UCi9hcHAvbWVtb2gtc2VydmVyIHNlcnZlICYKU0VSVkVSX1BJRD0kIQp3YWl0ICIkU0VSVkVSX1BJRCIKRVhJVF9DT0RFPSQ/CmtpbGwgIiRDT05UQUlORVJEX1BJRCIgMj4vZGV2L251bGwgfHwgdHJ1ZQp3YWl0ICIkQ09OVEFJTkVSRF9QSUQiIDI+L2Rldi9udWxsIHx8IHRydWUKZXhpdCAiJEVYSVRfQ09ERSIK | base64 -d > /tmp/memoh-server.sh; chmod +x /tmp/memoh-server.sh; exec /tmp/memoh-server.sh'
+    setup_script: |
+      mkdir -p /lzcapp/var/data/memoh/config /opt/memoh/data /var/lib/cni /var/lib/containerd /run/containerd
+      CONFIG_FILE=/lzcapp/var/data/memoh/config/config.toml
+      if [ ! -f "$CONFIG_FILE" ]; then
+        printf "%s\n" "[log]" "level = \"info\"" "format = \"text\"" "" "[server]" "addr = \"0.0.0.0:8080\"" "" "[admin]" "username = \"admin\"" "password = \"${LAZYCAT_APP_ID}-admin\"" "email = \"admin@${LAZYCAT_APP_DOMAIN}\"" "" "[auth]" "jwt_secret = \"${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt\"" "jwt_expires_in = \"168h\"" "" "timezone = \"UTC\"" "" "[containerd]" "socket_path = \"/run/containerd/containerd.sock\"" "namespace = \"default\"" "" "[workspace]" "default_image = \"debian:bookworm-slim\"" "snapshotter = \"overlayfs\"" "data_root = \"/opt/memoh/data\"" "runtime_dir = \"/opt/memoh/runtime\"" "" "[postgres]" "host = \"postgres\"" "port = 5432" "user = \"memoh\"" "password = \"memoh123\"" "database = \"memoh\"" "sslmode = \"disable\"" "" "[qdrant]" "base_url = \"http://qdrant:6334\"" "api_key = \"\"" "timeout_seconds = 10" "" "[browser_gateway]" "host = \"browser\"" "port = 8083" "server_addr = \"server:8080\"" "" "[web]" "host = \"0.0.0.0\"" "port = 8082" > "$CONFIG_FILE"
+      fi
+    command: |
+      set -eu
+      CONFIG_FILE=/lzcapp/var/data/memoh/config/config.toml
+      cp "$CONFIG_FILE" /app/config.toml
+      ip link delete cni0 2>/dev/null || true
+      rm -rf /var/lib/cni/networks/* /var/lib/cni/results/* 2>/dev/null || true
+      sysctl -w net.ipv4.ip_forward=1 2>/dev/null || true
+      iptables -t nat -C POSTROUTING -s 10.88.0.0/16 ! -o cni0 -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -s 10.88.0.0/16 ! -o cni0 -j MASQUERADE 2>/dev/null || true
+      if [ -f /sys/fs/cgroup/cgroup.controllers ] && [ -w /sys/fs/cgroup ]; then
+        mkdir -p /sys/fs/cgroup/init 2>/dev/null || true
+        if [ -d /sys/fs/cgroup/init ]; then
+          while read -r pid; do
+            echo "$pid" > /sys/fs/cgroup/init/cgroup.procs 2>/dev/null || true
+          done < /sys/fs/cgroup/cgroup.procs
+        fi
+        sed -e 's/ / +/g' -e 's/^/+/' < /sys/fs/cgroup/cgroup.controllers > /sys/fs/cgroup/cgroup.subtree_control 2>/dev/null || true
+      else
+        echo '[memoh] skip cgroup v2 delegation: /sys/fs/cgroup is not writable'
+      fi
+      containerd &
+      CONTAINERD_PID=$!
+      for i in $(seq 1 30); do
+        if ctr version >/dev/null 2>&1; then
+          break
+        fi
+        sleep 1
+      done
+      if ! ctr version >/dev/null 2>&1; then
+        echo 'ERROR: containerd not responsive after 30s'
+        exit 1
+      fi
+      trap 'kill "$SERVER_PID" 2>/dev/null; kill "$CONTAINERD_PID" 2>/dev/null; wait' TERM INT
+      /app/memoh-server serve &
+      SERVER_PID=$!
+      wait "$SERVER_PID"
+      EXIT_CODE=$?
+      kill "$CONTAINERD_PID" 2>/dev/null || true
+      wait "$CONTAINERD_PID" 2>/dev/null || true
+      exit "$EXIT_CODE"
     healthcheck:
       test:
         - CMD-SHELL
-        - wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/health || exit 1
+        - nc -z server 8080 || exit 1
       interval: 30s
       timeout: 5s
       retries: 5
@@ -100,13 +161,13 @@ services:
       mkdir -p /lzcapp/var/data/memoh/config
       CONFIG_FILE=/lzcapp/var/data/memoh/config/config.toml
       if [ ! -f "$CONFIG_FILE" ]; then
-        printf "%s\n" "[log]" "level = \"info\"" "format = \"text\"" "" "[server]" "addr = \"server:8080\"" "" "[admin]" "username = \"admin\"" "password = \"${LAZYCAT_APP_ID}-admin\"" "email = \"admin@${LAZYCAT_APP_DOMAIN}\"" "" "[auth]" "jwt_secret = \"${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt\"" "jwt_expires_in = \"168h\"" "" "timezone = \"UTC\"" "" "[containerd]" "socket_path = \"/run/containerd/containerd.sock\"" "namespace = \"default\"" "" "[workspace]" "default_image = \"debian:bookworm-slim\"" "snapshotter = \"overlayfs\"" "data_root = \"/opt/memoh/data\"" "runtime_dir = \"/opt/memoh/runtime\"" "" "[postgres]" "host = \"postgres\"" "port = 5432" "user = \"memoh\"" "password = \"memoh123\"" "database = \"memoh\"" "sslmode = \"disable\"" "" "[qdrant]" "base_url = \"http://qdrant:6334\"" "api_key = \"\"" "timeout_seconds = 10" "" "[browser_gateway]" "host = \"browser\"" "port = 8083" "server_addr = \"server:8080\"" "" "[web]" "host = \"0.0.0.0\"" "port = 8082" > "$CONFIG_FILE"
+        printf "%s\n" "[log]" "level = \"info\"" "format = \"text\"" "" "[server]" "addr = \"0.0.0.0:8080\"" "" "[admin]" "username = \"admin\"" "password = \"${LAZYCAT_APP_ID}-admin\"" "email = \"admin@${LAZYCAT_APP_DOMAIN}\"" "" "[auth]" "jwt_secret = \"${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt\"" "jwt_expires_in = \"168h\"" "" "timezone = \"UTC\"" "" "[containerd]" "socket_path = \"/run/containerd/containerd.sock\"" "namespace = \"default\"" "" "[workspace]" "default_image = \"debian:bookworm-slim\"" "snapshotter = \"overlayfs\"" "data_root = \"/opt/memoh/data\"" "runtime_dir = \"/opt/memoh/runtime\"" "" "[postgres]" "host = \"postgres\"" "port = 5432" "user = \"memoh\"" "password = \"memoh123\"" "database = \"memoh\"" "sslmode = \"disable\"" "" "[qdrant]" "base_url = \"http://qdrant:6334\"" "api_key = \"\"" "timeout_seconds = 10" "" "[browser_gateway]" "host = \"browser\"" "port = 8083" "server_addr = \"server:8080\"" "" "[web]" "host = \"0.0.0.0\"" "port = 8082" > "$CONFIG_FILE"
       fi
       cp "$CONFIG_FILE" /config.toml
     healthcheck:
       test:
         - CMD-SHELL
-        - curl -sf http://127.0.0.1:8083/health || exit 1
+        - curl -sI http://browser:8083/ >/dev/null || exit 1
       interval: 30s
       timeout: 5s
       retries: 5
