@@ -1,0 +1,41 @@
+{
+  "enabled": true,
+  "upstream_repo": "memohai/Memoh",
+  "check_strategy": "github_release",
+  "build_strategy": "official_image",
+  "publish_to_store": false,
+  "official_image_registry": "memohai/web",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "custom",
+  "service_port": 8082,
+  "service_cmd": [],
+  "image_targets": [
+    "web"
+  ],
+  "dependencies": [
+    {
+      "target_service": "postgres",
+      "source_image": "postgres:18-alpine"
+    },
+    {
+      "target_service": "migrate",
+      "source_image": "memohai/server:latest"
+    },
+    {
+      "target_service": "server",
+      "source_image": "memohai/server:latest"
+    },
+    {
+      "target_service": "sparse",
+      "source_image": "memohai/sparse:latest"
+    },
+    {
+      "target_service": "qdrant",
+      "source_image": "qdrant/qdrant:latest"
+    },
+    {
+      "target_service": "browser",
+      "source_image": "memohai/browser:${BROWSER_TAG:-latest}"
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.memoh
+version: 0.6.3
+min_os_version: 1.3.8
+name: Memoh
+description: ✨ Self hosted, always-on AI agent platform run in containers. Create multiple bots with long memory, and connect them to Telegram, Discord, Feishu(Lark), Matrix, etc (like OpenClaw).
+license: AGPL-3.0
+homepage: https://docs.memoh.ai
+author: memohai
+application:
+  subdomain: memoh
+  public_path:
+    - /
+  upstreams:
+    -
+      location: /api/
+      backend: http://server:8080/
+    -
+      location: /
+      backend: http://web:8082/
+services:
+  postgres:
+    image: registry.lazycat.cloud/placeholder/memoh:postgres
+    environment:
+      - POSTGRES_DB=memoh
+      - POSTGRES_USER=memoh
+      - POSTGRES_PASSWORD=memoh123
+    binds:
+      - /lzcapp/var/db/memoh/postgres:/var/lib/postgresql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U memoh
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  migrate:
+    image: registry.lazycat.cloud/placeholder/memoh:migrate
+    depends_on:
+      - postgres
+  server:
+    image: registry.lazycat.cloud/placeholder/memoh:server
+    depends_on:
+      - migrate
+    binds:
+      - /lzcapp/var/data/memoh/server/containerd:/var/lib/containerd
+      - /lzcapp/var/data/memoh/server/cni:/var/lib/cni
+      - /lzcapp/var/data/memoh/server/data:/opt/memoh/data
+  web:
+    image: registry.lazycat.cloud/placeholder/memoh:web
+    depends_on:
+      - server
+  sparse:
+    image: registry.lazycat.cloud/placeholder/memoh:sparse
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8085/health')" || exit 1
+      interval: 15s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+  qdrant:
+    image: registry.lazycat.cloud/placeholder/memoh:qdrant
+    binds:
+      - /lzcapp/var/data/memoh/qdrant/storage:/qdrant/storage
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - timeout 10s bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  browser:
+    image: registry.lazycat.cloud/placeholder/memoh:browser
+    depends_on:
+      - server
+    environment:
+      - BROWSER_CORES=chromium,firefox
+locales:
+  en:
+    name: Memoh
+    description: ✨ Self hosted, always-on AI agent platform run in containers. Create multiple bots with long memory, and connect them to Telegram, Discord, Feishu(Lark), Matrix, etc (like OpenClaw).
+  zh:
+    name: Memoh
+    description: （迁移初稿）Memoh 的懒猫微服版本
