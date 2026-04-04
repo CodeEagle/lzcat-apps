@@ -7,8 +7,9 @@ CONFIG_FILE="${CONFIG_DIR}/config.toml"
 
 mkdir -p "${CONFIG_DIR}"
 
-if [ ! -f "${CONFIG_FILE}" ]; then
-  cat > "${CONFIG_FILE}" <<EOF
+# Rewrite the infra-facing config on each start so upgraded packages do not
+# keep stale runtime settings from earlier installs.
+cat > "${CONFIG_FILE}" <<EOF
 [log]
 level = "info"
 format = "text"
@@ -33,7 +34,7 @@ namespace = "default"
 
 [workspace]
 default_image = "debian:bookworm-slim"
-snapshotter = "overlayfs"
+snapshotter = "native"
 data_root = "/opt/memoh/data"
 runtime_dir = "/opt/memoh/runtime"
 
@@ -59,6 +60,5 @@ server_addr = "server:8080"
 host = "0.0.0.0"
 port = 8082
 EOF
-fi
 
 cp "${CONFIG_FILE}" "${TARGET_PATH}"
