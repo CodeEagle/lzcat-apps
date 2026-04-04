@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.memoh
-version: 0.6.3
+version: '0.6.3'
 min_os_version: 1.3.8
 name: Memoh
 description: ✨ Self hosted, always-on AI agent platform run in containers. Create multiple bots with long memory, and connect them to Telegram, Discord, Feishu(Lark), Matrix, etc (like OpenClaw).
@@ -23,7 +23,7 @@ application:
     start_period: 120s
 services:
   postgres:
-    image: registry.lazycat.cloud/placeholder/memoh:postgres
+    image: registry.lazycat.cloud/invokerlaw/library/postgres:0de8e42300318fbd
     environment:
       - POSTGRES_DB=memoh
       - POSTGRES_USER=memoh
@@ -38,7 +38,7 @@ services:
       timeout: 5s
       retries: 5
   migrate:
-    image: registry.lazycat.cloud/placeholder/memoh:migrate
+    image: registry.lazycat.cloud/invokerlaw/memohai/server:fbe606b354312cfb
     depends_on:
       - postgres
     entrypoint: /bin/sh
@@ -97,7 +97,7 @@ services:
       EOF
       fi; cp "$CONFIG_FILE" /app/config.toml; exec /app/memoh-server migrate up'
   server:
-    image: registry.lazycat.cloud/placeholder/memoh:server
+    image: registry.lazycat.cloud/invokerlaw/memohai/server:fbe606b354312cfb
     depends_on:
       - migrate
       - qdrant
@@ -172,7 +172,7 @@ services:
       retries: 5
       start_period: 60s
   web:
-    image: registry.lazycat.cloud/placeholder/memoh:web
+    image: registry.lazycat.cloud/invokerlaw/memohai/web:5bc16d9be156e2b1
     depends_on:
       - server
     healthcheck:
@@ -184,7 +184,7 @@ services:
       retries: 5
       start_period: 20s
   qdrant:
-    image: registry.lazycat.cloud/placeholder/memoh:qdrant
+    image: registry.lazycat.cloud/invokerlaw/qdrant/qdrant:6f8af64a619dda5e
     binds:
       - /lzcapp/var/data/memoh/qdrant/storage:/qdrant/storage
     healthcheck:
@@ -195,7 +195,7 @@ services:
       timeout: 5s
       retries: 5
   browser:
-    image: registry.lazycat.cloud/placeholder/memoh:browser
+    image: registry.lazycat.cloud/invokerlaw/memohai/browser:cdecd259f0347b77
     depends_on:
       - server
     environment:
