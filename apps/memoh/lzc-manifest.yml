@@ -18,6 +18,9 @@ application:
     -
       location: /
       backend: http://web:8082/
+  health_check:
+    test_url: http://web:8082/health
+    start_period: 120s
 services:
   postgres:
     image: registry.lazycat.cloud/placeholder/memoh:postgres
@@ -38,28 +41,148 @@ services:
     image: registry.lazycat.cloud/placeholder/memoh:migrate
     depends_on:
       - postgres
+    entrypoint: /bin/sh
+    command: >-
+      -lc 'set -e; mkdir -p /lzcapp/var/data/memoh/config; CONFIG_FILE=/lzcapp/var/data/memoh/config/config.toml;
+      if [ ! -f "$CONFIG_FILE" ]; then cat > "$CONFIG_FILE" <<EOF
+      [log]
+      level = "info"
+      format = "text"
+
+      [server]
+      addr = "server:8080"
+
+      [admin]
+      username = "admin"
+      password = "${LAZYCAT_APP_ID}-admin"
+      email = "admin@${LAZYCAT_APP_DOMAIN}"
+
+      [auth]
+      jwt_secret = "${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt"
+      jwt_expires_in = "168h"
+
+      timezone = "UTC"
+
+      [containerd]
+      socket_path = "/run/containerd/containerd.sock"
+      namespace = "default"
+
+      [workspace]
+      default_image = "debian:bookworm-slim"
+      snapshotter = "overlayfs"
+      data_root = "/opt/memoh/data"
+      runtime_dir = "/opt/memoh/runtime"
+
+      [postgres]
+      host = "postgres"
+      port = 5432
+      user = "memoh"
+      password = "memoh123"
+      database = "memoh"
+      sslmode = "disable"
+
+      [qdrant]
+      base_url = "http://qdrant:6334"
+      api_key = ""
+      timeout_seconds = 10
+
+      [browser_gateway]
+      host = "browser"
+      port = 8083
+      server_addr = "server:8080"
+
+      [web]
+      host = "0.0.0.0"
+      port = 8082
+      EOF
+      fi; cp "$CONFIG_FILE" /app/config.toml; exec /app/memoh-server migrate up'
   server:
     image: registry.lazycat.cloud/placeholder/memoh:server
     depends_on:
       - migrate
+      - qdrant
     binds:
       - /lzcapp/var/data/memoh/server/containerd:/var/lib/containerd
       - /lzcapp/var/data/memoh/server/cni:/var/lib/cni
       - /lzcapp/var/data/memoh/server/data:/opt/memoh/data
+    setup_script: |
+      mkdir -p /lzcapp/var/data/memoh/config
+      CONFIG_FILE=/lzcapp/var/data/memoh/config/config.toml
+      if [ ! -f "$CONFIG_FILE" ]; then
+        cat > "$CONFIG_FILE" <<EOF
+      [log]
+      level = "info"
+      format = "text"
+
+      [server]
+      addr = "server:8080"
+
+      [admin]
+      username = "admin"
+      password = "${LAZYCAT_APP_ID}-admin"
+      email = "admin@${LAZYCAT_APP_DOMAIN}"
+
+      [auth]
+      jwt_secret = "${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt"
+      jwt_expires_in = "168h"
+
+      timezone = "UTC"
+
+      [containerd]
+      socket_path = "/run/containerd/containerd.sock"
+      namespace = "default"
+
+      [workspace]
+      default_image = "debian:bookworm-slim"
+      snapshotter = "overlayfs"
+      data_root = "/opt/memoh/data"
+      runtime_dir = "/opt/memoh/runtime"
+
+      [postgres]
+      host = "postgres"
+      port = 5432
+      user = "memoh"
+      password = "memoh123"
+      database = "memoh"
+      sslmode = "disable"
+
+      [qdrant]
+      base_url = "http://qdrant:6334"
+      api_key = ""
+      timeout_seconds = 10
+
+      [browser_gateway]
+      host = "browser"
+      port = 8083
+      server_addr = "server:8080"
+
+      [web]
+      host = "0.0.0.0"
+      port = 8082
+      EOF
+      fi
+      cp "$CONFIG_FILE" /app/config.toml
+      mkdir -p /opt/memoh/data /var/lib/cni /var/lib/containerd
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/health || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
   web:
     image: registry.lazycat.cloud/placeholder/memoh:web
     depends_on:
       - server
-  sparse:
-    image: registry.lazycat.cloud/placeholder/memoh:sparse
     healthcheck:
       test:
         - CMD-SHELL
-        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8085/health')" || exit 1
-      interval: 15s
-      timeout: 10s
-      start_period: 30s
-      retries: 3
+        - wget --no-verbose --tries=1 --spider http://127.0.0.1:8082/health || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
   qdrant:
     image: registry.lazycat.cloud/placeholder/memoh:qdrant
     binds:
@@ -77,6 +200,71 @@ services:
       - server
     environment:
       - BROWSER_CORES=chromium,firefox
+    setup_script: |
+      mkdir -p /lzcapp/var/data/memoh/config
+      CONFIG_FILE=/lzcapp/var/data/memoh/config/config.toml
+      if [ ! -f "$CONFIG_FILE" ]; then
+        cat > "$CONFIG_FILE" <<EOF
+      [log]
+      level = "info"
+      format = "text"
+
+      [server]
+      addr = "server:8080"
+
+      [admin]
+      username = "admin"
+      password = "${LAZYCAT_APP_ID}-admin"
+      email = "admin@${LAZYCAT_APP_DOMAIN}"
+
+      [auth]
+      jwt_secret = "${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt"
+      jwt_expires_in = "168h"
+
+      timezone = "UTC"
+
+      [containerd]
+      socket_path = "/run/containerd/containerd.sock"
+      namespace = "default"
+
+      [workspace]
+      default_image = "debian:bookworm-slim"
+      snapshotter = "overlayfs"
+      data_root = "/opt/memoh/data"
+      runtime_dir = "/opt/memoh/runtime"
+
+      [postgres]
+      host = "postgres"
+      port = 5432
+      user = "memoh"
+      password = "memoh123"
+      database = "memoh"
+      sslmode = "disable"
+
+      [qdrant]
+      base_url = "http://qdrant:6334"
+      api_key = ""
+      timeout_seconds = 10
+
+      [browser_gateway]
+      host = "browser"
+      port = 8083
+      server_addr = "server:8080"
+
+      [web]
+      host = "0.0.0.0"
+      port = 8082
+      EOF
+      fi
+      cp "$CONFIG_FILE" /config.toml
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -sf http://127.0.0.1:8083/health || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 locales:
   en:
     name: Memoh

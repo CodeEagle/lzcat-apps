@@ -19,15 +19,11 @@
     },
     {
       "target_service": "migrate",
-      "source_image": "memohai/server:latest"
+      "source_image": "memohai/server:$SOURCE_VERSION"
     },
     {
       "target_service": "server",
-      "source_image": "memohai/server:latest"
-    },
-    {
-      "target_service": "sparse",
-      "source_image": "memohai/sparse:latest"
+      "source_image": "memohai/server:$SOURCE_VERSION"
     },
     {
       "target_service": "qdrant",
@@ -35,7 +31,7 @@
     },
     {
       "target_service": "browser",
-      "source_image": "memohai/browser:${BROWSER_TAG:-latest}"
+      "source_image": "memohai/browser:$SOURCE_VERSION"
     }
   ]
 }
