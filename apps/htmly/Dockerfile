@@ -60,6 +60,48 @@ if (strpos($text, $old) === false) {
     exit(1);
 }
 $text = str_replace($old, $new, $text);
+$old = <<<'OLD'
+        $dir = trim(dirname(substr($_SERVER["SCRIPT_FILENAME"], strlen($_SERVER["DOCUMENT_ROOT"]))), '/');
+        if ($dir == '.' || $dir == '..') {
+            $dir = '';
+        }
+        $port = '';
+        if ($_SERVER["SERVER_PORT"] != "80" && $_SERVER["SERVER_PORT"] != "443") {
+            $port = ':' . $_SERVER["SERVER_PORT"];
+        }
+        $scheme = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ? 'https' : 'http';
+        if ($dir === '') {
+            $this->siteUrl = $scheme . '://' . trim($_SERVER['SERVER_NAME'], "/") . $port . "/";
+            return;
+        }
+        $this->siteUrl = $scheme . '://' . trim($_SERVER['SERVER_NAME'], "/") . $port . "/" . $dir . '/';
+OLD;
+$new = <<<'NEW'
+        $dir = trim(dirname(substr($_SERVER["SCRIPT_FILENAME"], strlen($_SERVER["DOCUMENT_ROOT"]))), '/');
+        if ($dir == '.' || $dir == '..') {
+            $dir = '';
+        }
+        $forwardedProto = isset($_SERVER["HTTP_X_FORWARDED_PROTO"]) ? trim(explode(',', $_SERVER["HTTP_X_FORWARDED_PROTO"])[0]) : '';
+        $forwardedHost = isset($_SERVER["HTTP_X_FORWARDED_HOST"]) ? trim(explode(',', $_SERVER["HTTP_X_FORWARDED_HOST"])[0]) : '';
+        $forwardedPort = isset($_SERVER["HTTP_X_FORWARDED_PORT"]) ? trim(explode(',', $_SERVER["HTTP_X_FORWARDED_PORT"])[0]) : '';
+        $host = $forwardedHost !== '' ? $forwardedHost : (isset($_SERVER["HTTP_HOST"]) ? trim($_SERVER["HTTP_HOST"], "/") : trim($_SERVER["SERVER_NAME"], "/"));
+        $scheme = $forwardedProto !== '' ? $forwardedProto : ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off') ? 'https' : 'http');
+        $serverPort = $forwardedPort !== '' ? $forwardedPort : $_SERVER["SERVER_PORT"];
+        $port = '';
+        if ($serverPort != "80" && $serverPort != "443" && strpos($host, ':') === false) {
+            $port = ':' . $serverPort;
+        }
+        if ($dir === '') {
+            $this->siteUrl = $scheme . '://' . $host . $port . "/";
+            return;
+        }
+        $this->siteUrl = $scheme . '://' . $host . $port . "/" . $dir . '/';
+NEW;
+if (strpos($text, $old) === false) {
+    fwrite(STDERR, "install.php generateSiteUrl block not found\n");
+    exit(1);
+}
+$text = str_replace($old, $new, $text);
 $text = str_replace('unlink(__FILE__);', '@unlink(__FILE__);', $text, $count);
 if ($count !== 1) {
     fwrite(STDERR, "install.php unlink call not patched\n");
