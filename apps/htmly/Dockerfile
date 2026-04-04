@@ -35,7 +35,9 @@ RUN curl -fsSL "https://codeload.github.com/danpros/htmly/tar.gz/refs/tags/${SOU
 
 RUN php <<'PHP'
 <?php
-$path = getenv('HTMLY_DIST') . '/install.php';
+$dist = getenv('HTMLY_DIST');
+
+$path = $dist . '/install.php';
 $text = file_get_contents($path);
 if ($text === false) {
     fwrite(STDERR, "failed to read install.php\n");
@@ -63,6 +65,109 @@ if ($count !== 1) {
     fwrite(STDERR, "install.php unlink call not patched\n");
     exit(1);
 }
+file_put_contents($path, $text);
+
+$path = $dist . '/index.php';
+$text = file_get_contents($path);
+if ($text === false) {
+    fwrite(STDERR, "failed to read index.php\n");
+    exit(1);
+}
+$old = <<<'OLD'
+$config_file = 'config/config.ini';
+require 'system/vendor/autoload.php';
+require 'system/htmly.php';
+OLD;
+$new = <<<'NEW'
+$config_file = 'config/config.ini';
+if (!file_exists($config_file) && file_exists('install.php')) {
+    header('Location: install.php');
+    exit();
+}
+require 'system/vendor/autoload.php';
+require 'system/htmly.php';
+NEW;
+if (strpos($text, $old) === false) {
+    fwrite(STDERR, "index.php bootstrap block not found\n");
+    exit(1);
+}
+$text = str_replace($old, $new, $text);
+file_put_contents($path, $text);
+
+$path = $dist . '/system/includes/functions.php';
+$text = file_get_contents($path);
+if ($text === false) {
+    fwrite(STDERR, "failed to read functions.php\n");
+    exit(1);
+}
+$old = <<<'OLD'
+function safe_html($string)
+{
+    $string = htmlspecialchars($string, ENT_QUOTES);
+OLD;
+$new = <<<'NEW'
+function safe_html($string)
+{
+    if ($string === null) {
+        $string = '';
+    }
+    $string = htmlspecialchars($string, ENT_QUOTES);
+NEW;
+if (strpos($text, $old) === false) {
+    fwrite(STDERR, "functions.php safe_html block not found\n");
+    exit(1);
+}
+$text = str_replace($old, $new, $text);
+
+$old = <<<'OLD'
+function blog_description()
+{
+    return config('blog.description');
+}
+OLD;
+$new = <<<'NEW'
+function blog_description()
+{
+    return config('blog.description') ?? '';
+}
+NEW;
+if (strpos($text, $old) === false) {
+    fwrite(STDERR, "functions.php blog_description block not found\n");
+    exit(1);
+}
+$text = str_replace($old, $new, $text);
+file_put_contents($path, $text);
+
+$path = $dist . '/system/htmly.php';
+$text = file_get_contents($path);
+if ($text === false) {
+    fwrite(STDERR, "failed to read system/htmly.php\n");
+    exit(1);
+}
+$old = <<<'OLD'
+// Load theme settings
+theme_settings();
+
+// The front page of the blog
+get('/index', function () {
+OLD;
+$new = <<<'NEW'
+// Load theme settings
+theme_settings();
+
+if (!config('views.root') && file_exists('install.php')) {
+    header('Location: ' . site_url() . 'install.php');
+    exit();
+}
+
+// The front page of the blog
+get('/index', function () {
+NEW;
+if (strpos($text, $old) === false) {
+    fwrite(STDERR, "system/htmly.php install guard block not found\n");
+    exit(1);
+}
+$text = str_replace($old, $new, $text);
 file_put_contents($path, $text);
 PHP
 
