@@ -1,7 +1,7 @@
 {
   "upstream_repo": "productdevbook/hucre",
-  "source_version": "6ade093",
-  "build_version": "0.1.1",
-  "build_label": "6ade093@20260404T010753Z",
-  "last_checked_at": "2026-04-04T01:07:53.081230+00:00"
+  "source_version": "6894f72",
+  "build_version": "0.1.2",
+  "build_label": "6894f72@20260404T123148Z",
+  "last_checked_at": "2026-04-04T12:31:48.392329+00:00"
 }
