@@ -53,8 +53,7 @@ HTMLy 是单服务、无数据库的 PHP 博客系统。上游源码依赖 Apach
 
 - [lzc-manifest.yml](/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/htmly/lzc-manifest.yml): LazyCat 应用定义
 - [lzc-build.yml](/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/htmly/lzc-build.yml): LazyCat 打包配置
-- [Dockerfile](/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/htmly/Dockerfile): 构建 Apache + PHP 运行时
-- [install.php.patch](/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/htmly/install.php.patch): 对上游安装器的最小补丁
+- [Dockerfile](/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/htmly/Dockerfile): 构建 Apache + PHP 运行时，并在 build 阶段对安装器做最小补丁
 
 ## 自动更新工作流
 
