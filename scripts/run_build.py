@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 STEP_SUMMARY = Path(os.environ["GITHUB_STEP_SUMMARY"]) if os.environ.get("GITHUB_STEP_SUMMARY") else None
+_LAZYCAT_IMAGE_MAP_CACHE: dict[str, str] | None = None
 
 
 def log(msg: str) -> None:
@@ -216,6 +217,37 @@ def is_transient_copy_image_error(message: str) -> bool:
         "socket hang up",
     )
     return any(marker in lowered for marker in transient_markers)
+
+
+def parse_my_images_output(output: str) -> dict[str, str]:
+    mappings: dict[str, str] = {}
+    pattern = re.compile(
+        r"│\s*\d+\s*│\s*'(?P<source>[^']+)'\s*│\s*'(?P<target>registry\.lazycat\.cloud/[^']+)'\s*│"
+    )
+    for line in output.splitlines():
+        match = pattern.search(line)
+        if not match:
+            continue
+        mappings[match.group("source")] = match.group("target")
+    return mappings
+
+
+def list_uploaded_lazycat_images(env: dict[str, str]) -> dict[str, str]:
+    global _LAZYCAT_IMAGE_MAP_CACHE
+    if _LAZYCAT_IMAGE_MAP_CACHE is not None:
+        return _LAZYCAT_IMAGE_MAP_CACHE
+    output = sh(["lzc-cli", "appstore", "my-images"], env=env)
+    _LAZYCAT_IMAGE_MAP_CACHE = parse_my_images_output(output)
+    return _LAZYCAT_IMAGE_MAP_CACHE
+
+
+def find_existing_lazycat_image(source_image: str, env: dict[str, str]) -> str:
+    try:
+        mappings = list_uploaded_lazycat_images(env)
+    except RuntimeError as exc:
+        log(f"[copy-image] Unable to query existing LazyCat images, falling back to upload: {exc}")
+        return ""
+    return mappings.get(source_image, "")
 
 
 def normalize_build_version(value: str) -> str:
@@ -586,6 +618,18 @@ def ensure_registry_anonymous_pullable(image: str) -> None:
 
 
 def copy_image_to_lazycat(source_image: str, env: dict[str, str]) -> tuple[str, dict[str, Any]]:
+    existing_target = find_existing_lazycat_image(source_image, env)
+    if existing_target:
+        log(f"[copy-image] Reusing existing LazyCat image for {source_image}: {existing_target}")
+        return existing_target, {
+            "source_image": source_image,
+            "target_image": existing_target,
+            "elapsed_seconds": 0.0,
+            "saw_waiting": False,
+            "saw_upload_started": False,
+            "reused_existing": True,
+        }
+
     ensure_registry_anonymous_pullable(source_image)
     log(f"Copying image to LazyCat registry: {source_image}")
     max_attempts = max(1, parse_int_env(env, "LZCAT_COPY_IMAGE_MAX_ATTEMPTS", 3))
@@ -625,6 +669,9 @@ def copy_image_to_lazycat(source_image: str, env: dict[str, str]) -> tuple[str, 
             if match:
                 target_image = match.group(1)
                 elapsed = time.monotonic() - started
+                global _LAZYCAT_IMAGE_MAP_CACHE
+                if _LAZYCAT_IMAGE_MAP_CACHE is not None:
+                    _LAZYCAT_IMAGE_MAP_CACHE[source_image] = target_image
                 log(
                     f"[copy-image] Completed in {elapsed:.1f}s: {source_image} -> {target_image}"
                 )
@@ -634,6 +681,7 @@ def copy_image_to_lazycat(source_image: str, env: dict[str, str]) -> tuple[str, 
                     "elapsed_seconds": round(elapsed, 3),
                     "saw_waiting": announced_waiting,
                     "saw_upload_started": announced_upload,
+                    "reused_existing": False,
                 }
             last_error = RuntimeError(f"Failed to extract LazyCat image from output:\n{output}")
         else:
