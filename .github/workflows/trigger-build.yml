@@ -64,7 +64,7 @@ on:
       force_build:
         description: "Force build regardless of current source version"
         required: false
-        default: false
+        default: true
         type: boolean
       publish_to_store:
         description: "Publish generated package to LazyCat App Store"
