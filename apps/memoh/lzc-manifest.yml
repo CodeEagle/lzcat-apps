@@ -44,57 +44,16 @@ services:
     entrypoint: /bin/sh
     command: >-
       -lc 'set -e; mkdir -p /lzcapp/var/data/memoh/config; CONFIG_FILE=/lzcapp/var/data/memoh/config/config.toml;
-      if [ ! -f "$CONFIG_FILE" ]; then cat > "$CONFIG_FILE" <<EOF
-      [log]
-      level = "info"
-      format = "text"
-
-      [server]
-      addr = "server:8080"
-
-      [admin]
-      username = "admin"
-      password = "${LAZYCAT_APP_ID}-admin"
-      email = "admin@${LAZYCAT_APP_DOMAIN}"
-
-      [auth]
-      jwt_secret = "${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt"
-      jwt_expires_in = "168h"
-
-      timezone = "UTC"
-
-      [containerd]
-      socket_path = "/run/containerd/containerd.sock"
-      namespace = "default"
-
-      [workspace]
-      default_image = "debian:bookworm-slim"
-      snapshotter = "overlayfs"
-      data_root = "/opt/memoh/data"
-      runtime_dir = "/opt/memoh/runtime"
-
-      [postgres]
-      host = "postgres"
-      port = 5432
-      user = "memoh"
-      password = "memoh123"
-      database = "memoh"
-      sslmode = "disable"
-
-      [qdrant]
-      base_url = "http://qdrant:6334"
-      api_key = ""
-      timeout_seconds = 10
-
-      [browser_gateway]
-      host = "browser"
-      port = 8083
-      server_addr = "server:8080"
-
-      [web]
-      host = "0.0.0.0"
-      port = 8082
-      EOF
+      if [ ! -f "$CONFIG_FILE" ]; then
+      printf "%s\n" "[log]" "level = \"info\"" "format = \"text\"" "" "[server]" "addr = \"server:8080\"" ""
+      "[admin]" "username = \"admin\"" "password = \"${LAZYCAT_APP_ID}-admin\"" "email = \"admin@${LAZYCAT_APP_DOMAIN}\"" ""
+      "[auth]" "jwt_secret = \"${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt\"" "jwt_expires_in = \"168h\"" "" "timezone = \"UTC\"" ""
+      "[containerd]" "socket_path = \"/run/containerd/containerd.sock\"" "namespace = \"default\"" ""
+      "[workspace]" "default_image = \"debian:bookworm-slim\"" "snapshotter = \"overlayfs\"" "data_root = \"/opt/memoh/data\"" "runtime_dir = \"/opt/memoh/runtime\"" ""
+      "[postgres]" "host = \"postgres\"" "port = 5432" "user = \"memoh\"" "password = \"memoh123\"" "database = \"memoh\"" "sslmode = \"disable\"" ""
+      "[qdrant]" "base_url = \"http://qdrant:6334\"" "api_key = \"\"" "timeout_seconds = 10" ""
+      "[browser_gateway]" "host = \"browser\"" "port = 8083" "server_addr = \"server:8080\"" ""
+      "[web]" "host = \"0.0.0.0\"" "port = 8082" > "$CONFIG_FILE";
       fi; cp "$CONFIG_FILE" /app/config.toml; exec /app/memoh-server migrate up'
   server:
     image: registry.lazycat.cloud/invokerlaw/memohai/server:fbe606b354312cfb
@@ -109,57 +68,16 @@ services:
     command: >-
       -lc 'set -e; mkdir -p /lzcapp/var/data/memoh/config /opt/memoh/data /var/lib/cni /var/lib/containerd /run/containerd;
       CONFIG_FILE=/lzcapp/var/data/memoh/config/config.toml;
-      if [ ! -f "$CONFIG_FILE" ]; then cat > "$CONFIG_FILE" <<EOF
-      [log]
-      level = "info"
-      format = "text"
-
-      [server]
-      addr = "server:8080"
-
-      [admin]
-      username = "admin"
-      password = "${LAZYCAT_APP_ID}-admin"
-      email = "admin@${LAZYCAT_APP_DOMAIN}"
-
-      [auth]
-      jwt_secret = "${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt"
-      jwt_expires_in = "168h"
-
-      timezone = "UTC"
-
-      [containerd]
-      socket_path = "/run/containerd/containerd.sock"
-      namespace = "default"
-
-      [workspace]
-      default_image = "debian:bookworm-slim"
-      snapshotter = "overlayfs"
-      data_root = "/opt/memoh/data"
-      runtime_dir = "/opt/memoh/runtime"
-
-      [postgres]
-      host = "postgres"
-      port = 5432
-      user = "memoh"
-      password = "memoh123"
-      database = "memoh"
-      sslmode = "disable"
-
-      [qdrant]
-      base_url = "http://qdrant:6334"
-      api_key = ""
-      timeout_seconds = 10
-
-      [browser_gateway]
-      host = "browser"
-      port = 8083
-      server_addr = "server:8080"
-
-      [web]
-      host = "0.0.0.0"
-      port = 8082
-      EOF
+      if [ ! -f "$CONFIG_FILE" ]; then
+      printf "%s\n" "[log]" "level = \"info\"" "format = \"text\"" "" "[server]" "addr = \"server:8080\"" ""
+      "[admin]" "username = \"admin\"" "password = \"${LAZYCAT_APP_ID}-admin\"" "email = \"admin@${LAZYCAT_APP_DOMAIN}\"" ""
+      "[auth]" "jwt_secret = \"${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt\"" "jwt_expires_in = \"168h\"" "" "timezone = \"UTC\"" ""
+      "[containerd]" "socket_path = \"/run/containerd/containerd.sock\"" "namespace = \"default\"" ""
+      "[workspace]" "default_image = \"debian:bookworm-slim\"" "snapshotter = \"overlayfs\"" "data_root = \"/opt/memoh/data\"" "runtime_dir = \"/opt/memoh/runtime\"" ""
+      "[postgres]" "host = \"postgres\"" "port = 5432" "user = \"memoh\"" "password = \"memoh123\"" "database = \"memoh\"" "sslmode = \"disable\"" ""
+      "[qdrant]" "base_url = \"http://qdrant:6334\"" "api_key = \"\"" "timeout_seconds = 10" ""
+      "[browser_gateway]" "host = \"browser\"" "port = 8083" "server_addr = \"server:8080\"" ""
+      "[web]" "host = \"0.0.0.0\"" "port = 8082" > "$CONFIG_FILE";
       fi; cp "$CONFIG_FILE" /app/config.toml;
       ip link delete cni0 2>/dev/null || true;
       rm -rf /var/lib/cni/networks/* /var/lib/cni/results/* 2>/dev/null || true;
@@ -195,6 +113,9 @@ services:
     image: registry.lazycat.cloud/invokerlaw/memohai/web:5bc16d9be156e2b1
     depends_on:
       - server
+    entrypoint: /bin/sh
+    command: >-
+      -lc 'set -e; sed -i "s/memoh-server/server/g" /etc/nginx/conf.d/default.conf; exec nginx -g "daemon off;"'
     healthcheck:
       test:
         - CMD-SHELL
@@ -224,57 +145,7 @@ services:
       mkdir -p /lzcapp/var/data/memoh/config
       CONFIG_FILE=/lzcapp/var/data/memoh/config/config.toml
       if [ ! -f "$CONFIG_FILE" ]; then
-        cat > "$CONFIG_FILE" <<EOF
-      [log]
-      level = "info"
-      format = "text"
-
-      [server]
-      addr = "server:8080"
-
-      [admin]
-      username = "admin"
-      password = "${LAZYCAT_APP_ID}-admin"
-      email = "admin@${LAZYCAT_APP_DOMAIN}"
-
-      [auth]
-      jwt_secret = "${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt"
-      jwt_expires_in = "168h"
-
-      timezone = "UTC"
-
-      [containerd]
-      socket_path = "/run/containerd/containerd.sock"
-      namespace = "default"
-
-      [workspace]
-      default_image = "debian:bookworm-slim"
-      snapshotter = "overlayfs"
-      data_root = "/opt/memoh/data"
-      runtime_dir = "/opt/memoh/runtime"
-
-      [postgres]
-      host = "postgres"
-      port = 5432
-      user = "memoh"
-      password = "memoh123"
-      database = "memoh"
-      sslmode = "disable"
-
-      [qdrant]
-      base_url = "http://qdrant:6334"
-      api_key = ""
-      timeout_seconds = 10
-
-      [browser_gateway]
-      host = "browser"
-      port = 8083
-      server_addr = "server:8080"
-
-      [web]
-      host = "0.0.0.0"
-      port = 8082
-      EOF
+        printf "%s\n" "[log]" "level = \"info\"" "format = \"text\"" "" "[server]" "addr = \"server:8080\"" "" "[admin]" "username = \"admin\"" "password = \"${LAZYCAT_APP_ID}-admin\"" "email = \"admin@${LAZYCAT_APP_DOMAIN}\"" "" "[auth]" "jwt_secret = \"${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt\"" "jwt_expires_in = \"168h\"" "" "timezone = \"UTC\"" "" "[containerd]" "socket_path = \"/run/containerd/containerd.sock\"" "namespace = \"default\"" "" "[workspace]" "default_image = \"debian:bookworm-slim\"" "snapshotter = \"overlayfs\"" "data_root = \"/opt/memoh/data\"" "runtime_dir = \"/opt/memoh/runtime\"" "" "[postgres]" "host = \"postgres\"" "port = 5432" "user = \"memoh\"" "password = \"memoh123\"" "database = \"memoh\"" "sslmode = \"disable\"" "" "[qdrant]" "base_url = \"http://qdrant:6334\"" "api_key = \"\"" "timeout_seconds = 10" "" "[browser_gateway]" "host = \"browser\"" "port = 8083" "server_addr = \"server:8080\"" "" "[web]" "host = \"0.0.0.0\"" "port = 8082" > "$CONFIG_FILE"
       fi
       cp "$CONFIG_FILE" /config.toml
     healthcheck:
