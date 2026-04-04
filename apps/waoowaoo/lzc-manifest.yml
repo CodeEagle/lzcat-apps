@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.waoowaoo
-version: '0.4.0'
+version: '0.4.1'
 min_os_version: 1.3.8
 name: waoowaoo
 description: (LazyCat Auto-build) AI-powered short drama and comic video production platform
@@ -56,7 +56,7 @@ services:
       start_interval: 2s
 
   waoowaoo:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/waoowaoo:d0dc50d72c3c3e37
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/waoowaoo:3a19c5ae2255abea
     depends_on:
       - mysql
       - redis
