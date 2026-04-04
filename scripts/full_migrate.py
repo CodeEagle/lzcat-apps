@@ -14,6 +14,7 @@ import subprocess
 import tarfile
 import tempfile
 import textwrap
+import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -5606,11 +5607,21 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
             check=False,
         )
         if sync_check.returncode != 0:
-            details = (sync_check.stdout or sync_check.stderr or "").strip()
-            issues.append(
-                "trigger-build workflow options are out of sync with registry/repos/index.json"
-                + (f": {details}" if details else "")
+            fix_result = subprocess.run(
+                ["python3", str(workflow_sync_script)],
+                cwd=str(repo_root),
+                text=True,
+                capture_output=True,
+                check=False,
             )
+            if fix_result.returncode != 0:
+                details = (fix_result.stdout or fix_result.stderr or "").strip()
+                issues.append(
+                    "trigger-build workflow options are out of sync and auto-fix failed"
+                    + (f": {details}" if details else "")
+                )
+            else:
+                print("[preflight] auto-fixed trigger-build workflow sync")
 
     manifest = load_yaml(manifest_path)
     if not isinstance(manifest, dict):
@@ -5830,6 +5841,50 @@ def tail_text(text: str, max_lines: int = 40) -> str:
     return "\n".join(lines[-max_lines:])
 
 
+def auto_git_commit(repo_root: Path, slug: str) -> None:
+    """Stage generated app files and commit if there are staged changes."""
+    app_dir = repo_root / "apps" / slug
+    config_path = repo_root / "registry" / "repos" / f"{slug}.json"
+    index_path = repo_root / "registry" / "repos" / "index.json"
+    workflow_dir = repo_root / ".github" / "workflows"
+
+    add_targets = [str(app_dir), str(config_path), str(index_path)]
+    if workflow_dir.exists():
+        add_targets.append(str(workflow_dir))
+
+    add_result = subprocess.run(
+        ["git", "add", "--"] + add_targets,
+        cwd=str(repo_root),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if add_result.returncode != 0:
+        print(f"[git] git add failed: {add_result.stderr.strip()}")
+        return
+
+    staged = subprocess.run(
+        ["git", "diff", "--cached", "--quiet"],
+        cwd=str(repo_root),
+        check=False,
+    )
+    if staged.returncode == 0:
+        print("[git] nothing to commit")
+        return
+
+    commit_result = subprocess.run(
+        ["git", "commit", "-m", f"chore({slug}): scaffold app via full_migrate"],
+        cwd=str(repo_root),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if commit_result.returncode == 0:
+        print(f"[git] committed: chore({slug}): scaffold app via full_migrate")
+    else:
+        print(f"[git] commit failed: {commit_result.stderr.strip()}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run LazyCat migration SOP from a single upstream address.")
     parser.add_argument("source", help="GitHub repo URL, owner/repo, compose URL, docker image, or local repo path")
@@ -5994,6 +6049,7 @@ def main() -> int:
             )
             return 1
 
+        auto_git_commit(repo_root, finalized["slug"])
         step_report(
             7,
             "运行预检",
@@ -6120,6 +6176,7 @@ def main() -> int:
         )
         return 0
     except Exception as exc:
+        traceback.print_exc()
         step_report(
             step_state.current_step,
             "自动迁移失败",
