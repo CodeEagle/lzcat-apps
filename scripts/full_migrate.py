@@ -5687,6 +5687,12 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
         if not isinstance(payload, dict):
             continue
         command_text = stringify_command(payload.get("command"))
+        if command_text and bm.HEREDOC_PATTERN.search(command_text):
+            issues.append(
+                f"service {service_name} command uses heredoc syntax; "
+                "command is often rendered as folded YAML and may break shell parsing. "
+                "Prefer setup_script, an external script file, or printf/envsubst."
+            )
         binds = [str(item) for item in bm.ensure_list(payload.get("binds"))]
         if "/lzcapp/pkg/content/bootstrap.mjs" in command_text and not any(bind.endswith(":/app-state") or ":/crucix-state" in bind or ":/deer-flow-state" in bind for bind in binds):
             issues.append(

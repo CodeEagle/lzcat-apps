@@ -185,6 +185,40 @@ class BootstrapMigrationTest(unittest.TestCase):
         self.assertTrue((repo_root / "apps" / "stack-app" / "content" / "README.md").exists())
         self.assertIn("PROJECT_SLUG: stack-app", checklist)
 
+    def test_rejects_heredoc_in_command(self) -> None:
+        repo_root = self.make_repo_root()
+        result = self.run_script(
+            repo_root,
+            "--slug",
+            "bad-command-app",
+            "--project-name",
+            "Bad Command App",
+            "--upstream-repo",
+            "acme/bad-command-app",
+            "--description",
+            "App with heredoc in command",
+            "--homepage",
+            "https://example.com/bad-command-app",
+            "--license",
+            "MIT",
+            "--author",
+            "Acme",
+            "--version",
+            "1.0.0",
+            "--build-strategy",
+            "official_image",
+            "--official-image-registry",
+            "ghcr.io/acme/bad-command-app",
+            "--service-port",
+            "8080",
+            "--command",
+            "sh -lc 'cat <<EOF > /tmp/config\nhello\nEOF\nexec app'",
+            "--no-fetch-upstream",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("must not use heredoc syntax", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

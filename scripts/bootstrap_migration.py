@@ -31,6 +31,8 @@ SUPPORTED_CHECK_STRATEGIES = {
     "commit_sha",
 }
 
+HEREDOC_PATTERN = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+
 
 def fatal(message: str) -> int:
     print(f"ERROR: {message}", file=sys.stderr)
@@ -64,6 +66,15 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
         else:
             merged[key] = value
     return merged
+
+
+def validate_service_shell_fields(service_name: str, payload: dict[str, Any]) -> None:
+    command = str(payload.get("command") or "")
+    if command and HEREDOC_PATTERN.search(command):
+        raise ValueError(
+            f"service {service_name} command must not use heredoc syntax; "
+            "prefer setup_script, an external script file, or printf/envsubst-based file generation"
+        )
 
 
 def normalize_slug(value: str) -> str:
@@ -445,6 +456,7 @@ def coerce_services(raw: dict[str, Any], slug: str) -> dict[str, Any]:
                 service_payload["depends_on"] = [str(item) for item in ensure_list(service_payload["depends_on"]) if str(item).strip()]
             if "command" in service_payload and "setup_script" in service_payload:
                 raise ValueError(f"service {name} cannot define both command and setup_script")
+            validate_service_shell_fields(name, service_payload)
             services[name] = prune_empty(service_payload)
         return services
 
@@ -463,6 +475,7 @@ def coerce_services(raw: dict[str, Any], slug: str) -> dict[str, Any]:
         service_payload["command"] = raw["command"]
     if raw.get("healthcheck"):
         service_payload["healthcheck"] = raw["healthcheck"]
+    validate_service_shell_fields(service_name, service_payload)
     return {service_name: prune_empty(service_payload)}
 
 

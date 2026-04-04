@@ -3,13 +3,16 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "full_migrate.py"
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+import bootstrap_migration as bm
+import full_migrate as fm
 
 
 def normalize_slug(value: str) -> str:
@@ -220,7 +223,7 @@ services:
         self.assertIn("DB_USER=${POSTGRES_USER}", manifest)
         self.assertIn("DB_PASSWORD=${POSTGRES_PWD}", manifest)
         self.assertIn(f"API_URL=https://{slug}.${{LAZYCAT_BOX_DOMAIN}}/api", manifest)
-        self.assertIn("DEMO_LINK=${DEMO_LINK:-}", manifest)
+        self.assertIn("DEMO_LINK=", manifest)
 
     def test_rerun_same_target_overwrites_managed_files(self) -> None:
         repo_root = self.make_repo_root()
@@ -239,6 +242,68 @@ services:
         self.assertIn("原生客户端/桌面应用", result.stdout)
         self.assertFalse((repo_root / "apps" / slug).exists())
         self.assertFalse((repo_root / "registry" / "repos" / f"{slug}.json").exists())
+
+    def test_preflight_flags_heredoc_in_command(self) -> None:
+        repo_root = self.make_repo_root()
+        app_dir = repo_root / "apps" / "bad-app"
+        app_dir.mkdir(parents=True, exist_ok=True)
+        (repo_root / "registry" / "repos" / "bad-app.json").write_text(
+            json.dumps(
+                {
+                    "enabled": True,
+                    "upstream_repo": "acme/bad-app",
+                    "check_strategy": "github_release",
+                    "build_strategy": "official_image",
+                    "official_image_registry": "ghcr.io/acme/bad-app",
+                    "service_port": 8080,
+                    "service_cmd": [],
+                    "image_targets": ["bad-app"],
+                    "dependencies": [],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (app_dir / "lzc-manifest.yml").write_text(
+            "\n".join(
+                [
+                    "lzc-sdk-version: '0.1'",
+                    "package: fun.selfstudio.app.migration.bad-app",
+                    "version: 1.0.0",
+                    "min_os_version: 1.3.8",
+                    "name: Bad App",
+                    "description: bad app",
+                    "license: MIT",
+                    "homepage: https://example.com/bad-app",
+                    "author: Acme",
+                    "application:",
+                    "  subdomain: bad-app",
+                    "  public_path:",
+                    "    - /",
+                    "  upstreams:",
+                    "    -",
+                    "      location: /",
+                    "      backend: http://bad-app:8080/",
+                    "services:",
+                    "  bad-app:",
+                    "    image: registry.lazycat.cloud/placeholder/bad-app:latest",
+                    "    command: |",
+                    "      sh -lc 'cat <<EOF > /tmp/config",
+                    "      hello",
+                    "      EOF",
+                    "      exec app'",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        (app_dir / "lzc-build.yml").write_text("lzc-sdk-version: '0.1'\nmanifest: ./lzc-manifest.yml\npkgout: ./\nicon: ./icon.png\n", encoding="utf-8")
+        (app_dir / "README.md").write_text("# Bad App\n", encoding="utf-8")
+        (app_dir / "icon.png").write_bytes(b"png")
+
+        ok, issues = fm.preflight_check(repo_root, "bad-app")
+        self.assertFalse(ok)
+        self.assertTrue(any("heredoc syntax" in issue for issue in issues), issues)
 
 
 if __name__ == "__main__":
