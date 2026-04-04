@@ -22,7 +22,9 @@
       "Read(//Volumes/ORICO/Development/Github/lzcat/lzcat-apps/**)",
       "Bash(git pull:*)",
       "Bash(grep -A 10 \"oauth:\" git add . git commit -m \"fix\\(cc-gateway\\): fix config schema expecting oauth.refresh_token instead of auth.refresh_token\" git pull --rebase git push gh workflow run trigger-build.yml --ref main -f target_repo=cc-gateway -f force_build=true)",
-      "Bash(git clone:*)"
+      "Bash(git clone:*)",
+      "mcp__plugin_context-mode_context-mode__execute_file",
+      "Bash(git checkout:*)"
     ]
   }
 }
