@@ -899,6 +899,17 @@ def publish_report_summary(report: dict[str, Any]) -> None:
     append_summary(lines + [""])
 
 
+def expand_default_vars_string(s: str, env: dict[str, str]) -> str:
+    import re
+    if not isinstance(s, str):
+        return s
+    def _repl(m):
+        var = m.group(1)
+        default = m.group(2)
+        return env.get(var, default)
+    return re.sub(r"\$\{([^:}]+):-([^}]*)\}", _repl, s)
+
+
 def resolve_image_targets(config: dict[str, Any], manifest_text: str) -> list[str]:
     configured = [str(item).strip() for item in config.get("image_targets", []) if str(item).strip()]
     if configured:
@@ -1286,6 +1297,9 @@ def build_service_images(
                     or item.get("dockerfile_path")
                     or "Dockerfile"
                 ).strip()
+                # expand ${VAR:-default} patterns using env
+                dockerfile_rel = expand_default_vars_string(dockerfile_rel, env)
+                build_context = expand_default_vars_string(build_context, env)
             built_images[target_service] = build_with_dockerfile(
                 source_root,
                 target_image,
