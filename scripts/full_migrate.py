@@ -5946,7 +5946,7 @@ def main() -> int:
             "收集上游信息",
             conclusion=f"已识别输入类型为 `{normalized.kind}`，并准备好可分析的上游材料。",
             outputs=step1_outputs,
-            scripts=["scripts/full-migrate.sh", "git clone" if normalized.kind == "github_repo" else "无"],
+            scripts=["scripts/full_migrate.py", "git clone" if normalized.kind == "github_repo" else "无"],
             risks=step1_risks,
             next_step="进入 [2/10] 选择移植路线",
         )
@@ -5966,7 +5966,7 @@ def main() -> int:
             "选择移植路线",
             conclusion=f"已自动推断构建路线为 `{analysis.route}`。",
             outputs=step2_outputs,
-            scripts=["scripts/full-migrate.sh"],
+            scripts=["scripts/full_migrate.py"],
             risks=analysis.risks,
             next_step="进入 [3/10] 注册目标 app",
         )
@@ -5990,7 +5990,7 @@ def main() -> int:
             "注册目标 app",
             conclusion=f"目标 app 将注册为 `{finalized['slug']}`。",
             outputs=[str(app_dir), str(config_path)],
-            scripts=["scripts/full-migrate.sh"],
+            scripts=["scripts/full_migrate.py"],
             risks=["目标 app 已存在时会自动覆盖当前托管文件"] if not args.force else [],
             next_step="进入 [4/10] 建立项目骨架",
         )
@@ -6012,7 +6012,7 @@ def main() -> int:
             "建立项目骨架",
             conclusion="已在 monorepo 中创建 app 目录和 registry 配置。",
             outputs=[str(path) for path in written[:6]],
-            scripts=["scripts/full-migrate.sh", "scripts/bootstrap_migration.py"],
+            scripts=["scripts/full_migrate.py", "scripts/bootstrap_migration.py"],
             risks=[],
             next_step="进入 [5/10] 编写 lzc-manifest.yml",
         )
@@ -6021,9 +6021,9 @@ def main() -> int:
         step_report(
             5,
             "编写 lzc-manifest.yml",
-            conclusion="manifest 已按自动推断的服务拓扑、入口端口、环境变量和持久化目录生成初稿。",
+            conclusion="manifest 已按自动推断的服务拓扑、入口端口、环境变量和持久化目录生成初稿；构建后的真实镜像地址将由 .lazycat-images.json 管理。",
             outputs=[str(app_dir / "lzc-manifest.yml")],
-            scripts=["scripts/full-migrate.sh", "scripts/bootstrap_migration.py"],
+            scripts=["scripts/full_migrate.py", "scripts/bootstrap_migration.py"],
             risks=analysis.risks,
             next_step="进入 [6/10] 补齐剩余文件",
         )
@@ -6036,7 +6036,7 @@ def main() -> int:
             "补齐剩余文件",
             conclusion="README、build 配置、checklist 以及需要的模板文件已补齐。",
             outputs=step6_outputs,
-            scripts=["scripts/full-migrate.sh", "scripts/bootstrap_migration.py"],
+            scripts=["scripts/full_migrate.py", "scripts/bootstrap_migration.py"],
             risks=[],
             next_step="进入 [7/10] 运行预检",
         )
@@ -6049,7 +6049,7 @@ def main() -> int:
                 "运行预检",
                 conclusion="预检未通过，当前自动流程停在文件层修复前。",
                 outputs=[str(app_dir)],
-                scripts=["scripts/full-migrate.sh"],
+                scripts=["scripts/full_migrate.py"],
                 risks=issues,
                 next_step="停止，先修复预检问题",
             )
@@ -6061,7 +6061,7 @@ def main() -> int:
             "运行预检",
             conclusion="预检通过，骨架和 registry 注册已满足进入构建阶段的最低条件。",
             outputs=[str(app_dir / "lzc-manifest.yml"), str(config_path)],
-            scripts=["scripts/full-migrate.sh"],
+            scripts=["scripts/full_migrate.py"],
             risks=[],
             next_step="进入 [8/10] 触发并监听构建",
         )
@@ -6073,7 +6073,7 @@ def main() -> int:
                 "触发并监听构建",
                 conclusion="按 validate-only 模式要求，自动流程在预检后停止。",
                 outputs=[str(app_dir)],
-                scripts=["scripts/full-migrate.sh"],
+                scripts=["scripts/full_migrate.py"],
                 risks=[],
                 next_step="停止",
             )
@@ -6085,7 +6085,7 @@ def main() -> int:
                 "触发并监听构建",
                 conclusion="当前机器缺少可用的容器引擎，无法进入本地构建阶段。",
                 outputs=[str(app_dir)],
-                scripts=["scripts/full-migrate.sh", "scripts/local_build.sh"],
+                scripts=["scripts/full_migrate.py", "scripts/local_build.sh"],
                 risks=["既没有 docker，也没有 podman 可供兼容桥接"],
                 next_step="停止，补齐容器引擎后重跑同一命令即可继续",
             )
@@ -6102,7 +6102,7 @@ def main() -> int:
                 "触发并监听构建",
                 conclusion=f"当前模式 `{effective_build_mode}` 需要 lzc-cli 与有效 token，但本机条件不足。",
                 outputs=[str(app_dir)],
-                scripts=["scripts/full-migrate.sh", "scripts/run_build.py"],
+                scripts=["scripts/full_migrate.py", "scripts/run_build.py"],
                 risks=["缺少 lzc-cli 或 LZC_CLI_TOKEN，无法执行安装链路"],
                 next_step="停止，补齐 lzc-cli/token 或改用 --build-mode build",
             )
@@ -6115,7 +6115,7 @@ def main() -> int:
                 "触发并监听构建",
                 conclusion="本地构建失败，自动流程停在构建阶段。",
                 outputs=[str(app_dir), str(repo_root / "dist" / f"{finalized['slug']}.lpk")],
-                scripts=["scripts/full-migrate.sh", "scripts/run_build.py"],
+                scripts=["scripts/full_migrate.py", "scripts/run_build.py"],
                 risks=[failure_excerpt or "run_build 返回非零退出码"],
                 next_step="停止，修复构建错误后重跑同一命令即可继续",
             )
@@ -6125,8 +6125,11 @@ def main() -> int:
             8,
             "触发并监听构建",
             conclusion="本地构建命令执行成功。",
-            outputs=[str(repo_root / "dist" / f"{finalized['slug']}.lpk")],
-            scripts=["scripts/full-migrate.sh", "scripts/run_build.py"],
+            outputs=[
+                str(repo_root / "dist" / f"{finalized['slug']}.lpk"),
+                str(app_dir / ".lazycat-images.json"),
+            ],
+            scripts=["scripts/full_migrate.py", "scripts/run_build.py"],
             risks=[] if effective_build_mode in {"install", "reinstall"} else [f"当前使用 `{runtime_name}` 执行 `{effective_build_mode}`，未覆盖远端 copy-image / install"],
             next_step="进入 [9/10] 下载并核对 .lpk",
         )
@@ -6139,7 +6142,7 @@ def main() -> int:
                 "下载并核对 .lpk",
                 conclusion="构建阶段未产出本地 .lpk，流程停在产物阶段。",
                 outputs=[str(lpk_path)],
-                scripts=["scripts/full-migrate.sh", "scripts/run_build.py"],
+                scripts=["scripts/full_migrate.py", "scripts/run_build.py"],
                 risks=["dist 目录中未发现期望的 lpk 文件"],
                 next_step="停止",
             )
@@ -6150,7 +6153,7 @@ def main() -> int:
             "下载并核对 .lpk",
             conclusion="已拿到本地构建产物并完成基本核对。",
             outputs=[f"{lpk_path} (sha256={file_sha256(lpk_path)})"],
-            scripts=["scripts/full-migrate.sh", "scripts/run_build.py"],
+            scripts=["scripts/full_migrate.py", "scripts/run_build.py"],
             risks=[] if effective_build_mode in {"install", "reinstall"} else [f"当前产物来自 `{effective_build_mode}`，未覆盖真实 release/download 链路"],
             next_step="进入 [10/10] 安装验收并复盘",
         )
@@ -6162,7 +6165,7 @@ def main() -> int:
                 "安装验收并复盘",
                 conclusion="当前环境没有进入自动安装验收链路，流程停在本地产物阶段。",
                 outputs=[str(lpk_path)],
-                scripts=["scripts/full-migrate.sh"],
+                scripts=["scripts/full_migrate.py"],
                 risks=["缺少 LZC_CLI_TOKEN，未执行 `lzc-cli app install` 和后续状态验证"],
                 next_step="停止，补齐 LZC_CLI_TOKEN 后重跑即可继续安装验收",
             )
@@ -6176,7 +6179,7 @@ def main() -> int:
             "安装验收并复盘",
             conclusion="已执行安装命令，并完成一次基础状态查询。",
             outputs=[str(lpk_path), f"package={package_id}", f"status={status_output or '无输出'}"],
-            scripts=["scripts/full-migrate.sh", "scripts/run_build.py", "lzc-cli app status"],
+            scripts=["scripts/full_migrate.py", "scripts/run_build.py", "lzc-cli app status"],
             risks=[],
             next_step="完成",
         )
@@ -6188,7 +6191,7 @@ def main() -> int:
             "自动迁移失败",
             conclusion="自动流程在当前步骤抛出异常。",
             outputs=[str(exc)],
-            scripts=["scripts/full-migrate.sh"],
+            scripts=["scripts/full_migrate.py"],
             risks=[str(exc)],
             next_step="停止",
         )

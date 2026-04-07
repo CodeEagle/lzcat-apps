@@ -921,7 +921,7 @@ def render_checklist(spec: dict[str, Any]) -> str:
             "",
             "## 退出条件",
             "- [ ] 入口、端口、环境变量、真实写路径、初始化命令、数据库/auth 配置全部确认完毕",
-            "- [ ] `lzc-manifest.yml` 中的镜像地址已替换为真实的 `registry.lazycat.cloud/...`",
+            "- [ ] 构建后真实镜像地址已写入 `.lazycat-images.json`，打包阶段从该文件渲染临时 manifest",
             "- [ ] 构建策略相关文件（Dockerfile / template / content / overlay）已补齐",
             "- [ ] 可以进入预检、构建、下载 `.lpk`、安装验收阶段",
             "",

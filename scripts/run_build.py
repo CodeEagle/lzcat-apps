@@ -23,6 +23,7 @@ from typing import Any
 
 STEP_SUMMARY = Path(os.environ["GITHUB_STEP_SUMMARY"]) if os.environ.get("GITHUB_STEP_SUMMARY") else None
 _LAZYCAT_IMAGE_MAP_CACHE: dict[str, str] | None = None
+IMAGE_STATE_FILENAME = ".lazycat-images.json"
 
 
 def log(msg: str) -> None:
@@ -60,10 +61,6 @@ def parse_int_env(env: dict[str, str], name: str, default: int) -> int:
     raw = str(env.get(name, "")).strip()
     if not raw:
         return default
-    manifest_path: Path | None = None
-    meta_path: Path | None = None
-    original_manifest_text: str | None = None
-    original_meta_text: str | None = None
     try:
         value = int(raw)
     except ValueError:
@@ -491,6 +488,109 @@ def update_service_image(manifest_text: str, service_name: str, image: str) -> t
         re.MULTILINE,
     )
     return pattern.subn(r"\1" + image, manifest_text, count=1)
+
+
+def load_image_state(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Invalid image state json: {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"Image state json must be an object: {path}")
+    return payload
+
+
+def load_image_overrides(path: Path) -> dict[str, str]:
+    payload = load_image_state(path)
+    images = payload.get("images")
+    if not isinstance(images, dict):
+        return {}
+    return {
+        str(service).strip(): str(image).strip()
+        for service, image in images.items()
+        if str(service).strip() and str(image).strip()
+    }
+
+
+def apply_image_overrides(
+    manifest_text: str,
+    service_images: dict[str, str],
+    *,
+    context: str,
+) -> str:
+    updated = manifest_text
+    for service_name, image in sorted(service_images.items()):
+        updated, count = update_service_image(updated, service_name, image)
+        if count != 1:
+            raise RuntimeError(f"{context}: failed to update service image: {service_name}")
+    return updated
+
+
+def render_packaging_manifest(
+    manifest_text: str,
+    *,
+    build_version: str,
+    service_images: dict[str, str],
+) -> str:
+    updated = apply_image_overrides(
+        manifest_text,
+        service_images,
+        context="render packaging manifest",
+    )
+    return re.sub(
+        r"^version:\s*.+$",
+        f"version: '{build_version}'",
+        updated,
+        count=1,
+        flags=re.MULTILINE,
+    )
+
+
+def write_image_state(
+    path: Path,
+    *,
+    app_name: str,
+    source_version: str,
+    build_version: str,
+    head_sha: str,
+    service_images: dict[str, str],
+    source_images: dict[str, str],
+    copy_image_events: list[dict[str, Any]],
+) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "app": app_name,
+                "source_version": source_version,
+                "build_version": build_version,
+                "head_sha": head_sha,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "images": dict(sorted(service_images.items())),
+                "source_images": dict(sorted(source_images.items())),
+                "copy_image_events": copy_image_events,
+            },
+            ensure_ascii=True,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def create_packaging_workspace(repo_dir: Path, work_root: Path, manifest_text: str) -> Path:
+    package_dir = work_root / "package-workspace"
+    if package_dir.exists():
+        shutil.rmtree(package_dir)
+    shutil.copytree(
+        repo_dir,
+        package_dir,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    (package_dir / "lzc-manifest.yml").write_text(manifest_text, encoding="utf-8")
+    return package_dir
 
 
 def resolve_service_update_targets(item: dict[str, Any]) -> list[str]:
@@ -1232,7 +1332,7 @@ def main() -> int:
     parser.add_argument(
         "--skip-docker",
         action="store_true",
-        help="Skip Docker build entirely. Keep existing image URLs from manifest as-is. "
+        help=f"Skip Docker build entirely. Reuse image URLs from {IMAGE_STATE_FILENAME}. "
              "Use when only content/ files changed (e.g. bootstrap-ui/server.mjs).",
     )
     args = parser.parse_args()
@@ -1249,6 +1349,11 @@ def main() -> int:
     report_path = work_root / "build-report.json"
     report: dict[str, Any] | None = None
     keep_work_root = False
+    manifest_path: Path | None = None
+    meta_path: Path | None = None
+    image_state_path: Path | None = None
+    original_meta_text: str | None = None
+    original_image_state_text: str | None = None
     try:
         head_sha = sh(["git", "rev-parse", "--short=12", "HEAD"], cwd=lzcat_apps_root)
         publish_to_store = args.publish_to_store or parse_bool(config.get("publish_to_store"), False)
@@ -1266,9 +1371,10 @@ def main() -> int:
         write_report(report, report_path)
         manifest_path = repo_dir / "lzc-manifest.yml"
         manifest_text = manifest_path.read_text()
-        original_manifest_text = manifest_text
         meta_path = repo_dir / ".lazycat-build.json"
+        image_state_path = repo_dir / IMAGE_STATE_FILENAME
         original_meta_text = meta_path.read_text() if meta_path.exists() else None
+        original_image_state_text = image_state_path.read_text() if image_state_path.exists() else None
         build_meta = json.loads(original_meta_text) if original_meta_text else {}
         current_version_match = re.search(r"^version:\s*(.+)$", manifest_text, re.MULTILINE)
         current_version = current_version_match.group(1).strip() if current_version_match else ""
@@ -1316,22 +1422,24 @@ def main() -> int:
 
         log(f"[{app_name}] Update needed: {current_build_version} -> {build_version} (source: {source_version})")
 
+        resolved_service_images: dict[str, str] = {}
+        source_service_images: dict[str, str] = {}
+        copy_image_events: list[dict[str, Any]] = []
         if args.skip_docker:
-            ensure_manifest_images_materialized(
-                manifest_text,
-                context=f"{app_name} manifest before --skip-docker packaging",
-                allow_dry_run=args.dry_run,
-            )
+            assert image_state_path is not None
+            resolved_service_images = load_image_overrides(image_state_path)
+            if not resolved_service_images:
+                raise RuntimeError(
+                    f"{IMAGE_STATE_FILENAME} is required for --skip-docker packaging; "
+                    "run a full build first so service images are materialized outside lzc-manifest.yml"
+                )
             log(
-                f"[{app_name}] [SKIP DOCKER] Reusing materialized LazyCat image URLs from manifest"
+                f"[{app_name}] [SKIP DOCKER] Reusing materialized LazyCat image URLs from {IMAGE_STATE_FILENAME}"
             )
-            updated_manifest = manifest_text
         else:
             report["phase"] = "build_image"
             write_report(report, report_path)
             log(f"[{app_name}] Phase: build_image")
-            updated_manifest = manifest_text
-            copy_image_events: list[dict[str, Any]] = []
             service_builds = config.get("service_builds", [])
             if isinstance(service_builds, list) and service_builds:
                 built_images = build_service_images(
@@ -1371,15 +1479,8 @@ def main() -> int:
                     )
                     update_targets = resolve_service_update_targets(item)
                     for service_name in update_targets:
-                        updated_manifest, count = update_service_image(
-                            updated_manifest,
-                            service_name,
-                            accelerated_images[target_service],
-                        )
-                        if count != 1:
-                            raise RuntimeError(
-                                f"Failed to update service image in lzc-manifest.yml: {service_name}"
-                            )
+                        resolved_service_images[service_name] = accelerated_images[target_service]
+                        source_service_images[service_name] = built_image
                 report["accelerated_images"] = accelerated_images
                 write_report(report, report_path)
             else:
@@ -1406,9 +1507,8 @@ def main() -> int:
                 if not image_targets:
                     raise RuntimeError("No target services configured for main image update")
                 for target_service in image_targets:
-                    updated_manifest, count = update_service_image(updated_manifest, target_service, accelerated_url)
-                    if count != 1:
-                        raise RuntimeError(f"Failed to update service image in lzc-manifest.yml: {target_service}")
+                    resolved_service_images[target_service] = accelerated_url
+                    source_service_images[target_service] = target_image
 
         if not args.skip_docker:
             dependency_replacements = {
@@ -1441,19 +1541,16 @@ def main() -> int:
                     report["copy_image_events"] = copy_image_events
                     write_report(report, report_path)
                 dependency_images[target_service] = dependency_image
-                updated_manifest, dep_count = update_service_image(updated_manifest, target_service, dependency_image)
-                if dep_count != 1:
-                    raise RuntimeError(f"Failed to update dependency image for service: {target_service}")
+                resolved_service_images[target_service] = dependency_image
+                source_service_images[target_service] = source_image
             if dependency_images:
                 report["dependency_images"] = dependency_images
                 write_report(report, report_path)
 
-        updated_manifest = re.sub(
-            r"^version:\s*.+$",
-            f"version: '{build_version}'",
-            updated_manifest,
-            count=1,
-            flags=re.MULTILINE,
+        updated_manifest = render_packaging_manifest(
+            manifest_text,
+            build_version=build_version,
+            service_images=resolved_service_images,
         )
         report["workspace_manifest"] = {
             "image_count": len(
@@ -1465,7 +1562,20 @@ def main() -> int:
             )
         }
         write_report(report, report_path)
-        manifest_path.write_text(updated_manifest)
+        if not args.skip_docker:
+            assert image_state_path is not None
+            write_image_state(
+                image_state_path,
+                app_name=app_name,
+                source_version=source_version,
+                build_version=build_version,
+                head_sha=head_sha,
+                service_images=resolved_service_images,
+                source_images=source_service_images,
+                copy_image_events=copy_image_events,
+            )
+            report["image_state_path"] = str(image_state_path)
+            write_report(report, report_path)
 
         build_stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         build_label = f"{source_version}@{build_stamp}"
@@ -1486,12 +1596,13 @@ def main() -> int:
 
         project_name_lower = app_name.lower()
         lpk_path = work_root / f"{project_name_lower}.lpk"
+        package_dir = create_packaging_workspace(repo_dir, work_root, updated_manifest)
         report["phase"] = "package"
         write_report(report, report_path)
-        log(f"[{app_name}] Phase: package (lzc-cli project build)")
+        log(f"[{app_name}] Phase: package (lzc-cli project build from temporary manifest)")
         run_streaming(
             ["lzc-cli", "project", "build", "-o", str(lpk_path)],
-            cwd=repo_dir,
+            cwd=package_dir,
             env=env,
             label=f"lzc-cli project build {app_name}",
             inactivity_timeout=parse_int_env(env, "LZCAT_PACKAGE_INACTIVITY_TIMEOUT", 900),
@@ -1554,7 +1665,15 @@ def main() -> int:
             log(f"[{app_name}] Phase: commit_target_repo")
             sh(["git", "config", "user.name", "github-actions[bot]"], cwd=lzcat_apps_root)
             sh(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], cwd=lzcat_apps_root)
-            sh(["git", "add", f"apps/{app_name}/lzc-manifest.yml", f"apps/{app_name}/.lazycat-build.json"], cwd=lzcat_apps_root)
+            sh(
+                [
+                    "git",
+                    "add",
+                    f"apps/{app_name}/{IMAGE_STATE_FILENAME}",
+                    f"apps/{app_name}/.lazycat-build.json",
+                ],
+                cwd=lzcat_apps_root,
+            )
             diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=lzcat_apps_root, check=False)
             if diff.returncode != 0:
                 sh(["git", "commit", "-m", f"chore({app_name}): update to version {build_version}"], cwd=lzcat_apps_root)
@@ -1577,13 +1696,17 @@ def main() -> int:
         log(f"[{app_name}] Build completed successfully: v{build_version}")
         return 0
     except Exception as exc:
-        if args.dry_run and manifest_path is not None and original_manifest_text is not None:
-            manifest_path.write_text(original_manifest_text)
+        if args.dry_run:
             if meta_path is not None:
                 if original_meta_text is None:
                     meta_path.unlink(missing_ok=True)
                 else:
                     meta_path.write_text(original_meta_text)
+            if image_state_path is not None:
+                if original_image_state_text is None:
+                    image_state_path.unlink(missing_ok=True)
+                else:
+                    image_state_path.write_text(original_image_state_text)
         if report is None:
             report = {
                 "repo": (Path(args.config_file).stem if "args" in locals() else ""),
@@ -1603,13 +1726,17 @@ def main() -> int:
         log(f"[{report.get('repo', app_name)}] Failure artifacts preserved at: {work_root}")
         raise
     finally:
-        if args.dry_run and manifest_path is not None and original_manifest_text is not None:
-            manifest_path.write_text(original_manifest_text)
+        if args.dry_run:
             if meta_path is not None:
                 if original_meta_text is None:
                     meta_path.unlink(missing_ok=True)
                 else:
                     meta_path.write_text(original_meta_text)
+            if image_state_path is not None:
+                if original_image_state_text is None:
+                    image_state_path.unlink(missing_ok=True)
+                else:
+                    image_state_path.write_text(original_image_state_text)
         if not keep_work_root:
             shutil.rmtree(work_root, ignore_errors=True)
 

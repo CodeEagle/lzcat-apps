@@ -60,7 +60,7 @@ lzcat-apps/
 真正面向“只给一个上游地址就开始跑”的入口是：
 
 ```bash
-./scripts/full-migrate.sh <upstream-address>
+python3 scripts/full_migrate.py <upstream-address>
 ```
 
 支持的输入：

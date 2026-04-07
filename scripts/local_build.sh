@@ -92,7 +92,7 @@ if $INSTALL; then
   if ! $WITH_DOCKER; then
     # 默认跳过 Docker build，只重打包 content/（秒级）
     ARGS+=(--skip-docker)
-    echo "==> [SKIP DOCKER] 只重打包 content/，使用 manifest 中已有的镜像"
+    echo "==> [SKIP DOCKER] 只重打包 content/，使用 .lazycat-images.json 中已有的镜像"
   fi
 fi
 
