@@ -31,7 +31,7 @@
 | GOCLAW_CONFIG | No | /app/data/config.json | From compose service goclaw |
 | GOCLAW_GATEWAY_TOKEN | No | - | From compose service goclaw |
 | GOCLAW_ENCRYPTION_KEY | No | - | From compose service goclaw |
-| GOCLAW_POSTGRES_DSN | Yes | - | Postgres DSN required by goclaw, e.g. postgres://user:pass@db:5432/goclaw?sslmode=disable |
+| GOCLAW_POSTGRES_DSN | No | - | Only required for non-container deployments. LazyCat manifest provides a postgres sidecar by default for local/docker installs. |
 | GOCLAW_SKILLS_DIR | No | /app/data/skills | From compose service goclaw |
 | GOCLAW_TRACE_VERBOSE | No | 0 | From compose service goclaw |
 | POSTGRES_PASSWORD | No | - | From .env.example |
