@@ -14,6 +14,10 @@ application:
   upstreams:
     - location: /
       backend: http://htmly:80/
+  health_check:
+    test_url: http://htmly:80/lazycat-health.html
+    start_period: 60s
+    timeout: 10s
 services:
   htmly:
     image: registry.lazycat.cloud/invokerlaw/codeeagle/htmly:bd445db129aca1b6
@@ -28,7 +32,16 @@ services:
       cp -an /opt/htmly-dist/content/. /var/www/html/content/ 2>/dev/null || true
       cp -an /opt/htmly-dist/cache/. /var/www/html/cache/ 2>/dev/null || true
       cp -an /opt/htmly-dist/config/. /var/www/html/config/ 2>/dev/null || true
+      printf 'ok\n' > /var/www/html/lazycat-health.html
       chown -R www-data:www-data /var/www/html/content /var/www/html/cache /var/www/html/config
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -fsS http://127.0.0.1/lazycat-health.html >/dev/null || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
 locales:
   en:
     name: HTMLy
