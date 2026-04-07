@@ -24,6 +24,7 @@ services:
       - GOCLAW_CONFIG=/app/data/config.json
       - GOCLAW_GATEWAY_TOKEN=
       - GOCLAW_ENCRYPTION_KEY=
+      - GOCLAW_POSTGRES_DSN=
       - GOCLAW_SKILLS_DIR=/app/data/skills
       - GOCLAW_TRACE_VERBOSE=0
     binds:
