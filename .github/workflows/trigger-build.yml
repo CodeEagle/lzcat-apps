@@ -56,6 +56,7 @@ on:
           - "htmly"
           - "memoh"
           - "goclaw"
+          - "hermes-webui"
           # END AUTO-GENERATED APP OPTIONS
       target_version:
         description: "Target upstream version to build. Leave empty for latest."
