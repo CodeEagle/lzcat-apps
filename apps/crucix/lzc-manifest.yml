@@ -6,7 +6,7 @@ name: Crucix
 description: Local intelligence engine with a live OSINT dashboard, periodic sweeps, and optional LLM-powered alerts.
 license: AGPL-3.0
 homepage: https://github.com/calesthio/Crucix
-author: Crucix
+author: calesthio
 application:
   subdomain: crucix
   public_path:
