@@ -1,13 +1,40 @@
 {
-  "repo": "CodeEagle/goclaw",
   "enabled": true,
   "upstream_repo": "nextlevelbuilder/goclaw",
   "check_strategy": "github_release",
   "build_strategy": "upstream_dockerfile",
-  "dockerfile_path": "Dockerfile",
-  "build_context": ".",
+  "publish_to_store": false,
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "custom",
   "service_port": 18790,
   "service_cmd": [],
-  "image_targets": ["goclaw"],
-  "dependencies": ["postgres"]
+  "image_targets": [
+    "goclaw"
+  ],
+  "dependencies": [],
+  "service_builds": [
+    {
+      "target_service": "goclaw",
+      "build_strategy": "upstream_dockerfile",
+      "source_dockerfile_path": "${GOCLAW_DIR:-.}/Dockerfile",
+      "build_context": "${GOCLAW_DIR:-.}",
+      "build_args": {
+        "ENABLE_OTEL": "${ENABLE_OTEL:-false}",
+        "ENABLE_EMBEDUI": "${ENABLE_EMBEDUI:-true}",
+        "ENABLE_PYTHON": "${ENABLE_PYTHON:-true}",
+        "ENABLE_FULL_SKILLS": "${ENABLE_FULL_SKILLS:-false}",
+        "VERSION": "${GOCLAW_VERSION:-dev}"
+      },
+      "image_name": "goclaw-goclaw"
+    }
+  ],
+  "docker_platform": "linux/amd64",
+  "build_args": {
+    "ENABLE_OTEL": "${ENABLE_OTEL:-false}",
+    "ENABLE_EMBEDUI": "${ENABLE_EMBEDUI:-true}",
+    "ENABLE_PYTHON": "${ENABLE_PYTHON:-true}",
+    "ENABLE_FULL_SKILLS": "${ENABLE_FULL_SKILLS:-false}",
+    "VERSION": "${GOCLAW_VERSION:-dev}"
+  }
 }
