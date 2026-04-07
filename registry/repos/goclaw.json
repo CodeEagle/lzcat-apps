@@ -1,0 +1,13 @@
+{
+  "repo": "CodeEagle/goclaw",
+  "enabled": true,
+  "upstream_repo": "nextlevelbuilder/goclaw",
+  "check_strategy": "github_release",
+  "build_strategy": "upstream_dockerfile",
+  "dockerfile_path": "Dockerfile",
+  "build_context": ".",
+  "service_port": 18790,
+  "service_cmd": [],
+  "image_targets": ["goclaw"],
+  "dependencies": ["postgres"]
+}
