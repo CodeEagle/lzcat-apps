@@ -4899,6 +4899,14 @@ def encode_base64_text(text: str) -> str:
 
 def render_encoded_sql_command(database_url: str, sql: str, target_name: str) -> str:
     encoded = encode_base64_text(sql)
+    if target_name == "dbfix_task_queue":
+        return (
+            "sh -lc 'until pg_isready -h postgres -U multica >/dev/null 2>&1; do sleep 1; done; "
+            f"printf %s {encoded} | base64 -d >/tmp/{target_name}.sql; "
+            f'until psql "{database_url}" -v ON_ERROR_STOP=1 -f /tmp/{target_name}.sql >/dev/null 2>&1; do '
+            'echo "waiting for base schema before dbfix_task_queue..."; sleep 1; done; '
+            "sleep infinity'"
+        )
     return (
         "sh -lc 'until pg_isready -h postgres -U multica >/dev/null 2>&1; do sleep 1; done; "
         f"printf %s {encoded} | base64 -d >/tmp/{target_name}.sql; "
@@ -5410,7 +5418,8 @@ def build_multica_profile() -> dict[str, Any]:
                 "command": (
                     "sh -lc 'until ./migrate up; do echo \"waiting for postgres...\"; sleep 2; done; "
                     "until psql \"$DATABASE_URL\" -Atc "
-                    "\"SELECT 1 FROM pg_catalog.pg_tables WHERE schemaname='\\''public'\\'' AND tablename='\\''runtime_usage'\\'';\" "
+                    "\"SELECT CASE WHEN COUNT(*) = 3 THEN 1 END FROM pg_catalog.pg_tables "
+                    "WHERE schemaname=$$public$$ AND tablename IN ($$runtime_usage$$,$$agent_runtime$$,$$agent_task_queue$$);\" "
                     "| grep -q 1; do echo \"waiting for schema bootstrap...\"; sleep 2; done; exec ./server'"
                 ),
             },
