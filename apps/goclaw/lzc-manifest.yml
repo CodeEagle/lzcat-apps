@@ -18,6 +18,27 @@ application:
 services:
   goclaw:
     image: registry.lazycat.cloud/placeholder/goclaw:goclaw
+    depends_on:
+      - postgres
+    setup_script: |
+      set -eu
+
+      wait_for_port() {
+        host="$1"
+        port="$2"
+        label="$3"
+        for _ in $(seq 1 60); do
+          if bash -lc ">/dev/tcp/${host}/${port}" >/dev/null 2>&1; then
+            return 0
+          fi
+          sleep 2
+        done
+        echo "${label} is not reachable" >&2
+        exit 1
+      }
+
+      wait_for_port postgres 5432 PostgreSQL
+
     environment:
       - GOCLAW_HOST=0.0.0.0
       - GOCLAW_PORT=18790
@@ -39,6 +60,11 @@ services:
       - POSTGRES_DB=goclaw
     binds:
       - /lzcapp/var/data/goclaw/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d goclaw"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 locales:
   en:
     name: goclaw
