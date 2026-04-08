@@ -25,7 +25,12 @@
       "Bash(git clone:*)",
       "mcp__plugin_context-mode_context-mode__execute_file",
       "Bash(git checkout:*)",
-      "Bash(git-agent commit:*)"
+      "Bash(git-agent commit:*)",
+      "Bash(lzc-cli app:*)",
+      "Bash(lzc-cli help:*)",
+      "Bash(lzc-cli box:*)",
+      "Bash(lzc-cli project:*)",
+      "Bash(./scripts/local_build.sh hermes-webui-aio:*)"
     ]
   }
 }
