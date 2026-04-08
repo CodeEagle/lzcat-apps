@@ -1,7 +1,7 @@
 {
   "upstream_repo": "SigNoz/signoz",
-  "source_version": "v0.117.1",
-  "build_version": "0.117.1",
-  "build_label": "v0.117.1@20260326T124148Z",
-  "last_checked_at": "2026-03-26T12:41:48.152341+00:00"
+  "source_version": "v0.118.0",
+  "build_version": "0.118.0",
+  "build_label": "v0.118.0@20260408T125018Z",
+  "last_checked_at": "2026-04-08T12:50:18.942308+00:00"
 }
