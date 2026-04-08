@@ -26,11 +26,13 @@ services:
       - HERMES_HOME=/srv/hermes-agent
     binds:
       - /lzcapp/var/data/hermes-webui/hermes-webui:/data
-      - /lzcapp/var/data/hermes-webui/hermes-agent-config:/srv/hermes-agent
+      - /lzcapp/pkg/content/hermes-agent-config:/srv/hermes-agent:ro
   hermes-agent:
     image: registry.lazycat.cloud/placeholder/hermes-agent:hermes-agent
+    command: gateway run --replace
     environment:
       - HERMES_HOME=/data/.hermes
+    setup_script: sh -lc 'mkdir -p /lzcapp/var/data/hermes-webui/hermes-agent-config && if [ ! -d /lzcapp/var/data/hermes-webui/hermes-agent-config/.hermes ]; then cp -r /lzcapp/pkg/content/hermes-agent-config/. /lzcapp/var/data/hermes-webui/hermes-agent-config/; fi'
     binds:
       - /lzcapp/var/data/hermes-webui/hermes-agent-config:/data/.hermes
 locales:
