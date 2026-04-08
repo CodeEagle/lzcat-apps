@@ -27,8 +27,14 @@ services:
         host="$1"
         port="$2"
         label="$3"
-        for _ in $(seq 1 60); do
+        for _ in $(seq 1 120); do
+          # try hostname (v4/v6)
           if bash -lc ">/dev/tcp/${host}/${port}" >/dev/null 2>&1; then
+            return 0
+          fi
+          # prefer IPv4 if available
+          ipv4=$(getent hosts "${host}" 2>/dev/null | awk '/\./{print $1; exit}' || true)
+          if [ -n "${ipv4}" ] && bash -lc ">/dev/tcp/${ipv4}/${port}" >/dev/null 2>&1; then
             return 0
           fi
           sleep 2
@@ -38,6 +44,7 @@ services:
       }
 
       wait_for_port postgres 5432 PostgreSQL
+    restart: always
 
     environment:
       - GOCLAW_HOST=0.0.0.0

@@ -22,12 +22,17 @@ services:
       - HERMES_WEBUI_HOST=0.0.0.0
       - HERMES_WEBUI_PORT=8787
       - HERMES_WEBUI_STATE_DIR=/data
+      - HERMES_WEBUI_AGENT_DIR=/srv/hermes-agent
+      - HERMES_HOME=/srv/hermes-agent
     binds:
       - /lzcapp/var/data/hermes-webui/hermes-webui:/data
+      - /lzcapp/var/data/hermes-webui/hermes-agent-config:/srv/hermes-agent
   hermes-agent:
     image: registry.lazycat.cloud/placeholder/hermes-agent:hermes-agent
-    environment: []
-    binds: []
+    environment:
+      - HERMES_HOME=/data/.hermes
+    binds:
+      - /lzcapp/var/data/hermes-webui/hermes-agent-config:/data/.hermes
 locales:
   en:
     name: hermes-webui
