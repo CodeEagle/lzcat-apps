@@ -24,6 +24,11 @@ services:
       - HERMES_WEBUI_STATE_DIR=/data
       - HERMES_WEBUI_AGENT_DIR=/opt/hermes-agent
       - HERMES_HOME=/data/.hermes
+      - '{{ if .U.openrouter_api_key }}OPENROUTER_API_KEY={{ .U.openrouter_api_key }}{{ else }}OPENROUTER_API_KEY={{ end }}'
+      - '{{ if .U.anthropic_api_key }}ANTHROPIC_API_KEY={{ .U.anthropic_api_key }}{{ else }}ANTHROPIC_API_KEY={{ end }}'
+      - '{{ if .U.openai_api_key }}OPENAI_API_KEY={{ .U.openai_api_key }}{{ else }}OPENAI_API_KEY={{ end }}'
+      - '{{ if .U.google_api_key }}GOOGLE_API_KEY={{ .U.google_api_key }}{{ else }}GOOGLE_API_KEY={{ end }}'
+      - '{{ if .U.default_model }}HERMES_WEBUI_DEFAULT_MODEL={{ .U.default_model }}{{ else }}HERMES_WEBUI_DEFAULT_MODEL={{ end }}'
     binds:
       - /lzcapp/var/data/hermes-webui/hermes-webui:/data
 locales:
