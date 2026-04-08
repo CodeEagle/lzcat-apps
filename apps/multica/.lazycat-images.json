@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "app": "multica",
+  "source_version": "v0.1.18",
+  "build_version": "0.1.18",
+  "head_sha": "dcd036e",
+  "updated_at": "2026-04-08T00:00:00+00:00",
+  "images": {
+    "db_audit": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
+    "db_smoke": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
+    "dbfix": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
+    "dbfix_task_queue": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
+    "multica": "registry.lazycat.cloud/invokerlaw/codeeagle/multica:e98f1a4719f772cc",
+    "postgres": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
+    "web": "registry.lazycat.cloud/invokerlaw/codeeagle/multica-web:e27c34b526fa70dd"
+  },
+  "source_images": {},
+  "copy_image_events": []
+}

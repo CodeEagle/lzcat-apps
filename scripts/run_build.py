@@ -210,7 +210,9 @@ def is_transient_copy_image_error(message: str) -> bool:
         "timed out",
         "temporarily unavailable",
         "connection reset",
+        "closed network connection",
         "econnreset",
+        "error pushing image",
         "socket hang up",
     )
     return any(marker in lowered for marker in transient_markers)
@@ -763,11 +765,17 @@ def copy_image_to_lazycat(source_image: str, env: dict[str, str]) -> tuple[str, 
                 announced_upload = True
         proc.wait()
         output = strip_ansi("".join(lines)).strip()
+        lowered_output = output.lower()
+        failed_copy = "failed to copyimage" in lowered_output or "error pushing image" in lowered_output
 
-        if proc.returncode == 0:
-            match = re.search(r"(registry\.lazycat\.cloud/[A-Za-z0-9_/.:-]+)", output)
-            if match:
-                target_image = match.group(1)
+        if proc.returncode == 0 and not failed_copy:
+            matches = [
+                match.group(1)
+                for match in re.finditer(r"(registry\.lazycat\.cloud/[A-Za-z0-9_/.:-]+)", output)
+                if "/blobs/uploads/" not in match.group(1)
+            ]
+            target_image = matches[-1] if matches else ""
+            if target_image:
                 elapsed = time.monotonic() - started
                 global _LAZYCAT_IMAGE_MAP_CACHE
                 if _LAZYCAT_IMAGE_MAP_CACHE is not None:
