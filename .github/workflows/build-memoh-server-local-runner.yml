@@ -7,7 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      IMAGE: registry.lazycat.cloud/invokerlaw/memohai/server:local-runner-${{ github.sha }}
+      IMAGE: "registry.lazycat.cloud/invokerlaw/memohai/server:local-runner-${{ github.sha }}"
 
     steps:
       - name: Checkout this repo
@@ -37,4 +37,5 @@ jobs:
           docker push $IMAGE
 
       - name: Output image
-        run: echo "Image pushed: $IMAGE"
+        run: |
+          echo "Image pushed: $IMAGE"
