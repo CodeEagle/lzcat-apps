@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "app": "better-ccflare",
+  "source_version": "v3.3.25",
+  "build_version": "3.3.25",
+  "head_sha": "f7473da58ee8",
+  "updated_at": "2026-04-08T12:37:57.164395+00:00",
+  "images": {
+    "better-ccflare": "registry.lazycat.cloud/invokerlaw/codeeagle/better-ccflare-lzcat:c4f7219f298a831a"
+  },
+  "source_images": {
+    "better-ccflare": "ghcr.io/codeeagle/better-ccflare-lzcat:f7473da58ee8"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/better-ccflare-lzcat:f7473da58ee8",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/better-ccflare-lzcat:c4f7219f298a831a",
+      "elapsed_seconds": 306.437,
+      "saw_waiting": true,
+      "saw_upload_started": true,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}
