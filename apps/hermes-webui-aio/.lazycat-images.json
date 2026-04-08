@@ -3,19 +3,19 @@
   "app": "hermes-webui-aio",
   "source_version": "e93009f",
   "build_version": "0.38.7",
-  "head_sha": "2e15297bab75",
-  "updated_at": "2026-04-08T21:22:12.277171+00:00",
+  "head_sha": "220e5b6634cf",
+  "updated_at": "2026-04-08T21:43:18.538258+00:00",
   "images": {
-    "hermes-webui": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-webui:2dea14dbbc9c34ee"
+    "hermes-webui": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-webui:ea96af472b7667b8"
   },
   "source_images": {
-    "hermes-webui": "ghcr.io/codeeagle/hermes-webui-hermes-webui:2e15297bab75"
+    "hermes-webui": "ghcr.io/codeeagle/hermes-webui-hermes-webui:220e5b6634cf"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/hermes-webui-hermes-webui:2e15297bab75",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-webui:2dea14dbbc9c34ee",
-      "elapsed_seconds": 90.871,
+      "source_image": "ghcr.io/codeeagle/hermes-webui-hermes-webui:220e5b6634cf",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-webui:ea96af472b7667b8",
+      "elapsed_seconds": 88.628,
       "saw_waiting": true,
       "saw_upload_started": true,
       "reused_existing": false,
