@@ -15,7 +15,7 @@
     {
       "target_service": "hermes-webui",
       "build_strategy": "upstream_with_target_template",
-      "dockerfile_path": "apps/hermes-webui-aio/Dockerfile.hermes-webui",
+      "dockerfile_path": "Dockerfile.hermes-webui",
       "source_dockerfile_path": "hermes-webui/Dockerfile",
       "build_context": ".",
       "build_args": {},
