@@ -3,21 +3,21 @@
   "app": "hermes-webui-aio",
   "source_version": "e93009f",
   "build_version": "0.38.7",
-  "head_sha": "30657716c874",
-  "updated_at": "2026-04-08T04:55:49.057105+00:00",
+  "head_sha": "e45c998ad0be",
+  "updated_at": "2026-04-08T07:11:49.745406+00:00",
   "images": {
-    "hermes-agent": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-agent:6b14d16390df8ff2",
-    "hermes-webui": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-webui:39a0cd22dfe13d39"
+    "hermes-agent": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-agent:a55ff86b0cdf55ba",
+    "hermes-webui": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-webui:ccb786959b5bb979"
   },
   "source_images": {
-    "hermes-agent": "ghcr.io/codeeagle/hermes-webui-hermes-agent:30657716c874",
-    "hermes-webui": "ghcr.io/codeeagle/hermes-webui-hermes-webui:30657716c874"
+    "hermes-agent": "ghcr.io/codeeagle/hermes-webui-hermes-agent:e45c998ad0be",
+    "hermes-webui": "ghcr.io/codeeagle/hermes-webui-hermes-webui:e45c998ad0be"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/hermes-webui-hermes-webui:30657716c874",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-webui:39a0cd22dfe13d39",
-      "elapsed_seconds": 27.323,
+      "source_image": "ghcr.io/codeeagle/hermes-webui-hermes-webui:e45c998ad0be",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-webui:ccb786959b5bb979",
+      "elapsed_seconds": 29.888,
       "saw_waiting": true,
       "saw_upload_started": true,
       "reused_existing": false,
@@ -25,9 +25,9 @@
       "kind": "service"
     },
     {
-      "source_image": "ghcr.io/codeeagle/hermes-webui-hermes-agent:30657716c874",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-agent:6b14d16390df8ff2",
-      "elapsed_seconds": 369.239,
+      "source_image": "ghcr.io/codeeagle/hermes-webui-hermes-agent:e45c998ad0be",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-agent:a55ff86b0cdf55ba",
+      "elapsed_seconds": 196.409,
       "saw_waiting": true,
       "saw_upload_started": true,
       "reused_existing": false,
