@@ -56,7 +56,6 @@ on:
           - "htmly"
           - "memoh"
           - "goclaw"
-          - "hermes-webui"
           - "hermes-webui-aio"
           # END AUTO-GENERATED APP OPTIONS
       target_version:
