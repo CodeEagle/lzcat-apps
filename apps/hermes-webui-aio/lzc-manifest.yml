@@ -18,15 +18,6 @@ application:
 services:
   hermes-webui:
     image: registry.lazycat.cloud/placeholder/hermes-webui:hermes-webui
-    depends_on:
-      - hermes-agent
-    entrypoint: /bin/sh
-    command: >-
-      -c "HASH=$(md5sum /opt/hermes-agent/requirements.txt 2>/dev/null | awk '{print $1}');
-      if [ \"$(cat /hermes-deps/.hash 2>/dev/null)\" != \"$HASH\" ]; then
-      pip install -q --target /hermes-deps -r /opt/hermes-agent/requirements.txt &&
-      echo $HASH > /hermes-deps/.hash; fi;
-      PYTHONPATH=/hermes-deps exec python /app/server.py"
     environment:
       - HERMES_WEBUI_HOST=0.0.0.0
       - HERMES_WEBUI_PORT=8787
@@ -34,17 +25,6 @@ services:
       - HERMES_WEBUI_AGENT_DIR=/opt/hermes-agent
     binds:
       - /lzcapp/var/data/hermes-webui/hermes-webui:/data
-      - /lzcapp/var/data/hermes-webui/hermes-code:/opt/hermes-agent
-      - /lzcapp/var/data/hermes-webui/hermes-deps:/hermes-deps
-  hermes-agent:
-    image: registry.lazycat.cloud/placeholder/hermes-agent:hermes-agent
-    entrypoint: /bin/sh
-    command: -c "cp -r /opt/hermes/. /agent-export/ && tail -f /dev/null"
-    environment:
-      - HERMES_HOME=/data/.hermes
-    binds:
-      - /lzcapp/var/data/hermes-webui/hermes-code:/agent-export
-      - /lzcapp/var/data/hermes-webui/hermes-agent-data:/data/.hermes
 locales:
   en:
     name: hermes-webui
