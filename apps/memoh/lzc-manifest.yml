@@ -59,6 +59,8 @@ services:
       - /lzcapp/var/data/memoh/server/containerd:/var/lib/containerd
       - /lzcapp/var/data/memoh/server/cni:/var/lib/cni
       - /lzcapp/var/data/memoh/server/data:/opt/memoh/data
+    environment:
+      - CONTAINER_BACKEND=local
     entrypoint: /bin/sh
     command: /lzcapp/pkg/content/memoh-server.sh
     healthcheck:
