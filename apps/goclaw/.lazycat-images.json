@@ -3,19 +3,19 @@
   "app": "goclaw",
   "source_version": "v2.67.4",
   "build_version": "2.67.4",
-  "head_sha": "560573ae0672",
-  "updated_at": "2026-04-08T04:05:27.506275+00:00",
+  "head_sha": "45c2fe81dc6d",
+  "updated_at": "2026-04-08T04:33:24.676249+00:00",
   "images": {
-    "goclaw": "registry.lazycat.cloud/invokerlaw/codeeagle/goclaw-goclaw:53818d16cc5d6ada"
+    "goclaw": "registry.lazycat.cloud/invokerlaw/codeeagle/goclaw-goclaw:6e44f2d59d1d89b8"
   },
   "source_images": {
-    "goclaw": "ghcr.io/codeeagle/goclaw-goclaw:560573ae0672"
+    "goclaw": "ghcr.io/codeeagle/goclaw-goclaw:45c2fe81dc6d"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/goclaw-goclaw:560573ae0672",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/goclaw-goclaw:53818d16cc5d6ada",
-      "elapsed_seconds": 71.462,
+      "source_image": "ghcr.io/codeeagle/goclaw-goclaw:45c2fe81dc6d",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/goclaw-goclaw:6e44f2d59d1d89b8",
+      "elapsed_seconds": 73.796,
       "saw_waiting": true,
       "saw_upload_started": true,
       "reused_existing": false,
