@@ -18,21 +18,25 @@ application:
 services:
   hermes-webui:
     image: registry.lazycat.cloud/placeholder/hermes-webui:hermes-webui
+    depends_on:
+      - hermes-agent
     environment:
       - HERMES_WEBUI_HOST=0.0.0.0
       - HERMES_WEBUI_PORT=8787
       - HERMES_WEBUI_STATE_DIR=/data
-      - HERMES_WEBUI_AGENT_DIR=/srv/hermes-agent
-      - HERMES_HOME=/srv/hermes-agent
+      - HERMES_WEBUI_AGENT_DIR=/opt/hermes-agent
     binds:
       - /lzcapp/var/data/hermes-webui/hermes-webui:/data
-      - /lzcapp/var/data/hermes-webui/hermes-agent-config:/srv/hermes-agent
+      - /lzcapp/var/data/hermes-webui/hermes-code:/opt/hermes-agent
   hermes-agent:
     image: registry.lazycat.cloud/placeholder/hermes-agent:hermes-agent
+    entrypoint: /bin/sh
+    command: -c "cp -r /opt/hermes/. /agent-export/ && tail -f /dev/null"
     environment:
       - HERMES_HOME=/data/.hermes
     binds:
-      - /lzcapp/var/data/hermes-webui/hermes-agent-config:/data/.hermes
+      - /lzcapp/var/data/hermes-webui/hermes-code:/agent-export
+      - /lzcapp/var/data/hermes-webui/hermes-agent-data:/data/.hermes
 locales:
   en:
     name: hermes-webui
