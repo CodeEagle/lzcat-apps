@@ -24,6 +24,10 @@ services:
       - HERMES_WEBUI_STATE_DIR=/data
     binds:
       - /lzcapp/var/data/hermes-webui/hermes-webui:/data
+  hermes-agent:
+    image: registry.lazycat.cloud/placeholder/hermes-agent:hermes-agent
+    environment: []
+    binds: []
 locales:
   en:
     name: hermes-webui
