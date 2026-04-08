@@ -1,7 +1,7 @@
 {
   "upstream_repo": "apache/airflow",
-  "source_version": "helm-chart/1.20.0",
-  "build_version": "1.20.0",
-  "build_label": "helm-chart/1.20.0@20260323T012225Z",
-  "last_checked_at": "2026-03-23T01:22:25.488824+00:00"
+  "source_version": "3.2.0",
+  "build_version": "3.2.0",
+  "build_label": "3.2.0@20260408T091317Z",
+  "last_checked_at": "2026-04-08T09:13:17.191244+00:00"
 }
