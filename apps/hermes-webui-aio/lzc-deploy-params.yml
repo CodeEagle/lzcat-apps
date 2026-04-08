@@ -32,4 +32,3 @@ params:
     name: Default Model
     description: "默认对话模型 ID，例如：anthropic/claude-sonnet-4-5（OpenRouter 格式）或 claude-sonnet-4-5（Anthropic 直连）。留空则使用 hermes 内置默认值。"
     default_value: ""
-    optional: true

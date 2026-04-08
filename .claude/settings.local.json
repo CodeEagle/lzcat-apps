@@ -30,7 +30,14 @@
       "Bash(lzc-cli help:*)",
       "Bash(lzc-cli box:*)",
       "Bash(lzc-cli project:*)",
-      "Bash(./scripts/local_build.sh hermes-webui-aio:*)"
+      "Bash(./scripts/local_build.sh hermes-webui-aio:*)",
+      "Bash(gh run:*)",
+      "Bash(lzc --help)",
+      "Bash(PKG_ID=\"fun.selfstudio.app.migration.hermes-webui\")",
+      "Read(//private/tmp/**)",
+      "Bash(cp /tmp/lpk-dl/hermes-webui-aio.lpk hermes-webui-aio.zip)",
+      "Bash(unzip -l hermes-webui-aio.zip)",
+      "Bash(unzip -p hermes-webui-aio.zip deploy_params.yml)"
     ]
   }
 }
