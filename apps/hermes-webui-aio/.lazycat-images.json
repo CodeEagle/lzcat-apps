@@ -3,35 +3,23 @@
   "app": "hermes-webui-aio",
   "source_version": "e93009f",
   "build_version": "0.38.7",
-  "head_sha": "b7b734a824eb",
-  "updated_at": "2026-04-08T14:02:50.647767+00:00",
+  "head_sha": "2e15297bab75",
+  "updated_at": "2026-04-08T21:22:12.277171+00:00",
   "images": {
-    "hermes-agent": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-agent:468fd6816c60cabf",
-    "hermes-webui": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-webui:ad84b703688d0d24"
+    "hermes-webui": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-webui:2dea14dbbc9c34ee"
   },
   "source_images": {
-    "hermes-agent": "ghcr.io/codeeagle/hermes-webui-hermes-agent:b7b734a824eb",
-    "hermes-webui": "ghcr.io/codeeagle/hermes-webui-hermes-webui:b7b734a824eb"
+    "hermes-webui": "ghcr.io/codeeagle/hermes-webui-hermes-webui:2e15297bab75"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/hermes-webui-hermes-webui:b7b734a824eb",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-webui:ad84b703688d0d24",
-      "elapsed_seconds": 274.563,
+      "source_image": "ghcr.io/codeeagle/hermes-webui-hermes-webui:2e15297bab75",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-webui:2dea14dbbc9c34ee",
+      "elapsed_seconds": 90.871,
       "saw_waiting": true,
       "saw_upload_started": true,
       "reused_existing": false,
       "service": "hermes-webui",
-      "kind": "service"
-    },
-    {
-      "source_image": "ghcr.io/codeeagle/hermes-webui-hermes-agent:b7b734a824eb",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-agent:468fd6816c60cabf",
-      "elapsed_seconds": 2481.299,
-      "saw_waiting": true,
-      "saw_upload_started": true,
-      "reused_existing": false,
-      "service": "hermes-agent",
       "kind": "service"
     }
   ]
