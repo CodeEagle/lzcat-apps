@@ -1097,9 +1097,24 @@ def resolve_image_owner(config: dict[str, Any], env: dict[str, str]) -> str:
     return str(config.get("image_owner", "")).strip() or env.get("GITHUB_REPOSITORY_OWNER", "CodeEagle")
 
 
+UNIFIED_IMAGE_REPO = "lazycatimages"
+
+
+def to_camel_case(name: str) -> str:
+    """Convert kebab-case / snake_case name to camelCase (no underscores).
+
+    Examples: edit-banana -> editBanana, deer-flow-frontend -> deerFlowFrontend
+    """
+    parts = re.split(r"[-_]+", name.strip())
+    if not parts:
+        return name
+    return parts[0].lower() + "".join(p.capitalize() for p in parts[1:])
+
+
 def compute_target_image(owner: str, image_name: str, head_sha: str) -> str:
     owner_lower = owner.lower()
-    return f"ghcr.io/{owner_lower}/{image_name.lower()}:{head_sha[:12]}"
+    camel_name = to_camel_case(image_name)
+    return f"ghcr.io/{owner_lower}/{UNIFIED_IMAGE_REPO}:{camel_name}_{head_sha[:12]}"
 
 
 def copy_overlay_paths(repo_dir: Path, build_root: Path, overlay_paths: list[str]) -> None:
@@ -1128,9 +1143,9 @@ def build_target_image(
     *,
     dry_run: bool = False,
 ) -> str:
-    name_lower = str(config.get("image_name", "")).strip().lower() or app_name.lower()
+    image_name = str(config.get("image_name", "")).strip() or app_name
     image_owner = resolve_image_owner(config, env)
-    target_image = compute_target_image(image_owner, name_lower, head_sha)
+    target_image = compute_target_image(image_owner, image_name, head_sha)
     build_strategy = str(config.get("build_strategy", "")).strip()
     docker_platform = str(config.get("docker_platform", "")).strip()
     build_args = dict(config.get("build_args", {}))
