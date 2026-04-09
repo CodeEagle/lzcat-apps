@@ -374,15 +374,41 @@ def clone_repo(repo: str, token: str, destination: Path) -> tuple[str, str]:
     owner, name = repo.split("/", 1)
     url = f"https://x-access-token:{token}@github.com/{owner}/{name}.git"
     log(f"Cloning {repo}...")
-    sh(["git", "clone", url, str(destination)], capture=False)
+    sh(["git", "clone", "--depth", "1", "--filter=blob:none", url, str(destination)], capture=False)
     branch = sh(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=destination)
     head_sha = sh(["git", "rev-parse", "HEAD"], cwd=destination)
     return branch, head_sha
 
 
+def clone_upstream_repo(upstream_repo: str, destination: Path, env: dict[str, str]) -> None:
+    run_streaming(
+        [
+            "git",
+            "clone",
+            "--depth",
+            "1",
+            "--filter=blob:none",
+            "--recurse-submodules",
+            "--shallow-submodules",
+            f"https://github.com/{upstream_repo}.git",
+            str(destination),
+        ],
+        env=env,
+        label=f"git clone {upstream_repo}",
+        inactivity_timeout=parse_int_env(env, "LZCAT_CLONE_INACTIVITY_TIMEOUT", 1800),
+        heartbeat_interval=parse_int_env(env, "LZCAT_CLONE_HEARTBEAT_INTERVAL", 60),
+    )
+
+
 def resolve_container_cli(env: dict[str, str]) -> str:
     cli = str(env.get("LZCAT_CONTAINER_CLI", "")).strip()
-    return cli or "docker"
+    if cli:
+        return cli
+    if shutil.which("docker"):
+        return "docker"
+    if shutil.which("podman"):
+        return "podman"
+    return "docker"
 
 
 def docker_login_ghcr(env: dict[str, str]) -> None:
@@ -946,6 +972,24 @@ def checkout_source_ref(source_root: Path, source_ref: str, env: dict[str, str])
         if attempt.returncode == 0:
             return
         subprocess.run(
+            ["git", "fetch", "--depth", "1", "origin", f"refs/tags/{candidate}:refs/tags/{candidate}"],
+            cwd=source_root,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        attempt = subprocess.run(
+            ["git", "checkout", candidate],
+            cwd=source_root,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if attempt.returncode == 0:
+            return
+        subprocess.run(
             ["git", "fetch", "--depth", "1", "origin", candidate],
             cwd=source_root,
             env=env,
@@ -1193,7 +1237,7 @@ def build_target_image(
     keep_source_root = False
     try:
         log(f"Cloning upstream: {upstream_repo}")
-        sh(["git", "clone", "--recurse-submodules", f"https://github.com/{upstream_repo}.git", str(source_root)], env=env, capture=False)
+        clone_upstream_repo(upstream_repo, source_root, env)
         checkout_source_ref(source_root, source_version, env)
         if build_strategy == "upstream_with_target_template":
             template_path = repo_dir / str(config.get("dockerfile_path", "Dockerfile.template"))
@@ -1267,7 +1311,7 @@ def build_service_images(
     keep_source_root = False
     try:
         log(f"Cloning upstream: {upstream_repo}")
-        sh(["git", "clone", "--recurse-submodules", f"https://github.com/{upstream_repo}.git", str(source_root)], env=env, capture=False)
+        clone_upstream_repo(upstream_repo, source_root, env)
         checkout_source_ref(source_root, source_version, env)
 
         built_images: dict[str, str] = {}

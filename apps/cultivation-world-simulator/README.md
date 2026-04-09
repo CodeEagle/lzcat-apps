@@ -5,7 +5,7 @@
 ## 上游项目
 - Upstream Repo: 4thfever/cultivation-world-simulator
 - Homepage: https://github.com/4thfever/cultivation-world-simulator
-- License: NOASSERTION
+- License: CC-BY-NC-SA-4.0
 - Author: 4thfever
 - Version Strategy: `github_release` -> 当前初稿版本 `2.4.0`
 
@@ -35,18 +35,17 @@
 
 | 宿主路径 | 容器路径 | 说明 |
 | --- | --- | --- |
-| /lzcapp/var/data/cultivation-world-simulator/backend | /data | From compose service backend |
+| /lzcapp/var/data/cultivation-world-simulator/backend | /data | Holds settings, secrets, saves, logs, cache, and incompatible backups via `CWS_DATA_DIR`. |
 
 ## 首次启动/验收提醒
 
-- 自动扫描到 compose 文件：docker-compose.yml
-- 主服务推断为 `frontend`，入口端口 `80`。
-- 未扫描到 env 示例文件
-- 扫描到 README：README.md, README.md, README_MIGRATION.md
+- 上游是双服务拓扑：FastAPI backend(`8002`) + Nginx frontend(`80`)。
+- 首次启动后需要先在设置页配置 LLM provider、API key 和模型，再开始新游戏。
+- 后端通过 `CWS_DATA_DIR=/data` 统一持久化 `settings.json`、`secrets.json`、`saves/`、`logs/`、`cache/`、`incompatible/`。
+- 无数据库、Redis 或管理员 bootstrap；外部依赖主要是用户自行配置的 LLM/OpenAI 兼容接口。
 
 ## 下一步
 
-1. 补完 `UPSTREAM_DEPLOYMENT_CHECKLIST.md`，把真实入口、环境变量、写路径和初始化动作全部核实清楚。
-2. 按真实部署拓扑修正 `lzc-manifest.yml`，不要直接沿用占位镜像、端口或命令。
-3. 如果是源码构建，补齐 `Dockerfile` / `Dockerfile.template`、`content/`、`overlay_paths` 等资产。
-4. 初稿补全后执行 `./scripts/local_build.sh cultivation-world-simulator --check-only`，再进入实际构建与验收。
+1. 等待 `scripts/local_build.sh cultivation-world-simulator --no-dry-run --force-build` 完成，产出 `.lazycat-images.json` 和 `.lpk`。
+2. 若构建成功，核对 release 包内最终 `manifest.yml` 是否仍保持双服务拓扑和正确镜像映射。
+3. 具备设备安装条件后执行安装验收，确认首页可访问、`/api/v1/query/runtime/status` 可用、设置页可保存 LLM 配置。
