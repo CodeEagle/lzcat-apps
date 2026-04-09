@@ -1,27 +1,27 @@
 {
   "schema_version": 1,
   "app": "deer-flow",
-  "source_version": "ad6d934",
-  "build_version": "0.1.28",
-  "head_sha": "dcb5f9af82d5",
-  "updated_at": "2026-04-09T01:03:01.054651+00:00",
+  "source_version": "6572fa5",
+  "build_version": "0.1.29",
+  "head_sha": "60e65fd69782",
+  "updated_at": "2026-04-09T13:44:01.586266+00:00",
   "images": {
-    "frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-frontend:026242e8f62d92e2",
-    "gateway": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-gateway:9220cfc968d7f834",
-    "langgraph": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-langgraph:f2b23f266347b777",
+    "frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-frontend:86584155d714078d",
+    "gateway": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-gateway:6c4e9494310b93d3",
+    "langgraph": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-langgraph:c4c001bfd48b5a2a",
     "nginx": "registry.lazycat.cloud/invokerlaw/library/nginx:f14898f5b3ebfb0b"
   },
   "source_images": {
-    "frontend": "ghcr.io/codeeagle/deer-flow-frontend:dcb5f9af82d5",
-    "gateway": "ghcr.io/codeeagle/deer-flow-gateway:dcb5f9af82d5",
-    "langgraph": "ghcr.io/codeeagle/deer-flow-langgraph:dcb5f9af82d5",
+    "frontend": "ghcr.io/codeeagle/deer-flow-frontend:60e65fd69782",
+    "gateway": "ghcr.io/codeeagle/deer-flow-gateway:60e65fd69782",
+    "langgraph": "ghcr.io/codeeagle/deer-flow-langgraph:60e65fd69782",
     "nginx": "nginx:alpine"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/deer-flow-frontend:dcb5f9af82d5",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-frontend:026242e8f62d92e2",
-      "elapsed_seconds": 118.935,
+      "source_image": "ghcr.io/codeeagle/deer-flow-frontend:60e65fd69782",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-frontend:86584155d714078d",
+      "elapsed_seconds": 2101.15,
       "saw_waiting": true,
       "saw_upload_started": true,
       "reused_existing": false,
@@ -29,9 +29,9 @@
       "kind": "service"
     },
     {
-      "source_image": "ghcr.io/codeeagle/deer-flow-gateway:dcb5f9af82d5",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-gateway:9220cfc968d7f834",
-      "elapsed_seconds": 130.81,
+      "source_image": "ghcr.io/codeeagle/deer-flow-gateway:60e65fd69782",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-gateway:6c4e9494310b93d3",
+      "elapsed_seconds": 605.838,
       "saw_waiting": true,
       "saw_upload_started": true,
       "reused_existing": false,
@@ -39,9 +39,9 @@
       "kind": "service"
     },
     {
-      "source_image": "ghcr.io/codeeagle/deer-flow-langgraph:dcb5f9af82d5",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-langgraph:f2b23f266347b777",
-      "elapsed_seconds": 79.814,
+      "source_image": "ghcr.io/codeeagle/deer-flow-langgraph:60e65fd69782",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-langgraph:c4c001bfd48b5a2a",
+      "elapsed_seconds": 724.837,
       "saw_waiting": true,
       "saw_upload_started": true,
       "reused_existing": false,

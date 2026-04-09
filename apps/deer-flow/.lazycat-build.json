@@ -1,7 +1,7 @@
 {
   "upstream_repo": "bytedance/deer-flow",
-  "source_version": "ad6d934",
-  "build_version": "0.1.28",
-  "build_label": "ad6d934@20260409T010301Z",
-  "last_checked_at": "2026-04-09T01:03:01.055026+00:00"
+  "source_version": "6572fa5",
+  "build_version": "0.1.29",
+  "build_label": "6572fa5@20260409T134401Z",
+  "last_checked_at": "2026-04-09T13:44:01.586644+00:00"
 }
