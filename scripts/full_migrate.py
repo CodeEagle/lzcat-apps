@@ -136,6 +136,7 @@ SOURCE_BUILD_STRATEGIES = {
 }
 DEFAULT_AIPOD_GATEWAY_IMAGE = "registry.lazycat.cloud/catdogai/caddy-aipod:65e058ce"
 FRONTEND_HINT_DIRS = ("web", "frontend", "ui", "site", "app", "demo")
+FRONTEND_GATEWAY_LOCATIONS = ("/api", "/ws", "/assets")
 BOX_CONFIG_PATH = Path.home() / ".config" / "lazycat" / "box-config.json"
 MAX_ICON_BYTES = 200 * 1024
 
@@ -186,6 +187,14 @@ class BuildExecutionResult:
 @dataclass
 class StepState:
     current_step: int = 1
+
+
+@dataclass(frozen=True)
+class ComposeProxyFrontendInfo:
+    config_path: Path
+    backend_services: tuple[str, ...]
+    locations: tuple[str, ...]
+
 BUILD_MODES = ("auto", "build", "install", "reinstall", "validate-only")
 
 
@@ -974,10 +983,18 @@ def dedupe_data_paths(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(seen.values())
 
 
-def infer_compose_upstreams(primary_name: str, primary_port: int, services: dict[str, Any]) -> list[dict[str, str]]:
+def infer_compose_upstreams(
+    primary_name: str,
+    primary_port: int,
+    services: dict[str, Any],
+    *,
+    frontend_gateway: ComposeProxyFrontendInfo | None = None,
+) -> list[dict[str, str]]:
     upstreams: list[dict[str, str]] = [
         {"location": "/", "backend": f"http://{primary_name}:{primary_port}/"}
     ]
+    if frontend_gateway:
+        return upstreams
     for service_name, payload in services.items():
         if service_name == primary_name or not isinstance(payload, dict):
             continue
@@ -999,6 +1016,124 @@ def infer_compose_upstreams(primary_name: str, primary_port: int, services: dict
         seen.add(location)
         deduped.append(item)
     return deduped
+
+
+def compose_build_context_dir(source_root: Path, compose_file: Path, payload: dict[str, Any]) -> Path | None:
+    raw_build = payload.get("build")
+    if not raw_build:
+        return None
+    build_info = raw_build if isinstance(raw_build, dict) else {"context": str(raw_build)}
+    context_rel = str(build_info.get("context") or ".").strip()
+    candidate = (compose_file.parent / context_rel).resolve()
+    try:
+        candidate.relative_to(source_root.resolve())
+    except ValueError:
+        return None
+    return candidate
+
+
+def read_candidate_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return ""
+
+
+def iter_frontend_gateway_config_candidates(
+    source_root: Path,
+    compose_file: Path,
+    service_name: str,
+    payload: dict[str, Any],
+) -> list[Path]:
+    candidates: list[Path] = []
+    seen: set[Path] = set()
+
+    def add_path(path: Path) -> None:
+        if not path.exists() or path in seen:
+            return
+        seen.add(path)
+        candidates.append(path)
+
+    build_context = compose_build_context_dir(source_root, compose_file, payload)
+    search_roots: list[Path] = []
+    if build_context:
+        search_roots.append(build_context)
+    service_dir = source_root / service_name
+    if service_dir.exists():
+        search_roots.append(service_dir)
+    for hint in FRONTEND_HINT_DIRS:
+        candidate = source_root / hint
+        if candidate.exists():
+            search_roots.append(candidate)
+
+    for root in search_roots:
+        add_path(root / "vite.config.ts")
+        add_path(root / "vite.config.js")
+        add_path(root / "vite.config.mjs")
+        add_path(root / "vite.config.cjs")
+        add_path(root / "nginx.conf")
+        add_path(root / "default.conf")
+        add_path(root / "Caddyfile")
+        deploy_dir = root / "deploy"
+        if deploy_dir.exists():
+            for pattern in ("*.conf", "*.conf.template", "*.template", "Caddyfile"):
+                for matched in sorted(deploy_dir.glob(pattern))[:8]:
+                    add_path(matched)
+        nginx_dir = root / "nginx"
+        if nginx_dir.exists():
+            for pattern in ("*.conf", "*.conf.template", "*.template"):
+                for matched in sorted(nginx_dir.glob(pattern))[:8]:
+                    add_path(matched)
+    return candidates
+
+
+def detect_proxy_locations_in_text(text: str, backend_services: set[str]) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    lowered = text.lower()
+    locations = tuple(location for location in FRONTEND_GATEWAY_LOCATIONS if location in lowered)
+    if not locations:
+        return (), ()
+
+    matched_services: list[str] = []
+    for service_name in sorted(backend_services):
+        service_pattern = re.compile(rf"https?://{re.escape(service_name)}(?::\d+)?", re.IGNORECASE)
+        if service_pattern.search(text):
+            matched_services.append(service_name)
+    return tuple(dict.fromkeys(locations)), tuple(dict.fromkeys(matched_services))
+
+
+def detect_compose_frontend_gateway(
+    source_root: Path,
+    compose_file: Path,
+    primary_name: str,
+    primary_service: dict[str, Any],
+    services: dict[str, Any],
+) -> ComposeProxyFrontendInfo | None:
+    backend_services = {
+        service_name
+        for service_name, payload in services.items()
+        if service_name != primary_name and isinstance(payload, dict)
+    }
+    if not backend_services:
+        return None
+
+    primary_name_lower = primary_name.lower()
+    frontend_like = any(token in primary_name_lower for token in ("web", "frontend", "ui", "nginx", "site", "app"))
+    config_candidates = iter_frontend_gateway_config_candidates(source_root, compose_file, primary_name, primary_service)
+    for candidate in config_candidates:
+        text = read_candidate_text(candidate)
+        if not text:
+            continue
+        locations, matched_services = detect_proxy_locations_in_text(text, backend_services)
+        if not locations or not matched_services:
+            continue
+        if not frontend_like and "proxy_pass" not in text and "server.proxy" not in text and "proxy:" not in text:
+            continue
+        return ComposeProxyFrontendInfo(
+            config_path=candidate,
+            backend_services=matched_services,
+            locations=locations,
+        )
+    return None
 
 
 def rewrite_public_url_envs(environment: list[str], slug: str) -> list[str]:
@@ -1326,6 +1461,7 @@ def choose_route_for_compose(
     official_image_registry = ""
     dockerfile_path = ""
     env_defaults = env_defaults_map(parse_env_files(env_files))
+    frontend_gateway = detect_compose_frontend_gateway(source_root, compose_file, primary_name, primary_service, services)
 
     build_services: dict[str, dict[str, Any]] = {}
 
@@ -1437,6 +1573,8 @@ def choose_route_for_compose(
             service_payload["binds"] = binds
 
         depends = compose_depends_on(payload)
+        if frontend_gateway and service_name == primary_name:
+            depends = []
         if depends:
             service_payload["depends_on"] = depends
 
@@ -1459,7 +1597,12 @@ def choose_route_for_compose(
     application = {
         "subdomain": slug,
         "public_path": ["/"],
-        "upstreams": infer_compose_upstreams(primary_name, primary_port, services),
+        "upstreams": infer_compose_upstreams(
+            primary_name,
+            primary_port,
+            services,
+            frontend_gateway=frontend_gateway,
+        ),
     }
 
     version = str(meta.get("version", "") or "").strip()
@@ -1471,6 +1614,19 @@ def choose_route_for_compose(
         f"自动扫描到 compose 文件：{compose_file.name}",
         f"主服务推断为 `{primary_name}`，入口端口 `{primary_port}`。",
     ]
+    if frontend_gateway:
+        try:
+            config_rel = frontend_gateway.config_path.relative_to(source_root)
+        except ValueError:
+            config_rel = frontend_gateway.config_path
+        proxied_paths = ", ".join(frontend_gateway.locations)
+        proxied_services = ", ".join(frontend_gateway.backend_services)
+        startup_notes.append(
+            "检测到主入口前端已在 "
+            f"`{config_rel}` 里反代 {proxied_paths} 到 `{proxied_services}`，"
+            "LazyCat 外层只保留 `/ -> frontend`，避免重复声明 `/api/` 导致路由语义偏移。"
+        )
+        startup_notes.append("已省略 frontend 对 backend 的 `depends_on`，避免平台把静态入口健康度耦合到后端启动时序。")
     if dependencies:
         startup_notes.append("依赖服务镜像已写入 dependencies，首次完整构建时会自动 copy-image。")
 
