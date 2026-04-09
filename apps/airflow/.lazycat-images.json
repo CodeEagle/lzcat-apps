@@ -3,8 +3,8 @@
   "app": "airflow",
   "source_version": "3.2.0",
   "build_version": "3.2.0",
-  "head_sha": "30657716c874",
-  "updated_at": "2026-04-08T09:13:17.191029+00:00",
+  "head_sha": "14a952e7e17f",
+  "updated_at": "2026-04-09T03:05:59.402614+00:00",
   "images": {
     "airflow-api-server": "registry.lazycat.cloud/invokerlaw/apache/airflow:36baddd3fd6a5713",
     "airflow-dag-processor": "registry.lazycat.cloud/invokerlaw/apache/airflow:36baddd3fd6a5713",

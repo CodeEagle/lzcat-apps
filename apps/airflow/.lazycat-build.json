@@ -2,6 +2,6 @@
   "upstream_repo": "apache/airflow",
   "source_version": "3.2.0",
   "build_version": "3.2.0",
-  "build_label": "3.2.0@20260408T091317Z",
-  "last_checked_at": "2026-04-08T09:13:17.191244+00:00"
+  "build_label": "3.2.0@20260409T030559Z",
+  "last_checked_at": "2026-04-09T03:05:59.402928+00:00"
 }
