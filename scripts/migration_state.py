@@ -38,10 +38,7 @@ def new_empty_state(source_input: str) -> dict[str, Any]:
 
 def save_state(app_dir: Path, state: dict[str, Any]) -> None:
     """Atomically write state (write .tmp then os.replace). Auto-update updated_at."""
-    state = {
-        **state,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    }
+    state["updated_at"] = datetime.now(timezone.utc).isoformat()
     target = app_dir / STATE_FILENAME
     tmp = target.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
