@@ -1325,6 +1325,7 @@ def build_service_images(
             build_args = dict(global_build_args)
             build_args.update(dict(item.get("build_args", {})))
             build_context = str(item.get("build_context") or ".").strip()
+            overlay_paths = [str(path).strip() for path in item.get("overlay_paths", []) if str(path).strip()]
             image_owner = str(item.get("image_owner", "")).strip() or resolve_image_owner(config, env)
             target_image = compute_target_image(image_owner, image_name, head_sha)
 
@@ -1342,6 +1343,7 @@ def build_service_images(
                 destination = source_root / output_rel
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 destination.write_text(content)
+                copy_overlay_paths(repo_dir, source_root, overlay_paths)
                 dockerfile_rel = output_rel
             else:
                 dockerfile_rel = str(

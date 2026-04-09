@@ -28,6 +28,10 @@
       "dockerfile_path": "Dockerfile.frontend.template",
       "source_dockerfile_path": "deploy/Dockerfile.frontend",
       "build_context": ".",
+      "overlay_paths": [
+        "nginx.default.conf.template",
+        "nginx-resolver.envsh"
+      ],
       "build_args": {},
       "image_name": "cultivation-world-simulator-frontend"
     }
