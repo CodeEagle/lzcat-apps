@@ -585,6 +585,7 @@ def write_image_state(
     head_sha: str,
     service_images: dict[str, str],
     source_images: dict[str, str],
+    source_digests: dict[str, str],
     copy_image_events: list[dict[str, Any]],
 ) -> None:
     path.write_text(
@@ -598,6 +599,7 @@ def write_image_state(
                 "updated_at": datetime.now(timezone.utc).isoformat(),
                 "images": dict(sorted(service_images.items())),
                 "source_images": dict(sorted(source_images.items())),
+                "source_digests": dict(sorted(source_digests.items())),
                 "copy_image_events": copy_image_events,
             },
             ensure_ascii=True,
@@ -743,6 +745,14 @@ def ensure_registry_anonymous_pullable(image: str) -> None:
         ) from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Anonymous pull preflight failed for {image}: {exc}") from exc
+
+
+def get_image_digest(image: str) -> str:
+    """Get the local Docker image ID (content hash) for deduplication."""
+    try:
+        return sh(["docker", "inspect", "--format", "{{.Id}}", image]).strip()
+    except RuntimeError:
+        return ""
 
 
 def copy_image_to_lazycat(source_image: str, env: dict[str, str]) -> tuple[str, dict[str, Any]]:
@@ -1517,7 +1527,11 @@ def main() -> int:
 
         resolved_service_images: dict[str, str] = {}
         source_service_images: dict[str, str] = {}
+        source_service_digests: dict[str, str] = {}
         copy_image_events: list[dict[str, Any]] = []
+        prev_image_state = load_image_state(image_state_path) if image_state_path else {}
+        prev_images = prev_image_state.get("images", {}) if isinstance(prev_image_state, dict) else {}
+        prev_digests = prev_image_state.get("source_digests", {}) if isinstance(prev_image_state, dict) else {}
         if args.skip_docker:
             assert image_state_path is not None
             resolved_service_images = load_image_overrides(image_state_path)
@@ -1552,14 +1566,36 @@ def main() -> int:
                 write_report(report, report_path)
                 accelerated_images: dict[str, str] = {}
                 for target_service, built_image in built_images.items():
+                    source_service_digests[target_service] = get_image_digest(built_image)
                     if args.dry_run:
                         accelerated_images[target_service] = f"registry.lazycat.cloud/dry-run/{app_name.lower()}-{target_service}:dry-run"
                     else:
-                        log(f"[{app_name}] Phase: copy_image -> {target_service}")
-                        accelerated_images[target_service], copy_event = copy_image_to_lazycat(built_image, env)
-                        copy_event["service"] = target_service
-                        copy_event["kind"] = "service"
-                        copy_image_events.append(copy_event)
+                        cur_digest = source_service_digests[target_service]
+                        prev_digest = prev_digests.get(target_service, "")
+                        prev_lazycat_url = prev_images.get(target_service, "")
+                        if cur_digest and prev_digest and cur_digest == prev_digest and prev_lazycat_url:
+                            log(
+                                f"[{app_name}] [DIGEST MATCH] {target_service}: image unchanged, "
+                                f"reusing {prev_lazycat_url}"
+                            )
+                            accelerated_images[target_service] = prev_lazycat_url
+                            copy_image_events.append({
+                                "source_image": built_image,
+                                "target_image": prev_lazycat_url,
+                                "elapsed_seconds": 0.0,
+                                "saw_waiting": False,
+                                "saw_upload_started": False,
+                                "reused_existing": True,
+                                "reused_by_digest": True,
+                                "service": target_service,
+                                "kind": "service",
+                            })
+                        else:
+                            log(f"[{app_name}] Phase: copy_image -> {target_service}")
+                            accelerated_images[target_service], copy_event = copy_image_to_lazycat(built_image, env)
+                            copy_event["service"] = target_service
+                            copy_event["kind"] = "service"
+                            copy_image_events.append(copy_event)
                         report["copy_image_events"] = copy_image_events
                         write_report(report, report_path)
                     item = next(
@@ -1580,6 +1616,8 @@ def main() -> int:
                 target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name, dry_run=args.dry_run)
                 report["target_image"] = target_image
                 write_report(report, report_path)
+                cur_digest = get_image_digest(target_image)
+                source_service_digests["_primary"] = cur_digest
 
                 report["phase"] = "copy_image"
                 write_report(report, report_path)
@@ -1587,10 +1625,33 @@ def main() -> int:
                     log(f"[{app_name}] [DRY RUN] Skipping copy-image, using placeholder URL")
                     accelerated_url = f"registry.lazycat.cloud/dry-run/{app_name.lower()}:dry-run"
                 else:
-                    log(f"[{app_name}] Phase: copy_image")
-                    accelerated_url, copy_event = copy_image_to_lazycat(target_image, env)
-                    copy_event["kind"] = "primary"
-                    copy_image_events.append(copy_event)
+                    prev_digest = prev_digests.get("_primary", "")
+                    prev_primary_urls = [
+                        url for url in prev_images.values()
+                        if url and url.startswith("registry.lazycat.cloud/")
+                    ]
+                    prev_primary_url = prev_primary_urls[0] if prev_primary_urls else ""
+                    if cur_digest and prev_digest and cur_digest == prev_digest and prev_primary_url:
+                        log(
+                            f"[{app_name}] [DIGEST MATCH] primary image unchanged, "
+                            f"reusing {prev_primary_url}"
+                        )
+                        accelerated_url = prev_primary_url
+                        copy_image_events.append({
+                            "source_image": target_image,
+                            "target_image": prev_primary_url,
+                            "elapsed_seconds": 0.0,
+                            "saw_waiting": False,
+                            "saw_upload_started": False,
+                            "reused_existing": True,
+                            "reused_by_digest": True,
+                            "kind": "primary",
+                        })
+                    else:
+                        log(f"[{app_name}] Phase: copy_image")
+                        accelerated_url, copy_event = copy_image_to_lazycat(target_image, env)
+                        copy_event["kind"] = "primary"
+                        copy_image_events.append(copy_event)
                     report["copy_image_events"] = copy_image_events
                     write_report(report, report_path)
                 report["accelerated_image"] = accelerated_url
@@ -1665,6 +1726,7 @@ def main() -> int:
                 head_sha=head_sha,
                 service_images=resolved_service_images,
                 source_images=source_service_images,
+                source_digests=source_service_digests,
                 copy_image_events=copy_image_events,
             )
             report["image_state_path"] = str(image_state_path)
