@@ -52,7 +52,7 @@ services:
       - GOCLAW_CONFIG=/app/data/config.json
       - GOCLAW_GATEWAY_TOKEN=
       - GOCLAW_ENCRYPTION_KEY=
-      - GOCLAW_POSTGRES_DSN=postgres://postgres:postgres@postgres:5432/goclaw?sslmode=disable
+      - GOCLAW_POSTGRES_DSN=postgres://postgres:postgres@172.28.2.195:5432/goclaw?sslmode=disable
       - GOCLAW_SKILLS_DIR=/app/data/skills
       - GOCLAW_TRACE_VERBOSE=0
     binds:
