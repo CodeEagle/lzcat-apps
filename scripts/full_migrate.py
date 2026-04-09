@@ -21,6 +21,7 @@ from typing import Any
 from urllib import error, request
 
 import bootstrap_migration as bm
+import migration_state as ms
 
 INFRA_KEYWORDS = {
     "db",
@@ -6099,6 +6100,29 @@ def main() -> int:
     cleanup = lambda: None
     step_state = StepState()
 
+    # --- State management ---
+    existing_state = None
+    resolved_app_dir: Path | None = None
+    if not args.force and not getattr(args, 'verify', False):
+        found = ms.find_state_by_source(repo_root / "apps", args.source)
+        if found:
+            resolved_app_dir, existing_state = found
+
+    if args.resume_from is not None:
+        start_step = args.resume_from
+    elif args.resume and existing_state:
+        start_step = ms.get_last_completed_step(existing_state) + 1
+    elif existing_state and not args.force:
+        start_step = ms.get_last_completed_step(existing_state) + 1
+    else:
+        start_step = 1
+
+    state = existing_state if existing_state else ms.new_empty_state(args.source)
+    app_dir: Path | None = resolved_app_dir
+
+    # Will be populated in Step 3 or restored from state
+    finalized: dict | None = None
+
     requested_build_mode = "validate-only" if args.no_build else args.build_mode
     step1_outputs = [f"source={args.source}", f"kind={normalized.kind}", f"build_mode={requested_build_mode}"]
     if gh_token_source:
@@ -6121,6 +6145,20 @@ def main() -> int:
             risks=step1_risks,
             next_step="进入 [2/10] 选择移植路线",
         )
+        # Persist to state
+        state["context"]["source"] = {
+            "kind": normalized.kind,
+            "url": normalized.source,
+            "upstream_repo": normalized.upstream_repo,
+            "homepage": normalized.homepage,
+        }
+        state["context"]["environment"] = {
+            "gh_token_source": gh_token_source or "none",
+            "lzc_cli_token_source": lzc_cli_token_source or "none",
+            "container_runtime": runtime_name or "none",
+            "image_owner": image_owner or "",
+        }
+        ms.mark_step_completed(state, 1, conclusion=f"已识别输入类型为 `{normalized.kind}`")
 
         step_state.current_step = 2
         analysis = analyze_source(normalized, source_dir)
@@ -6141,76 +6179,123 @@ def main() -> int:
             risks=analysis.risks,
             next_step="进入 [3/10] 注册目标 app",
         )
+        # Persist route decision
+        state["context"]["route_decision"] = {
+            "route": analysis.route,
+            "build_strategy": analysis.spec.get("build_strategy", ""),
+            "check_strategy": analysis.spec.get("check_strategy", ""),
+            "risks": analysis.risks,
+        }
+        state["context"]["version"] = {
+            "upstream": analysis.spec.get("source_version", ""),
+            "normalized": analysis.spec.get("version", ""),
+        }
+        ms.mark_step_completed(state, 2, conclusion=f"已自动推断构建路线为 `{analysis.route}`")
+        # First time we know the slug — create app_dir and save
+        app_dir = repo_root / "apps" / analysis.slug
+        app_dir.mkdir(parents=True, exist_ok=True)
+        ms.save_state(app_dir, state)
 
         step_state.current_step = 3
-        finalized = bm.finalize_spec(analysis.spec, gh_token, fetch_upstream=False)
-        if (
-            image_owner
-            and (
-                str(finalized.get("build_strategy", "")).strip() in SOURCE_BUILD_STRATEGIES
-                or bool(finalized.get("service_builds"))
+        if start_step > 3 and "finalized" in state.get("context", {}):
+            finalized = state["context"]["finalized"]
+            config_path = repo_root / "registry" / "repos" / f"{finalized['slug']}.json"
+            app_dir = repo_root / "apps" / finalized["slug"]
+            print(f"  [3/10] ⏭ Restored finalized spec from state")
+        else:
+            finalized = bm.finalize_spec(analysis.spec, gh_token, fetch_upstream=False)
+            if (
+                image_owner
+                and (
+                    str(finalized.get("build_strategy", "")).strip() in SOURCE_BUILD_STRATEGIES
+                    or bool(finalized.get("service_builds"))
+                )
+                and not str(finalized.get("image_owner", "")).strip()
+            ):
+                finalized["image_owner"] = image_owner
+            finalized = apply_generated_app_fixes(finalized, analysis)
+            config_path = repo_root / "registry" / "repos" / f"{finalized['slug']}.json"
+            app_dir = repo_root / "apps" / finalized["slug"]
+            step_report(
+                3,
+                "注册目标 app",
+                conclusion=f"目标 app 将注册为 `{finalized['slug']}`。",
+                outputs=[str(app_dir), str(config_path)],
+                scripts=["scripts/full_migrate.py"],
+                risks=["目标 app 已存在时会自动覆盖当前托管文件"] if not args.force else [],
+                next_step="进入 [4/10] 建立项目骨架",
             )
-            and not str(finalized.get("image_owner", "")).strip()
-        ):
-            finalized["image_owner"] = image_owner
-        finalized = apply_generated_app_fixes(finalized, analysis)
-        config_path = repo_root / "registry" / "repos" / f"{finalized['slug']}.json"
-        app_dir = repo_root / "apps" / finalized["slug"]
-        step_report(
-            3,
-            "注册目标 app",
-            conclusion=f"目标 app 将注册为 `{finalized['slug']}`。",
-            outputs=[str(app_dir), str(config_path)],
-            scripts=["scripts/full_migrate.py"],
-            risks=["目标 app 已存在时会自动覆盖当前托管文件"] if not args.force else [],
-            next_step="进入 [4/10] 建立项目骨架",
-        )
+            state["context"]["finalized"] = finalized
+            state["context"]["registration"] = {
+                "slug": finalized["slug"],
+                "monorepo_path": f"apps/{finalized['slug']}",
+                "config_path": f"registry/repos/{finalized['slug']}.json",
+            }
+            ms.mark_step_completed(state, 3, conclusion="已完成 monorepo 注册")
+            ms.save_state(app_dir, state)
 
         step_state.current_step = 4
-        effective_force = args.force
-        try:
-            written = bm.write_files(repo_root, finalized, effective_force)
-        except FileExistsError:
-            if args.force:
-                raise
-            effective_force = True
-            finalized.setdefault("_risks", []).append("目标 app 已存在，自动覆盖当前托管文件后继续")
-            written = bm.write_files(repo_root, finalized, effective_force)
-        post_written = apply_post_write(repo_root, finalized["slug"], analysis.spec.get("_post_write", {}))
-        post_written.extend(apply_app_post_process(repo_root, finalized, analysis))
-        step_report(
-            4,
-            "建立项目骨架",
-            conclusion="已在 monorepo 中创建 app 目录和 registry 配置。",
-            outputs=[str(path) for path in written[:6]],
-            scripts=["scripts/full_migrate.py", "scripts/bootstrap_migration.py"],
-            risks=[],
-            next_step="进入 [5/10] 编写 lzc-manifest.yml",
-        )
+        if not ms.should_skip_step(state, 4) and start_step <= 4:
+            effective_force = args.force
+            try:
+                written = bm.write_files(repo_root, finalized, effective_force)
+            except FileExistsError:
+                if args.force:
+                    raise
+                effective_force = True
+                finalized.setdefault("_risks", []).append("目标 app 已存在，自动覆盖当前托管文件后继续")
+                written = bm.write_files(repo_root, finalized, effective_force)
+            post_written = apply_post_write(repo_root, finalized["slug"], analysis.spec.get("_post_write", {}))
+            post_written.extend(apply_app_post_process(repo_root, finalized, analysis))
+            step_report(
+                4,
+                "建立项目骨架",
+                conclusion="已在 monorepo 中创建 app 目录和 registry 配置。",
+                outputs=[str(path) for path in written[:6]],
+                scripts=["scripts/full_migrate.py", "scripts/bootstrap_migration.py"],
+                risks=[],
+                next_step="进入 [5/10] 编写 lzc-manifest.yml",
+            )
+            ms.mark_step_completed(state, 4, conclusion="骨架文件已生成",
+                files_written=[str(p) for p in written[:6]])
+            ms.save_state(app_dir, state)
+        elif start_step <= 4:
+            print(f"  [4/10] ⏭ Skipped (already completed)")
 
         step_state.current_step = 5
-        step_report(
-            5,
-            "编写 lzc-manifest.yml",
-            conclusion="manifest 已按自动推断的服务拓扑、入口端口、环境变量和持久化目录生成初稿；构建后的真实镜像地址将由 .lazycat-images.json 管理。",
-            outputs=[str(app_dir / "lzc-manifest.yml")],
-            scripts=["scripts/full_migrate.py", "scripts/bootstrap_migration.py"],
-            risks=analysis.risks,
-            next_step="进入 [6/10] 补齐剩余文件",
-        )
+        if not ms.should_skip_step(state, 5) and start_step <= 5:
+            step_report(
+                5,
+                "编写 lzc-manifest.yml",
+                conclusion="manifest 已按自动推断的服务拓扑、入口端口、环境变量和持久化目录生成初稿；构建后的真实镜像地址将由 .lazycat-images.json 管理。",
+                outputs=[str(app_dir / "lzc-manifest.yml")],
+                scripts=["scripts/full_migrate.py", "scripts/bootstrap_migration.py"],
+                risks=analysis.risks,
+                next_step="进入 [6/10] 补齐剩余文件",
+            )
+            ms.mark_step_completed(state, 5, conclusion="manifest 初稿已生成")
+            ms.save_state(app_dir, state)
+        elif start_step <= 5:
+            print(f"  [5/10] ⏭ Skipped (already completed)")
 
         step_state.current_step = 6
-        step6_outputs = [str(app_dir / "README.md"), str(app_dir / "lzc-build.yml"), str(app_dir / "UPSTREAM_DEPLOYMENT_CHECKLIST.md")]
-        step6_outputs.extend(post_written)
-        step_report(
-            6,
-            "补齐剩余文件",
-            conclusion="README、build 配置、checklist 以及需要的模板文件已补齐。",
-            outputs=step6_outputs,
-            scripts=["scripts/full_migrate.py", "scripts/bootstrap_migration.py"],
-            risks=[],
-            next_step="进入 [7/10] 运行预检",
-        )
+        if not ms.should_skip_step(state, 6) and start_step <= 6:
+            step6_outputs = [str(app_dir / "README.md"), str(app_dir / "lzc-build.yml"), str(app_dir / "UPSTREAM_DEPLOYMENT_CHECKLIST.md")]
+            if 'post_written' in dir():
+                step6_outputs.extend(post_written)
+            step_report(
+                6,
+                "补齐剩余文件",
+                conclusion="README、build 配置、checklist 以及需要的模板文件已补齐。",
+                outputs=step6_outputs,
+                scripts=["scripts/full_migrate.py", "scripts/bootstrap_migration.py"],
+                risks=[],
+                next_step="进入 [7/10] 运行预检",
+            )
+            ms.mark_step_completed(state, 6, conclusion="剩余文件已补齐")
+            ms.save_state(app_dir, state)
+        elif start_step <= 6:
+            print(f"  [6/10] ⏭ Skipped (already completed)")
 
         step_state.current_step = 7
         ok, issues = preflight_check(repo_root, finalized["slug"])
@@ -6224,6 +6309,8 @@ def main() -> int:
                 risks=issues,
                 next_step="停止，先修复预检问题",
             )
+            ms.add_problem(state, 7, "; ".join(issues), "preflight")
+            ms.save_state(app_dir, state)
             return 1
 
         auto_git_commit(repo_root, finalized["slug"])
@@ -6236,6 +6323,8 @@ def main() -> int:
             risks=[],
             next_step="进入 [8/10] 触发并监听构建",
         )
+        ms.mark_step_completed(state, 7, conclusion="预检通过", all_passed=True)
+        ms.save_state(app_dir, state)
 
         step_state.current_step = 8
         if requested_build_mode == "validate-only":
@@ -6248,6 +6337,8 @@ def main() -> int:
                 risks=[],
                 next_step="停止",
             )
+            ms.mark_step_completed(state, 8, conclusion="validate-only 模式停止")
+            ms.save_state(app_dir, state)
             return 0
 
         if not runtime_name:
@@ -6260,6 +6351,8 @@ def main() -> int:
                 risks=["既没有 docker，也没有 podman 可供兼容桥接"],
                 next_step="停止，补齐容器引擎后重跑同一命令即可继续",
             )
+            ms.add_problem(state, 8, "no container runtime available", "build")
+            ms.save_state(app_dir, state)
             return 1
 
         auto_install_capable = bool(runtime_env.get("LZC_CLI_TOKEN")) and command_exists("lzc-cli")
@@ -6277,6 +6370,8 @@ def main() -> int:
                 risks=["缺少 lzc-cli 或 LZC_CLI_TOKEN，无法执行安装链路"],
                 next_step="停止，补齐 lzc-cli/token 或改用 --build-mode build",
             )
+            ms.add_problem(state, 8, "missing lzc-cli or LZC_CLI_TOKEN", "build")
+            ms.save_state(app_dir, state)
             return 1
         build_result = run_local_build(repo_root, finalized["slug"], build_mode=effective_build_mode, env=runtime_env)
         if build_result.returncode != 0:
@@ -6290,6 +6385,8 @@ def main() -> int:
                 risks=[failure_excerpt or "run_build 返回非零退出码"],
                 next_step="停止，修复构建错误后重跑同一命令即可继续",
             )
+            ms.add_problem(state, 8, failure_excerpt or "build failed", "build")
+            ms.save_state(app_dir, state)
             return 1
 
         step_report(
@@ -6304,6 +6401,8 @@ def main() -> int:
             risks=[] if effective_build_mode in {"install", "reinstall"} else [f"当前使用 `{runtime_name}` 执行 `{effective_build_mode}`，未覆盖远端 copy-image / install"],
             next_step="进入 [9/10] 下载并核对 .lpk",
         )
+        ms.mark_step_completed(state, 8, conclusion="构建成功", build_mode=effective_build_mode)
+        ms.save_state(app_dir, state)
 
         step_state.current_step = 9
         lpk_path = repo_root / "dist" / f"{finalized['slug']}.lpk"
@@ -6317,6 +6416,8 @@ def main() -> int:
                 risks=["dist 目录中未发现期望的 lpk 文件"],
                 next_step="停止",
             )
+            ms.add_problem(state, 9, f"lpk not found: {lpk_path}", "artifact")
+            ms.save_state(app_dir, state)
             return 1
 
         step_report(
@@ -6328,6 +6429,9 @@ def main() -> int:
             risks=[] if effective_build_mode in {"install", "reinstall"} else [f"当前产物来自 `{effective_build_mode}`，未覆盖真实 release/download 链路"],
             next_step="进入 [10/10] 安装验收并复盘",
         )
+        ms.mark_step_completed(state, 9, conclusion="lpk 已验证",
+            lpk_sha256=file_sha256(lpk_path), lpk_size_bytes=lpk_path.stat().st_size)
+        ms.save_state(app_dir, state)
 
         if effective_build_mode == "build":
             step_state.current_step = 10
@@ -6340,6 +6444,14 @@ def main() -> int:
                 risks=["缺少 LZC_CLI_TOKEN，未执行 `lzc-cli app install` 和后续状态验证"],
                 next_step="停止，补齐 LZC_CLI_TOKEN 后重跑即可继续安装验收",
             )
+            pending = ms.get_pending_backports(state)
+            if pending:
+                print(f"\n⚠ {len(pending)} resolved problems not yet backported:")
+                for p in pending:
+                    print(f"  - [{p['id']}] {p['description']}")
+            ms.mark_step_completed(state, 10, conclusion="验收完成",
+                pending_backports=[p["id"] for p in pending] if pending else [])
+            ms.save_state(app_dir, state)
             return 0
 
         step_state.current_step = 10
@@ -6354,9 +6466,32 @@ def main() -> int:
             risks=[],
             next_step="完成",
         )
+        pending = ms.get_pending_backports(state)
+        if pending:
+            print(f"\n⚠ {len(pending)} resolved problems not yet backported:")
+            for p in pending:
+                print(f"  - [{p['id']}] {p['description']}")
+        ms.mark_step_completed(state, 10, conclusion="验收完成",
+            pending_backports=[p["id"] for p in pending] if pending else [])
+        ms.save_state(app_dir, state)
         return 0
+    except ms.MigrationProblem as exc:
+        traceback.print_exc()
+        ms.add_problem(state, exc.step, str(exc), exc.category)
+        if app_dir:
+            ms.save_state(app_dir, state)
+        step_report(exc.step, "自动迁移失败",
+            conclusion=f"[{exc.category}] {exc}",
+            outputs=[str(exc)], scripts=["scripts/full_migrate.py"], risks=[str(exc)])
+        return 1
     except Exception as exc:
         traceback.print_exc()
+        if app_dir:
+            ms.add_problem(state, step_state.current_step, str(exc), "unknown")
+            try:
+                ms.save_state(app_dir, state)
+            except Exception:
+                pass
         step_report(
             step_state.current_step,
             "自动迁移失败",
