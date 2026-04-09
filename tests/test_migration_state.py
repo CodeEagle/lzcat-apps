@@ -253,5 +253,41 @@ class FindStateBySourceTest(unittest.TestCase):
         self.assertIsNone(result)
 
 
+class CompareStatesTest(unittest.TestCase):
+    def test_identical_states_produce_no_diffs(self):
+        s1 = ms.new_empty_state("x")
+        s1["context"]["route_decision"] = {"route": "official_image"}
+        s2 = ms.new_empty_state("x")
+        s2["context"]["route_decision"] = {"route": "official_image"}
+        diffs = ms.compare_states(s1, s2)
+        self.assertEqual(len(diffs), 0)
+
+    def test_different_route_produces_diff(self):
+        s1 = ms.new_empty_state("x")
+        s1["context"]["route_decision"] = {"route": "official_image"}
+        s2 = ms.new_empty_state("x")
+        s2["context"]["route_decision"] = {"route": "upstream_dockerfile"}
+        diffs = ms.compare_states(s1, s2)
+        self.assertGreater(len(diffs), 0)
+        self.assertEqual(diffs[0]["path"], "context.route_decision.route")
+
+    def test_ignores_timestamps(self):
+        s1 = ms.new_empty_state("x")
+        s2 = ms.new_empty_state("x")
+        # Timestamps will differ but should be ignored
+        s2["created_at"] = "2099-01-01T00:00:00Z"
+        s2["updated_at"] = "2099-01-01T00:00:00Z"
+        diffs = ms.compare_states(s1, s2)
+        self.assertEqual(len(diffs), 0)
+
+    def test_list_length_mismatch(self):
+        s1 = ms.new_empty_state("x")
+        s1["context"]["items"] = [1, 2, 3]
+        s2 = ms.new_empty_state("x")
+        s2["context"]["items"] = [1, 2]
+        diffs = ms.compare_states(s1, s2)
+        self.assertGreater(len(diffs), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

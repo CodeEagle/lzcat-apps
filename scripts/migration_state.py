@@ -244,3 +244,37 @@ def find_state_by_source(
         if state is not None and state.get("source_input") == source_input:
             return (child, state)
     return None
+
+
+# ---------------------------------------------------------------------------
+# Comparison (Task 6)
+# ---------------------------------------------------------------------------
+
+def compare_states(
+    baseline: dict[str, Any],
+    current: dict[str, Any],
+) -> list[dict[str, str]]:
+    """Deep-compare two state dicts, ignoring timestamps. Returns list of diffs."""
+    ignore_keys = {"created_at", "updated_at", "completed_at", "resolved_at", "schema_version"}
+    diffs: list[dict[str, str]] = []
+
+    def _compare(path: str, a: Any, b: Any) -> None:
+        if isinstance(a, dict) and isinstance(b, dict):
+            all_keys = set(a.keys()) | set(b.keys())
+            for k in sorted(all_keys):
+                if k in ignore_keys:
+                    continue
+                sub_path = f"{path}.{k}" if path else k
+                _compare(sub_path, a.get(k), b.get(k))
+        elif isinstance(a, list) and isinstance(b, list):
+            if len(a) != len(b):
+                diffs.append({"path": path, "diff_type": "length_mismatch",
+                              "detail": f"baseline={len(a)}, current={len(b)}"})
+            for i, (ai, bi) in enumerate(zip(a, b)):
+                _compare(f"{path}[{i}]", ai, bi)
+        elif a != b:
+            diffs.append({"path": path, "diff_type": "value_mismatch",
+                          "detail": f"baseline={a!r}, current={b!r}"})
+
+    _compare("context", baseline.get("context", {}), current.get("context", {}))
+    return diffs
