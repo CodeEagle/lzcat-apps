@@ -86,8 +86,7 @@ manifest 中默认写入以下运行时变量：
 
 ## 当前已知阻塞
 
-- 当前 monorepo 也未包含 skill 文档提到的 `scripts/ensure-github-repo.sh` / `scripts/preflight-check.sh` / `scripts/download-lpk.sh` / `scripts/install-and-verify.sh`，需要按本仓库现有共享链路继续推进。
-- `copy-image` 已完成，但后续预检 / 下载 / 安装验收仍需用当前仓库实际存在的共享链路替代旧 helper 脚本。
+- 预检 / 构建 / 下载 / 安装验收统一使用 `scripts/full_migrate.py`，辅助工具见 `skills/lazycat-migrate/scripts/`。
 
 ## 上游链接
 
