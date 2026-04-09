@@ -3,21 +3,21 @@
   "app": "cultivation-world-simulator",
   "source_version": "3023d2f",
   "build_version": "2.4.1",
-  "head_sha": "1fed3d091888",
-  "updated_at": "2026-04-09T06:07:42.819850+00:00",
+  "head_sha": "9f1bcd16377c",
+  "updated_at": "2026-04-09T07:06:13.250258+00:00",
   "images": {
-    "backend": "registry.lazycat.cloud/invokerlaw/codeeagle/cultivation-world-simulator-backend:252121f4256219af",
-    "frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/cultivation-world-simulator-frontend:3e2b0f5e42639cd8"
+    "backend": "registry.lazycat.cloud/invokerlaw/codeeagle/cultivation-world-simulator-backend:8c4206a0bf428a3d",
+    "frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/cultivation-world-simulator-frontend:cb326d3e3cb32adc"
   },
   "source_images": {
-    "backend": "ghcr.io/codeeagle/cultivation-world-simulator-backend:1fed3d091888",
-    "frontend": "ghcr.io/codeeagle/cultivation-world-simulator-frontend:1fed3d091888"
+    "backend": "ghcr.io/codeeagle/cultivation-world-simulator-backend:9f1bcd16377c",
+    "frontend": "ghcr.io/codeeagle/cultivation-world-simulator-frontend:9f1bcd16377c"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/cultivation-world-simulator-backend:1fed3d091888",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/cultivation-world-simulator-backend:252121f4256219af",
-      "elapsed_seconds": 83.851,
+      "source_image": "ghcr.io/codeeagle/cultivation-world-simulator-backend:9f1bcd16377c",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/cultivation-world-simulator-backend:8c4206a0bf428a3d",
+      "elapsed_seconds": 110.687,
       "saw_waiting": true,
       "saw_upload_started": true,
       "reused_existing": false,
@@ -25,9 +25,9 @@
       "kind": "service"
     },
     {
-      "source_image": "ghcr.io/codeeagle/cultivation-world-simulator-frontend:1fed3d091888",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/cultivation-world-simulator-frontend:3e2b0f5e42639cd8",
-      "elapsed_seconds": 39.553,
+      "source_image": "ghcr.io/codeeagle/cultivation-world-simulator-frontend:9f1bcd16377c",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/cultivation-world-simulator-frontend:cb326d3e3cb32adc",
+      "elapsed_seconds": 48.57,
       "saw_waiting": true,
       "saw_upload_started": true,
       "reused_existing": false,
