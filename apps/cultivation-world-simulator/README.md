@@ -43,6 +43,7 @@
 - 前端镜像使用仓库内的 Nginx 模板，并在容器启动时从 `/etc/resolv.conf` 注入 `resolver`，避免 `backend` DNS 在启动瞬间未解析时直接导致 Nginx 退出。
 - 当前包不再声明自定义 service healthcheck，避免平台在双服务启动时因容器内探针差异或聚合时序长期停留在 “Standing by until other services are healthy”。
 - `frontend` 不再声明 `depends_on: backend`；前端可先独立启动，实际 API / WebSocket 请求再由 Nginx 在运行时解析 `backend`，避免平台把启动完成错误绑定到服务依赖聚合。
+- LazyCat `application.upstreams` 只保留 `/ -> frontend`。`/api`、`/ws`、`/assets` 全部交给 frontend 容器内 Nginx 再反代到 backend，避免平台层对 `/api/` 前缀路由做路径改写后导致 backend 收到错误路径并返回 404。
 - 首次启动后需要先在设置页配置 LLM provider、API key 和模型，再开始新游戏。
 - 后端通过 `CWS_DATA_DIR=/data` 统一持久化 `settings.json`、`secrets.json`、`saves/`、`logs/`、`cache/`、`incompatible/`。
 - 无数据库、Redis 或管理员 bootstrap；外部依赖主要是用户自行配置的 LLM/OpenAI 兼容接口。

@@ -13,9 +13,6 @@ application:
     - /
   upstreams:
     -
-      location: /api/
-      backend: http://backend:8002/
-    -
       location: /
       backend: http://frontend:80/
 services:
