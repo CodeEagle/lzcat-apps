@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "app": "edit-banana",
+  "source_version": "79b50ae",
+  "build_version": "1.0.6",
+  "head_sha": "dcb5f9af82d5",
+  "updated_at": "2026-04-09T00:51:49.703378+00:00",
+  "images": {
+    "edit-banana": "registry.lazycat.cloud/invokerlaw/codeeagle/edit-banana:0178b16801bb32a3"
+  },
+  "source_images": {
+    "edit-banana": "ghcr.io/codeeagle/edit-banana:dcb5f9af82d5"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/edit-banana:dcb5f9af82d5",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/edit-banana:0178b16801bb32a3",
+      "elapsed_seconds": 169.738,
+      "saw_waiting": true,
+      "saw_upload_started": true,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}
