@@ -59,7 +59,9 @@
       "Bash(/tmp/search_summary.txt:*)",
       "Read(//tmp/**)",
       "Bash(grep -rn \"preflight-check\\\\.sh\\\\|run-trigger-build\\\\.sh\\\\|download-lpk\\\\.sh\\\\|migrate-verify\\\\.sh\\\\|full-migrate\\\\.sh\" /Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/ --include=*.md --include=*.sh --include=*.py --include=*.yml --include=*.yaml --include=*.json)",
-      "Bash(grep -v '^--$')"
+      "Bash(grep -v '^--$')",
+      "Bash(for f:*)",
+      "Bash(do echo:*)"
     ]
   }
 }
