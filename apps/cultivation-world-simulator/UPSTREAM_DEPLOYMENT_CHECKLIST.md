@@ -78,7 +78,7 @@
   environment: `PYTHONUNBUFFERED=1, CWS_DATA_DIR=/data, CWS_DISABLE_AUTO_SHUTDOWN=1`
 - `frontend`
   image: `registry.lazycat.cloud/placeholder/cultivation-world-simulator:frontend`
-  depends_on: `backend`
+  depends_on: 无（LazyCat 包内移除，避免平台聚合健康等待）
 
 ## 退出条件
 - [ ] 入口、端口、环境变量、真实写路径、初始化命令、数据库/auth 配置全部确认完毕

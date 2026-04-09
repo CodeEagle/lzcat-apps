@@ -29,8 +29,6 @@ services:
       - /lzcapp/var/data/cultivation-world-simulator/backend:/data
   frontend:
     image: registry.lazycat.cloud/placeholder/cultivation-world-simulator:frontend
-    depends_on:
-      - backend
 locales:
   en:
     name: cultivation-world-simulator
