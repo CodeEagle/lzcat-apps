@@ -37,7 +37,14 @@
       "Read(//private/tmp/**)",
       "Bash(cp /tmp/lpk-dl/hermes-webui-aio.lpk hermes-webui-aio.zip)",
       "Bash(unzip -l hermes-webui-aio.zip)",
-      "Bash(unzip -p hermes-webui-aio.zip deploy_params.yml)"
+      "Bash(unzip -p hermes-webui-aio.zip deploy_params.yml)",
+      "Bash(wc:*)",
+      "Bash(/opt/homebrew/bin/rg -l \"ghcr\\\\.io|copy_image|GHCR|docker.*push|registry\\\\.lazycat\" scripts/)",
+      "Bash(/opt/homebrew/bin/rg -n \"ghcr\\\\.io|copy_image|def.*image|tag_image|push_image|GHCR_PREFIX|image_ref|image_name\" /Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/scripts/run_build.py)",
+      "Bash(/opt/homebrew/bin/rg -n \"compute_target_image|image_name|ghcr\\\\.io.*codeeagle\" /Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/scripts/full_migrate.py)",
+      "Bash(/opt/homebrew/bin/rg -n \"compute_target_image\" /Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/tests/)",
+      "Bash(/opt/homebrew/bin/rg -n \"image_name\" /Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/registry/repos/*.json)",
+      "Bash(/opt/homebrew/bin/rg -n \"head_sha\" /Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/scripts/run_build.py)"
     ]
   }
 }
