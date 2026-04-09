@@ -3,23 +3,23 @@
   "app": "hermes-webui-aio",
   "source_version": "e93009f",
   "build_version": "0.38.7",
-  "head_sha": "cbe5ab7f93f6",
-  "updated_at": "2026-04-09T01:49:37.809959+00:00",
+  "head_sha": "cc62ce5094bd",
+  "updated_at": "2026-04-09T02:31:17.243842+00:00",
   "images": {
-    "hermes-webui": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-webui:9f6e71aa0ad1702f"
+    "hermes": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-aio-hermes:0a480f2e8a279099"
   },
   "source_images": {
-    "hermes-webui": "ghcr.io/codeeagle/hermes-webui-hermes-webui:cbe5ab7f93f6"
+    "hermes": "ghcr.io/codeeagle/hermes-webui-aio-hermes:cc62ce5094bd"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/hermes-webui-hermes-webui:cbe5ab7f93f6",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-hermes-webui:9f6e71aa0ad1702f",
-      "elapsed_seconds": 51.051,
+      "source_image": "ghcr.io/codeeagle/hermes-webui-aio-hermes:cc62ce5094bd",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/hermes-webui-aio-hermes:0a480f2e8a279099",
+      "elapsed_seconds": 67.356,
       "saw_waiting": true,
       "saw_upload_started": true,
       "reused_existing": false,
-      "service": "hermes-webui",
+      "service": "hermes",
       "kind": "service"
     }
   ]
