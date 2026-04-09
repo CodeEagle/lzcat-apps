@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "upstream_repo": "4thfever/cultivation-world-simulator",
-  "check_strategy": "github_release",
+  "check_strategy": "commit_sha",
   "build_strategy": "upstream_dockerfile",
   "publish_to_store": false,
   "official_image_registry": "",

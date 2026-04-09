@@ -14,7 +14,7 @@
 - AI_POD_SERVICE: 无
 - AI_POD_SERVICE_NAME: 无
 - AI_POD_SERVICE_PORT: 无
-- CHECK_STRATEGY: github_release
+- CHECK_STRATEGY: commit_sha
 - BUILD_STRATEGY: upstream_dockerfile
 
 ## 预填环境变量

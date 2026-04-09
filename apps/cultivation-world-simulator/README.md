@@ -7,7 +7,7 @@
 - Homepage: https://github.com/4thfever/cultivation-world-simulator
 - License: CC-BY-NC-SA-4.0
 - Author: 4thfever
-- Version Strategy: `github_release` -> 当前初稿版本 `2.4.0`
+- Version Strategy: `commit_sha` -> 当前初稿版本 `2.4.0`
 
 ## 当前迁移骨架
 - Build Strategy: `upstream_dockerfile`
