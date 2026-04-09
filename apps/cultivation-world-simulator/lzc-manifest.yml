@@ -1,0 +1,61 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.cultivation-world-simulator
+version: 2.4.0
+min_os_version: 1.3.8
+name: cultivation-world-simulator
+description: 基于 AI Agent 工作流的修仙世界模拟器，旨在还原智能、开放的仙侠世界。| An open-source Cultivation World Simulator using Agentic Workflow to create a dynamic, emerging Xianxia world.
+license: NOASSERTION
+homepage: https://github.com/4thfever/cultivation-world-simulator
+author: 4thfever
+application:
+  subdomain: cultivation-world-simulator
+  public_path:
+    - /
+  upstreams:
+    -
+      location: /api/
+      backend: http://backend:8002/
+    -
+      location: /
+      backend: http://frontend:80/
+services:
+  backend:
+    image: registry.lazycat.cloud/placeholder/cultivation-world-simulator:backend
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CWS_DATA_DIR=/data
+      - CWS_DISABLE_AUTO_SHUTDOWN=1
+    binds:
+      - /lzcapp/var/data/cultivation-world-simulator/backend:/data
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - "-f"
+        - http://localhost:8002/api/v1/query/runtime/status
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+  frontend:
+    image: registry.lazycat.cloud/placeholder/cultivation-world-simulator:frontend
+    depends_on:
+      - backend
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - "--no-verbose"
+        - "--tries=1"
+        - "--spider"
+        - http://localhost:80/api/v1/query/runtime/status
+      interval: 30s
+      timeout: 10s
+      retries: 3
+locales:
+  en:
+    name: cultivation-world-simulator
+    description: 基于 AI Agent 工作流的修仙世界模拟器，旨在还原智能、开放的仙侠世界。| An open-source Cultivation World Simulator using Agentic Workflow to create a dynamic, emerging Xianxia world.
+  zh:
+    name: cultivation-world-simulator
+    description: （迁移初稿）Cultivation World Simulator 的懒猫微服版本
