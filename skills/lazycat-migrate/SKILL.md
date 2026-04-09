@@ -61,7 +61,8 @@ description: 将 Docker 镜像、GitHub 开源项目或 docker-compose 服务移
 - 数据目录、配置目录、缓存目录、上传目录、日志目录、临时目录的真实读写路径
 - 首次启动初始化命令、迁移命令、建库建表命令、管理员初始化命令
 - 数据库、Redis、对象存储、鉴权 / auth / secret / callback / JWT / OAuth 等外部依赖配置
-- 对每个扫描到的真实目录，记录“是否应预创建、由谁创建、以什么 owner / group / mode 创建”
+- 对每个扫描到的真实目录，记录”是否应预创建、由谁创建、以什么 owner / group / mode 创建”
+- 登录机制：应用是否需要登录？是否支持 OIDC/OAuth2？账号密码是固定默认值还是用户首次创建？是否存在改密流程？据此确定免密登录路线（OIDC / simple-inject-password / 三阶段 inject）
 
 只有先拿到这份完整清单，才允许回头填写或修改 `lzc-manifest.yml`；禁止边猜边写 manifest。
 
@@ -128,7 +129,7 @@ description: 将 Docker 镜像、GitHub 开源项目或 docker-compose 服务移
 2. `[2/10]` 选择移植路线：判断单容器、compose 拆分、带数据库依赖还是源码构建，并明确保留哪些服务。
 3. `[3/10]` 注册目标 app 到 monorepo；只有在正式链路明确依赖时才创建独立仓库：先判断当前项目是否必须存在 `CodeEagle/<app>` 目标仓库；若不需要，则只在 `CodeEagle/lzcat-apps` 的 `registry/repos/<appname>.json` 创建构建配置并追加到 `registry/repos/index.json`。只有确认正式链路依赖独立仓库，才执行 `scripts/ensure-github-repo.sh --upstream-repo <owner/name> --repo-owner CodeEagle`。除非用户明确要求，否则不要额外创建独立配置仓、辅助 registry 分支或临时触发分支。
 4. `[4/10]` 建立项目骨架：基于 `lzcat-template/` 在 monorepo 的 `lzcat-apps/apps/<appname>/`（全小写）创建目录，至少落 `README.md`、`lzc-manifest.yml`、`lzc-build.yml`、`icon.png`。只有当当前正式链路明确要求目标仓库也持有同一套文件时，才同步镜像到独立仓库。
-5. `[5/10]` 编写 `lzc-manifest.yml`：一次性填完元信息、入口、服务、挂载、环境变量、本地化；服务镜像只保留占位或当前基线，不在后续 build 成功后把加速镜像回写进该文件。
+5. `[5/10]` 编写 `lzc-manifest.yml`：一次性填完元信息、入口、服务、挂载、环境变量、本地化；服务镜像只保留占位或当前基线，不在后续 build 成功后把加速镜像回写进该文件。如果应用需要登录，必须同步配置免密登录（OIDC `oidc_redirect_path` + 环境变量 / `application.injects` + `builtin://simple-inject-password` / 三阶段 inject），并在需要时创建 `lzc-deploy-params.yml`。
 6. `[6/10]` 补齐剩余文件：完成 README、`lzc-build.yml`、必要的 `content/` 和构建工作流；优先沿用当前 monorepo / 目标仓库已经集成的 workflow 结构，不要为了兼容旧链路额外复制一套过时流程。
 7. `[7/10]` 运行预检：由 `full_migrate.py` 内置预检逻辑自动执行；不通过就继续修到通过。
 8. `[8/10]` 触发并监听构建：由 `full_migrate.py` 调用 `run_build.py` 执行构建（Docker build、镜像推送、打包）；也可通过 monorepo 的 `local_build.sh` 单独触发。失败时先看日志，再修复重跑。
@@ -192,6 +193,12 @@ description: 将 Docker 镜像、GitHub 开源项目或 docker-compose 服务移
 - 如果上游镜像默认以非 root 用户运行，禁止只靠 `mkdir -p` 侥幸修权限；必须同步确认目录 owner / group / chmod、挂载目标路径、初始化创建时机，以及是否需要在启动命令前补 `install -d`、`chown`、软链或路径迁移。
 - 对 GPU-first / ML 推理项目，必须在 `[1/10]` 先判断“CPU Docker 运行是否会显著降级”，再判断“是否更适合走 LazyCat AIPod / AI 应用路线”。若存在大量硬编码 `cuda`、`pin_memory`、可选加速依赖或质量高度依赖 refinement / multimodal / upscaler，不要直接把结论写成“完全不适合 LazyCat”；应先评估是否改为“微服前端 + `ai-pod-service` 算力舱服务 + API/路由中转”的部署方式。只有在 CPU 路线不可接受、AIPod 路线也缺少可行入口或运维边界不清时，才下“不适合继续迁移”的结论。
 - 对需要严格遵循上游拓扑的项目，优先复用官方 healthcheck、服务拆分和入口定义；不要用看起来能跑的简化版替代上游运行方式。
+- 对一打开就要求登录的应用，必须在 `[1/10]` 判断登录机制，并在 `[5/10]` 配置免密登录支持（[上架审核要求](https://developer.lazycat.cloud/store-submission-guide.html#_8-免密登录支持)）。三种实现路线按优先级：
+  1. **OIDC 标准登录流**（优先）：上游支持 OIDC/OAuth2 时，在 `lzc-manifest.yml` 设置 `application.oidc_redirect_path`，并通过部署时环境变量 `${LAZYCAT_AUTH_OIDC_CLIENT_ID}` 等注入凭据（详见 [对接 OIDC](https://developer.lazycat.cloud/advanced-oidc.html)）。
+  2. **部署参数 + `builtin://simple-inject-password`**（简单场景）：账号固定或由部署参数提供时，在 `lzc-deploy-params.yml` 定义 `login_user`（type: string）和 `login_password`（type: secret, default: `$random(len=20)`），在 manifest 的 `application.injects` 中用 `builtin://simple-inject-password` 在登录页自动填充。
+  3. **三阶段 inject 联动**（高级场景）：首次由用户创建账号且后续可能改密时，用 request 阶段捕获候选凭据到 `ctx.flow`、response 阶段确认成功后提交到 `ctx.persist`、browser 阶段从 `ctx.persist` 自动填充（详见 [免密登录](https://developer.lazycat.cloud/advanced-inject-passwordless-login.html)）。
+  - 判断依据：上游是否有 OIDC 支持 → 账号是否可固定/可随机生成 → 是否需要学习用户后续改密。
+  - 禁止跳过：不能把"需要手动输入账号密码"留给用户；安装验收时必须确认首次打开无需手工登录。
 
 ## 本轮新增经验
 
