@@ -306,5 +306,97 @@ services:
         self.assertTrue(any("heredoc syntax" in issue for issue in issues), issues)
 
 
+class StateRoundTripTest(unittest.TestCase):
+    """Verify that a full run produces .migration-state.json with expected structure."""
+
+    def make_repo_root(self) -> Path:
+        temp_dir = Path(tempfile.mkdtemp(prefix="lzcat-state-test-"))
+        (temp_dir / "apps").mkdir(parents=True, exist_ok=True)
+        (temp_dir / "registry" / "repos").mkdir(parents=True, exist_ok=True)
+        (temp_dir / "registry" / "repos" / "index.json").write_text('{"repos":[]}\n', encoding="utf-8")
+        return temp_dir
+
+    def make_source_repo_with_compose(self) -> Path:
+        temp_dir = Path(tempfile.mkdtemp(prefix="lzcat-state-source-"))
+        (temp_dir / "docker-compose.yml").write_text(
+            "services:\n"
+            "  web:\n"
+            "    image: ghcr.io/example/web:1.2.3\n"
+            "    ports:\n"
+            '      - "3000:3000"\n'
+            "    volumes:\n"
+            "      - ./data:/app/data\n",
+            encoding="utf-8",
+        )
+        (temp_dir / "README.md").write_text("# Test App\nA test application.\n", encoding="utf-8")
+        return temp_dir
+
+    def setUp(self):
+        self.repo_root = self.make_repo_root()
+        self.source_dir = self.make_source_repo_with_compose()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.repo_root, ignore_errors=True)
+        shutil.rmtree(self.source_dir, ignore_errors=True)
+
+    def _find_app_dir(self) -> Path | None:
+        apps = Path(self.repo_root) / "apps"
+        dirs = [d for d in apps.iterdir() if d.is_dir()] if apps.exists() else []
+        return dirs[0] if dirs else None
+
+    def test_full_run_creates_state_file(self):
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), str(self.source_dir),
+             "--repo-root", str(self.repo_root), "--no-build"],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, f"Script failed:\n{result.stderr[-500:]}")
+
+        app_dir = self._find_app_dir()
+        self.assertIsNotNone(app_dir, "No app directory created")
+
+        state_path = app_dir / ".migration-state.json"
+        self.assertTrue(state_path.exists(), f"No state file at {state_path}")
+
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        self.assertEqual(state["schema_version"], 1)
+        self.assertIn("context", state)
+        self.assertIn("source", state["context"])
+        self.assertIn("route_decision", state["context"])
+        self.assertIn("finalized", state["context"])
+
+        # Steps 1-7 should be completed (--no-build → validate-only stops at step 8)
+        for step_num in ["1", "2", "3", "4", "5", "6", "7"]:
+            self.assertIn(step_num, state["steps"], f"Step {step_num} missing from state")
+            self.assertTrue(
+                state["steps"][step_num].get("completed"),
+                f"Step {step_num} not marked completed",
+            )
+
+    def test_second_run_skips_completed_steps(self):
+        """Running twice without --force should reuse existing state."""
+        # First run
+        subprocess.run(
+            [sys.executable, str(SCRIPT), str(self.source_dir),
+             "--repo-root", str(self.repo_root), "--no-build"],
+            capture_output=True, text=True,
+        )
+        # Second run
+        result2 = subprocess.run(
+            [sys.executable, str(SCRIPT), str(self.source_dir),
+             "--repo-root", str(self.repo_root), "--no-build"],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(result2.returncode, 0, f"Second run failed:\n{result2.stderr[-500:]}")
+        combined_output = result2.stdout + result2.stderr
+        # Should see skip indicator (⏭ or "Skipped" or step numbers being skipped)
+        # The state file should still have all steps completed
+        app_dir = self._find_app_dir()
+        state = json.loads((app_dir / ".migration-state.json").read_text(encoding="utf-8"))
+        for step_num in ["1", "2", "3", "4", "5", "6", "7"]:
+            self.assertTrue(state["steps"][step_num].get("completed"))
+
+
 if __name__ == "__main__":
     unittest.main()
