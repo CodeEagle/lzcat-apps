@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "app": "openfang",
+  "source_version": "v0.5.7",
+  "build_version": "0.5.7",
+  "head_sha": "dcb5f9af82d5",
+  "updated_at": "2026-04-09T00:52:43.859954+00:00",
+  "images": {
+    "openfang": "registry.lazycat.cloud/invokerlaw/codeeagle/openfang:0491c01697b73a25"
+  },
+  "source_images": {
+    "openfang": "ghcr.io/codeeagle/openfang:dcb5f9af82d5"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/openfang:dcb5f9af82d5",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/openfang:0491c01697b73a25",
+      "elapsed_seconds": 30.906,
+      "saw_waiting": true,
+      "saw_upload_started": true,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "upstream_repo": "RightNow-AI/openfang",
-  "source_version": "v0.5.6",
-  "build_version": "0.5.6",
-  "build_label": "v0.5.6@20260403T010054Z",
-  "last_checked_at": "2026-04-03T01:00:54.904591+00:00"
+  "source_version": "v0.5.7",
+  "build_version": "0.5.7",
+  "build_label": "v0.5.7@20260409T005243Z",
+  "last_checked_at": "2026-04-09T00:52:43.860269+00:00"
 }
