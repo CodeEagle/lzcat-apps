@@ -44,7 +44,19 @@ services:
       }
 
       wait_for_port postgres 5432 PostgreSQL
+
+      # 若未建立 schema_migrations，改以 psql 分批套用 migrations，避免 goclaw 於進程內一次性執行導致 OOM
+      if ! psql -U postgres -d goclaw -c "SELECT 1 FROM information_schema.tables WHERE table_name='schema_migrations'" >/dev/null 2>&1; then
+        echo 'schema_migrations absent; applying migrations via psql'
+        for f in /app/migrations/*up.sql; do
+          echo 'Applying' "$f"
+          psql -U postgres -d goclaw -v ON_ERROR_STOP=1 -f "$f" || { echo "Migration failed: $f" >&2; exit 1; }
+        done
+      else
+        echo 'schema_migrations present; skip psql bulk apply'
+      fi
     restart: always
+    command: ["/app/goclaw","serve"]
 
     environment:
       - GOCLAW_HOST=0.0.0.0
