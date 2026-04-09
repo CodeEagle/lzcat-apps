@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "app": "airi",
+  "source_version": "v0.9.0-beta.2",
+  "build_version": "0.9.0",
+  "head_sha": "14a952e7e17f",
+  "updated_at": "2026-04-09T03:27:19.144011+00:00",
+  "images": {
+    "airi": "registry.lazycat.cloud/invokerlaw/codeeagle/airi:049186c7fd5781cb"
+  },
+  "source_images": {
+    "airi": "ghcr.io/codeeagle/airi:14a952e7e17f"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/airi:14a952e7e17f",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/airi:049186c7fd5781cb",
+      "elapsed_seconds": 729.733,
+      "saw_waiting": true,
+      "saw_upload_started": true,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}
