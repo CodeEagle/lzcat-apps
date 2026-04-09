@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "app": "shadmin",
+  "source_version": "90c72be",
+  "build_version": "2.1.8",
+  "head_sha": "60e65fd69782",
+  "updated_at": "2026-04-09T13:21:19.493547+00:00",
+  "images": {
+    "shadmin": "registry.lazycat.cloud/invokerlaw/codeeagle/shadmin:fbd089950ec65eb1"
+  },
+  "source_images": {
+    "shadmin": "ghcr.io/codeeagle/shadmin:60e65fd69782"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/shadmin:60e65fd69782",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/shadmin:fbd089950ec65eb1",
+      "elapsed_seconds": 2274.146,
+      "saw_waiting": true,
+      "saw_upload_started": true,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}
