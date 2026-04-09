@@ -41,6 +41,7 @@
 
 - 上游是双服务拓扑：FastAPI backend(`8002`) + Nginx frontend(`80`)。
 - 前端镜像使用仓库内的 Nginx 模板，并在容器启动时从 `/etc/resolv.conf` 注入 `resolver`，避免 `backend` DNS 在启动瞬间未解析时直接导致 Nginx 退出。
+- 前端健康检查只探测 `http://localhost:80/` 静态首页，不再依赖 `/api/...` 反代结果，避免 LazyCat 把前端健康度错误地绑定到 backend 冷启动时序。
 - 首次启动后需要先在设置页配置 LLM provider、API key 和模型，再开始新游戏。
 - 后端通过 `CWS_DATA_DIR=/data` 统一持久化 `settings.json`、`secrets.json`、`saves/`、`logs/`、`cache/`、`incompatible/`。
 - 无数据库、Redis 或管理员 bootstrap；外部依赖主要是用户自行配置的 LLM/OpenAI 兼容接口。
