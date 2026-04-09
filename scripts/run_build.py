@@ -907,6 +907,7 @@ def build_report_base(
         "artifact_release_tag": "",
         "artifact_release_url": "",
         "lpk_name": "",
+        "lpk_download_url": "",
         "lpk_sha256": "",
         "report_generated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -918,6 +919,14 @@ def write_report(report: dict[str, Any], path: Path) -> None:
 
 
 def publish_report_summary(report: dict[str, Any]) -> None:
+    lpk_download_url = str(report.get("lpk_download_url", "")).strip()
+    if not lpk_download_url:
+        artifact_release_url = str(report.get("artifact_release_url", "")).strip()
+        artifact_release_tag = str(report.get("artifact_release_tag", "")).strip()
+        lpk_name = str(report.get("lpk_name", "")).strip()
+        if artifact_release_url and artifact_release_tag and lpk_name and artifact_release_url.startswith("https://github.com/"):
+            repo_prefix = artifact_release_url.removesuffix(f"/releases/tag/{artifact_release_tag}")
+            lpk_download_url = f"{repo_prefix}/releases/download/{artifact_release_tag}/{lpk_name}"
     lines = [
         f"### {report.get('repo', '')}",
         f"- status: {report.get('status', '')}",
@@ -927,6 +936,7 @@ def publish_report_summary(report: dict[str, Any]) -> None:
         f"- target_image: {report.get('target_image', '')}",
         f"- accelerated_image: {report.get('accelerated_image', '')}",
         f"- artifact_release_url: {report.get('artifact_release_url', '')}",
+        f"- lpk_download_url: {lpk_download_url}",
     ]
     if report.get("error"):
         lines.append(f"- error: {report['error']}")
@@ -1712,6 +1722,7 @@ def main() -> int:
         if args.dry_run:
             log(f"[{app_name}] [DRY RUN] Skipping artifact publish, lpk at: {lpk_path}")
             report["artifact_release_url"] = f"dry-run://local/{lpk_path}"
+            report["lpk_download_url"] = f"dry-run://local/{lpk_path}"
         else:
             log(f"[{app_name}] Phase: publish_artifact -> {args.artifact_repo}")
             report["artifact_release_url"] = publish_release_asset(
@@ -1721,6 +1732,10 @@ def main() -> int:
                 f"Auto-built version {build_version} (source: {source_version}, label: {build_label})",
                 [lpk_path, report_path],
                 env,
+            )
+            report["lpk_download_url"] = (
+                f"https://github.com/{args.artifact_repo}/releases/download/"
+                f"{report['artifact_release_tag']}/{report['lpk_name']}"
             )
             write_report(report, report_path)
             upload_release_asset(args.artifact_repo, report["artifact_release_tag"], report_path, env)
