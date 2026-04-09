@@ -70,8 +70,8 @@ description: 将 Docker 镜像、GitHub 开源项目或 docker-compose 服务移
 
 ### 主入口（monorepo `scripts/` 目录）
 
-- `python3 scripts/full_migrate.py <upstream> [--repo-root <monorepo-path>] [--force] [--no-build] [--build-mode auto|build|install|reinstall|validate-only]`
-  全量 10 步 SOP 自动化入口，从上游地址到安装验收一条龙。`--repo-root` 默认推断为脚本所在目录的上级（monorepo 根）。
+- `python3 scripts/full_migrate.py <upstream> [--repo-root <monorepo-path>] [--force] [--no-build] [--build-mode auto|build|install|reinstall|validate-only] [--resume] [--resume-from N] [--verify]`
+  全量 10 步 SOP 自动化入口。每步产出写入 `apps/<slug>/.migration-state.json`。`--resume` 从最后完成步骤继续，`--resume-from N` 从第 N 步开始，`--verify` 从零复现验证，`--force` 忽略已有状态全量重跑。
 - `python3 scripts/run_build.py <app-name> [--config-root ...] [--app-root ...] [--lzcat-apps-root ...] [--lpk-output ...] [--dry-run] [--force-build] [--skip-docker]`
   单次构建执行器（版本探测、Docker build、镜像推送、打包、发布）。
 - `python3 scripts/bootstrap_migration.py --slug <name> --project-name "Name" --upstream-repo owner/repo --build-strategy official_image --service-port 8080`
@@ -162,6 +162,8 @@ description: 将 Docker 镜像、GitHub 开源项目或 docker-compose 服务移
 ```
 
 失败时仍用同一模板，但必须明确失败类别属于：预检、构建、产物、安装、启动、路由中的哪一种。
+
+每步执行完毕后，结构化数据自动写入 `apps/<slug>/.migration-state.json`。汇报格式不变，但 state 文件包含完整可机读数据，支持断点续跑（`--resume`）、问题追踪（`problems` 生命周期：open → resolved → backported）和从零复现验证（`--verify`）。
 
 ## 关键硬约束
 
