@@ -6068,6 +6068,12 @@ def parse_args() -> argparse.Namespace:
         default="auto",
         help="Build action after preflight: auto/build/install/reinstall/validate-only",
     )
+    parser.add_argument("--resume", action="store_true",
+                        help="Resume from last completed step (reads .migration-state.json)")
+    parser.add_argument("--resume-from", type=int, metavar="N", default=None,
+                        help="Resume from step N (1-10), keeping context from prior steps")
+    parser.add_argument("--verify", action="store_true",
+                        help="Run from scratch and compare against existing state for reproducibility")
     return parser.parse_args()
 
 
