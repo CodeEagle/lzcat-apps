@@ -7,6 +7,7 @@ import base64
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -75,6 +76,12 @@ def validate_service_shell_fields(service_name: str, payload: dict[str, Any]) ->
             f"service {service_name} command must not use heredoc syntax; "
             "prefer setup_script, an external script file, or printf/envsubst-based file generation"
         )
+
+
+def normalize_service_command(command: Any) -> str:
+    if isinstance(command, list):
+        return shlex.join(str(item) for item in command)
+    return str(command or "")
 
 
 def normalize_slug(value: str) -> str:
@@ -466,6 +473,8 @@ def coerce_services(raw: dict[str, Any], slug: str) -> dict[str, Any]:
                 service_payload["depends_on"] = [str(item) for item in ensure_list(service_payload["depends_on"]) if str(item).strip()]
             if "command" in service_payload and "setup_script" in service_payload:
                 raise ValueError(f"service {name} cannot define both command and setup_script")
+            if "command" in service_payload:
+                service_payload["command"] = normalize_service_command(service_payload["command"])
             validate_service_shell_fields(name, service_payload)
             services[name] = prune_empty(service_payload)
         return services
@@ -482,7 +491,7 @@ def coerce_services(raw: dict[str, Any], slug: str) -> dict[str, Any]:
     if raw.get("setup_script"):
         service_payload["setup_script"] = raw["setup_script"]
     if raw.get("command"):
-        service_payload["command"] = raw["command"]
+        service_payload["command"] = normalize_service_command(raw["command"])
     if raw.get("healthcheck"):
         service_payload["healthcheck"] = raw["healthcheck"]
     validate_service_shell_fields(service_name, service_payload)
@@ -562,6 +571,11 @@ def finalize_spec(raw: dict[str, Any], token: str, fetch_upstream: bool) -> dict
     data_paths = ensure_list(raw.get("data_paths"))
     startup_notes = [str(item).strip() for item in ensure_list(raw.get("startup_notes")) if str(item).strip()]
     overlay_paths = [str(item).strip() for item in ensure_list(raw.get("overlay_paths")) if str(item).strip()]
+    upstream_submodules = [
+        str(item).strip()
+        for item in ensure_list(raw.get("upstream_submodules"))
+        if str(item).strip()
+    ]
 
     dockerfile_type = str(raw.get("dockerfile_type") or "custom").strip()
     dockerfile_path = str(raw.get("dockerfile_path") or "").strip()
@@ -607,6 +621,7 @@ def finalize_spec(raw: dict[str, Any], token: str, fetch_upstream: bool) -> dict
         "docker_platform": str(raw.get("docker_platform", "")).strip(),
         "image_owner": str(raw.get("image_owner", "")).strip(),
         "overlay_paths": overlay_paths,
+        "upstream_submodules": upstream_submodules,
         "image_targets": image_targets,
         "dependencies": dependencies,
         "service_builds": service_builds,
@@ -655,6 +670,8 @@ def build_registry_config(spec: dict[str, Any]) -> dict[str, Any]:
         payload["build_context"] = spec["build_context"]
     if spec["overlay_paths"]:
         payload["overlay_paths"] = spec["overlay_paths"]
+    if spec["upstream_submodules"]:
+        payload["upstream_submodules"] = spec["upstream_submodules"]
     if spec["docker_platform"]:
         payload["docker_platform"] = spec["docker_platform"]
     if spec["image_owner"]:
@@ -679,7 +696,7 @@ def build_manifest(spec: dict[str, Any]) -> dict[str, Any]:
         if payload.get("entrypoint"):
             ordered["entrypoint"] = payload["entrypoint"]
         if payload.get("command"):
-            ordered["command"] = payload["command"]
+            ordered["command"] = normalize_service_command(payload["command"])
         if payload.get("environment"):
             ordered["environment"] = payload["environment"]
         if payload.get("binds"):

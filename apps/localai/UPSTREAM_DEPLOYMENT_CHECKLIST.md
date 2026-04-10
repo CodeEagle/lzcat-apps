@@ -9,13 +9,13 @@
 - LICENSE: MIT
 - AUTHOR: mudler
 - VERSION: 4.1.3
-- IMAGE: TODO
+- IMAGE: docker.io/localai/localai
 - PORT: 8080
 - AI_POD_SERVICE: 无
 - AI_POD_SERVICE_NAME: 无
 - AI_POD_SERVICE_PORT: 无
 - CHECK_STRATEGY: github_release
-- BUILD_STRATEGY: upstream_dockerfile
+- BUILD_STRATEGY: official_image
 
 ## 预填环境变量
 - `MODELS_PATH`: From compose service api (required=False)
@@ -32,6 +32,7 @@
 - 主服务推断为 `api`，入口端口 `8080`。
 - 扫描到 env 示例文件：.env
 - 扫描到 README：README.md, README.md, README.md
+- 上游 compose 的 `command: phi-2` 是示例模型参数，默认安装不预置模型，避免首启导入失败；模型文件和配置由 `/models`、`/configuration` 持久化目录管理。
 
 ## 必扫清单
 - [ ] Dockerfile / Containerfile / compose / helm / entrypoint / startup script 的真实启动入口

@@ -10,7 +10,7 @@
 - Version Strategy: `github_release` -> 当前初稿版本 `4.1.3`
 
 ## 当前迁移骨架
-- Build Strategy: `upstream_dockerfile`
+- Build Strategy: `official_image`
 - Primary Subdomain: `localai`
 - Image Targets: `api`
 - Service Port: `8080`
@@ -44,10 +44,11 @@
 - 主服务推断为 `api`，入口端口 `8080`。
 - 扫描到 env 示例文件：.env
 - 扫描到 README：README.md, README.md, README.md
+- 默认不预置模型；把模型和配置放入持久化的 `/models`、`/configuration` 后由 LocalAI 加载。
 
 ## 下一步
 
 1. 补完 `UPSTREAM_DEPLOYMENT_CHECKLIST.md`，把真实入口、环境变量、写路径和初始化动作全部核实清楚。
 2. 按真实部署拓扑修正 `lzc-manifest.yml`，不要直接沿用占位镜像、端口或命令。
-3. 如果是源码构建，补齐 `Dockerfile` / `Dockerfile.template`、`content/`、`overlay_paths` 等资产。
+3. 官方镜像由构建脚本复制到 LazyCat 镜像缓存，并写入 `.lazycat-images.json`。
 4. 初稿补全后执行 `./scripts/local_build.sh localai --check-only`，再进入实际构建与验收。

@@ -18,8 +18,6 @@ application:
 services:
   api:
     image: registry.lazycat.cloud/placeholder/localai:api
-    command:
-      - phi-2
     environment:
       - MODELS_PATH=/models
     binds:
