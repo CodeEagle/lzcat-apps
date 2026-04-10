@@ -49,6 +49,8 @@ INFRA_KEYWORDS = {
 }
 
 WEB_HINTS = ("web", "ui", "frontend", "app", "server", "api", "dashboard", "console")
+GATEWAY_IMAGE_NAMES = {"nginx", "caddy", "traefik", "haproxy", "envoy"}
+K8S_ENV_PREFIXES = ("K8S_", "KUBE_", "KUBERNETES_", "KUBECONFIG")
 COMPOSE_FILENAMES = ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml")
 DEV_COMMAND_HINTS = (" dev", "vite", "webpack", "storybook", "hot-reload")
 LOW_PRIORITY_DOCKERFILE_DIRS = {
@@ -936,6 +938,31 @@ def compose_depends_on(payload: dict[str, Any]) -> list[str]:
     return []
 
 
+def is_well_known_public_image(image_ref: str) -> bool:
+    """Return True if image_ref is a well-known public infrastructure/gateway image."""
+    ref = image_ref.strip().lower()
+    repo_part = image_repository(ref)
+    first_component = repo_part.split("/")[0]
+    if "." in first_component or ":" in first_component:
+        return False  # private registry
+    base = repo_part.rsplit("/", 1)[-1]
+    return base in GATEWAY_IMAGE_NAMES or base in {k.lower() for k in INFRA_KEYWORDS}
+
+
+def is_k8s_only_service(name: str, payload: dict[str, Any]) -> bool:
+    """Return True if this compose service is k8s-specific and should be excluded."""
+    lowered = name.lower()
+    if any(kw in lowered for kw in ("provisioner", "k8s-", "kubernetes-")):
+        return True
+    env = payload.get("environment", [])
+    env_keys: list[str] = []
+    if isinstance(env, list):
+        env_keys = [str(item).split("=", 1)[0].upper() for item in env]
+    elif isinstance(env, dict):
+        env_keys = [str(k).upper() for k in env]
+    return any(key.startswith(prefix) for key in env_keys for prefix in K8S_ENV_PREFIXES)
+
+
 def service_score(name: str, payload: dict[str, Any]) -> int:
     lowered = name.lower()
     score = 0
@@ -1509,6 +1536,13 @@ def choose_route_for_compose(
         if build_spec:
             build_services[service_name] = build_spec
 
+    # Filter k8s-only services (Kubernetes provisioner etc.) — not deployable on LazyCat
+    k8s_only = {n for n in build_services if is_k8s_only_service(n, services[n])}
+    if k8s_only:
+        for n in k8s_only:
+            del build_services[n]
+        risks.append(f"已过滤 k8s 专属服务：{', '.join(sorted(k8s_only))}（含 K8S_/KUBECONFIG 环境变量）")
+
     if primary_name in build_services:
         primary_build_info = build_services[primary_name]
         build_args = dict(primary_build_info.get("build_args") or {})
@@ -1553,6 +1587,8 @@ def choose_route_for_compose(
     primary_image_repo = image_repository(primary_image) if primary_image else ""
 
     for service_name, payload in services.items():
+        if is_k8s_only_service(service_name, payload):
+            continue
         service_payload: dict[str, Any] = {
             "image": f"registry.lazycat.cloud/placeholder/{slug}:{sanitize_token(service_name)}",
         }
@@ -1589,11 +1625,22 @@ def choose_route_for_compose(
 
         service_image = str(payload.get("image", "")).strip()
         if service_name == primary_name:
-            image_targets.append(service_name)
+            if service_name in build_services:
+                image_targets.append(service_name)
+            elif service_image and is_well_known_public_image(service_image):
+                # Public gateway image (nginx, caddy…) — treat as dependency, not build target
+                dependencies.append({"target_service": service_name, "source_image": service_image})
+            else:
+                image_targets.append(service_name)
         elif service_image and primary_image_repo and image_repository(service_image) == primary_image_repo and build_strategy == "official_image":
             image_targets.append(service_name)
         elif service_image and service_name not in build_services:
             dependencies.append({"target_service": service_name, "source_image": service_image})
+
+    # Ensure every build service appears in image_targets
+    for svc_name in build_services:
+        if svc_name not in image_targets:
+            image_targets.append(svc_name)
 
     application = {
         "subdomain": slug,
