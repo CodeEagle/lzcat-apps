@@ -1718,7 +1718,7 @@ def choose_route_for_compose(
     version = version or "0.1.0"
 
     startup_notes = [
-        f"自动扫描到 compose 文件：{compose_file.name}",
+        f"自动扫描到 compose 文件：{compose_file.relative_to(source_root) if compose_file.is_relative_to(source_root) else compose_file.name}",
         f"主服务推断为 `{primary_name}`，入口端口 `{primary_port}`。",
     ]
     if frontend_gateway:
