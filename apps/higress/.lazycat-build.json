@@ -1,7 +1,7 @@
 {
   "upstream_repo": "alibaba/higress",
-  "source_version": "v2.2.0",
-  "build_version": "2.2.0",
-  "build_label": "v2.2.0@20260403T123108Z",
-  "last_checked_at": "2026-04-03T12:31:08.873551+00:00"
+  "source_version": "v2.2.1",
+  "build_version": "2.2.1",
+  "build_label": "v2.2.1@20260410T124050Z",
+  "last_checked_at": "2026-04-10T12:40:50.592973+00:00"
 }

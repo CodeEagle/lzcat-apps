@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "app": "higress",
+  "source_version": "v2.2.1",
+  "build_version": "2.2.1",
+  "head_sha": "b09b9d7c60fa",
+  "updated_at": "2026-04-10T12:40:50.592775+00:00",
+  "images": {
+    "higress": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:eea7e87aa0f07e91"
+  },
+  "source_images": {
+    "higress": "ghcr.io/codeeagle/lazycatimages:higress_b09b9d7c60fa"
+  },
+  "source_digests": {
+    "_primary": "sha256:96e07cef7523d82bec40d703380da94676d61fb72f5950598ec4c79971b98945"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:higress_b09b9d7c60fa",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:eea7e87aa0f07e91",
+      "elapsed_seconds": 518.648,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}
