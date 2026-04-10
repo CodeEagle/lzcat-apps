@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "app": "pandawiki",
+  "source_version": "v3.84.1",
+  "build_version": "3.84.1",
+  "head_sha": "b09b9d7c60fa",
+  "updated_at": "2026-04-10T12:39:16.127774+00:00",
+  "images": {
+    "panda-wiki-api": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:157001c3d5675cd2",
+    "panda-wiki-minio": "registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-minio:ae1d850c94bcf88e",
+    "panda-wiki-nginx": "registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-nginx:e7421216c9bf6326",
+    "panda-wiki-postgres": "registry.lazycat.cloud/invokerlaw/chaitin/postgres-zhparser:b65cc5be639b2e99",
+    "panda-wiki-redis": "registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-redis:a001686b5e7825a4"
+  },
+  "source_images": {
+    "panda-wiki-api": "ghcr.io/codeeagle/lazycatimages:pandawikiLzcat_b09b9d7c60fa",
+    "panda-wiki-minio": "chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/panda-wiki-minio:RELEASE.2025-04-22T22-12-26Z-cpuv1",
+    "panda-wiki-nginx": "chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/panda-wiki-nginx:v3.84.1",
+    "panda-wiki-postgres": "chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/postgres-zhparser:17.6-bookworm",
+    "panda-wiki-redis": "chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/panda-wiki-redis:7.4.2-alpine"
+  },
+  "source_digests": {
+    "_primary": "sha256:e4ad632d9cedc9d207f58b075030d0b4e2e94b113a79c59810a667387c574a97"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:pandawikiLzcat_b09b9d7c60fa",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:157001c3d5675cd2",
+      "elapsed_seconds": 60.805,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    },
+    {
+      "source_image": "chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/panda-wiki-nginx:v3.84.1",
+      "target_image": "registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-nginx:e7421216c9bf6326",
+      "elapsed_seconds": 59.197,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "service": "panda-wiki-nginx",
+      "kind": "dependency"
+    },
+    {
+      "source_image": "chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/postgres-zhparser:17.6-bookworm",
+      "target_image": "registry.lazycat.cloud/invokerlaw/chaitin/postgres-zhparser:b65cc5be639b2e99",
+      "elapsed_seconds": 0.0,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": true,
+      "service": "panda-wiki-postgres",
+      "kind": "dependency"
+    },
+    {
+      "source_image": "chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/panda-wiki-redis:7.4.2-alpine",
+      "target_image": "registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-redis:a001686b5e7825a4",
+      "elapsed_seconds": 0.0,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": true,
+      "service": "panda-wiki-redis",
+      "kind": "dependency"
+    },
+    {
+      "source_image": "chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/panda-wiki-minio:RELEASE.2025-04-22T22-12-26Z-cpuv1",
+      "target_image": "registry.lazycat.cloud/invokerlaw/chaitin/panda-wiki-minio:ae1d850c94bcf88e",
+      "elapsed_seconds": 0.0,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": true,
+      "service": "panda-wiki-minio",
+      "kind": "dependency"
+    }
+  ]
+}
