@@ -651,6 +651,8 @@ def build_registry_config(spec: dict[str, Any]) -> dict[str, Any]:
         payload["image_owner"] = spec["image_owner"]
     if spec["build_args"]:
         payload["build_args"] = spec["build_args"]
+    if spec.get("deploy_param_sync"):
+        payload["deploy_param_sync"] = spec["deploy_param_sync"]
     return payload
 
 

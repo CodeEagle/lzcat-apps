@@ -2959,14 +2959,23 @@ def apply_app_post_process(repo_root: Path, finalized: dict[str, Any], analysis:
     # Check for .app-profile.json with static content
     profile = load_app_profile(repo_root, slug)
     if profile and profile.get("content_files", {}).get("static"):
-        # Content files are maintained as static templates, no generation needed
-        # But still return deploy params path if it exists
+        # Content files are maintained as static templates in the app directory.
+        # Collect paths of static files that exist (content/, deploy params, etc.)
+        outputs: list[str] = []
+        app_dir = repo_root / "apps" / slug
+        # Report existing content files
+        content_dir = app_dir / "content"
+        if content_dir.is_dir():
+            for f in sorted(content_dir.rglob("*")):
+                if f.is_file():
+                    outputs.append(str(f))
+        # Report deploy params if present
         deploy_params_file = profile.get("deploy_params_file")
         if deploy_params_file:
-            params_path = repo_root / "apps" / slug / deploy_params_file
+            params_path = app_dir / deploy_params_file
             if params_path.exists():
-                return [str(params_path)]
-        return []
+                outputs.append(str(params_path))
+        return outputs
 
     # Fallback to legacy hardcoded post-processors
     if slug == "signoz" and upstream_repo == "SigNoz/signoz":
