@@ -2730,6 +2730,29 @@ def render_deploy_param_sync_note(finalized: dict[str, Any]) -> str | None:
 def apply_generated_app_fixes(finalized: dict[str, Any], analysis: AnalysisResult) -> dict[str, Any]:
     upstream_repo = str(finalized.get("upstream_repo") or analysis.spec.get("upstream_repo") or "").strip()
 
+    if upstream_repo == "mudler/LocalAI":
+        finalized["build_strategy"] = "official_image"
+        finalized["official_image_registry"] = "docker.io/localai/localai"
+        finalized["image_targets"] = ["api"]
+        finalized["dependencies"] = []
+        finalized.pop("service_builds", None)
+        finalized.pop("build_args", None)
+        finalized.pop("docker_platform", None)
+        finalized.pop("upstream_submodules", None)
+        services = finalized.get("services")
+        if isinstance(services, dict):
+            api = services.get("api")
+            if isinstance(api, dict):
+                # Upstream compose uses `phi-2` as a quickstart example. Keeping it
+                # as the packaged command makes first boot try and fail to import
+                # a model, so default to an empty persistent model directory.
+                if stringify_command(api.get("command")).strip() == "phi-2":
+                    api.pop("command", None)
+        startup_notes = finalized.setdefault("startup_notes", [])
+        note = "上游 compose 的 `command: phi-2` 是示例模型参数，默认安装不预置模型；模型文件和配置由 `/models`、`/configuration` 持久化目录管理。"
+        if note not in startup_notes:
+            startup_notes.append(note)
+
     if (
         str(finalized.get("build_strategy", "")).strip() in SOURCE_BUILD_STRATEGIES
         or bool(finalized.get("service_builds"))
