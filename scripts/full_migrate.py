@@ -1546,14 +1546,24 @@ def choose_route_for_compose(
                 dockerfile_rel = str(dockerfile_candidate.relative_to(source_root.resolve()))
             except ValueError as exc:
                 raise ValueError(f"compose build path escapes source root: {service_name}") from exc
-            return {
+            raw_args = dict(build_info.get("args") or {})
+            # Strip infra-only build args: upstream CI mirrors/proxies with empty optional defaults
+            build_args = {
+                k: v for k, v in raw_args.items()
+                if not re.fullmatch(r"\$\{[^}]+:-\}", str(v))
+            }
+            spec: dict[str, Any] = {
                 "target_service": service_name,
                 "build_strategy": "upstream_dockerfile",
                 "source_dockerfile_path": dockerfile_rel,
                 "build_context": build_context_rel,
-                "build_args": dict(build_info.get("args") or {}),
+                "build_args": build_args,
                 "image_name": f"{slug}-{sanitize_token(service_name)}",
             }
+            build_target = str(build_info.get("target") or "").strip()
+            if build_target:
+                spec["build_target"] = build_target
+            return spec
 
         image_ref = str(payload.get("image", "")).strip()
         if not image_ref or is_version_like_tag(image_tag(image_ref)):
@@ -1751,6 +1761,7 @@ def choose_route_for_compose(
         "env_vars": dedupe_env_docs(env_docs),
         "data_paths": dedupe_data_paths(data_docs),
         "startup_notes": startup_notes,
+        "include_content": any(k.startswith("content/") for k in post_write),
         "_risks": risks,
         "_post_write": post_write,
     }
