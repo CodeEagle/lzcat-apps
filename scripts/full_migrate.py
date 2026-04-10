@@ -1674,9 +1674,12 @@ def choose_route_for_compose(
         if depends:
             service_payload["depends_on"] = depends
 
+        if payload.get("user"):
+            service_payload["user"] = payload["user"]
+        if payload.get("entrypoint"):
+            service_payload["entrypoint"] = payload["entrypoint"]
         if payload.get("command"):
             service_payload["command"] = payload["command"]
-
         if payload.get("healthcheck"):
             service_payload["healthcheck"] = payload["healthcheck"]
 
@@ -2504,6 +2507,29 @@ def load_app_profile(repo_root: Path, slug: str) -> dict[str, Any] | None:
     if not profile_path.exists():
         return None
     return json.loads(profile_path.read_text(encoding="utf-8"))
+
+
+_PROFILE_GENERATED_FIELDS: frozenset[str] = frozenset({
+    "project_name", "description", "license", "homepage", "author",
+    "build_strategy", "official_image_registry", "docker_platform",
+    "service_port", "image_targets", "dependencies", "service_builds",
+    "application", "services", "env_vars", "data_paths",
+    "include_content", "startup_notes", "usage",
+})
+
+
+def generate_app_profile(finalized: dict[str, Any]) -> dict[str, Any]:
+    """Serialise the compose-analysis result as a .app-profile.json skeleton.
+
+    Only persists fields that represent meaningful, reusable decisions — not
+    ephemeral state like version, image refs, or runtime risks.
+    """
+    fixes = {
+        k: v for k, v in finalized.items()
+        if k in _PROFILE_GENERATED_FIELDS
+        and v is not None and v != "" and v != [] and v != {}
+    }
+    return {"fixes": fixes}
 
 
 def apply_app_profile_fixes(finalized: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
@@ -4087,6 +4113,17 @@ def main() -> int:
             ):
                 finalized["image_owner"] = image_owner
             finalized = apply_generated_app_fixes(finalized, analysis)
+            _profile_path = repo_root / "apps" / finalized["slug"] / ".app-profile.json"
+            if not _profile_path.exists():
+                _profile_path.parent.mkdir(parents=True, exist_ok=True)
+                # If app already has a content/ dir, ensure include_content is on
+                _content_dir = _profile_path.parent / "content"
+                if _content_dir.is_dir() and any(_content_dir.rglob("*")):
+                    finalized["include_content"] = True
+                _profile_path.write_text(
+                    json.dumps(generate_app_profile(finalized), indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8",
+                )
             profile = load_app_profile(repo_root, finalized["slug"])
             if profile:
                 finalized = apply_app_profile_fixes(finalized, profile)
