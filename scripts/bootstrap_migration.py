@@ -660,10 +660,14 @@ def build_manifest(spec: dict[str, Any]) -> dict[str, Any]:
     services: dict[str, Any] = {}
     for service_name, payload in spec["services"].items():
         ordered: dict[str, Any] = {"image": payload["image"]}
+        if payload.get("user"):
+            ordered["user"] = payload["user"]
         if payload.get("depends_on"):
             ordered["depends_on"] = payload["depends_on"]
         if payload.get("setup_script"):
             ordered["setup_script"] = payload["setup_script"]
+        if payload.get("entrypoint"):
+            ordered["entrypoint"] = payload["entrypoint"]
         if payload.get("command"):
             ordered["command"] = payload["command"]
         if payload.get("environment"):

@@ -1,0 +1,199 @@
+{
+  "profile_version": 1,
+  "slug": "signoz",
+  "upstream_repo": "SigNoz/signoz",
+  "content_files": {
+    "static": true,
+    "note": "content/ files (clickhouse XML, otel-collector config) maintained statically."
+  },
+  "fixes": {
+    "project_name": "SigNoz",
+    "description": "Open-source observability with traces, metrics, and logs",
+    "license": "Apache-2.0",
+    "homepage": "https://signoz.io",
+    "author": "SigNoz",
+    "build_strategy": "official_image",
+    "official_image_registry": "signoz/signoz",
+    "service_port": 8080,
+    "image_targets": [
+      "signoz"
+    ],
+    "dependencies": [
+      {
+        "target_service": "init-clickhouse",
+        "source_image": "clickhouse/clickhouse-server:25.5.6"
+      },
+      {
+        "target_service": "zookeeper-1",
+        "source_image": "signoz/zookeeper:3.7.1"
+      },
+      {
+        "target_service": "clickhouse",
+        "source_image": "clickhouse/clickhouse-server:25.5.6"
+      },
+      {
+        "target_service": "otel-collector",
+        "source_image": "signoz/signoz-otel-collector:v0.144.2"
+      }
+    ],
+    "application": {
+      "subdomain": "signoz",
+      "public_path": [
+        "/"
+      ],
+      "health_check": {
+        "disable": true,
+        "test_url": "http://signoz:8080/api/v1/health",
+        "start_period": "300s",
+        "timeout": "10s"
+      },
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://signoz:8080/",
+          "disable_auto_health_checking": true
+        }
+      ]
+    },
+    "services": {
+      "init-clickhouse": {
+        "image": "registry.lazycat.cloud/placeholder/signoz:init-clickhouse",
+        "command": "bash -lc 'set -e; mkdir -p /var/lib/clickhouse/user_scripts; if [ ! -x /var/lib/clickhouse/user_scripts/histogramQuantile ]; then version=\"v0.0.1\"; node_os=$$(uname -s | tr \"[:upper:]\" \"[:lower:]\"); node_arch=$$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/); cd /tmp; wget -O histogram-quantile.tar.gz \"https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2F$${version}/histogram-quantile_$${node_os}_$${node_arch}.tar.gz\"; tar -xzf histogram-quantile.tar.gz; mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile; chmod +x /var/lib/clickhouse/user_scripts/histogramQuantile; fi'",
+        "binds": [
+          "/lzcapp/var/db/signoz/clickhouse:/var/lib/clickhouse"
+        ]
+      },
+      "zookeeper-1": {
+        "image": "registry.lazycat.cloud/placeholder/signoz:zookeeper-1",
+        "user": "root",
+        "environment": [
+          "ZOO_SERVER_ID=1",
+          "ALLOW_ANONYMOUS_LOGIN=yes",
+          "ZOO_AUTOPURGE_INTERVAL=1",
+          "ZOO_ENABLE_PROMETHEUS_METRICS=yes",
+          "ZOO_PROMETHEUS_METRICS_PORT_NUMBER=9141"
+        ],
+        "binds": [
+          "/lzcapp/var/db/signoz/zookeeper:/bitnami/zookeeper"
+        ],
+        "healthcheck": {
+          "test": [
+            "CMD-SHELL",
+            "curl -s -m 2 http://localhost:8080/commands/ruok | grep error | grep null"
+          ],
+          "interval": "30s",
+          "timeout": "5s",
+          "retries": 10
+        }
+      },
+      "clickhouse": {
+        "image": "registry.lazycat.cloud/placeholder/signoz:clickhouse",
+        "depends_on": [
+          "init-clickhouse",
+          "zookeeper-1"
+        ],
+        "environment": [
+          "CLICKHOUSE_SKIP_USER_SETUP=1"
+        ],
+        "binds": [
+          "/lzcapp/var/db/signoz/clickhouse:/var/lib/clickhouse"
+        ],
+        "setup_script": "mkdir -p /etc/clickhouse-server/config.d /var/lib/clickhouse/user_scripts\ncp /lzcapp/pkg/content/clickhouse/users.xml /etc/clickhouse-server/users.xml\ncp /lzcapp/pkg/content/clickhouse/cluster.xml /etc/clickhouse-server/config.d/cluster.xml\ncp /lzcapp/pkg/content/clickhouse/macros.xml /etc/clickhouse-server/config.d/macros.xml\ncp /lzcapp/pkg/content/clickhouse/custom-function.xml /etc/clickhouse-server/custom-function.xml\n",
+        "healthcheck": {
+          "test": [
+            "CMD",
+            "wget",
+            "--spider",
+            "-q",
+            "0.0.0.0:8123/ping"
+          ],
+          "interval": "30s",
+          "timeout": "5s",
+          "retries": 10
+        }
+      },
+      "signoz": {
+        "image": "registry.lazycat.cloud/placeholder/signoz:signoz",
+        "depends_on": [
+          "clickhouse"
+        ],
+        "entrypoint": "/bin/sh",
+        "command": "-lc 'mkdir -p /var/lib/signoz /var/lib/signoz/prometheus-active-query-tracker /var/lib/signoz-runtime; until [ -f /var/lib/signoz-runtime/migrations-ready ]; do sleep 3; done; exec ./signoz server'",
+        "environment": [
+          "SIGNOZ_ALERTMANAGER_PROVIDER=signoz",
+          "SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN=tcp://clickhouse:9000",
+          "SIGNOZ_SQLSTORE_SQLITE_PATH=/var/lib/signoz/signoz.db",
+          "SIGNOZ_TOKENIZER_JWT_SECRET=secret",
+          "SIGNOZ_PROMETHEUS_ACTIVE__QUERY__TRACKER_PATH=/var/lib/signoz/prometheus-active-query-tracker"
+        ],
+        "binds": [
+          "/lzcapp/var/data/signoz/sqlite:/var/lib/signoz",
+          "/lzcapp/var/data/signoz/runtime:/var/lib/signoz-runtime"
+        ],
+        "healthcheck": {
+          "test": [
+            "CMD",
+            "wget",
+            "--spider",
+            "-q",
+            "localhost:8080/api/v1/health"
+          ],
+          "interval": "30s",
+          "timeout": "5s",
+          "retries": 10
+        }
+      },
+      "otel-collector": {
+        "image": "registry.lazycat.cloud/placeholder/signoz:otel-collector",
+        "depends_on": [
+          "clickhouse"
+        ],
+        "environment": [
+          "OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux",
+          "LOW_CARDINAL_EXCEPTION_GROUPING=false",
+          "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://clickhouse:9000",
+          "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER=cluster",
+          "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION=true",
+          "SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m"
+        ],
+        "entrypoint": "/bin/sh",
+        "command": "-lc 'set -e; mkdir -p /var/lib/signoz-runtime; cp /lzcapp/pkg/content/otel-collector-config.yaml /var/tmp/otel-config.yaml; until [ -f /var/lib/signoz-runtime/migrations-ready ]; do sleep 3; done; /signoz-otel-collector migrate sync check --clickhouse-dsn tcp://clickhouse:9000 --clickhouse-cluster cluster --clickhouse-replication && exec /signoz-otel-collector --config /var/tmp/otel-config.yaml'",
+        "binds": [
+          "/lzcapp/var/data/signoz/runtime:/var/lib/signoz-runtime"
+        ],
+        "healthcheck": {
+          "test": [
+            "CMD",
+            "true"
+          ],
+          "interval": "30s",
+          "timeout": "5s",
+          "retries": 10
+        }
+      },
+      "signoz-telemetrystore-migrator": {
+        "image": "registry.lazycat.cloud/placeholder/signoz:signoz-telemetrystore-migrator",
+        "user": "root",
+        "depends_on": [
+          "clickhouse"
+        ],
+        "environment": [
+          "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://clickhouse:9000",
+          "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER=cluster",
+          "SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION=true",
+          "SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m"
+        ],
+        "entrypoint": "/bin/sh",
+        "command": "-lc 'set -e; mkdir -p /var/lib/signoz-runtime; rm -f /var/lib/signoz-runtime/migrations-ready; until /signoz-otel-collector migrate ready --clickhouse-dsn tcp://clickhouse:9000 --clickhouse-cluster cluster --clickhouse-replication; do sleep 3; done; /signoz-otel-collector migrate bootstrap --clickhouse-dsn tcp://clickhouse:9000 --clickhouse-cluster cluster --clickhouse-replication; /signoz-otel-collector migrate sync up --clickhouse-dsn tcp://clickhouse:9000 --clickhouse-cluster cluster --clickhouse-replication; /signoz-otel-collector migrate async up --clickhouse-dsn tcp://clickhouse:9000 --clickhouse-cluster cluster --clickhouse-replication; touch /var/lib/signoz-runtime/migrations-ready'",
+        "binds": [
+          "/lzcapp/var/data/signoz/runtime:/var/lib/signoz-runtime"
+        ]
+      }
+    },
+    "startup_notes": [
+      "自动扫描到官方 docker-compose.yaml，已按 official_image 路线迁移。",
+      "ClickHouse 配置和 otel-collector 配置放在 content/ 下，通过 lzc-build.yml 打包进 .lpk。",
+      "collector 采用静态配置启动，不使用 OpAMP manager-config，避免首次启动阶段因 orgId 缺失阻塞。"
+    ]
+  }
+}
