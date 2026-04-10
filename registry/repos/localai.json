@@ -26,6 +26,9 @@
       "image_name": "localai-api"
     }
   ],
+  "upstream_submodules": [
+    "backend/rust/kokoros/sources/Kokoros"
+  ],
   "docker_platform": "linux/amd64",
   "build_args": {
     "IMAGE_TYPE": "core",
