@@ -887,6 +887,46 @@ def target_host_path(slug: str, service_name: str, target: str) -> str:
     return f"/lzcapp/var/data/{slug}/{sanitize_token(service_name)}/{sanitize_token(Path(target).name or 'data')}"
 
 
+_CONTENT_BIND_EXTENSIONS = frozenset(
+    {".conf", ".yaml", ".yml", ".json", ".toml", ".ini", ".env", ".sh", ".template", ".lua", ".xml"}
+)
+
+
+def detect_content_bind(
+    raw: Any,
+    compose_file: Path,
+) -> tuple[str | None, Path | None]:
+    """Pattern 5: relative :ro config file mounts → /lzcapp/pkg/content/<name>:<target>.
+
+    Returns (bind_string, source_path) when the volume should become a content bind,
+    or (None, None) otherwise.  source_path is the resolved file to copy into content/.
+    """
+    if not isinstance(raw, str):
+        return None, None
+    parts = raw.split(":")
+    if len(parts) < 3:
+        return None, None
+    source_str, target, mode = parts[0].strip(), parts[1].strip(), parts[2].strip()
+    if "ro" not in mode.split(","):
+        return None, None
+    if not source_str.startswith(("./", "../")):
+        return None, None
+    if not target.startswith("/"):
+        return None, None
+    source_path = (compose_file.parent / source_str).resolve()
+    if not source_path.is_file():
+        return None, None
+    suffix = source_path.suffix.lower()
+    # Also catch multi-suffix names like nginx.conf.template
+    has_config_ext = suffix in _CONTENT_BIND_EXTENSIONS or any(
+        source_path.name.endswith(ext) for ext in _CONTENT_BIND_EXTENSIONS
+    )
+    if not has_config_ext:
+        return None, None
+    bind = f"/lzcapp/pkg/content/{source_path.name}:{target}"
+    return bind, source_path
+
+
 def parse_compose_volume(raw: Any, slug: str, service_name: str) -> tuple[str | None, dict[str, Any] | None]:
     source = ""
     target = ""
@@ -1601,6 +1641,15 @@ def choose_route_for_compose(
 
         binds: list[str] = []
         for volume in bm.ensure_list(payload.get("volumes")):
+            # Pattern 5: relative :ro config file → content bind + copy source into content/
+            content_bind, content_src = detect_content_bind(volume, compose_file)
+            if content_bind:
+                binds.append(content_bind)
+                if content_src:
+                    content_key = f"content/{content_src.name}"
+                    if content_key not in post_write:
+                        post_write[content_key] = content_src.read_text(encoding="utf-8", errors="ignore")
+                continue
             bind, doc = parse_compose_volume(volume, slug, service_name)
             if bind:
                 binds.append(bind)
@@ -2429,6 +2478,10 @@ def apply_post_write(repo_root: Path, slug: str, post_write: dict[str, str]) -> 
     app_dir = repo_root / "apps" / slug
     for relative, content in post_write.items():
         path = app_dir / relative
+        if path.exists():
+            outputs.append(str(path))
+            continue  # preserve hand-tuned static content
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
         outputs.append(str(path))
     return outputs
