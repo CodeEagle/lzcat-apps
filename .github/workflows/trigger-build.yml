@@ -58,6 +58,7 @@ on:
           - "goclaw"
           - "hermes-webui-aio"
           - "cultivation-world-simulator"
+          - "copilot-api-plus"
           # END AUTO-GENERATED APP OPTIONS
       target_version:
         description: "Target upstream version to build. Leave empty for latest."

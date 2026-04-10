@@ -41,6 +41,7 @@
     "memoh.json",
     "goclaw.json",
     "hermes-webui-aio.json",
-    "cultivation-world-simulator.json"
+    "cultivation-world-simulator.json",
+    "copilot-api-plus.json"
   ]
 }
