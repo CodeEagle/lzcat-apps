@@ -3266,9 +3266,9 @@ def render_deer_flow_config_script() -> str:
         #!/bin/sh
         set -eu
 
-        CONFIG_PATH="${DEER_FLOW_CONFIG_PATH:-/deer-flow-state/config/config.yaml}"
-        CONFIG_ENV_PATH="${DEER_FLOW_CONFIG_ENV_PATH:-/deer-flow-state/config/model.env}"
-        READY_MARKER="${DEER_FLOW_READY_MARKER:-/deer-flow-state/config/.lazycat-config-ready}"
+        CONFIG_PATH="${DEER_FLOW_CONFIG_PATH:-/lzcapp/var/data/deer-flow/config/config.yaml}"
+        CONFIG_ENV_PATH="${DEER_FLOW_CONFIG_ENV_PATH:-/lzcapp/var/data/deer-flow/config/model.env}"
+        READY_MARKER="${DEER_FLOW_READY_MARKER:-/lzcapp/var/data/deer-flow/config/.lazycat-config-ready}"
         CONFIG_DIR="$(dirname "$CONFIG_PATH")"
         mkdir -p "$CONFIG_DIR"
 
@@ -3370,6 +3370,7 @@ def render_deer_flow_config_script() -> str:
             echo "    output_version: responses/v1"
           fi
           cat <<'EOF'
+
         tool_groups:
           - name: web
           - name: file:read
@@ -4177,8 +4178,8 @@ def render_deer_flow_nginx_conf() -> str:
                     proxy_set_header X-Forwarded-Proto $scheme;
                 }
 
-                location / {
-                    proxy_pass http://frontend;
+            location / {
+                proxy_pass http://frontend;
                     proxy_http_version 1.1;
                     proxy_set_header Host $host;
                     proxy_set_header X-Real-IP $remote_addr;
@@ -4656,6 +4657,7 @@ def render_deer_flow_backfill_script() -> str:
 
         if __name__ == "__main__":
             raise SystemExit(run())
+
         """
     )
 
@@ -4737,8 +4739,8 @@ def post_process_deer_flow(repo_root: Path) -> list[str]:
             # Configuration for the DeerFlow application
             #
             # This packaged template follows the upstream DeerFlow 2.0 layout.
-            # LazyCat rewrites the `models` section from deployment parameters so the runtime
-            # keeps using DeerFlow's default field names and environment-variable conventions.
+            # LazyCat rewrites the `models` section from the config UI so the runtime keeps
+            # using DeerFlow's default field names and environment-variable conventions.
 
             config_version: 5
 
