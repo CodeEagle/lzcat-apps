@@ -1,0 +1,34 @@
+{
+  "enabled": true,
+  "upstream_repo": "mudler/LocalAI",
+  "check_strategy": "github_release",
+  "build_strategy": "upstream_dockerfile",
+  "publish_to_store": false,
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "custom",
+  "service_port": 8080,
+  "service_cmd": [],
+  "image_targets": [
+    "api"
+  ],
+  "dependencies": [],
+  "service_builds": [
+    {
+      "target_service": "api",
+      "build_strategy": "upstream_dockerfile",
+      "source_dockerfile_path": "Dockerfile",
+      "build_context": ".",
+      "build_args": {
+        "IMAGE_TYPE": "core",
+        "BASE_IMAGE": "ubuntu:24.04"
+      },
+      "image_name": "localai-api"
+    }
+  ],
+  "docker_platform": "linux/amd64",
+  "build_args": {
+    "IMAGE_TYPE": "core",
+    "BASE_IMAGE": "ubuntu:24.04"
+  }
+}
