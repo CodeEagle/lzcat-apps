@@ -2936,13 +2936,44 @@ def post_process_signoz(repo_root: Path) -> list[str]:
     return outputs
 
 
+def load_app_profile(repo_root: Path, slug: str) -> dict[str, Any] | None:
+    """Load .app-profile.json for an app if it exists."""
+    profile_path = repo_root / "apps" / slug / ".app-profile.json"
+    if not profile_path.exists():
+        return None
+    return json.loads(profile_path.read_text(encoding="utf-8"))
+
+
+def apply_app_profile_fixes(finalized: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
+    """Apply fixes from .app-profile.json to the finalized spec."""
+    fixes = profile.get("fixes", {})
+    for key, value in fixes.items():
+        finalized[key] = value
+    return finalized
+
+
 def apply_app_post_process(repo_root: Path, finalized: dict[str, Any], analysis: AnalysisResult) -> list[str]:
+    slug = finalized["slug"]
     upstream_repo = str(finalized.get("upstream_repo") or analysis.spec.get("upstream_repo") or "").strip()
-    if finalized["slug"] == "signoz" and upstream_repo == "SigNoz/signoz":
+
+    # Check for .app-profile.json with static content
+    profile = load_app_profile(repo_root, slug)
+    if profile and profile.get("content_files", {}).get("static"):
+        # Content files are maintained as static templates, no generation needed
+        # But still return deploy params path if it exists
+        deploy_params_file = profile.get("deploy_params_file")
+        if deploy_params_file:
+            params_path = repo_root / "apps" / slug / deploy_params_file
+            if params_path.exists():
+                return [str(params_path)]
+        return []
+
+    # Fallback to legacy hardcoded post-processors
+    if slug == "signoz" and upstream_repo == "SigNoz/signoz":
         return post_process_signoz(repo_root)
-    if finalized["slug"] == "deer-flow" and upstream_repo == "bytedance/deer-flow":
+    if slug == "deer-flow" and upstream_repo == "bytedance/deer-flow":
         return post_process_deer_flow(repo_root)
-    if finalized["slug"] == "multica" and upstream_repo == "multica-ai/multica":
+    if slug == "multica" and upstream_repo == "multica-ai/multica":
         return post_process_multica(repo_root)
     if matches_basic_llm_dotenv_profile(finalized, analysis):
         return post_process_basic_llm_dotenv(repo_root, finalized["slug"])
@@ -6214,6 +6245,9 @@ def main() -> int:
             ):
                 finalized["image_owner"] = image_owner
             finalized = apply_generated_app_fixes(finalized, analysis)
+            profile = load_app_profile(repo_root, finalized["slug"])
+            if profile:
+                finalized = apply_app_profile_fixes(finalized, profile)
             config_path = repo_root / "registry" / "repos" / f"{finalized['slug']}.json"
             app_dir = repo_root / "apps" / finalized["slug"]
             step_report(
