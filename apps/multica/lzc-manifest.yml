@@ -37,7 +37,7 @@ services:
       - GOOGLE_CLIENT_SECRET={{ default "" .U.google_client_secret }}
       - GOOGLE_REDIRECT_URI=https://multica.${LAZYCAT_BOX_DOMAIN}/auth/callback
   web:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica-web:e27c34b526fa70dd
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica-web:890d20c22920250e
     depends_on:
       - multica
     command: >-
