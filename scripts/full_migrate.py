@@ -989,6 +989,22 @@ def is_well_known_public_image(image_ref: str) -> bool:
     return base in GATEWAY_IMAGE_NAMES or base in {k.lower() for k in INFRA_KEYWORDS}
 
 
+def _infer_health_check_url(test: Any, service_name: str, port: int) -> str | None:
+    """Extract a health-check URL from a compose healthcheck test list."""
+    if isinstance(test, list):
+        cmd = " ".join(str(c) for c in test)
+    elif isinstance(test, str):
+        cmd = test
+    else:
+        return None
+    m = re.search(r"(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d+)(/[^\s\"']*)?", cmd)
+    if m:
+        p = int(m.group(1))
+        path = (m.group(2) or "/").rstrip()
+        return f"http://{service_name}:{p}{path}"
+    return None
+
+
 def is_k8s_only_service(name: str, payload: dict[str, Any]) -> bool:
     """Return True if this compose service is k8s-specific and should be excluded."""
     lowered = name.lower()
@@ -1470,7 +1486,7 @@ def choose_route_for_official_image(slug: str, meta: dict[str, Any], image_ref: 
         "description_zh": f"（迁移初稿）{bm.titleize_slug(slug)} 的懒猫微服版本",
         "upstream_repo": str(meta.get("upstream_repo", "")),
         "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
+        "license": str(meta.get("license") or ""),
         "author": str(meta.get("author") or "TODO"),
         "version": version,
         "check_strategy": str(meta.get("check_strategy", "github_release")),
@@ -1683,6 +1699,22 @@ def choose_route_for_compose(
         if payload.get("healthcheck"):
             service_payload["healthcheck"] = payload["healthcheck"]
 
+        # Auto-generate setup_script for services that have content binds but no startup command.
+        # Each content bind implies a file that must be copied into place before the service starts.
+        if not service_payload.get("command") and not service_payload.get("entrypoint"):
+            content_binds = [b for b in service_payload.get("binds", []) if b.startswith("/lzcapp/pkg/content/")]
+            if content_binds:
+                lines: list[str] = []
+                seen_dirs: set[str] = set()
+                for bind in content_binds:
+                    src, dst = bind.split(":", 1)
+                    dst_dir = str(Path(dst).parent)
+                    if dst_dir != "/" and dst_dir not in seen_dirs:
+                        lines.append(f"mkdir -p {dst_dir}")
+                        seen_dirs.add(dst_dir)
+                    lines.append(f"cp {src} {dst}")
+                service_payload["setup_script"] = "\n".join(lines) + "\n"
+
         service_specs[service_name] = service_payload
 
         service_image = str(payload.get("image", "")).strip()
@@ -1714,6 +1746,15 @@ def choose_route_for_compose(
             frontend_gateway=frontend_gateway,
         ),
     }
+    # Infer application-level health check from the primary service's compose healthcheck
+    _primary_hc = service_specs.get(primary_name, {}).get("healthcheck") or {}
+    _hc_url = _infer_health_check_url(_primary_hc.get("test"), primary_name, primary_port)
+    if _hc_url:
+        _n_services = sum(1 for n in services if not is_k8s_only_service(n, services[n]))
+        application["health_check"] = {
+            "test_url": _hc_url,
+            "start_period": "300s" if _n_services > 3 else "60s",
+        }
 
     version = str(meta.get("version", "") or "").strip()
     if not version and is_version_like_tag(image_tag(primary_image)):
@@ -1747,7 +1788,7 @@ def choose_route_for_compose(
         "description_zh": f"（迁移初稿）{bm.titleize_slug(slug)} 的懒猫微服版本",
         "upstream_repo": str(meta.get("upstream_repo", "")),
         "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
+        "license": str(meta.get("license") or ""),
         "author": str(meta.get("author") or "TODO"),
         "version": version,
         "check_strategy": str(meta.get("check_strategy", "github_release")),
@@ -1812,7 +1853,7 @@ def choose_route_for_dockerfile(
         "description_zh": f"（迁移初稿）{bm.titleize_slug(slug)} 的懒猫微服版本",
         "upstream_repo": str(meta.get("upstream_repo", "")),
         "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
+        "license": str(meta.get("license") or ""),
         "author": str(meta.get("author") or "TODO"),
         "version": str(meta.get("version") or "0.1.0"),
         "check_strategy": str(meta.get("check_strategy", "github_release")),
@@ -1974,7 +2015,7 @@ def choose_route_for_frontend(
         "description_zh": f"（迁移初稿）{project_name} 的懒猫微服前端版本",
         "upstream_repo": str(meta.get("upstream_repo", "")),
         "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
+        "license": str(meta.get("license") or ""),
         "author": str(meta.get("author") or "TODO"),
         "version": str(meta.get("version") or "0.1.0"),
         "check_strategy": str(meta.get("check_strategy") or "commit_sha"),
@@ -2172,7 +2213,7 @@ def choose_route_for_native_desktop(
         "description_zh": f"（迁移初稿）{project_name} 的懒猫微服桌面封装版本",
         "upstream_repo": str(meta.get("upstream_repo", "")),
         "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
+        "license": str(meta.get("license") or ""),
         "author": str(meta.get("author") or "TODO"),
         "version": version,
         "check_strategy": str(meta.get("check_strategy", "github_release")),
@@ -2217,7 +2258,7 @@ def choose_route_for_binary(slug: str, meta: dict[str, Any], binary: dict[str, A
         "description_zh": f"（迁移初稿）{bm.titleize_slug(slug)} 的懒猫微服版本",
         "upstream_repo": str(meta.get("upstream_repo", "")),
         "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
+        "license": str(meta.get("license") or ""),
         "author": str(meta.get("author") or "TODO"),
         "version": str(meta.get("version") or bm.normalize_semver(binary.get("tag_name") or "0.1.0")),
         "check_strategy": str(meta.get("check_strategy", "github_release")),
@@ -2290,7 +2331,7 @@ def choose_route_for_gpu_aipod(
         "description_zh": f"（迁移初稿）{project_name} 的懒猫微服 + 算力舱版本",
         "upstream_repo": str(meta.get("upstream_repo", "")),
         "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
+        "license": str(meta.get("license") or ""),
         "author": str(meta.get("author") or "TODO"),
         "version": str(meta.get("version") or "0.1.0"),
         "check_strategy": str(meta.get("check_strategy", "github_release")),

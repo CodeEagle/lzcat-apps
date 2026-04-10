@@ -316,11 +316,21 @@ def fetch_upstream_metadata(upstream_repo: str, check_strategy: str, token: str 
     license_info = repo_meta.get("license") if isinstance(repo_meta.get("license"), dict) else {}
     owner = repo_meta.get("owner") if isinstance(repo_meta.get("owner"), dict) else {}
 
+    # Clean description: first sentence, strip emojis and markdown noise
+    raw_desc = str(repo_meta.get("description", "") or "").strip()
+    clean_desc = raw_desc.split("\n")[0].split(". ")[0].rstrip(".")
+    clean_desc = re.sub(r"[\U00010000-\U0010FFFF\U0001F000-\U0001FFFF\u2600-\u27BF]+", "", clean_desc).strip(" -–|·")
+    clean_desc = clean_desc[:160].strip()
+
+    # Suppress NOASSERTION — GitHub couldn't identify the license; leave blank for human review
+    raw_license = str(license_info.get("spdx_id", "") or license_info.get("name", "") or "").strip()
+    clean_license = "" if raw_license in ("NOASSERTION", "NONE") else raw_license
+
     return {
         "project_name": str(repo_meta.get("name", "")).strip(),
-        "description": str(repo_meta.get("description", "") or "").strip(),
+        "description": clean_desc,
         "homepage": str(repo_meta.get("homepage", "") or "").strip() or f"https://github.com/{upstream_repo}",
-        "license": str(license_info.get("spdx_id", "") or license_info.get("name", "") or "").strip(),
+        "license": clean_license,
         "author": str(owner.get("login", "") or "").strip(),
         "source_version": source_version,
         "version": build_version,
@@ -521,8 +531,8 @@ def finalize_spec(raw: dict[str, Any], token: str, fetch_upstream: bool) -> dict
     description = str(raw.get("description") or upstream_meta.get("description") or f"{project_name} on LazyCat").strip()
     description_zh = str(raw.get("description_zh") or f"（迁移初稿）{project_name} 的懒猫微服打包版本").strip()
     homepage = str(raw.get("homepage") or upstream_meta.get("homepage") or (f"https://github.com/{upstream_repo}" if upstream_repo else "")).strip()
-    license_name = str(raw.get("license") or upstream_meta.get("license") or "TODO").strip()
-    author = str(raw.get("author") or upstream_meta.get("author") or "TODO").strip()
+    license_name = str(raw.get("license") or upstream_meta.get("license") or "").strip()
+    author = str(raw.get("author") or upstream_meta.get("author") or "").strip()
     package_name = str(raw.get("package") or f"fun.selfstudio.app.migration.{slug}").strip()
     min_os_version = str(raw.get("min_os_version") or "1.3.8").strip()
 
