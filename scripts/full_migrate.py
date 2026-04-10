@@ -49,6 +49,8 @@ INFRA_KEYWORDS = {
 }
 
 WEB_HINTS = ("web", "ui", "frontend", "app", "server", "api", "dashboard", "console")
+GATEWAY_IMAGE_NAMES = {"nginx", "caddy", "traefik", "haproxy", "envoy"}
+K8S_ENV_PREFIXES = ("K8S_", "KUBE_", "KUBERNETES_", "KUBECONFIG")
 COMPOSE_FILENAMES = ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml")
 DEV_COMMAND_HINTS = (" dev", "vite", "webpack", "storybook", "hot-reload")
 LOW_PRIORITY_DOCKERFILE_DIRS = {
@@ -885,6 +887,46 @@ def target_host_path(slug: str, service_name: str, target: str) -> str:
     return f"/lzcapp/var/data/{slug}/{sanitize_token(service_name)}/{sanitize_token(Path(target).name or 'data')}"
 
 
+_CONTENT_BIND_EXTENSIONS = frozenset(
+    {".conf", ".yaml", ".yml", ".json", ".toml", ".ini", ".env", ".sh", ".template", ".lua", ".xml"}
+)
+
+
+def detect_content_bind(
+    raw: Any,
+    compose_file: Path,
+) -> tuple[str | None, Path | None]:
+    """Pattern 5: relative :ro config file mounts → /lzcapp/pkg/content/<name>:<target>.
+
+    Returns (bind_string, source_path) when the volume should become a content bind,
+    or (None, None) otherwise.  source_path is the resolved file to copy into content/.
+    """
+    if not isinstance(raw, str):
+        return None, None
+    parts = raw.split(":")
+    if len(parts) < 3:
+        return None, None
+    source_str, target, mode = parts[0].strip(), parts[1].strip(), parts[2].strip()
+    if "ro" not in mode.split(","):
+        return None, None
+    if not source_str.startswith(("./", "../")):
+        return None, None
+    if not target.startswith("/"):
+        return None, None
+    source_path = (compose_file.parent / source_str).resolve()
+    if not source_path.is_file():
+        return None, None
+    suffix = source_path.suffix.lower()
+    # Also catch multi-suffix names like nginx.conf.template
+    has_config_ext = suffix in _CONTENT_BIND_EXTENSIONS or any(
+        source_path.name.endswith(ext) for ext in _CONTENT_BIND_EXTENSIONS
+    )
+    if not has_config_ext:
+        return None, None
+    bind = f"/lzcapp/pkg/content/{source_path.name}:{target}"
+    return bind, source_path
+
+
 def parse_compose_volume(raw: Any, slug: str, service_name: str) -> tuple[str | None, dict[str, Any] | None]:
     source = ""
     target = ""
@@ -934,6 +976,47 @@ def compose_depends_on(payload: dict[str, Any]) -> list[str]:
     if isinstance(depends, dict):
         return [str(item) for item in depends.keys() if str(item).strip()]
     return []
+
+
+def is_well_known_public_image(image_ref: str) -> bool:
+    """Return True if image_ref is a well-known public infrastructure/gateway image."""
+    ref = image_ref.strip().lower()
+    repo_part = image_repository(ref)
+    first_component = repo_part.split("/")[0]
+    if "." in first_component or ":" in first_component:
+        return False  # private registry
+    base = repo_part.rsplit("/", 1)[-1]
+    return base in GATEWAY_IMAGE_NAMES or base in {k.lower() for k in INFRA_KEYWORDS}
+
+
+def _infer_health_check_url(test: Any, service_name: str, port: int) -> str | None:
+    """Extract a health-check URL from a compose healthcheck test list."""
+    if isinstance(test, list):
+        cmd = " ".join(str(c) for c in test)
+    elif isinstance(test, str):
+        cmd = test
+    else:
+        return None
+    m = re.search(r"(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d+)(/[^\s\"']*)?", cmd)
+    if m:
+        p = int(m.group(1))
+        path = (m.group(2) or "/").rstrip()
+        return f"http://{service_name}:{p}{path}"
+    return None
+
+
+def is_k8s_only_service(name: str, payload: dict[str, Any]) -> bool:
+    """Return True if this compose service is k8s-specific and should be excluded."""
+    lowered = name.lower()
+    if any(kw in lowered for kw in ("provisioner", "k8s-", "kubernetes-")):
+        return True
+    env = payload.get("environment", [])
+    env_keys: list[str] = []
+    if isinstance(env, list):
+        env_keys = [str(item).split("=", 1)[0].upper() for item in env]
+    elif isinstance(env, dict):
+        env_keys = [str(k).upper() for k in env]
+    return any(key.startswith(prefix) for key in env_keys for prefix in K8S_ENV_PREFIXES)
 
 
 def service_score(name: str, payload: dict[str, Any]) -> int:
@@ -1403,7 +1486,7 @@ def choose_route_for_official_image(slug: str, meta: dict[str, Any], image_ref: 
         "description_zh": f"（迁移初稿）{bm.titleize_slug(slug)} 的懒猫微服版本",
         "upstream_repo": str(meta.get("upstream_repo", "")),
         "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
+        "license": str(meta.get("license") or ""),
         "author": str(meta.get("author") or "TODO"),
         "version": version,
         "check_strategy": str(meta.get("check_strategy", "github_release")),
@@ -1479,14 +1562,24 @@ def choose_route_for_compose(
                 dockerfile_rel = str(dockerfile_candidate.relative_to(source_root.resolve()))
             except ValueError as exc:
                 raise ValueError(f"compose build path escapes source root: {service_name}") from exc
-            return {
+            raw_args = dict(build_info.get("args") or {})
+            # Strip infra-only build args: upstream CI mirrors/proxies with empty optional defaults
+            build_args = {
+                k: v for k, v in raw_args.items()
+                if not re.fullmatch(r"\$\{[^}]+:-\}", str(v))
+            }
+            spec: dict[str, Any] = {
                 "target_service": service_name,
                 "build_strategy": "upstream_dockerfile",
                 "source_dockerfile_path": dockerfile_rel,
                 "build_context": build_context_rel,
-                "build_args": dict(build_info.get("args") or {}),
+                "build_args": build_args,
                 "image_name": f"{slug}-{sanitize_token(service_name)}",
             }
+            build_target = str(build_info.get("target") or "").strip()
+            if build_target:
+                spec["build_target"] = build_target
+            return spec
 
         image_ref = str(payload.get("image", "")).strip()
         if not image_ref or is_version_like_tag(image_tag(image_ref)):
@@ -1508,6 +1601,13 @@ def choose_route_for_compose(
         build_spec = infer_service_build(service_name, payload)
         if build_spec:
             build_services[service_name] = build_spec
+
+    # Filter k8s-only services (Kubernetes provisioner etc.) — not deployable on LazyCat
+    k8s_only = {n for n in build_services if is_k8s_only_service(n, services[n])}
+    if k8s_only:
+        for n in k8s_only:
+            del build_services[n]
+        risks.append(f"已过滤 k8s 专属服务：{', '.join(sorted(k8s_only))}（含 K8S_/KUBECONFIG 环境变量）")
 
     if primary_name in build_services:
         primary_build_info = build_services[primary_name]
@@ -1553,6 +1653,8 @@ def choose_route_for_compose(
     primary_image_repo = image_repository(primary_image) if primary_image else ""
 
     for service_name, payload in services.items():
+        if is_k8s_only_service(service_name, payload):
+            continue
         service_payload: dict[str, Any] = {
             "image": f"registry.lazycat.cloud/placeholder/{slug}:{sanitize_token(service_name)}",
         }
@@ -1565,6 +1667,15 @@ def choose_route_for_compose(
 
         binds: list[str] = []
         for volume in bm.ensure_list(payload.get("volumes")):
+            # Pattern 5: relative :ro config file → content bind + copy source into content/
+            content_bind, content_src = detect_content_bind(volume, compose_file)
+            if content_bind:
+                binds.append(content_bind)
+                if content_src:
+                    content_key = f"content/{content_src.name}"
+                    if content_key not in post_write:
+                        post_write[content_key] = content_src.read_text(encoding="utf-8", errors="ignore")
+                continue
             bind, doc = parse_compose_volume(volume, slug, service_name)
             if bind:
                 binds.append(bind)
@@ -1579,21 +1690,51 @@ def choose_route_for_compose(
         if depends:
             service_payload["depends_on"] = depends
 
+        if payload.get("user"):
+            service_payload["user"] = payload["user"]
+        if payload.get("entrypoint"):
+            service_payload["entrypoint"] = payload["entrypoint"]
         if payload.get("command"):
             service_payload["command"] = payload["command"]
-
         if payload.get("healthcheck"):
             service_payload["healthcheck"] = payload["healthcheck"]
+
+        # Auto-generate setup_script for services that have content binds but no startup command.
+        # Each content bind implies a file that must be copied into place before the service starts.
+        if not service_payload.get("command") and not service_payload.get("entrypoint"):
+            content_binds = [b for b in service_payload.get("binds", []) if b.startswith("/lzcapp/pkg/content/")]
+            if content_binds:
+                lines: list[str] = []
+                seen_dirs: set[str] = set()
+                for bind in content_binds:
+                    src, dst = bind.split(":", 1)
+                    dst_dir = str(Path(dst).parent)
+                    if dst_dir != "/" and dst_dir not in seen_dirs:
+                        lines.append(f"mkdir -p {dst_dir}")
+                        seen_dirs.add(dst_dir)
+                    lines.append(f"cp {src} {dst}")
+                service_payload["setup_script"] = "\n".join(lines) + "\n"
 
         service_specs[service_name] = service_payload
 
         service_image = str(payload.get("image", "")).strip()
         if service_name == primary_name:
-            image_targets.append(service_name)
+            if service_name in build_services:
+                image_targets.append(service_name)
+            elif service_image and is_well_known_public_image(service_image):
+                # Public gateway image (nginx, caddy…) — treat as dependency, not build target
+                dependencies.append({"target_service": service_name, "source_image": service_image})
+            else:
+                image_targets.append(service_name)
         elif service_image and primary_image_repo and image_repository(service_image) == primary_image_repo and build_strategy == "official_image":
             image_targets.append(service_name)
         elif service_image and service_name not in build_services:
             dependencies.append({"target_service": service_name, "source_image": service_image})
+
+    # Ensure every build service appears in image_targets
+    for svc_name in build_services:
+        if svc_name not in image_targets:
+            image_targets.append(svc_name)
 
     application = {
         "subdomain": slug,
@@ -1605,6 +1746,15 @@ def choose_route_for_compose(
             frontend_gateway=frontend_gateway,
         ),
     }
+    # Infer application-level health check from the primary service's compose healthcheck
+    _primary_hc = service_specs.get(primary_name, {}).get("healthcheck") or {}
+    _hc_url = _infer_health_check_url(_primary_hc.get("test"), primary_name, primary_port)
+    if _hc_url:
+        _n_services = sum(1 for n in services if not is_k8s_only_service(n, services[n]))
+        application["health_check"] = {
+            "test_url": _hc_url,
+            "start_period": "300s" if _n_services > 3 else "60s",
+        }
 
     version = str(meta.get("version", "") or "").strip()
     if not version and is_version_like_tag(image_tag(primary_image)):
@@ -1612,7 +1762,7 @@ def choose_route_for_compose(
     version = version or "0.1.0"
 
     startup_notes = [
-        f"自动扫描到 compose 文件：{compose_file.name}",
+        f"自动扫描到 compose 文件：{compose_file.relative_to(source_root) if compose_file.is_relative_to(source_root) else compose_file.name}",
         f"主服务推断为 `{primary_name}`，入口端口 `{primary_port}`。",
     ]
     if frontend_gateway:
@@ -1638,7 +1788,7 @@ def choose_route_for_compose(
         "description_zh": f"（迁移初稿）{bm.titleize_slug(slug)} 的懒猫微服版本",
         "upstream_repo": str(meta.get("upstream_repo", "")),
         "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
+        "license": str(meta.get("license") or ""),
         "author": str(meta.get("author") or "TODO"),
         "version": version,
         "check_strategy": str(meta.get("check_strategy", "github_release")),
@@ -1655,6 +1805,7 @@ def choose_route_for_compose(
         "env_vars": dedupe_env_docs(env_docs),
         "data_paths": dedupe_data_paths(data_docs),
         "startup_notes": startup_notes,
+        "include_content": any(k.startswith("content/") for k in post_write),
         "_risks": risks,
         "_post_write": post_write,
     }
@@ -1702,7 +1853,7 @@ def choose_route_for_dockerfile(
         "description_zh": f"（迁移初稿）{bm.titleize_slug(slug)} 的懒猫微服版本",
         "upstream_repo": str(meta.get("upstream_repo", "")),
         "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
+        "license": str(meta.get("license") or ""),
         "author": str(meta.get("author") or "TODO"),
         "version": str(meta.get("version") or "0.1.0"),
         "check_strategy": str(meta.get("check_strategy", "github_release")),
@@ -1864,7 +2015,7 @@ def choose_route_for_frontend(
         "description_zh": f"（迁移初稿）{project_name} 的懒猫微服前端版本",
         "upstream_repo": str(meta.get("upstream_repo", "")),
         "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
+        "license": str(meta.get("license") or ""),
         "author": str(meta.get("author") or "TODO"),
         "version": str(meta.get("version") or "0.1.0"),
         "check_strategy": str(meta.get("check_strategy") or "commit_sha"),
@@ -2062,7 +2213,7 @@ def choose_route_for_native_desktop(
         "description_zh": f"（迁移初稿）{project_name} 的懒猫微服桌面封装版本",
         "upstream_repo": str(meta.get("upstream_repo", "")),
         "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
+        "license": str(meta.get("license") or ""),
         "author": str(meta.get("author") or "TODO"),
         "version": version,
         "check_strategy": str(meta.get("check_strategy", "github_release")),
@@ -2107,7 +2258,7 @@ def choose_route_for_binary(slug: str, meta: dict[str, Any], binary: dict[str, A
         "description_zh": f"（迁移初稿）{bm.titleize_slug(slug)} 的懒猫微服版本",
         "upstream_repo": str(meta.get("upstream_repo", "")),
         "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
+        "license": str(meta.get("license") or ""),
         "author": str(meta.get("author") or "TODO"),
         "version": str(meta.get("version") or bm.normalize_semver(binary.get("tag_name") or "0.1.0")),
         "check_strategy": str(meta.get("check_strategy", "github_release")),
@@ -2180,7 +2331,7 @@ def choose_route_for_gpu_aipod(
         "description_zh": f"（迁移初稿）{project_name} 的懒猫微服 + 算力舱版本",
         "upstream_repo": str(meta.get("upstream_repo", "")),
         "homepage": str(meta.get("homepage", "")),
-        "license": str(meta.get("license") or "TODO"),
+        "license": str(meta.get("license") or ""),
         "author": str(meta.get("author") or "TODO"),
         "version": str(meta.get("version") or "0.1.0"),
         "check_strategy": str(meta.get("check_strategy", "github_release")),
@@ -2382,568 +2533,82 @@ def apply_post_write(repo_root: Path, slug: str, post_write: dict[str, str]) -> 
     app_dir = repo_root / "apps" / slug
     for relative, content in post_write.items():
         path = app_dir / relative
-        path.write_text(content, encoding="utf-8")
-        outputs.append(str(path))
-    return outputs
-
-
-def post_process_signoz(repo_root: Path) -> list[str]:
-    app_dir = repo_root / "apps" / "signoz"
-    content_dir = app_dir / "content"
-    (content_dir / "clickhouse").mkdir(parents=True, exist_ok=True)
-
-    writes: dict[Path, str] = {
-        app_dir / "lzc-manifest.yml": textwrap.dedent(
-            """\
-            lzc-sdk-version: '0.1'
-            package: fun.selfstudio.app.migration.signoz
-            version: 0.116.1
-            min_os_version: 1.3.8
-            name: SigNoz
-            description: Open-source observability with traces, metrics, and logs
-            license: Apache-2.0
-            homepage: https://signoz.io
-            author: SigNoz
-            application:
-              subdomain: signoz
-              public_path:
-                - /
-              health_check:
-                disable: true
-                test_url: http://signoz:8080/api/v1/health
-                start_period: 300s
-                timeout: 10s
-              upstreams:
-                - location: /
-                  backend: http://signoz:8080/
-                  disable_auto_health_checking: true
-            services:
-              init-clickhouse:
-                image: registry.lazycat.cloud/invokerlaw/clickhouse/clickhouse-server:ccb6549ae7e253ed
-                command: >-
-                  bash -lc 'set -e;
-                  mkdir -p /var/lib/clickhouse/user_scripts;
-                  if [ ! -x /var/lib/clickhouse/user_scripts/histogramQuantile ]; then
-                  version="v0.0.1";
-                  node_os=$$(uname -s | tr "[:upper:]" "[:lower:]");
-                  node_arch=$$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/);
-                  cd /tmp;
-                  wget -O histogram-quantile.tar.gz "https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2F$${version}/histogram-quantile_$${node_os}_$${node_arch}.tar.gz";
-                  tar -xzf histogram-quantile.tar.gz;
-                  mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile;
-                  chmod +x /var/lib/clickhouse/user_scripts/histogramQuantile;
-                  fi'
-                binds:
-                  - /lzcapp/var/db/signoz/clickhouse:/var/lib/clickhouse
-
-              zookeeper-1:
-                image: registry.lazycat.cloud/invokerlaw/signoz/zookeeper:730916d2ce75de76
-                user: root
-                environment:
-                  - ZOO_SERVER_ID=1
-                  - ALLOW_ANONYMOUS_LOGIN=yes
-                  - ZOO_AUTOPURGE_INTERVAL=1
-                  - ZOO_ENABLE_PROMETHEUS_METRICS=yes
-                  - ZOO_PROMETHEUS_METRICS_PORT_NUMBER=9141
-                binds:
-                  - /lzcapp/var/db/signoz/zookeeper:/bitnami/zookeeper
-                healthcheck:
-                  test: ["CMD-SHELL", "curl -s -m 2 http://localhost:8080/commands/ruok | grep error | grep null"]
-                  interval: 30s
-                  timeout: 5s
-                  retries: 10
-
-              clickhouse:
-                image: registry.lazycat.cloud/invokerlaw/clickhouse/clickhouse-server:ccb6549ae7e253ed
-                depends_on:
-                  - init-clickhouse
-                  - zookeeper-1
-                environment:
-                  - CLICKHOUSE_SKIP_USER_SETUP=1
-                binds:
-                  - /lzcapp/var/db/signoz/clickhouse:/var/lib/clickhouse
-                setup_script: |
-                  mkdir -p /etc/clickhouse-server/config.d /var/lib/clickhouse/user_scripts
-                  cp /lzcapp/pkg/content/clickhouse/users.xml /etc/clickhouse-server/users.xml
-                  cp /lzcapp/pkg/content/clickhouse/cluster.xml /etc/clickhouse-server/config.d/cluster.xml
-                  cp /lzcapp/pkg/content/clickhouse/macros.xml /etc/clickhouse-server/config.d/macros.xml
-                  cp /lzcapp/pkg/content/clickhouse/custom-function.xml /etc/clickhouse-server/custom-function.xml
-                healthcheck:
-                  test: ["CMD", "wget", "--spider", "-q", "0.0.0.0:8123/ping"]
-                  interval: 30s
-                  timeout: 5s
-                  retries: 10
-
-              signoz:
-                image: registry.lazycat.cloud/invokerlaw/signoz/signoz:a16516d0ba0ee588
-                depends_on:
-                  - clickhouse
-                  - signoz-telemetrystore-migrator
-                entrypoint: /bin/sh
-                command: >-
-                  -lc 'mkdir -p /var/lib/signoz /var/lib/signoz/prometheus-active-query-tracker
-                  /var/lib/signoz-runtime; until [ -f
-                  /var/lib/signoz-runtime/migrations-ready ]; do sleep 3; done; exec
-                  ./signoz server'
-                environment:
-                  - SIGNOZ_ALERTMANAGER_PROVIDER=signoz
-                  - SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN=tcp://clickhouse:9000
-                  - SIGNOZ_SQLSTORE_SQLITE_PATH=/var/lib/signoz/signoz.db
-                  - SIGNOZ_TOKENIZER_JWT_SECRET=secret
-                  - SIGNOZ_PROMETHEUS_ACTIVE__QUERY__TRACKER_PATH=/var/lib/signoz/prometheus-active-query-tracker
-                binds:
-                  - /lzcapp/var/data/signoz/sqlite:/var/lib/signoz
-                  - /lzcapp/var/data/signoz/runtime:/var/lib/signoz-runtime
-                healthcheck:
-                  test: ["CMD", "wget", "--spider", "-q", "localhost:8080/api/v1/health"]
-                  start_period: 300s
-                  interval: 30s
-                  timeout: 5s
-                  retries: 20
-
-              otel-collector:
-                image: registry.lazycat.cloud/invokerlaw/signoz/signoz-otel-collector:85bd090294be0dbf
-                depends_on:
-                  - clickhouse
-                  - signoz-telemetrystore-migrator
-                environment:
-                  - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
-                  - LOW_CARDINAL_EXCEPTION_GROUPING=false
-                  - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://clickhouse:9000
-                  - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER=cluster
-                  - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION=true
-                  - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
-                entrypoint: /bin/sh
-                command: >-
-                  -lc 'set -e; mkdir -p /var/lib/signoz-runtime; cp
-                  /lzcapp/pkg/content/otel-collector-config.yaml
-                  /var/tmp/otel-config.yaml; until [ -f
-                  /var/lib/signoz-runtime/migrations-ready ]; do sleep 3; done;
-                  /signoz-otel-collector migrate sync check --clickhouse-dsn
-                  tcp://clickhouse:9000 --clickhouse-cluster cluster
-                  --clickhouse-replication && exec /signoz-otel-collector --config
-                  /var/tmp/otel-config.yaml'
-                binds:
-                  - /lzcapp/var/data/signoz/runtime:/var/lib/signoz-runtime
-                healthcheck:
-                  test: ["CMD", "true"]
-                  interval: 30s
-                  timeout: 5s
-                  retries: 10
-
-              signoz-telemetrystore-migrator:
-                image: registry.lazycat.cloud/invokerlaw/signoz/signoz-otel-collector:85bd090294be0dbf
-                user: root
-                depends_on:
-                  - clickhouse
-                environment:
-                  - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://clickhouse:9000
-                  - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER=cluster
-                  - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION=true
-                  - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
-                entrypoint: /bin/sh
-                command: >-
-                  -lc 'set -e; mkdir -p /var/lib/signoz-runtime; rm -f
-                  /var/lib/signoz-runtime/migrations-ready; until /signoz-otel-collector
-                  migrate ready --clickhouse-dsn tcp://clickhouse:9000
-                  --clickhouse-cluster cluster --clickhouse-replication; do sleep 3;
-                  done; /signoz-otel-collector migrate bootstrap --clickhouse-dsn
-                  tcp://clickhouse:9000 --clickhouse-cluster cluster
-                  --clickhouse-replication; /signoz-otel-collector migrate sync up
-                  --clickhouse-dsn tcp://clickhouse:9000 --clickhouse-cluster cluster
-                  --clickhouse-replication; /signoz-otel-collector migrate async up
-                  --clickhouse-dsn tcp://clickhouse:9000 --clickhouse-cluster cluster
-                  --clickhouse-replication; touch /var/lib/signoz-runtime/migrations-ready'
-                binds:
-                  - /lzcapp/var/data/signoz/runtime:/var/lib/signoz-runtime
-            locales:
-              en:
-                name: SigNoz
-                description: Open-source observability with traces, metrics, and logs
-              zh:
-                name: SigNoz
-                description: 开源可观测性平台，统一查看链路、指标和日志
-            """
-        ),
-        app_dir / "lzc-build.yml": textwrap.dedent(
-            """\
-            lzc-sdk-version: '0.1'
-            manifest: ./lzc-manifest.yml
-            contentdir: ./content
-            pkgout: ./
-            icon: ./icon.png
-            """
-        ),
-        app_dir / "README.md": textwrap.dedent(
-            """\
-            # SigNoz
-
-            SigNoz 是一个基于 OpenTelemetry 的开源可观测性平台，提供 traces、metrics 和 logs 的统一查看入口。
-
-            ## 上游信息
-
-            - Upstream Repo: `SigNoz/signoz`
-            - Homepage: `https://signoz.io`
-            - License: `Apache-2.0`
-            - Default Version: `0.116.1`
-
-            ## 服务拓扑
-
-            - `signoz`: Web UI 和 query-service，入口端口 `8080`
-            - `clickhouse`: Telemetry 数据存储
-            - `zookeeper-1`: ClickHouse replication / cluster metadata
-            - `init-clickhouse`: 预下载 `histogramQuantile` 可执行文件
-            - `otel-collector`: 执行 migration 并暴露 OTLP 接收端
-
-            ## 持久化目录
-
-            - `/lzcapp/var/db/signoz/clickhouse` -> `/var/lib/clickhouse`
-            - `/lzcapp/var/db/signoz/zookeeper` -> `/bitnami/zookeeper`
-            - `/lzcapp/var/data/signoz/sqlite` -> `/var/lib/signoz`
-
-            ## 访问方式
-
-            - UI: `https://signoz.${LAZYCAT_BOX_DOMAIN}`
-
-            ## 说明
-
-            - 该移植基于上游官方 `deploy/docker/docker-compose.yaml` 拆分。
-            - ClickHouse 配置和 collector 配置放在 `content/` 下，通过 `lzc-build.yml` 打包进 `.lpk`。
-            - collector 采用静态配置启动，不使用 OpAMP manager-config，避免首次启动阶段因 `orgId` 缺失阻塞。
-            """
-        ),
-        app_dir / "UPSTREAM_DEPLOYMENT_CHECKLIST.md": textwrap.dedent(
-            """\
-            # SigNoz Upstream Deployment Checklist
-
-            ## 已确认字段
-
-            - PROJECT_NAME: SigNoz
-            - PROJECT_SLUG: signoz
-            - UPSTREAM_REPO: SigNoz/signoz
-            - UPSTREAM_URL: https://github.com/SigNoz/signoz
-            - HOMEPAGE: https://signoz.io
-            - LICENSE: Apache-2.0
-            - AUTHOR: SigNoz
-            - VERSION: 0.116.1
-            - IMAGE: signoz/signoz:v0.116.1
-            - PORT: 8080
-
-            ## 真实启动入口
-
-            - 官方 compose: `deploy/docker/docker-compose.yaml`
-            - 主服务: `signoz`
-            - collector: `signoz-otel-collector`
-            - 初始化链:
-              - `init-clickhouse` 下载 `histogramQuantile`
-              - `otel-collector migrate bootstrap`
-              - `otel-collector migrate sync up`
-              - `otel-collector migrate async up`
-              - `otel-collector migrate sync check`
-
-            ## 真实写路径
-
-            - ClickHouse data: `/var/lib/clickhouse`
-            - ClickHouse user scripts: `/var/lib/clickhouse/user_scripts`
-            - ZooKeeper data: `/bitnami/zookeeper`
-            - SigNoz sqlite: `/var/lib/signoz`
-            - Collector runtime temp: `/var/tmp`
-
-            ## 配置文件
-
-            - ClickHouse cluster config: `deploy/common/clickhouse/cluster.xml`
-            - ClickHouse users config: `deploy/common/clickhouse/users.xml`
-            - ClickHouse custom function: `deploy/common/clickhouse/custom-function.xml`
-            - Collector config: `deploy/docker/otel-collector-config.yaml`
-            - OpAMP config: `deploy/common/signoz/otel-collector-opamp-config.yaml`
-
-            ## 外部依赖
-
-            - ClickHouse
-            - ZooKeeper
-            - SQLite
-
-            ## LazyCat 适配结论
-
-            - 保留官方多服务拓扑，不压成单容器。
-            - ClickHouse 需要额外注入 `cluster.xml`、`users.xml`、`custom-function.xml` 和单机 `macros.xml`。
-            - collector 不能直接沿用上游 `/etc` 写入路径，配置改复制到 `/var/tmp`。
-            - collector 不使用 OpAMP manager-config，避免 `cannot create agent without orgId` 启动阻塞。
-            - 显式设置 `SIGNOZ_PROMETHEUS_ACTIVE__QUERY__TRACKER_PATH`，避免默认空路径触发 active query tracker 目录报错。
-            """
-        ),
-        repo_root / "registry" / "repos" / "signoz.json": textwrap.dedent(
-            """\
-            {
-              "enabled": true,
-              "upstream_repo": "SigNoz/signoz",
-              "check_strategy": "github_release",
-              "build_strategy": "official_image",
-              "publish_to_store": false,
-              "official_image_registry": "signoz/signoz",
-              "precompiled_binary_url": "",
-              "dockerfile_type": "custom",
-              "service_port": 8080,
-              "service_cmd": [],
-              "image_targets": [
-                "signoz"
-              ],
-              "dependencies": [
-                {
-                  "target_service": "init-clickhouse",
-                  "source_image": "clickhouse/clickhouse-server:25.5.6"
-                },
-                {
-                  "target_service": "zookeeper-1",
-                  "source_image": "signoz/zookeeper:3.7.1"
-                },
-                {
-                  "target_service": "clickhouse",
-                  "source_image": "clickhouse/clickhouse-server:25.5.6"
-                },
-                {
-                  "target_service": "otel-collector",
-                  "source_image": "signoz/signoz-otel-collector:v0.144.2"
-                }
-              ]
-            }
-            """
-        ),
-        content_dir / "clickhouse" / "cluster.xml": textwrap.dedent(
-            """\
-            <?xml version="1.0"?>
-            <clickhouse>
-              <zookeeper>
-                <node index="1">
-                  <host>zookeeper-1</host>
-                  <port>2181</port>
-                </node>
-              </zookeeper>
-              <remote_servers>
-                <cluster>
-                  <shard>
-                    <replica>
-                      <host>clickhouse</host>
-                      <port>9000</port>
-                    </replica>
-                  </shard>
-                </cluster>
-              </remote_servers>
-            </clickhouse>
-            """
-        ),
-        content_dir / "clickhouse" / "custom-function.xml": textwrap.dedent(
-            """\
-            <functions>
-              <function>
-                <type>executable</type>
-                <name>histogramQuantile</name>
-                <return_type>Float64</return_type>
-                <argument>
-                  <type>Array(Float64)</type>
-                  <name>buckets</name>
-                </argument>
-                <argument>
-                  <type>Array(Float64)</type>
-                  <name>counts</name>
-                </argument>
-                <argument>
-                  <type>Float64</type>
-                  <name>quantile</name>
-                </argument>
-                <format>CSV</format>
-                <command>./histogramQuantile</command>
-              </function>
-            </functions>
-            """
-        ),
-        content_dir / "clickhouse" / "macros.xml": textwrap.dedent(
-            """\
-            <?xml version="1.0"?>
-            <clickhouse>
-              <macros>
-                <shard>01</shard>
-                <replica>clickhouse-01</replica>
-              </macros>
-            </clickhouse>
-            """
-        ),
-        content_dir / "clickhouse" / "users.xml": textwrap.dedent(
-            """\
-            <?xml version="1.0"?>
-            <clickhouse>
-              <profiles>
-                <default>
-                  <max_memory_usage>10000000000</max_memory_usage>
-                  <load_balancing>random</load_balancing>
-                </default>
-                <readonly>
-                  <readonly>1</readonly>
-                </readonly>
-              </profiles>
-              <users>
-                <default>
-                  <password></password>
-                  <networks>
-                    <ip>::/0</ip>
-                  </networks>
-                  <profile>default</profile>
-                  <quota>default</quota>
-                </default>
-              </users>
-              <quotas>
-                <default>
-                  <interval>
-                    <duration>3600</duration>
-                    <queries>0</queries>
-                    <errors>0</errors>
-                    <result_rows>0</result_rows>
-                    <read_rows>0</read_rows>
-                    <execution_time>0</execution_time>
-                  </interval>
-                </default>
-              </quotas>
-            </clickhouse>
-            """
-        ),
-        content_dir / "otel-collector-config.yaml": textwrap.dedent(
-            """\
-            connectors:
-              signozmeter:
-                metrics_flush_interval: 1h
-                dimensions:
-                  - name: service.name
-                  - name: deployment.environment
-                  - name: host.name
-            receivers:
-              otlp:
-                protocols:
-                  grpc:
-                    endpoint: 0.0.0.0:4317
-                  http:
-                    endpoint: 0.0.0.0:4318
-              prometheus:
-                config:
-                  global:
-                    scrape_interval: 60s
-                  scrape_configs:
-                    - job_name: otel-collector
-                      static_configs:
-                        - targets:
-                            - localhost:8888
-                          labels:
-                            job_name: otel-collector
-            processors:
-              batch:
-                send_batch_size: 10000
-                send_batch_max_size: 11000
-                timeout: 10s
-              batch/meter:
-                send_batch_max_size: 25000
-                send_batch_size: 20000
-                timeout: 1s
-              resourcedetection:
-                detectors: [env, system]
-                timeout: 2s
-              signozspanmetrics/delta:
-                metrics_exporter: signozclickhousemetrics
-                metrics_flush_interval: 60s
-                latency_histogram_buckets: [100us, 1ms, 2ms, 6ms, 10ms, 50ms, 100ms, 250ms, 500ms, 1000ms, 1400ms, 2000ms, 5s, 10s, 20s, 40s, 60s]
-                dimensions_cache_size: 100000
-                aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
-                enable_exp_histogram: true
-                dimensions:
-                  - name: service.namespace
-                    default: default
-                  - name: deployment.environment
-                    default: default
-                  - name: signoz.collector.id
-                  - name: service.version
-                  - name: browser.platform
-                  - name: browser.mobile
-                  - name: k8s.cluster.name
-                  - name: k8s.node.name
-                  - name: k8s.namespace.name
-                  - name: host.name
-                  - name: host.type
-                  - name: container.name
-            extensions:
-              health_check:
-                endpoint: 0.0.0.0:13133
-              pprof:
-                endpoint: 0.0.0.0:1777
-            exporters:
-              clickhousetraces:
-                datasource: tcp://clickhouse:9000/signoz_traces
-                low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
-                use_new_schema: true
-              signozclickhousemetrics:
-                dsn: tcp://clickhouse:9000/signoz_metrics
-              clickhouselogsexporter:
-                dsn: tcp://clickhouse:9000/signoz_logs
-                timeout: 10s
-                use_new_schema: true
-              signozclickhousemeter:
-                dsn: tcp://clickhouse:9000/signoz_meter
-                timeout: 45s
-                sending_queue:
-                  enabled: false
-              metadataexporter:
-                cache:
-                  provider: in_memory
-                dsn: tcp://clickhouse:9000/signoz_metadata
-                enabled: true
-                timeout: 45s
-            service:
-              telemetry:
-                logs:
-                  encoding: json
-              extensions:
-                - health_check
-                - pprof
-              pipelines:
-                traces:
-                  receivers: [otlp]
-                  processors: [signozspanmetrics/delta, batch]
-                  exporters: [clickhousetraces, metadataexporter, signozmeter]
-                metrics:
-                  receivers: [otlp]
-                  processors: [batch]
-                  exporters: [signozclickhousemetrics, metadataexporter, signozmeter]
-                metrics/prometheus:
-                  receivers: [prometheus]
-                  processors: [batch]
-                  exporters: [signozclickhousemetrics, metadataexporter, signozmeter]
-                logs:
-                  receivers: [otlp]
-                  processors: [batch]
-                  exporters: [clickhouselogsexporter, metadataexporter, signozmeter]
-                metrics/meter:
-                  receivers: [signozmeter]
-                  processors: [batch/meter]
-                  exporters: [signozclickhousemeter]
-            """
-        ),
-    }
-
-    outputs: list[str] = []
-    for path, content in writes.items():
+        if path.exists():
+            outputs.append(str(path))
+            continue  # preserve hand-tuned static content
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
-        if path.suffix == ".sh":
-            path.chmod(0o755)
         outputs.append(str(path))
     return outputs
+
+
+def load_app_profile(repo_root: Path, slug: str) -> dict[str, Any] | None:
+    """Load .app-profile.json for an app if it exists."""
+    profile_path = repo_root / "apps" / slug / ".app-profile.json"
+    if not profile_path.exists():
+        return None
+    return json.loads(profile_path.read_text(encoding="utf-8"))
+
+
+_PROFILE_GENERATED_FIELDS: frozenset[str] = frozenset({
+    "project_name", "description", "license", "homepage", "author",
+    "build_strategy", "official_image_registry", "docker_platform",
+    "service_port", "image_targets", "dependencies", "service_builds",
+    "application", "services", "env_vars", "data_paths",
+    "include_content", "startup_notes", "usage",
+})
+
+
+def generate_app_profile(finalized: dict[str, Any]) -> dict[str, Any]:
+    """Serialise the compose-analysis result as a .app-profile.json skeleton.
+
+    Only persists fields that represent meaningful, reusable decisions — not
+    ephemeral state like version, image refs, or runtime risks.
+    """
+    fixes = {
+        k: v for k, v in finalized.items()
+        if k in _PROFILE_GENERATED_FIELDS
+        and v is not None and v != "" and v != [] and v != {}
+    }
+    return {"fixes": fixes}
+
+
+def apply_app_profile_fixes(finalized: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
+    """Apply fixes from .app-profile.json to the finalized spec."""
+    fixes = profile.get("fixes", {})
+    for key, value in fixes.items():
+        finalized[key] = value
+    # If profile declares static content files, force include_content on
+    if profile.get("content_files", {}).get("static"):
+        finalized["include_content"] = True
+    return finalized
 
 
 def apply_app_post_process(repo_root: Path, finalized: dict[str, Any], analysis: AnalysisResult) -> list[str]:
+    slug = finalized["slug"]
     upstream_repo = str(finalized.get("upstream_repo") or analysis.spec.get("upstream_repo") or "").strip()
-    if finalized["slug"] == "signoz" and upstream_repo == "SigNoz/signoz":
-        return post_process_signoz(repo_root)
-    if finalized["slug"] == "deer-flow" and upstream_repo == "bytedance/deer-flow":
-        return post_process_deer_flow(repo_root)
-    if finalized["slug"] == "multica" and upstream_repo == "multica-ai/multica":
-        return post_process_multica(repo_root)
+
+    # Check for .app-profile.json with static content
+    profile = load_app_profile(repo_root, slug)
+    if profile and profile.get("content_files", {}).get("static"):
+        # Content files are maintained as static templates in the app directory.
+        # Collect paths of static files that exist (content/, deploy params, etc.)
+        outputs: list[str] = []
+        app_dir = repo_root / "apps" / slug
+        # Report existing content files
+        content_dir = app_dir / "content"
+        if content_dir.is_dir():
+            for f in sorted(content_dir.rglob("*")):
+                if f.is_file():
+                    outputs.append(str(f))
+        # Report deploy params if present
+        deploy_params_file = profile.get("deploy_params_file")
+        if deploy_params_file:
+            params_path = app_dir / deploy_params_file
+            if params_path.exists():
+                outputs.append(str(params_path))
+        return outputs
+
     if matches_basic_llm_dotenv_profile(finalized, analysis):
         return post_process_basic_llm_dotenv(repo_root, finalized["slug"])
     return []
@@ -2997,141 +2662,6 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: AnalysisResul
         if note not in startup_notes:
             startup_notes.append(note)
 
-    if finalized.get("slug") == "multica" and upstream_repo == "multica-ai/multica":
-        finalized.update(build_multica_profile())
-
-    if finalized.get("slug") == "deer-flow" and upstream_repo == "bytedance/deer-flow":
-        set_deploy_param_sync_profile(
-            finalized,
-            script_relpath="content/render-deer-flow-config.sh",
-            targets=[
-                "/deer-flow-state/config/model.env",
-                "/deer-flow-state/config/config.yaml",
-            ],
-        )
-        finalized["include_content"] = True
-        finalized["image_targets"] = ["frontend", "gateway", "langgraph"]
-        finalized["dependencies"] = [{"target_service": "nginx", "source_image": "nginx:alpine"}]
-        finalized["service_builds"] = [
-            {
-                "target_service": "frontend",
-                "build_strategy": "upstream_dockerfile",
-                "source_dockerfile_path": "frontend/Dockerfile",
-                "build_context": ".",
-                "build_target": "dev",
-                "build_args": {
-                    "PNPM_STORE_PATH": "${PNPM_STORE_PATH:-/root/.local/share/pnpm/store}"
-                },
-                "image_name": "deer-flow-frontend",
-            },
-            {
-                "target_service": "gateway",
-                "build_strategy": "upstream_dockerfile",
-                "source_dockerfile_path": "backend/Dockerfile",
-                "build_context": ".",
-                "build_args": {},
-                "image_name": "deer-flow-gateway",
-            },
-            {
-                "target_service": "langgraph",
-                "build_strategy": "upstream_dockerfile",
-                "source_dockerfile_path": "backend/Dockerfile",
-                "build_context": ".",
-                "build_args": {},
-                "image_name": "deer-flow-langgraph",
-            },
-        ]
-        finalized["application"] = {
-            "subdomain": "deer-flow",
-            "public_path": ["/"],
-            "upstreams": [{"location": "/", "backend": "http://nginx:2026/"}],
-            "health_check": {"test_url": "http://nginx:2026/health"},
-        }
-        finalized["env_vars"] = [
-            {
-                "name": "BETTER_AUTH_SECRET",
-                "value": "${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-better-auth",
-                "description": "前端会话密钥，默认按应用域名生成",
-            },
-            {"name": "OPENAI_API_KEY", "description": "默认模板模型使用的 API Key"},
-            {"name": "OPENROUTER_API_KEY", "description": "可选 OpenAI-compatible 网关"},
-            {"name": "ANTHROPIC_API_KEY", "description": "可选 Claude 模型"},
-            {"name": "GEMINI_API_KEY", "description": "可选 Gemini 模型"},
-            {"name": "GOOGLE_API_KEY", "description": "可选 Google 模型"},
-            {"name": "DEEPSEEK_API_KEY", "description": "可选 DeepSeek 模型"},
-            {"name": "VOLCENGINE_API_KEY", "description": "可选火山引擎模型"},
-            {"name": "TAVILY_API_KEY", "description": "Web Search 工具"},
-            {"name": "JINA_API_KEY", "description": "Web Fetch 工具"},
-            {"name": "INFOQUEST_API_KEY", "description": "可选 InfoQuest 工具"},
-            {"name": "FIRECRAWL_API_KEY", "description": "可选抓取工具"},
-            {"name": "GITHUB_TOKEN", "description": "可选 GitHub MCP / API 访问令牌"},
-            {
-                "name": "LANGCHAIN_TRACING_V2",
-                "value": "false",
-                "description": "默认关闭 LangSmith tracing",
-            },
-        ]
-        finalized["data_paths"] = [
-            {
-                "host": "/lzcapp/var/data/deer-flow/runtime",
-                "container": "/app/backend/.deer-flow",
-                "description": "DeerFlow 线程、workspace、uploads、outputs 持久化目录",
-            },
-            {
-                "host": "/lzcapp/var/data/deer-flow/langgraph-api",
-                "container": "/app/backend/.langgraph_api",
-                "description": "LangGraph 运行时目录",
-            },
-        ]
-        finalized["startup_notes"] = [
-            "自动扫描到 compose 文件：docker/docker-compose.yaml",
-            "首次安装和后续重配置均使用 `lzc-deploy-params.yml` 提供的官方部署参数页。",
-            "当前默认走 LocalSandboxProvider，避免依赖 Docker Socket 或 Kubernetes provisioner。",
-        ]
-        sync_note = render_deploy_param_sync_note(finalized)
-        if sync_note:
-            finalized["startup_notes"].append(sync_note)
-        finalized["services"] = {
-            "nginx": {
-                "image": "registry.lazycat.cloud/placeholder/deer-flow:nginx",
-                "environment": deer_flow_deploy_param_env(),
-                "binds": [
-                    "/lzcapp/pkg/content/nginx.conf:/etc/nginx/nginx.conf",
-                    "/lzcapp/var/data/deer-flow/runtime:/deer-flow-state",
-                ],
-                "command": deer_flow_bootstrap_command("exec nginx -g \"daemon off;\""),
-            },
-            "frontend": {
-                "image": "registry.lazycat.cloud/placeholder/deer-flow:frontend",
-                "command": deer_flow_bootstrap_command("cd /app/frontend && pnpm dev --hostname 0.0.0.0 --port 3000"),
-                "environment": [
-                    "BETTER_AUTH_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-better-auth",
-                    "NODE_ENV=development",
-                    "NEXT_TELEMETRY_DISABLED=1",
-                ]
-                + deer_flow_deploy_param_env(),
-                "binds": ["/lzcapp/var/data/deer-flow/runtime:/deer-flow-state"],
-            },
-            "gateway": {
-                "image": "registry.lazycat.cloud/placeholder/deer-flow:gateway",
-                "command": deer_flow_bootstrap_command("cd /app/backend && PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --workers 2", wait_for_ready=True),
-                "environment": deer_flow_runtime_env(),
-                "binds": [
-                    "/lzcapp/var/data/deer-flow/runtime:/deer-flow-state",
-                    "/lzcapp/var/data/deer-flow/runtime:/app/backend/.deer-flow",
-                ],
-            },
-            "langgraph": {
-                "image": "registry.lazycat.cloud/placeholder/deer-flow:langgraph",
-                "command": deer_flow_bootstrap_command("mkdir -p /app/backend/.langgraph_api && cd /app/backend && (python /lzcapp/pkg/content/backfill-langgraph-state.py >/tmp/backfill-langgraph-state.log 2>&1 &) && uv run langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port 2024", wait_for_ready=True),
-                "environment": deer_flow_runtime_env(include_tracing=True),
-                "binds": [
-                    "/lzcapp/var/data/deer-flow/runtime:/deer-flow-state",
-                    "/lzcapp/var/data/deer-flow/runtime:/app/backend/.deer-flow",
-                    "/lzcapp/var/data/deer-flow/langgraph-api:/app/backend/.langgraph_api",
-                ],
-            },
-        }
 
     if matches_basic_llm_dotenv_profile(finalized, analysis):
         apply_persisted_env_service_profile(
@@ -3144,256 +2674,6 @@ def apply_generated_app_fixes(finalized: dict[str, Any], analysis: AnalysisResul
         )
 
     return finalized
-
-
-def deer_flow_runtime_env(*, include_tracing: bool = False) -> list[str]:
-    env = [
-        "CI=true",
-        "DEER_FLOW_HOME=/app/backend/.deer-flow",
-        "DEER_FLOW_SHARED_STATE_DIR=/deer-flow-state",
-        "DEER_FLOW_CONFIG_DIR=/deer-flow-state/config",
-        "DEER_FLOW_CONFIG_PATH=/deer-flow-state/config/config.yaml",
-        "DEER_FLOW_CONFIG_ENV_PATH=/deer-flow-state/config/model.env",
-        "DEER_FLOW_READY_MARKER=/deer-flow-state/config/.lazycat-config-ready",
-        "DEER_FLOW_EXTENSIONS_CONFIG_PATH=/deer-flow-state/config/extensions_config.json",
-        "OPENAI_API_KEY",
-        "OPENROUTER_API_KEY",
-        "ANTHROPIC_API_KEY",
-        "GEMINI_API_KEY",
-        "GOOGLE_API_KEY",
-        "DEEPSEEK_API_KEY",
-        "VOLCENGINE_API_KEY",
-        "TAVILY_API_KEY",
-        "JINA_API_KEY",
-        "INFOQUEST_API_KEY",
-        "FIRECRAWL_API_KEY",
-        "GITHUB_TOKEN",
-    ] + deer_flow_deploy_param_env()
-    if include_tracing:
-        env.append("LANGCHAIN_TRACING_V2=false")
-    return env
-
-
-def deer_flow_prepare_runtime_clause() -> str:
-    return (
-        "mkdir -p /deer-flow-state/config "
-        "/lzcapp/var/data/deer-flow/skills "
-        "/lzcapp/var/data/deer-flow/runtime && "
-        "if [ ! -f /deer-flow-state/config/extensions_config.json ]; then "
-        "cp /lzcapp/pkg/content/extensions_config.json /deer-flow-state/config/extensions_config.json; fi && "
-        "if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then "
-        "cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && "
-        "sh /lzcapp/pkg/content/render-deer-flow-config.sh && "
-        "if [ -f /deer-flow-state/config/model.env ]; then set -a && . /deer-flow-state/config/model.env && set +a; fi"
-    )
-
-
-def deer_flow_wait_ready_clause() -> str:
-    return (
-        'echo "[deer-flow] waiting for model configuration"; '
-        'until [ -f /deer-flow-state/config/.lazycat-config-ready ]; do sleep 2; done'
-    )
-
-
-def deer_flow_bootstrap_command(final_cmd: str, *, wait_for_ready: bool = False) -> str:
-    segments = [deer_flow_prepare_runtime_clause()]
-    if wait_for_ready:
-        segments.append(deer_flow_wait_ready_clause())
-    segments.append(final_cmd)
-    return "sh -lc " + shlex.quote(" && ".join(segments))
-
-
-def deer_flow_deploy_param_env() -> list[str]:
-    return [
-        '{{ if index .U "model.api_key" }}OPENAI_API_KEY={{ index .U "model.api_key" }}{{ else }}OPENAI_API_KEY={{ end }}',
-        '{{ if index .U "model.api_key" }}OPENROUTER_API_KEY={{ index .U "model.api_key" }}{{ else }}OPENROUTER_API_KEY={{ end }}',
-        '{{ if index .U "model.provider_preset" }}DEER_FLOW_MODEL_PROVIDER_PRESET={{ index .U "model.provider_preset" }}{{ else }}DEER_FLOW_MODEL_PROVIDER_PRESET=openai{{ end }}',
-        '{{ if index .U "model.name" }}DEER_FLOW_MODEL_NAME={{ index .U "model.name" }}{{ else }}DEER_FLOW_MODEL_NAME=default-chat{{ end }}',
-        '{{ if index .U "model.display_name" }}DEER_FLOW_MODEL_DISPLAY_NAME={{ index .U "model.display_name" }}{{ else }}DEER_FLOW_MODEL_DISPLAY_NAME=Default Chat Model{{ end }}',
-        '{{ if index .U "model.id" }}DEER_FLOW_MODEL_ID={{ index .U "model.id" }}{{ else }}DEER_FLOW_MODEL_ID=gpt-4.1-mini{{ end }}',
-        '{{ if index .U "model.base_url" }}DEER_FLOW_MODEL_BASE_URL={{ index .U "model.base_url" }}{{ else }}DEER_FLOW_MODEL_BASE_URL={{ end }}',
-        '{{ if index .U "model.api_key" }}DEER_FLOW_MODEL_API_KEY={{ index .U "model.api_key" }}{{ else }}DEER_FLOW_MODEL_API_KEY={{ end }}',
-        '{{ if index .U "model.use_responses_api" }}DEER_FLOW_MODEL_USE_RESPONSES_API={{ index .U "model.use_responses_api" }}{{ else }}DEER_FLOW_MODEL_USE_RESPONSES_API=false{{ end }}',
-        '{{ if index .U "model.temperature" }}DEER_FLOW_MODEL_TEMPERATURE={{ index .U "model.temperature" }}{{ else }}DEER_FLOW_MODEL_TEMPERATURE=0.7{{ end }}',
-        '{{ if index .U "search.tavily_api_key" }}TAVILY_API_KEY={{ index .U "search.tavily_api_key" }}{{ else }}TAVILY_API_KEY={{ end }}',
-        '{{ if index .U "fetch.jina_api_key" }}JINA_API_KEY={{ index .U "fetch.jina_api_key" }}{{ else }}JINA_API_KEY={{ end }}',
-    ]
-
-
-def render_deer_flow_config_script() -> str:
-    return textwrap.dedent(
-        """\
-        #!/bin/sh
-        set -eu
-
-        CONFIG_PATH="${DEER_FLOW_CONFIG_PATH:-/deer-flow-state/config/config.yaml}"
-        CONFIG_ENV_PATH="${DEER_FLOW_CONFIG_ENV_PATH:-/deer-flow-state/config/model.env}"
-        READY_MARKER="${DEER_FLOW_READY_MARKER:-/deer-flow-state/config/.lazycat-config-ready}"
-        CONFIG_DIR="$(dirname "$CONFIG_PATH")"
-        mkdir -p "$CONFIG_DIR"
-
-        capture_env() {
-          var_name="$1"
-          eval "printf '%s\\n' \\"\\${$var_name-}\\""
-        }
-
-        quote_yaml() {
-          printf '"%s"' "$(printf '%s' "$1" | sed 's/\\\\/\\\\\\\\/g; s/"/\\\\"/g')"
-        }
-
-        provider="$(capture_env DEER_FLOW_MODEL_PROVIDER_PRESET)"
-        [ -n "$provider" ] || provider="openai"
-        model_name="$(capture_env DEER_FLOW_MODEL_NAME)"
-        [ -n "$model_name" ] || model_name="default-chat"
-        display_name="$(capture_env DEER_FLOW_MODEL_DISPLAY_NAME)"
-        [ -n "$display_name" ] || display_name="Default Chat Model"
-        model_id="$(capture_env DEER_FLOW_MODEL_ID)"
-        [ -n "$model_id" ] || model_id="gpt-4.1-mini"
-        base_url="$(capture_env DEER_FLOW_MODEL_BASE_URL)"
-        use_responses_api="$(capture_env DEER_FLOW_MODEL_USE_RESPONSES_API)"
-        [ -n "$use_responses_api" ] || use_responses_api="false"
-        temperature="$(capture_env DEER_FLOW_MODEL_TEMPERATURE)"
-        [ -n "$temperature" ] || temperature="0.7"
-        tavily_api_key="$(capture_env TAVILY_API_KEY)"
-        jina_api_key="$(capture_env JINA_API_KEY)"
-        openai_api_key="$(capture_env OPENAI_API_KEY)"
-        openrouter_api_key="$(capture_env OPENROUTER_API_KEY)"
-        model_api_key="$(capture_env DEER_FLOW_MODEL_API_KEY)"
-
-        api_key_ref='$OPENAI_API_KEY'
-        api_key_value="${openai_api_key:-$model_api_key}"
-        if [ "$provider" = "openrouter" ]; then
-          api_key_ref='$OPENROUTER_API_KEY'
-          api_key_value="${openrouter_api_key:-$model_api_key}"
-          if [ -z "$base_url" ]; then
-            base_url="https://openrouter.ai/api/v1"
-          fi
-        fi
-
-        normalized_openai_api_key="$openai_api_key"
-        normalized_openrouter_api_key="$openrouter_api_key"
-        if [ "$provider" = "openrouter" ]; then
-          normalized_openai_api_key=""
-          normalized_openrouter_api_key="$api_key_value"
-        else
-          normalized_openai_api_key="$api_key_value"
-          normalized_openrouter_api_key=""
-        fi
-
-        cat > "$CONFIG_ENV_PATH" <<EOF
-        # Generated by DeerFlow startup sync.
-        DEER_FLOW_MODEL_PROVIDER_PRESET=$(quote_yaml "$provider")
-        DEER_FLOW_MODEL_NAME=$(quote_yaml "$model_name")
-        DEER_FLOW_MODEL_DISPLAY_NAME=$(quote_yaml "$display_name")
-        DEER_FLOW_MODEL_ID=$(quote_yaml "$model_id")
-        DEER_FLOW_MODEL_BASE_URL=$(quote_yaml "$base_url")
-        DEER_FLOW_MODEL_USE_RESPONSES_API=$(quote_yaml "$use_responses_api")
-        DEER_FLOW_MODEL_TEMPERATURE=$(quote_yaml "$temperature")
-        DEER_FLOW_MODEL_API_KEY=$(quote_yaml "$api_key_value")
-        OPENAI_API_KEY=$(quote_yaml "$normalized_openai_api_key")
-        OPENROUTER_API_KEY=$(quote_yaml "$normalized_openrouter_api_key")
-        TAVILY_API_KEY=$(quote_yaml "$tavily_api_key")
-        JINA_API_KEY=$(quote_yaml "$jina_api_key")
-        EOF
-
-        {
-          cat <<'EOF'
-        # Configuration for the DeerFlow application
-        #
-        # This file is generated for LazyCat, but keeps the upstream DeerFlow layout
-        # and field names so runtime behavior stays aligned with the default project.
-
-        config_version: 5
-
-        log_level: info
-
-        token_usage:
-          enabled: false
-
-        models:
-        EOF
-          echo "  - name: $(quote_yaml "$model_name")"
-          echo "    display_name: $(quote_yaml "$display_name")"
-          echo "    use: langchain_openai:ChatOpenAI"
-          echo "    model: $(quote_yaml "$model_id")"
-          echo "    api_key: $api_key_ref"
-          if [ -n "$base_url" ]; then
-            echo "    base_url: $(quote_yaml "$base_url")"
-          fi
-          echo "    request_timeout: 600.0"
-          echo "    max_retries: 2"
-          echo "    max_tokens: 4096"
-          echo "    temperature: $temperature"
-          echo "    supports_vision: true"
-          if [ "$use_responses_api" = "true" ]; then
-            echo "    use_responses_api: true"
-            echo "    output_version: responses/v1"
-          fi
-          cat <<'EOF'
-        tool_groups:
-          - name: web
-          - name: file:read
-          - name: file:write
-          - name: bash
-
-        tools:
-          - name: web_search
-            group: web
-            use: deerflow.community.tavily.tools:web_search_tool
-            max_results: 5
-          - name: web_fetch
-            group: web
-            use: deerflow.community.jina_ai.tools:web_fetch_tool
-            timeout: 10
-          - name: image_search
-            group: web
-            use: deerflow.community.image_search.tools:image_search_tool
-            max_results: 5
-          - name: ls
-            group: file:read
-            use: deerflow.sandbox.tools:ls_tool
-          - name: read_file
-            group: file:read
-            use: deerflow.sandbox.tools:read_file_tool
-          - name: write_file
-            group: file:write
-            use: deerflow.sandbox.tools:write_file_tool
-          - name: str_replace
-            group: file:write
-            use: deerflow.sandbox.tools:str_replace_tool
-          - name: bash
-            group: bash
-            use: deerflow.sandbox.tools:bash_tool
-
-        sandbox:
-          use: deerflow.sandbox.local:LocalSandboxProvider
-
-        skills:
-          path: /lzcapp/var/data/deer-flow/skills
-          container_path: /mnt/skills
-
-        title:
-          enabled: true
-          max_words: 6
-          max_chars: 60
-          model_name: null
-
-        summarization:
-          enabled: true
-
-        checkpointer:
-          type: sqlite
-          connection_string: /app/backend/.langgraph_api/checkpoints.db
-        EOF
-        } > "$CONFIG_PATH"
-
-        if [ -n "$model_id" ] && [ -n "$api_key_value" ]; then
-          printf 'ready\\n' > "$READY_MARKER"
-        else
-          rm -f "$READY_MARKER"
-        fi
-        """
-    )
 
 
 def render_config_ui_server() -> str:
@@ -3848,315 +3128,6 @@ def render_config_ui_server() -> str:
     )
 
 
-def render_deer_flow_config_ui_schema() -> str:
-    return json.dumps(
-        {
-            "title": "Configure DeerFlow",
-            "description": "Pick a hosted provider preset and default model. The package writes the result back into config.yaml and only then starts DeerFlow.",
-            "submitLabel": "Save and Start",
-            "defaultProvider": "openai",
-            "providers": [
-                {
-                    "id": "openai",
-                    "label": "OpenAI",
-                    "baseUrl": "",
-                    "defaultModel": "gpt-4.1-mini",
-                    "models": [
-                        {
-                            "id": "gpt-4.1-mini",
-                            "label": "GPT-4.1 Mini",
-                            "name": "default-chat",
-                            "displayName": "GPT-4.1 Mini",
-                            "modelId": "gpt-4.1-mini",
-                            "useResponsesApi": False,
-                            "temperature": "0.7",
-                            "summary": "Balanced default for DeerFlow.",
-                        },
-                        {
-                            "id": "gpt-4.1",
-                            "label": "GPT-4.1",
-                            "name": "default-chat",
-                            "displayName": "GPT-4.1",
-                            "modelId": "gpt-4.1",
-                            "useResponsesApi": False,
-                            "temperature": "0.7",
-                            "summary": "Higher quality general-purpose option.",
-                        },
-                        {
-                            "id": "gpt-5-mini",
-                            "label": "GPT-5 Mini",
-                            "name": "default-chat",
-                            "displayName": "GPT-5 Mini",
-                            "modelId": "gpt-5-mini",
-                            "useResponsesApi": True,
-                            "temperature": "0.7",
-                            "summary": "Uses the Responses API path recommended for GPT-5 models.",
-                        },
-                    ],
-                },
-                {
-                    "id": "openrouter",
-                    "label": "OpenRouter",
-                    "baseUrl": "https://openrouter.ai/api/v1",
-                    "requiresBaseUrl": False,
-                    "defaultModel": "openai/gpt-4.1-mini",
-                    "models": [
-                        {
-                            "id": "openai/gpt-4.1-mini",
-                            "label": "OpenAI GPT-4.1 Mini",
-                            "name": "default-chat",
-                            "displayName": "OpenAI GPT-4.1 Mini",
-                            "modelId": "openai/gpt-4.1-mini",
-                            "useResponsesApi": False,
-                            "temperature": "0.7",
-                            "summary": "OpenAI model served through OpenRouter.",
-                        },
-                        {
-                            "id": "google/gemini-2.5-flash-preview",
-                            "label": "Gemini 2.5 Flash Preview",
-                            "name": "default-chat",
-                            "displayName": "Gemini 2.5 Flash Preview",
-                            "modelId": "google/gemini-2.5-flash-preview",
-                            "useResponsesApi": False,
-                            "temperature": "0.7",
-                            "summary": "Fast Google-hosted model routed through OpenRouter.",
-                        },
-                        {
-                            "id": "anthropic/claude-sonnet-4",
-                            "label": "Claude Sonnet 4",
-                            "name": "default-chat",
-                            "displayName": "Claude Sonnet 4",
-                            "modelId": "anthropic/claude-sonnet-4",
-                            "useResponsesApi": False,
-                            "temperature": "0.7",
-                            "summary": "Anthropic-hosted model routed through OpenRouter.",
-                        },
-                    ],
-                },
-                {
-                    "id": "custom-openai",
-                    "label": "Custom OpenAI-Compatible",
-                    "baseUrl": "",
-                    "requiresBaseUrl": True,
-                    "defaultModel": "custom-gpt-4.1-mini",
-                    "models": [
-                        {
-                            "id": "custom-gpt-4.1-mini",
-                            "label": "GPT-4.1 Mini Compatible",
-                            "name": "default-chat",
-                            "displayName": "Custom GPT-4.1 Mini",
-                            "modelId": "gpt-4.1-mini",
-                            "useResponsesApi": False,
-                            "temperature": "0.7",
-                            "summary": "For self-hosted or gateway endpoints that speak the OpenAI Chat Completions API.",
-                        },
-                        {
-                            "id": "custom-gpt-5-mini",
-                            "label": "GPT-5 Mini Compatible",
-                            "name": "default-chat",
-                            "displayName": "Custom GPT-5 Mini",
-                            "modelId": "gpt-5-mini",
-                            "useResponsesApi": True,
-                            "temperature": "0.7",
-                            "summary": "For OpenAI-compatible endpoints that support the Responses API.",
-                        },
-                    ],
-                },
-            ],
-        },
-        ensure_ascii=True,
-        indent=2,
-    ) + "\n"
-
-
-def render_deer_flow_nginx_conf() -> str:
-    return textwrap.dedent(
-        """\
-        events {
-            worker_connections 1024;
-        }
-        pid /tmp/nginx.pid;
-        http {
-            sendfile on;
-            tcp_nopush on;
-            tcp_nodelay on;
-            keepalive_timeout 65;
-            types_hash_max_size 2048;
-
-            access_log /dev/stdout;
-            error_log /dev/stderr;
-
-            resolver 127.0.0.11 valid=10s ipv6=off;
-
-            upstream gateway {
-                server gateway:8001;
-            }
-
-            upstream langgraph {
-                server langgraph:2024;
-            }
-
-            upstream frontend {
-                server frontend:3000;
-            }
-
-            server {
-                listen 2026 default_server;
-                listen [::]:2026 default_server;
-                server_name _;
-
-                proxy_hide_header 'Access-Control-Allow-Origin';
-                proxy_hide_header 'Access-Control-Allow-Methods';
-                proxy_hide_header 'Access-Control-Allow-Headers';
-                proxy_hide_header 'Access-Control-Allow-Credentials';
-
-                add_header 'Access-Control-Allow-Origin' '*' always;
-                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, PATCH, OPTIONS' always;
-                add_header 'Access-Control-Allow-Headers' '*' always;
-
-                if ($request_method = 'OPTIONS') {
-                    return 204;
-                }
-
-                location /api/langgraph/ {
-                    rewrite ^/api/langgraph/(.*) /$1 break;
-                    proxy_pass http://langgraph;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                    proxy_set_header Connection '';
-                    proxy_buffering off;
-                    proxy_cache off;
-                    proxy_set_header X-Accel-Buffering no;
-                    proxy_connect_timeout 600s;
-                    proxy_send_timeout 600s;
-                    proxy_read_timeout 600s;
-                    chunked_transfer_encoding on;
-                }
-
-                location /api/models {
-                    proxy_pass http://gateway;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                location /api/memory {
-                    proxy_pass http://gateway;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                location /api/mcp {
-                    proxy_pass http://gateway;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                location /api/skills {
-                    proxy_pass http://gateway;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                location /api/agents {
-                    proxy_pass http://gateway;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                location ~ ^/api/threads/[^/]+/uploads {
-                    proxy_pass http://gateway;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                    client_max_body_size 100M;
-                    proxy_request_buffering off;
-                }
-
-                location ~ ^/api/threads {
-                    proxy_pass http://gateway;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                location /docs {
-                    proxy_pass http://gateway;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                location /redoc {
-                    proxy_pass http://gateway;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                location /openapi.json {
-                    proxy_pass http://gateway;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                location /health {
-                    proxy_pass http://frontend/;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-
-                location / {
-                    proxy_pass http://frontend;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                    proxy_set_header Upgrade $http_upgrade;
-                    proxy_set_header Connection 'upgrade';
-                    proxy_cache_bypass $http_upgrade;
-                    proxy_connect_timeout 600s;
-                    proxy_send_timeout 600s;
-                    proxy_read_timeout 600s;
-                }
-            }
-        }
-        """
-    )
-
-
 def render_config_gate_server() -> str:
     return textwrap.dedent(
         """\
@@ -4446,356 +3417,6 @@ def render_config_gate_server() -> str:
     )
 
 
-def render_deer_flow_config_validator() -> str:
-    return textwrap.dedent(
-        """\
-        export async function validateConfig(content) {
-          const raw = String(content || "").replace(/\\r\\n/g, "\\n");
-          const modelsMatch = raw.match(/^models:\\s*$/m);
-          if (!modelsMatch) {
-            return {
-              ready: false,
-              error: "Missing `models:` section. Add at least one model before starting DeerFlow.",
-            };
-          }
-
-          const afterModels = raw.slice(modelsMatch.index + modelsMatch[0].length);
-          const nextRootKey = afterModels.search(/^\\S/m);
-          const modelBlock = nextRootKey === -1 ? afterModels : afterModels.slice(0, nextRootKey);
-          const listItems = modelBlock
-            .split("\\n")
-            .map((line) => line.trim())
-            .filter((line) => line.startsWith("-"));
-
-          if (listItems.length === 0) {
-            return {
-              ready: false,
-              error: "No models configured. Add at least one item under `models:`.",
-            };
-          }
-
-          const nameFields = modelBlock
-            .split("\\n")
-            .map((line) => line.trim())
-            .filter((line) => line.startsWith("name:") || line.includes(" name:"));
-
-          if (nameFields.length === 0) {
-            return {
-              ready: false,
-              error: "Each DeerFlow model should define a `name:` field.",
-            };
-          }
-
-          return {
-            ready: true,
-            summary: `Detected ${nameFields.length} configured model(s).`,
-          };
-        }
-        """
-    )
-
-
-def render_deer_flow_backfill_script() -> str:
-    return textwrap.dedent(
-        """\
-        #!/usr/bin/env python3
-        \"\"\"Backfill LangGraph thread state from persisted thread values.
-
-        DeerFlow UI thread detail relies on `/threads/{id}/state` and `/history`.
-        In some deployments, `/threads/search` and `/threads/{id}` still contain
-        `values` after restart while `/state` and `/history` are empty. This script
-        repairs those threads by writing `values` back to `/threads/{id}/state`.
-        \"\"\"
-
-        from __future__ import annotations
-
-        import json
-        import os
-        import time
-        import urllib.error
-        import urllib.request
-
-
-        BASE_URL = os.environ.get("DEER_FLOW_INTERNAL_LANGGRAPH_BASE_URL", "http://127.0.0.1:2024").rstrip("/")
-        TIMEOUT = 10
-
-
-        def request_json(method: str, path: str, payload: dict | None = None) -> dict | list:
-            data = None
-            headers = {"accept": "application/json"}
-            if payload is not None:
-                data = json.dumps(payload).encode("utf-8")
-                headers["content-type"] = "application/json"
-            req = urllib.request.Request(f"{BASE_URL}{path}", data=data, headers=headers, method=method)
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-                raw = resp.read()
-            if not raw:
-                return {}
-            return json.loads(raw.decode("utf-8"))
-
-
-        def wait_until_ready(max_wait_seconds: int = 120) -> bool:
-            deadline = time.time() + max_wait_seconds
-            while time.time() < deadline:
-                try:
-                    request_json("POST", "/threads/search", {"limit": 1, "offset": 0})
-                    return True
-                except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError):
-                    time.sleep(2)
-            return False
-
-
-        def state_is_empty(state: dict) -> bool:
-            values = state.get("values")
-            return not isinstance(values, dict) or len(values) == 0
-
-
-        def run() -> int:
-            if not wait_until_ready():
-                print("[backfill] LangGraph API not ready; skip.")
-                return 0
-
-            print(f"[backfill] API ready: {BASE_URL}")
-            fixed = 0
-            skipped = 0
-            failed = 0
-            total = 0
-            offset = 0
-            page_size = 100
-
-            while True:
-                batch = request_json(
-                    "POST",
-                    "/threads/search",
-                    {"limit": page_size, "offset": offset, "sort_by": "updated_at", "sort_order": "desc"},
-                )
-                if isinstance(batch, dict):
-                    threads = batch.get("data") or batch.get("threads") or []
-                else:
-                    threads = batch
-
-                if not threads:
-                    break
-
-                for item in threads:
-                    thread_id = item.get("thread_id")
-                    if not thread_id:
-                        continue
-                    total += 1
-                    try:
-                        state = request_json("GET", f"/threads/{thread_id}/state")
-                        if isinstance(state, dict) and not state_is_empty(state):
-                            skipped += 1
-                            continue
-
-                        thread = request_json("GET", f"/threads/{thread_id}")
-                        values = thread.get("values") if isinstance(thread, dict) else None
-                        if not isinstance(values, dict) or len(values) == 0:
-                            skipped += 1
-                            continue
-
-                        resp = request_json("POST", f"/threads/{thread_id}/state", {"values": values})
-                        checkpoint_id = resp.get("checkpoint_id") if isinstance(resp, dict) else None
-                        if checkpoint_id:
-                            fixed += 1
-                            print(f"[backfill] fixed {thread_id}")
-                        else:
-                            failed += 1
-                            print(f"[backfill] failed {thread_id}: no checkpoint_id")
-                    except Exception as exc:  # noqa: BLE001
-                        failed += 1
-                        print(f"[backfill] failed {thread_id}: {exc}")
-
-                if len(threads) < page_size:
-                    break
-                offset += len(threads)
-
-            print(f"[backfill] done total={total} fixed={fixed} skipped={skipped} failed={failed}")
-            return 0
-
-
-        if __name__ == "__main__":
-            raise SystemExit(run())
-        """
-    )
-
-
-def post_process_deer_flow(repo_root: Path) -> list[str]:
-    app_dir = repo_root / "apps" / "deer-flow"
-    content_dir = app_dir / "content"
-    skills_dir = content_dir / "skills"
-    skills_dir.mkdir(parents=True, exist_ok=True)
-
-    writes = {
-        app_dir / "lzc-deploy-params.yml": textwrap.dedent(
-            """\
-            params:
-              - id: model.provider_preset
-                type: string
-                name: Provider Preset
-                description: "DeerFlow 启动时会读取这些部署参数，并同步写回运行时 config.yaml。"
-                default_value: "openai"
-                optional: true
-              - id: model.name
-                type: string
-                name: Internal Model Name
-                description: "Advanced default only."
-                default_value: "default-chat"
-                optional: true
-              - id: model.display_name
-                type: string
-                name: Display Name
-                description: "Advanced default only."
-                default_value: "Default Chat Model"
-                optional: true
-              - id: model.id
-                type: string
-                name: API Model ID
-                description: "Advanced default only."
-                default_value: "gpt-4.1-mini"
-                optional: true
-              - id: model.base_url
-                type: string
-                name: Base URL
-                description: "Optional advanced default for OpenAI-compatible endpoints."
-                default_value: ""
-                optional: true
-              - id: model.api_key
-                type: string
-                name: API Key
-                description: "必填才能让默认模型正常工作。启动时会同步写回运行时 config.yaml。"
-                default_value: ""
-                optional: true
-              - id: model.use_responses_api
-                type: string
-                name: Use Responses API
-                description: "Optional advanced default."
-                default_value: "false"
-                optional: true
-              - id: model.temperature
-                type: string
-                name: Temperature
-                description: "Optional advanced default."
-                default_value: "0.7"
-                optional: true
-              - id: search.tavily_api_key
-                type: string
-                name: Tavily API Key
-                description: "Optional advanced default."
-                default_value: ""
-                optional: true
-              - id: fetch.jina_api_key
-                type: string
-                name: Jina API Key
-                description: "Optional advanced default."
-                default_value: ""
-                optional: true
-            """
-        ),
-        content_dir / "config.yaml": textwrap.dedent(
-            """\
-            # Configuration for the DeerFlow application
-            #
-            # This packaged template follows the upstream DeerFlow 2.0 layout.
-            # LazyCat rewrites the `models` section from deployment parameters so the runtime
-            # keeps using DeerFlow's default field names and environment-variable conventions.
-
-            config_version: 5
-
-            log_level: info
-
-            token_usage:
-              enabled: false
-
-            models: []
-
-            tool_groups:
-              - name: web
-              - name: file:read
-              - name: file:write
-              - name: bash
-
-            tools:
-              - name: web_search
-                group: web
-                use: deerflow.community.tavily.tools:web_search_tool
-                max_results: 5
-              - name: web_fetch
-                group: web
-                use: deerflow.community.jina_ai.tools:web_fetch_tool
-                timeout: 10
-              - name: image_search
-                group: web
-                use: deerflow.community.image_search.tools:image_search_tool
-                max_results: 5
-              - name: ls
-                group: file:read
-                use: deerflow.sandbox.tools:ls_tool
-              - name: read_file
-                group: file:read
-                use: deerflow.sandbox.tools:read_file_tool
-              - name: write_file
-                group: file:write
-                use: deerflow.sandbox.tools:write_file_tool
-              - name: str_replace
-                group: file:write
-                use: deerflow.sandbox.tools:str_replace_tool
-              - name: bash
-                group: bash
-                use: deerflow.sandbox.tools:bash_tool
-
-            sandbox:
-              use: deerflow.sandbox.local:LocalSandboxProvider
-
-            skills:
-              path: /lzcapp/var/data/deer-flow/skills
-              container_path: /mnt/skills
-
-            title:
-              enabled: true
-              max_words: 6
-              max_chars: 60
-              model_name: null
-
-            summarization:
-              enabled: true
-
-            checkpointer:
-              type: sqlite
-              connection_string: /app/backend/.langgraph_api/checkpoints.db
-            """
-        ),
-        content_dir / "extensions_config.json": textwrap.dedent(
-            """\
-            {
-              "mcpServers": {},
-              "skills": {}
-            }
-            """
-        ),
-        content_dir / "backfill-langgraph-state.py": render_deer_flow_backfill_script(),
-        content_dir / "render-deer-flow-config.sh": render_deer_flow_config_script(),
-        content_dir / "nginx.conf": render_deer_flow_nginx_conf(),
-        skills_dir / "README.md": textwrap.dedent(
-            """\
-            Place custom DeerFlow skills in this directory.
-
-            This LazyCat package defaults to `skills.path: /lzcapp/var/data/deer-flow/skills`,
-            so files stored here persist across upgrades.
-            """
-        ),
-    }
-
-    outputs: list[str] = []
-    for path, content in writes.items():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
-        if path.suffix in {".sh", ".mjs", ".py"}:
-            path.chmod(0o755)
-        outputs.append(str(path))
-    return outputs
-
-
 def render_persist_env_bootstrap(
     *,
     state_dir_env: str,
@@ -5048,687 +3669,6 @@ def post_process_basic_llm_dotenv(repo_root: Path, slug: str) -> list[str]:
             path.chmod(0o755)
         outputs.append(str(path))
     return outputs
-
-
-def encode_base64_text(text: str) -> str:
-    return base64.b64encode(text.encode("utf-8")).decode("ascii")
-
-
-def render_encoded_sql_command(database_url: str, sql: str, target_name: str) -> str:
-    encoded = encode_base64_text(sql)
-    if target_name == "dbfix_task_queue":
-        return (
-            "sh -lc 'until pg_isready -h postgres -U multica >/dev/null 2>&1; do sleep 1; done; "
-            f"printf %s {encoded} | base64 -d >/tmp/{target_name}.sql; "
-            f'until psql "{database_url}" -v ON_ERROR_STOP=1 -f /tmp/{target_name}.sql >/dev/null 2>&1; do '
-            'echo "waiting for base schema before dbfix_task_queue..."; sleep 1; done; '
-            "sleep infinity'"
-        )
-    return (
-        "sh -lc 'until pg_isready -h postgres -U multica >/dev/null 2>&1; do sleep 1; done; "
-        f"printf %s {encoded} | base64 -d >/tmp/{target_name}.sql; "
-        f'psql "{database_url}" -v ON_ERROR_STOP=0 -f /tmp/{target_name}.sql >/dev/null 2>&1 || true; '
-        "sleep infinity'"
-    )
-
-
-def render_encoded_shell_command(script: str, target_name: str) -> str:
-    encoded = encode_base64_text(script)
-    return (
-        "sh -lc '"
-        f"printf %s {encoded} | base64 -d >/tmp/{target_name}.sh; "
-        f"chmod +x /tmp/{target_name}.sh; exec /tmp/{target_name}.sh'"
-    )
-
-
-def render_multica_dbfix_sql() -> str:
-    return textwrap.dedent(
-        """\
-        CREATE EXTENSION IF NOT EXISTS pgcrypto;
-        CREATE TABLE IF NOT EXISTS "user" (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            avatar_url TEXT,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        CREATE TABLE IF NOT EXISTS workspace (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name TEXT NOT NULL,
-            slug TEXT UNIQUE NOT NULL,
-            description TEXT,
-            settings JSONB NOT NULL DEFAULT '{}'::jsonb,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        ALTER TABLE workspace ADD COLUMN IF NOT EXISTS context TEXT;
-        ALTER TABLE workspace ADD COLUMN IF NOT EXISTS repos JSONB NOT NULL DEFAULT '[]'::jsonb;
-        ALTER TABLE workspace ADD COLUMN IF NOT EXISTS issue_prefix TEXT NOT NULL DEFAULT '';
-        ALTER TABLE workspace ADD COLUMN IF NOT EXISTS issue_counter INT NOT NULL DEFAULT 0;
-        UPDATE workspace SET issue_prefix = 'WS' WHERE issue_prefix = '';
-        CREATE TABLE IF NOT EXISTS member (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-            user_id UUID NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
-            role TEXT NOT NULL DEFAULT 'member',
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            UNIQUE(workspace_id, user_id)
-        );
-        CREATE INDEX IF NOT EXISTS idx_member_workspace ON member(workspace_id);
-        CREATE TABLE IF NOT EXISTS agent (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-            name TEXT NOT NULL,
-            avatar_url TEXT,
-            runtime_mode TEXT NOT NULL DEFAULT 'local',
-            runtime_config JSONB NOT NULL DEFAULT '{}'::jsonb,
-            visibility TEXT NOT NULL DEFAULT 'private',
-            status TEXT NOT NULL DEFAULT 'offline',
-            max_concurrent_tasks INT NOT NULL DEFAULT 6,
-            owner_id UUID REFERENCES "user"(id),
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        ALTER TABLE agent ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
-        ALTER TABLE agent ADD COLUMN IF NOT EXISTS tools JSONB NOT NULL DEFAULT '[]'::jsonb;
-        ALTER TABLE agent ADD COLUMN IF NOT EXISTS triggers JSONB NOT NULL DEFAULT '[]'::jsonb;
-        ALTER TABLE agent ADD COLUMN IF NOT EXISTS instructions TEXT NOT NULL DEFAULT '';
-        ALTER TABLE agent ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ DEFAULT NULL;
-        ALTER TABLE agent ADD COLUMN IF NOT EXISTS archived_by UUID DEFAULT NULL REFERENCES "user"(id);
-        ALTER TABLE agent ADD COLUMN IF NOT EXISTS runtime_id UUID;
-        CREATE INDEX IF NOT EXISTS idx_agent_workspace ON agent(workspace_id);
-        CREATE TABLE IF NOT EXISTS issue (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-            title TEXT NOT NULL,
-            description TEXT,
-            status TEXT NOT NULL DEFAULT 'backlog',
-            priority TEXT NOT NULL DEFAULT 'none',
-            assignee_type TEXT,
-            assignee_id UUID,
-            creator_type TEXT NOT NULL DEFAULT 'member',
-            creator_id UUID NOT NULL,
-            parent_issue_id UUID REFERENCES issue(id) ON DELETE SET NULL,
-            acceptance_criteria JSONB NOT NULL DEFAULT '[]'::jsonb,
-            context_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
-            position DOUBLE PRECISION NOT NULL DEFAULT 0,
-            due_date TIMESTAMPTZ,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        ALTER TABLE issue ADD COLUMN IF NOT EXISTS number INT NOT NULL DEFAULT 0;
-        DO $$
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_issue_workspace_number') THEN
-                ALTER TABLE issue ADD CONSTRAINT uq_issue_workspace_number UNIQUE (workspace_id, number);
-            END IF;
-        END
-        $$;
-        CREATE INDEX IF NOT EXISTS idx_issue_workspace ON issue(workspace_id);
-        CREATE INDEX IF NOT EXISTS idx_issue_assignee ON issue(assignee_type, assignee_id);
-        CREATE INDEX IF NOT EXISTS idx_issue_status ON issue(workspace_id, status);
-        CREATE INDEX IF NOT EXISTS idx_issue_parent ON issue(parent_issue_id);
-        CREATE INDEX IF NOT EXISTS idx_issue_workspace_number ON issue(workspace_id, number);
-        CREATE TABLE IF NOT EXISTS issue_label (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-            name TEXT NOT NULL,
-            color TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS issue_to_label (
-            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
-            label_id UUID NOT NULL REFERENCES issue_label(id) ON DELETE CASCADE,
-            PRIMARY KEY (issue_id, label_id)
-        );
-        CREATE TABLE IF NOT EXISTS issue_dependency (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
-            depends_on_issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
-            type TEXT NOT NULL DEFAULT 'blocks'
-        );
-        CREATE TABLE IF NOT EXISTS comment (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
-            author_type TEXT NOT NULL,
-            author_id UUID NOT NULL,
-            content TEXT NOT NULL,
-            type TEXT NOT NULL DEFAULT 'comment',
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        ALTER TABLE comment ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES comment(id) ON DELETE CASCADE;
-        ALTER TABLE comment ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES workspace(id) ON DELETE CASCADE;
-        UPDATE comment
-        SET workspace_id = issue.workspace_id
-        FROM issue
-        WHERE comment.issue_id = issue.id AND comment.workspace_id IS NULL;
-        CREATE INDEX IF NOT EXISTS idx_comment_issue ON comment(issue_id);
-        CREATE TABLE IF NOT EXISTS inbox_item (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-            recipient_type TEXT NOT NULL,
-            recipient_id UUID NOT NULL,
-            type TEXT NOT NULL,
-            severity TEXT NOT NULL DEFAULT 'info',
-            issue_id UUID REFERENCES issue(id) ON DELETE CASCADE,
-            title TEXT NOT NULL,
-            body TEXT,
-            read BOOLEAN NOT NULL DEFAULT FALSE,
-            archived BOOLEAN NOT NULL DEFAULT FALSE,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        ALTER TABLE inbox_item ADD COLUMN IF NOT EXISTS actor_type TEXT;
-        ALTER TABLE inbox_item ADD COLUMN IF NOT EXISTS actor_id UUID;
-        ALTER TABLE inbox_item ADD COLUMN IF NOT EXISTS details JSONB DEFAULT '{}'::jsonb;
-        CREATE INDEX IF NOT EXISTS idx_inbox_recipient ON inbox_item(recipient_type, recipient_id, read);
-        CREATE TABLE IF NOT EXISTS daemon_connection (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            agent_id UUID NOT NULL REFERENCES agent(id) ON DELETE CASCADE,
-            daemon_id TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'disconnected',
-            last_heartbeat_at TIMESTAMPTZ,
-            runtime_info JSONB NOT NULL DEFAULT '{}'::jsonb,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        DO $$
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_daemon_agent') THEN
-                ALTER TABLE daemon_connection ADD CONSTRAINT uq_daemon_agent UNIQUE (agent_id, daemon_id);
-            END IF;
-        END
-        $$;
-        CREATE TABLE IF NOT EXISTS activity_log (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-            issue_id UUID REFERENCES issue(id) ON DELETE CASCADE,
-            actor_type TEXT,
-            actor_id UUID,
-            action TEXT NOT NULL,
-            details JSONB NOT NULL DEFAULT '{}'::jsonb,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        CREATE INDEX IF NOT EXISTS idx_activity_log_issue ON activity_log(issue_id);
-        CREATE TABLE IF NOT EXISTS verification_code (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            email TEXT NOT NULL,
-            code TEXT NOT NULL,
-            expires_at TIMESTAMPTZ NOT NULL,
-            used BOOLEAN NOT NULL DEFAULT FALSE,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        CREATE INDEX IF NOT EXISTS idx_verification_code_email ON verification_code(email, used, expires_at);
-        ALTER TABLE verification_code ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
-        CREATE TABLE IF NOT EXISTS personal_access_token (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id UUID NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
-            name TEXT NOT NULL,
-            token_hash TEXT NOT NULL,
-            token_prefix TEXT NOT NULL,
-            expires_at TIMESTAMPTZ,
-            last_used_at TIMESTAMPTZ,
-            revoked BOOLEAN NOT NULL DEFAULT FALSE,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        CREATE INDEX IF NOT EXISTS idx_pat_user ON personal_access_token(user_id, revoked);
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_pat_token_hash ON personal_access_token(token_hash);
-        CREATE TABLE IF NOT EXISTS skill (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-            name TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT '',
-            content TEXT NOT NULL DEFAULT '',
-            config JSONB NOT NULL DEFAULT '{}'::jsonb,
-            created_by UUID REFERENCES "user"(id),
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            UNIQUE(workspace_id, name)
-        );
-        CREATE TABLE IF NOT EXISTS skill_file (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            skill_id UUID NOT NULL REFERENCES skill(id) ON DELETE CASCADE,
-            path TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            UNIQUE(skill_id, path)
-        );
-        CREATE TABLE IF NOT EXISTS agent_skill (
-            agent_id UUID NOT NULL REFERENCES agent(id) ON DELETE CASCADE,
-            skill_id UUID NOT NULL REFERENCES skill(id) ON DELETE CASCADE,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            PRIMARY KEY (agent_id, skill_id)
-        );
-        CREATE INDEX IF NOT EXISTS idx_skill_workspace ON skill(workspace_id);
-        CREATE INDEX IF NOT EXISTS idx_skill_file_skill ON skill_file(skill_id);
-        CREATE INDEX IF NOT EXISTS idx_agent_skill_skill ON agent_skill(skill_id);
-        CREATE INDEX IF NOT EXISTS idx_agent_skill_agent ON agent_skill(agent_id);
-        CREATE TABLE IF NOT EXISTS issue_subscriber (
-            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
-            user_type TEXT NOT NULL,
-            user_id UUID NOT NULL,
-            reason TEXT NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            PRIMARY KEY (issue_id, user_type, user_id)
-        );
-        CREATE INDEX IF NOT EXISTS idx_issue_subscriber_user ON issue_subscriber(user_type, user_id);
-        CREATE TABLE IF NOT EXISTS comment_reaction (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            comment_id UUID NOT NULL REFERENCES comment(id) ON DELETE CASCADE,
-            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-            actor_type TEXT NOT NULL,
-            actor_id UUID NOT NULL,
-            emoji TEXT NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            UNIQUE (comment_id, actor_type, actor_id, emoji)
-        );
-        CREATE INDEX IF NOT EXISTS idx_comment_reaction_comment_id ON comment_reaction(comment_id);
-        CREATE TABLE IF NOT EXISTS issue_reaction (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
-            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-            actor_type TEXT NOT NULL,
-            actor_id UUID NOT NULL,
-            emoji TEXT NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            UNIQUE (issue_id, actor_type, actor_id, emoji)
-        );
-        CREATE INDEX IF NOT EXISTS idx_issue_reaction_issue_id ON issue_reaction(issue_id);
-        CREATE TABLE IF NOT EXISTS attachment (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-            issue_id UUID REFERENCES issue(id) ON DELETE CASCADE,
-            comment_id UUID REFERENCES comment(id) ON DELETE CASCADE,
-            uploader_type TEXT NOT NULL,
-            uploader_id UUID NOT NULL,
-            filename TEXT NOT NULL,
-            url TEXT NOT NULL,
-            content_type TEXT NOT NULL,
-            size_bytes BIGINT NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        CREATE INDEX IF NOT EXISTS idx_attachment_issue ON attachment(issue_id) WHERE issue_id IS NOT NULL;
-        CREATE INDEX IF NOT EXISTS idx_attachment_comment ON attachment(comment_id) WHERE comment_id IS NOT NULL;
-        CREATE INDEX IF NOT EXISTS idx_attachment_workspace ON attachment(workspace_id);
-        CREATE TABLE IF NOT EXISTS daemon_token (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            token_hash TEXT NOT NULL,
-            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-            daemon_id TEXT NOT NULL,
-            expires_at TIMESTAMPTZ NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_daemon_token_hash ON daemon_token(token_hash);
-        CREATE INDEX IF NOT EXISTS idx_daemon_token_workspace_daemon ON daemon_token(workspace_id, daemon_id);
-        """
-    )
-
-
-def render_multica_dbfix_task_queue_sql() -> str:
-    return textwrap.dedent(
-        """\
-        CREATE TABLE IF NOT EXISTS agent_runtime (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            workspace_id UUID NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-            daemon_id TEXT,
-            name TEXT NOT NULL,
-            runtime_mode TEXT NOT NULL DEFAULT 'local',
-            provider TEXT NOT NULL DEFAULT 'codex',
-            status TEXT NOT NULL DEFAULT 'offline',
-            device_info TEXT NOT NULL DEFAULT '',
-            metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-            last_seen_at TIMESTAMPTZ,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        DELETE FROM agent_runtime a USING agent_runtime b
-        WHERE a.id < b.id
-          AND a.workspace_id = b.workspace_id
-          AND a.daemon_id = b.daemon_id
-          AND a.provider = b.provider
-          AND a.daemon_id IS NOT NULL;
-        DO $$
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_agent_runtime_workspace_daemon_provider') THEN
-                ALTER TABLE agent_runtime ADD CONSTRAINT uq_agent_runtime_workspace_daemon_provider UNIQUE (workspace_id, daemon_id, provider);
-            END IF;
-        END
-        $$;
-        CREATE INDEX IF NOT EXISTS idx_agent_runtime_workspace ON agent_runtime(workspace_id);
-        CREATE INDEX IF NOT EXISTS idx_agent_runtime_status ON agent_runtime(workspace_id, status);
-        CREATE TABLE IF NOT EXISTS agent_task_queue (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            agent_id UUID NOT NULL REFERENCES agent(id) ON DELETE CASCADE,
-            issue_id UUID NOT NULL REFERENCES issue(id) ON DELETE CASCADE,
-            status TEXT NOT NULL DEFAULT 'queued',
-            priority INTEGER NOT NULL DEFAULT 0,
-            dispatched_at TIMESTAMPTZ,
-            started_at TIMESTAMPTZ,
-            completed_at TIMESTAMPTZ,
-            result JSONB,
-            error TEXT,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS context JSONB NOT NULL DEFAULT '{}'::jsonb;
-        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS runtime_id UUID;
-        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS session_id TEXT;
-        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS work_dir TEXT;
-        ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS trigger_comment_id UUID REFERENCES comment(id) ON DELETE SET NULL;
-        CREATE INDEX IF NOT EXISTS idx_agent_task_queue_agent ON agent_task_queue(agent_id, status);
-        CREATE INDEX IF NOT EXISTS idx_agent_task_queue_pending
-            ON agent_task_queue(agent_id, priority DESC, created_at ASC)
-            WHERE status IN ('queued', 'dispatched');
-        CREATE INDEX IF NOT EXISTS idx_agent_task_queue_runtime_pending
-            ON agent_task_queue(runtime_id, priority DESC, created_at ASC)
-            WHERE status IN ('queued', 'dispatched');
-        CREATE TABLE IF NOT EXISTS daemon_pairing_session (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            token TEXT NOT NULL UNIQUE,
-            daemon_id TEXT NOT NULL,
-            device_name TEXT NOT NULL,
-            runtime_name TEXT NOT NULL,
-            runtime_type TEXT NOT NULL,
-            runtime_version TEXT NOT NULL DEFAULT '',
-            workspace_id UUID REFERENCES workspace(id) ON DELETE CASCADE,
-            approved_by UUID REFERENCES "user"(id) ON DELETE SET NULL,
-            status TEXT NOT NULL DEFAULT 'pending',
-            approved_at TIMESTAMPTZ,
-            claimed_at TIMESTAMPTZ,
-            expires_at TIMESTAMPTZ NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        CREATE INDEX IF NOT EXISTS idx_daemon_pairing_session_token ON daemon_pairing_session(token);
-        CREATE INDEX IF NOT EXISTS idx_daemon_pairing_session_status_expires ON daemon_pairing_session(status, expires_at);
-        CREATE TABLE IF NOT EXISTS runtime_usage (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            runtime_id UUID NOT NULL REFERENCES agent_runtime(id) ON DELETE CASCADE,
-            date DATE NOT NULL,
-            provider TEXT NOT NULL,
-            model TEXT NOT NULL DEFAULT '',
-            input_tokens BIGINT NOT NULL DEFAULT 0,
-            output_tokens BIGINT NOT NULL DEFAULT 0,
-            cache_read_tokens BIGINT NOT NULL DEFAULT 0,
-            cache_write_tokens BIGINT NOT NULL DEFAULT 0,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-            UNIQUE (runtime_id, date, provider, model)
-        );
-        CREATE INDEX IF NOT EXISTS idx_runtime_usage_runtime_date ON runtime_usage(runtime_id, date DESC);
-        CREATE TABLE IF NOT EXISTS task_message (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            task_id UUID NOT NULL REFERENCES agent_task_queue(id) ON DELETE CASCADE,
-            seq INTEGER NOT NULL,
-            type TEXT NOT NULL,
-            tool TEXT,
-            content TEXT,
-            input JSONB,
-            output TEXT,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-        );
-        CREATE INDEX IF NOT EXISTS idx_task_message_task_id_seq ON task_message(task_id, seq);
-        """
-    )
-
-
-def render_multica_db_audit_script(database_url: str) -> str:
-    return textwrap.dedent(
-        f"""\
-        #!/bin/sh
-        set -eu
-
-        until pg_isready -h postgres -U multica >/dev/null 2>&1; do
-          sleep 1
-        done
-
-        until psql "{database_url}" -Atc "SELECT 1 FROM pg_catalog.pg_tables WHERE schemaname='public' AND tablename='runtime_usage';" | grep -q 1; do
-          sleep 1
-        done
-
-        report="$(psql "{database_url}" -Atc "WITH expected_tables(kind,name) AS (VALUES ('table','user'),('table','workspace'),('table','member'),('table','agent'),('table','issue'),('table','issue_label'),('table','issue_to_label'),('table','issue_dependency'),('table','comment'),('table','inbox_item'),('table','agent_task_queue'),('table','daemon_connection'),('table','activity_log'),('table','agent_runtime'),('table','daemon_pairing_session'),('table','skill'),('table','skill_file'),('table','agent_skill'),('table','verification_code'),('table','personal_access_token'),('table','runtime_usage'),('table','issue_subscriber'),('table','comment_reaction'),('table','task_message'),('table','issue_reaction'),('table','attachment'),('table','daemon_token')), expected_indexes(kind,name) AS (VALUES ('index','idx_pat_token_hash'),('index','idx_daemon_token_hash'),('index','idx_daemon_token_workspace_daemon'),('index','idx_runtime_usage_runtime_date'),('index','idx_issue_workspace_number'),('index','idx_agent_workspace'),('index','idx_inbox_recipient')), expected_constraints(kind,name) AS (VALUES ('constraint','uq_agent_runtime_workspace_daemon_provider'),('constraint','uq_issue_workspace_number'),('constraint','uq_daemon_agent')), expected_columns(kind,table_name,name) AS (VALUES ('column','agent','description'),('column','agent','runtime_id'),('column','agent','archived_at'),('column','agent','instructions'),('column','issue','number'),('column','inbox_item','actor_type'),('column','inbox_item','details'),('column','comment','workspace_id'),('column','personal_access_token','token_prefix'),('column','skill','content')), missing_tables AS (SELECT kind, name FROM expected_tables e LEFT JOIN pg_catalog.pg_tables t ON t.schemaname='public' AND t.tablename=e.name WHERE t.tablename IS NULL), missing_indexes AS (SELECT kind, name FROM expected_indexes e LEFT JOIN pg_catalog.pg_indexes i ON i.schemaname='public' AND i.indexname=e.name WHERE i.indexname IS NULL), missing_constraints AS (SELECT kind, name FROM expected_constraints e LEFT JOIN pg_catalog.pg_constraint c ON c.conname=e.name WHERE c.conname IS NULL), missing_columns AS (SELECT kind, table_name || '.' || name AS name FROM expected_columns e LEFT JOIN information_schema.columns c ON c.table_schema='public' AND c.table_name=e.table_name AND c.column_name=e.name WHERE c.column_name IS NULL) SELECT kind || ':' || name FROM missing_tables UNION ALL SELECT kind || ':' || name FROM missing_indexes UNION ALL SELECT kind || ':' || name FROM missing_constraints UNION ALL SELECT kind || ':' || name FROM missing_columns ORDER BY 1;")"
-
-        if [ -n "$report" ]; then
-          echo "[schema-audit] missing schema objects:"
-          echo "$report"
-        else
-          echo "[schema-audit] all required tables, indexes, constraints, and columns exist"
-        fi
-
-        sleep infinity
-        """
-    )
-
-
-def render_multica_db_smoke_script(database_url: str) -> str:
-    return textwrap.dedent(
-        rf"""\
-        #!/bin/sh
-        set -eu
-
-        until pg_isready -h postgres -U multica >/dev/null 2>&1; do
-          sleep 1
-        done
-
-        until psql "{database_url}" -Atc "SELECT 1 FROM pg_catalog.pg_tables WHERE schemaname='public' AND tablename='runtime_usage';" | grep -q 1; do
-          sleep 1
-        done
-
-        psql "{database_url}" -v ON_ERROR_STOP=1 \\
-          -c "BEGIN;" \\
-          -c "DO \$$ DECLARE v_user UUID := gen_random_uuid(); v_workspace UUID := gen_random_uuid(); v_runtime UUID; BEGIN INSERT INTO \\"user\\" (id, name, email) VALUES (v_user, 'schema smoke', 'smoke_' || replace(v_user::text, '-', '') || '@example.com'); INSERT INTO workspace (id, name, slug, issue_prefix, issue_counter) VALUES (v_workspace, 'schema smoke', 'smoke-' || substr(replace(v_workspace::text, '-', ''), 1, 12), 'SMK', 0); INSERT INTO member (id, workspace_id, user_id, role) VALUES (gen_random_uuid(), v_workspace, v_user, 'owner'); INSERT INTO agent_runtime (workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, last_seen_at) VALUES (v_workspace, 'schema-smoke-daemon', 'Schema Smoke Runtime', 'local', 'codex', 'online', 'schema-smoke', '{{}}'::jsonb, now()) ON CONFLICT (workspace_id, daemon_id, provider) DO UPDATE SET updated_at = now(), last_seen_at = now() RETURNING id INTO v_runtime; INSERT INTO personal_access_token (id, user_id, name, token_hash, token_prefix, created_at) VALUES (gen_random_uuid(), v_user, 'schema smoke', md5('schema-smoke-token'), 'mul_smoke', now()); INSERT INTO daemon_token (id, token_hash, workspace_id, daemon_id, expires_at, created_at) VALUES (gen_random_uuid(), md5('schema-smoke-daemon-token'), v_workspace, 'schema-smoke-daemon', now() + interval '1 day', now()); INSERT INTO runtime_usage (id, runtime_id, date, provider, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, created_at, updated_at) VALUES (gen_random_uuid(), v_runtime, current_date, 'codex', 'schema-smoke', 0, 0, 0, 0, now(), now()) ON CONFLICT (runtime_id, date, provider, model) DO UPDATE SET updated_at = now(); END \$$;" \\
-          -c "ROLLBACK;"
-
-        echo "[schema-smoke] transactional write checks passed"
-        sleep infinity
-        """
-    )
-
-
-def build_multica_profile() -> dict[str, Any]:
-    database_url = "postgres://multica:multica@postgres:5432/multica?sslmode=disable"
-    profile: dict[str, Any] = {
-        "service_port": 3000,
-        "image_targets": ["multica", "web"],
-        "dependencies": [
-            {"target_service": "postgres", "source_image": "pgvector/pgvector:pg17"},
-            {"target_service": "dbfix", "source_image": "pgvector/pgvector:pg17"},
-            {"target_service": "dbfix_task_queue", "source_image": "pgvector/pgvector:pg17"},
-            {"target_service": "db_audit", "source_image": "pgvector/pgvector:pg17"},
-            {"target_service": "db_smoke", "source_image": "pgvector/pgvector:pg17"},
-        ],
-        "service_builds": [
-            {
-                "target_service": "multica",
-                "build_strategy": "upstream_dockerfile",
-                "source_dockerfile_path": "Dockerfile",
-                "build_context": ".",
-                "build_args": {},
-                "image_name": "multica",
-            },
-            {
-                "target_service": "web",
-                "build_strategy": "upstream_with_target_template",
-                "dockerfile_path": "Dockerfile.web.template",
-                "source_dockerfile_path": "Dockerfile.web.lazycat",
-                "build_context": ".",
-                "build_args": {},
-                "image_name": "multica-web",
-            },
-        ],
-        "application": {
-            "subdomain": "multica",
-            "public_path": ["/"],
-            "upstreams": [{"location": "/", "backend": "http://web:3000/"}],
-        },
-        "services": {
-            "multica": {
-                "image": "registry.lazycat.cloud/placeholder/multica:multica",
-                "depends_on": ["postgres", "dbfix", "dbfix_task_queue"],
-                "environment": [
-                    "PORT=8080",
-                    f"DATABASE_URL={database_url}",
-                    "JWT_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt",
-                    'RESEND_API_KEY={{ default "" .U.resend_api_key }}',
-                    'RESEND_FROM_EMAIL={{ default "noreply@multica.ai" .U.resend_from_email }}',
-                ],
-                "command": (
-                    "sh -lc 'until ./migrate up; do echo \"waiting for postgres...\"; sleep 2; done; "
-                    "until psql \"$DATABASE_URL\" -Atc "
-                    "\"SELECT CASE WHEN COUNT(*) = 3 THEN 1 END FROM pg_catalog.pg_tables "
-                    "WHERE schemaname=$$public$$ AND tablename IN ($$runtime_usage$$,$$agent_runtime$$,$$agent_task_queue$$);\" "
-                    "| grep -q 1; do echo \"waiting for schema bootstrap...\"; sleep 2; done; exec ./server'"
-                ),
-            },
-            "web": {
-                "image": "registry.lazycat.cloud/placeholder/multica:web",
-                "depends_on": ["multica"],
-                "environment": [
-                    "REMOTE_API_URL=http://multica:8080",
-                    "FRONTEND_PORT=3000",
-                    "NODE_ENV=production",
-                ],
-                "command": (
-                    'sh -lc "sed -i \\"s/await sendCode(email);/await sendCode(email).catch(() => {});/g\\" '
-                    "'/src/apps/web/app/(auth)/login/page.tsx'; cd apps/web && pnpm build && "
-                    'exec pnpm start --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}"'
-                ),
-            },
-            "postgres": {
-                "image": "registry.lazycat.cloud/placeholder/multica:postgres",
-                "environment": [
-                    "POSTGRES_DB=multica",
-                    "POSTGRES_USER=multica",
-                    "POSTGRES_PASSWORD=multica",
-                ],
-                "binds": ["/lzcapp/var/db/multica/postgres-v4:/var/lib/postgresql/data"],
-            },
-            "dbfix": {
-                "image": "registry.lazycat.cloud/placeholder/multica:postgres",
-                "depends_on": ["postgres"],
-                "command": render_encoded_sql_command(database_url, render_multica_dbfix_sql(), "dbfix"),
-            },
-            "dbfix_task_queue": {
-                "image": "registry.lazycat.cloud/placeholder/multica:postgres",
-                "depends_on": ["postgres"],
-                "command": render_encoded_sql_command(
-                    database_url, render_multica_dbfix_task_queue_sql(), "dbfix_task_queue"
-                ),
-            },
-            "db_audit": {
-                "image": "registry.lazycat.cloud/placeholder/multica:postgres",
-                "depends_on": ["postgres", "dbfix", "dbfix_task_queue"],
-                "command": render_encoded_shell_command(render_multica_db_audit_script(database_url), "db_audit"),
-            },
-            "db_smoke": {
-                "image": "registry.lazycat.cloud/placeholder/multica:postgres",
-                "depends_on": ["postgres", "dbfix", "dbfix_task_queue"],
-                "command": render_encoded_shell_command(render_multica_db_smoke_script(database_url), "db_smoke"),
-            },
-        },
-        "env_vars": [
-            {
-                "name": "DATABASE_URL",
-                "value": database_url,
-                "required": False,
-                "description": "连接内置 postgres 服务（由迁移器重写默认 localhost）",
-            },
-            {
-                "name": "PORT",
-                "value": "8080",
-                "required": False,
-                "description": "Multica server 监听端口",
-            },
-            {
-                "name": "JWT_SECRET",
-                "value": "${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt",
-                "required": False,
-                "description": "服务端 JWT 签名密钥",
-            },
-        ],
-        "startup_notes": [
-            "检测到 compose 仅包含 PostgreSQL，已自动补齐 web + backend + postgres 三服务拓扑。",
-            "已将 DATABASE_URL 默认值从 localhost 改写为 postgres 服务名，避免容器内回环连接失败。",
-            "web 服务默认以 production 模式启动，避免 HMR WebSocket 噪音和开发态反向代理问题。",
-            "已对登录页注入容错补丁：/auth/send-code 失败时仍允许进入验证码步骤（开发态可用 888888）。",
-            "支持通过 lzc-deploy-params.yml 配置 RESEND 邮件参数；若未配置则需在日志中查看验证码。",
-            "数据库 bootstrap 改为 encoded SQL -> 临时文件 -> psql -f，避免 shell/heredoc 引号破坏 SQL。",
-        ],
-    }
-    validate_multica_profile(profile)
-    return profile
-
-
-def validate_multica_profile(profile: dict[str, Any]) -> None:
-    services = profile.get("services")
-    if not isinstance(services, dict):
-        raise ValueError("multica profile missing services")
-    required_services = {"multica", "web", "postgres", "dbfix", "dbfix_task_queue", "db_audit", "db_smoke"}
-    missing = sorted(required_services - set(services))
-    if missing:
-        raise ValueError(f"multica profile missing services: {', '.join(missing)}")
-    web_environment = "\n".join(str(item) for item in services["web"].get("environment", []))
-    if "NODE_ENV=production" not in web_environment:
-        raise ValueError("multica web command must run in production mode")
-    if "base64 -d >/tmp/dbfix.sql" not in str(services["dbfix"].get("command", "")):
-        raise ValueError("multica dbfix must execute encoded sql file")
-    if "base64 -d >/tmp/dbfix_task_queue.sql" not in str(services["dbfix_task_queue"].get("command", "")):
-        raise ValueError("multica dbfix_task_queue must execute encoded sql file")
-    if "base64 -d >/tmp/db_audit.sh" not in str(services["db_audit"].get("command", "")):
-        raise ValueError("multica db_audit must execute encoded shell script")
-    if "base64 -d >/tmp/db_smoke.sh" not in str(services["db_smoke"].get("command", "")):
-        raise ValueError("multica db_smoke must execute encoded shell script")
-
-
-def post_process_multica(repo_root: Path) -> list[str]:
-    app_dir = repo_root / "apps" / "multica"
-    app_dir.mkdir(parents=True, exist_ok=True)
-    template_path = app_dir / "Dockerfile.web.template"
-    deploy_params_path = app_dir / "lzc-deploy-params.yml"
-    template_path.write_text(
-        textwrap.dedent(
-            """\
-            FROM node:20-alpine AS runtime
-            RUN corepack enable
-            WORKDIR /src
-            COPY . .
-            RUN pnpm install --frozen-lockfile
-            # LazyCat migration patch: allow login UI to continue when /auth/send-code fails.
-            # Backend still accepts master code 888888 in non-production APP_ENV.
-            RUN sed -i "s/await sendCode(email);/await sendCode(email).catch(() => {});/g" '/src/apps/web/app/(auth)/login/page.tsx'
-            ENV NODE_ENV=production
-            ENV FRONTEND_PORT=3000
-            ENV REMOTE_API_URL=http://multica:8080
-            EXPOSE 3000
-            CMD ["sh", "-lc", "cd apps/web && pnpm build && exec pnpm start --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}"]
-            """
-        ),
-        encoding="utf-8",
-    )
-    deploy_params_path.write_text(
-        textwrap.dedent(
-            """\
-            params:
-              - id: resend_api_key
-                type: string
-                name: Resend API Key
-                description: 用于发送登录验证码邮件。留空时不会发送邮件，验证码需要在应用日志中查看。
-                optional: true
-
-              - id: resend_from_email
-                type: string
-                name: Resend From Email
-                description: 发件人邮箱地址（例如 no-reply@yourdomain.com）。未填写时默认使用 noreply@multica.ai。
-                default_value: noreply@multica.ai
-                optional: true
-            """
-        ),
-        encoding="utf-8",
-    )
-
-    return [str(template_path), str(deploy_params_path)]
-
-
 def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
     issues: list[str] = []
     app_dir = repo_root / "apps" / slug
@@ -6214,6 +4154,20 @@ def main() -> int:
             ):
                 finalized["image_owner"] = image_owner
             finalized = apply_generated_app_fixes(finalized, analysis)
+            _profile_path = repo_root / "apps" / finalized["slug"] / ".app-profile.json"
+            if not _profile_path.exists():
+                _profile_path.parent.mkdir(parents=True, exist_ok=True)
+                # If app already has a content/ dir, ensure include_content is on
+                _content_dir = _profile_path.parent / "content"
+                if _content_dir.is_dir() and any(_content_dir.rglob("*")):
+                    finalized["include_content"] = True
+                _profile_path.write_text(
+                    json.dumps(generate_app_profile(finalized), indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8",
+                )
+            profile = load_app_profile(repo_root, finalized["slug"])
+            if profile:
+                finalized = apply_app_profile_fixes(finalized, profile)
             config_path = repo_root / "registry" / "repos" / f"{finalized['slug']}.json"
             app_dir = repo_root / "apps" / finalized["slug"]
             step_report(
