@@ -4519,7 +4519,9 @@ def main() -> int:
     # --- State management ---
     existing_state = None
     resolved_app_dir: Path | None = None
-    if not args.force and not getattr(args, 'verify', False):
+    # --fork with a custom name creates a new app; don't reuse existing state
+    fork_is_new_app = args.fork is not None and isinstance(args.fork, str) and args.fork
+    if not args.force and not getattr(args, 'verify', False) and not fork_is_new_app:
         found = ms.find_state_by_source(repo_root / "apps", args.source)
         if found:
             resolved_app_dir, existing_state = found
@@ -4608,15 +4610,19 @@ def main() -> int:
         }
         ms.mark_step_completed(state, 2, conclusion=f"已自动推断构建路线为 `{analysis.route}`")
 
-        # Fork upstream if requested — updates spec to point to fork
+        # Fork upstream if requested — updates spec and slug to point to fork
         if args.fork is not None and normalized.upstream_repo:
             try:
                 custom_fork_name = args.fork if isinstance(args.fork, str) else ""
-                fork_name = fork_upstream_repo(normalized.upstream_repo, fork_name=custom_fork_name)
-                analysis.spec["upstream_repo"] = fork_name
+                forked_repo = fork_upstream_repo(normalized.upstream_repo, fork_name=custom_fork_name)
+                analysis.spec["upstream_repo"] = forked_repo
                 analysis.spec["check_strategy"] = "commit_sha"
                 analysis.spec["build_strategy"] = "upstream_dockerfile"
-                print(f"[fork] Updated spec: upstream_repo={fork_name}, check_strategy=commit_sha")
+                # Custom fork name also determines the app slug
+                if custom_fork_name:
+                    analysis.slug = bm.normalize_slug(custom_fork_name)
+                    analysis.spec["slug"] = analysis.slug
+                print(f"[fork] Updated spec: upstream_repo={forked_repo}, slug={analysis.slug}, check_strategy=commit_sha")
             except Exception as exc:
                 print(f"[fork] WARNING: fork failed ({exc}), continuing with original upstream")
 
