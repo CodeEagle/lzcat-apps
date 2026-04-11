@@ -1,16 +1,76 @@
-FROM node:20-alpine AS runtime
-RUN corepack enable
-WORKDIR /src
-COPY . .
+# --- Dependencies ---
+FROM node:22-alpine AS deps
+
+RUN corepack enable && corepack prepare pnpm@10.28.2 --activate
+
+WORKDIR /app
+
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
+COPY apps/web/package.json apps/web/
+COPY packages/core/package.json packages/core/
+COPY packages/ui/package.json packages/ui/
+COPY packages/views/package.json packages/views/
+COPY packages/tsconfig/package.json packages/tsconfig/
+COPY packages/eslint-config/package.json packages/eslint-config/
+
 RUN pnpm install --frozen-lockfile
-# LazyCat migration patch: allow login UI to continue when /auth/send-code fails due to
-# missing email config (RESEND_API_KEY not set). Backend accepts master code 888888 in
-# non-production APP_ENV. Rate-limit (429) errors are re-thrown so the UI shows them.
-RUN node -e 'const fs=require("fs"),p="/src/apps/web/app/(auth)/login/page.tsx";let s=fs.readFileSync(p,"utf8");s=s.replace(/await sendCode\(email\);/g,"await sendCode(email).catch((err)=>{if(err instanceof Error&&err.message&&err.message.toLowerCase().includes(\x27wait\x27))throw err;});");fs.writeFileSync(p,s);'
-# LazyCat migration patch: make the verification Back button reset pending UI state.
-RUN node -e 'const fs = require("fs"); const p = "/src/apps/web/app/(auth)/login/page.tsx"; let s = fs.readFileSync(p, "utf8"); s = s.replace("setStep(\"email\");\n                setCode(\"\");\n                setError(\"\");", "setStep(\"email\");\n                setCode(\"\");\n                setError(\"\");\n                setSubmitting(false);\n                setCooldown(0);"); fs.writeFileSync(p, s);'
+
+# --- Build ---
+FROM node:22-alpine AS builder
+
+RUN corepack enable && corepack prepare pnpm@10.28.2 --activate
+
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY --from=deps /app/packages/core/node_modules ./packages/core/node_modules
+COPY --from=deps /app/packages/ui/node_modules ./packages/ui/node_modules
+COPY --from=deps /app/packages/views/node_modules ./packages/views/node_modules
+COPY --from=deps /app/packages/eslint-config/node_modules ./packages/eslint-config/node_modules
+
+COPY package.json turbo.json pnpm-workspace.yaml ./
+COPY apps/web/ apps/web/
+COPY packages/ packages/
+
+ARG REMOTE_API_URL=http://backend:8080
+ENV REMOTE_API_URL=$REMOTE_API_URL
+ENV STANDALONE=true
+
+# LazyCat patch: when leaving the verification step, clear any in-flight state
+# so the login form returns to the initial email view cleanly.
+RUN node - <<'NODE'
+const fs = require("fs");
+const path = "/app/packages/views/auth/login-page.tsx";
+const before = `onClick={() => {\n                setStep("email");\n                setCode("");\n                setError("");\n              }}`;
+const after = `onClick={() => {\n                setStep("email");\n                setCode("");\n                setError("");\n                setLoading(false);\n                setCooldown(0);\n              }}`;
+const source = fs.readFileSync(path, "utf8");
+if (!source.includes(before)) {
+  throw new Error("expected login back handler not found");
+}
+fs.writeFileSync(path, source.replace(before, after));
+NODE
+
+RUN pnpm --filter @multica/web build
+
+# --- Runtime ---
+FROM node:22-alpine AS runner
+
+WORKDIR /app
+
 ENV NODE_ENV=production
-ENV FRONTEND_PORT=3000
-ENV REMOTE_API_URL=http://multica:8080
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/apps/web/.next/standalone ./
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
+
+USER nextjs
+
 EXPOSE 3000
-CMD ["sh", "-lc", "cd apps/web && pnpm dev --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}"]
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+CMD ["node", "apps/web/server.js"]
