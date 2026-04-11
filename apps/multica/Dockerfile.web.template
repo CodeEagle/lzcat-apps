@@ -37,19 +37,6 @@ ARG REMOTE_API_URL=http://backend:8080
 ENV REMOTE_API_URL=$REMOTE_API_URL
 ENV STANDALONE=true
 
-# LazyCat patch: when leaving the verification step, clear any in-flight state
-# so the login form returns to the initial email view cleanly.
-RUN node - <<'NODE'
-const fs = require("fs");
-const path = "/app/packages/views/auth/login-page.tsx";
-const before = `onClick={() => {\n                setStep("email");\n                setCode("");\n                setError("");\n              }}`;
-const after = `onClick={() => {\n                setStep("email");\n                setCode("");\n                setError("");\n                setLoading(false);\n                setCooldown(0);\n              }}`;
-const source = fs.readFileSync(path, "utf8");
-if (!source.includes(before)) {
-  throw new Error("expected login back handler not found");
-}
-fs.writeFileSync(path, source.replace(before, after));
-NODE
 
 RUN pnpm --filter @multica/web build
 

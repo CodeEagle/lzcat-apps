@@ -30,8 +30,7 @@
     },
     {
       "target_service": "frontend",
-      "build_strategy": "upstream_with_target_template",
-      "dockerfile_path": "Dockerfile.web.template",
+      "build_strategy": "upstream_dockerfile",
       "source_dockerfile_path": "Dockerfile.web",
       "build_context": ".",
       "build_args": {
