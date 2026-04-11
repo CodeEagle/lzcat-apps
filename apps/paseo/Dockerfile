@@ -60,7 +60,10 @@ RUN set -eux; \
     echo "--- after normalize ls /usr/src/app/node_modules/@getpaseo ---"; ls -la /usr/src/app/node_modules/@getpaseo || true; \
     # Fix CommonJS named-imports (e.g., @isaacs/ttlcache) by replacing named imports with default-import interop in compiled JS
     find /usr/src/app/dist -type f -name '*.js' -print0 | xargs -0 sed -i -E "s/import \{\s*TTLCache\s*\} from ['\"]@isaacs\/ttlcache['\"];?/import pkg from '@isaacs\/ttlcache'; const { TTLCache } = pkg;/g" || true; \
-    echo "--- after patching TTLCache imports ---"; grep -R --line-number "@isaacs/ttlcache" /usr/src/app/dist || true
+    echo "--- after patching TTLCache imports ---"; grep -R --line-number "@isaacs/ttlcache" /usr/src/app/dist || true; \
+    # Prune dev dependencies to reduce node_modules size before copying to runner
+    npm prune --production --no-audit --no-fund || true; \
+    echo "--- after pruned node_modules size ---"; du -sh /usr/src/app/node_modules || true
 
 # Runtime image
 FROM node:22-bullseye-slim AS runner
