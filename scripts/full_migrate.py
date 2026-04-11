@@ -4229,13 +4229,19 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
     return not issues, issues
 
 
-def fork_upstream_repo(upstream_repo: str, fork_owner: str = "CodeEagle") -> str:
+def fork_upstream_repo(upstream_repo: str, fork_owner: str = "CodeEagle", fork_name: str = "") -> str:
     """Fork the upstream repo to fork_owner/ and make it public.
+
+    Args:
+        upstream_repo: Original repo (e.g. "owner/repo").
+        fork_owner: GitHub org/user to fork into.
+        fork_name: Custom repo name for the fork. If empty, uses the upstream name.
 
     Returns the full name of the fork (e.g. "CodeEagle/repo-name").
     If the fork already exists, returns it without re-forking.
     """
-    repo_name = upstream_repo.split("/", 1)[1] if "/" in upstream_repo else upstream_repo
+    default_name = upstream_repo.split("/", 1)[1] if "/" in upstream_repo else upstream_repo
+    repo_name = fork_name or default_name
     fork_full = f"{fork_owner}/{repo_name}"
 
     # Check if fork already exists
@@ -4248,9 +4254,11 @@ def fork_upstream_repo(upstream_repo: str, fork_owner: str = "CodeEagle") -> str
         return fork_full
 
     # Create fork via gh CLI (more reliable than API for org forks)
+    cmd = ["gh", "repo", "fork", upstream_repo, "--org", fork_owner, "--clone=false"]
+    if fork_name:
+        cmd.extend(["--fork-name", fork_name])
     result = subprocess.run(
-        ["gh", "repo", "fork", upstream_repo, "--org", fork_owner, "--clone=false"],
-        capture_output=True, text=True, timeout=60,
+        cmd, capture_output=True, text=True, timeout=60,
     )
     if result.returncode != 0 and "already exists" not in result.stderr:
         raise RuntimeError(f"Failed to fork {upstream_repo}: {result.stderr}")
@@ -4475,8 +4483,10 @@ def parse_args() -> argparse.Namespace:
                         help="Resume from step N (1-10), keeping context from prior steps")
     parser.add_argument("--verify", action="store_true",
                         help="Run from scratch and compare against existing state for reproducibility")
-    parser.add_argument("--fork", action="store_true",
-                        help="Fork the upstream repo to CodeEagle/ before building (sets upstream_repo to fork, check_strategy to commit_sha)")
+    parser.add_argument("--fork", nargs="?", const=True, default=None, metavar="REPO_NAME",
+                        help="Fork the upstream repo to CodeEagle/ before building. "
+                             "Optionally specify a custom repo name (e.g. --fork my-app). "
+                             "Sets upstream_repo to fork, check_strategy to commit_sha.")
     return parser.parse_args()
 
 
@@ -4595,9 +4605,10 @@ def main() -> int:
         ms.mark_step_completed(state, 2, conclusion=f"已自动推断构建路线为 `{analysis.route}`")
 
         # Fork upstream if requested — updates spec to point to fork
-        if getattr(args, "fork", False) and normalized.upstream_repo:
+        if args.fork is not None and normalized.upstream_repo:
             try:
-                fork_name = fork_upstream_repo(normalized.upstream_repo)
+                custom_fork_name = args.fork if isinstance(args.fork, str) else ""
+                fork_name = fork_upstream_repo(normalized.upstream_repo, fork_name=custom_fork_name)
                 analysis.spec["upstream_repo"] = fork_name
                 analysis.spec["check_strategy"] = "commit_sha"
                 analysis.spec["build_strategy"] = "upstream_dockerfile"
