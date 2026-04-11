@@ -1,0 +1,256 @@
+{
+  "fixes": {
+    "project_name": "multica",
+    "description": "The open-source managed agents platform",
+    "homepage": "https://multica.ai",
+    "author": "multica-ai",
+    "build_strategy": "upstream_dockerfile",
+    "docker_platform": "linux/amd64",
+    "image_targets": [
+      "postgres"
+    ],
+    "service_port": 5432,
+    "services": {
+      "postgres": {
+        "image": "registry.lazycat.cloud/placeholder/multica:postgres",
+        "environment": [
+          "POSTGRES_DB=multica",
+          "POSTGRES_USER=multica",
+          "POSTGRES_PASSWORD=multica"
+        ],
+        "binds": [
+          "/lzcapp/var/db/multica/postgres:/var/lib/postgresql/data"
+        ]
+      }
+    },
+    "application": {
+      "subdomain": "multica",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://postgres:5432/"
+        }
+      ]
+    },
+    "env_vars": [
+      {
+        "name": "POSTGRES_DB",
+        "description": "From compose service postgres",
+        "required": false,
+        "value": "multica"
+      },
+      {
+        "name": "POSTGRES_USER",
+        "description": "From compose service postgres",
+        "required": false,
+        "value": "multica"
+      },
+      {
+        "name": "POSTGRES_PASSWORD",
+        "description": "From compose service postgres",
+        "required": false,
+        "value": "multica"
+      },
+      {
+        "name": "POSTGRES_PORT",
+        "description": "From .env.example",
+        "required": false,
+        "value": "5432"
+      },
+      {
+        "name": "DATABASE_URL",
+        "description": "From .env.example",
+        "required": false,
+        "value": "postgres://multica:multica@localhost:5432/multica?sslmode=disable"
+      },
+      {
+        "name": "PORT",
+        "description": "From .env.example",
+        "required": false,
+        "value": "8080"
+      },
+      {
+        "name": "JWT_SECRET",
+        "description": "From .env.example",
+        "required": false,
+        "value": "change-me-in-production"
+      },
+      {
+        "name": "MULTICA_SERVER_URL",
+        "description": "From .env.example",
+        "required": false,
+        "value": "ws://localhost:8080/ws"
+      },
+      {
+        "name": "MULTICA_APP_URL",
+        "description": "From .env.example",
+        "required": false,
+        "value": "http://localhost:3000"
+      },
+      {
+        "name": "MULTICA_DAEMON_CONFIG",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "MULTICA_WORKSPACE_ID",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "MULTICA_DAEMON_ID",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "MULTICA_DAEMON_DEVICE_NAME",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "MULTICA_DAEMON_POLL_INTERVAL",
+        "description": "From .env.example",
+        "required": false,
+        "value": "3s"
+      },
+      {
+        "name": "MULTICA_DAEMON_HEARTBEAT_INTERVAL",
+        "description": "From .env.example",
+        "required": false,
+        "value": "15s"
+      },
+      {
+        "name": "MULTICA_CODEX_PATH",
+        "description": "From .env.example",
+        "required": false,
+        "value": "codex"
+      },
+      {
+        "name": "MULTICA_CODEX_MODEL",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "MULTICA_CODEX_WORKDIR",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "MULTICA_CODEX_TIMEOUT",
+        "description": "From .env.example",
+        "required": false,
+        "value": "20m"
+      },
+      {
+        "name": "RESEND_API_KEY",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "RESEND_FROM_EMAIL",
+        "description": "From .env.example",
+        "required": false,
+        "value": "noreply@multica.ai"
+      },
+      {
+        "name": "GOOGLE_CLIENT_ID",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "GOOGLE_CLIENT_SECRET",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "GOOGLE_REDIRECT_URI",
+        "description": "From .env.example",
+        "required": false,
+        "value": "http://localhost:3000/auth/callback"
+      },
+      {
+        "name": "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "S3_BUCKET",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "S3_REGION",
+        "description": "From .env.example",
+        "required": false,
+        "value": "us-west-2"
+      },
+      {
+        "name": "CLOUDFRONT_KEY_PAIR_ID",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "CLOUDFRONT_PRIVATE_KEY_SECRET",
+        "description": "From .env.example",
+        "required": false,
+        "value": "multica/cloudfront-signing-key"
+      },
+      {
+        "name": "CLOUDFRONT_PRIVATE_KEY",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "CLOUDFRONT_DOMAIN",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "COOKIE_DOMAIN",
+        "description": "From .env.example",
+        "required": false
+      },
+      {
+        "name": "FRONTEND_PORT",
+        "description": "From .env.example",
+        "required": false,
+        "value": "3000"
+      },
+      {
+        "name": "FRONTEND_ORIGIN",
+        "description": "From .env.example",
+        "required": false,
+        "value": "http://localhost:3000"
+      },
+      {
+        "name": "NEXT_PUBLIC_API_URL",
+        "description": "From .env.example",
+        "required": false,
+        "value": "http://localhost:8080"
+      },
+      {
+        "name": "NEXT_PUBLIC_WS_URL",
+        "description": "From .env.example",
+        "required": false,
+        "value": "ws://localhost:8080/ws"
+      }
+    ],
+    "data_paths": [
+      {
+        "host": "/lzcapp/var/db/multica/postgres",
+        "container": "/var/lib/postgresql/data",
+        "description": "From compose service postgres"
+      }
+    ],
+    "startup_notes": [
+      "自动扫描到 compose 文件：docker-compose.yml",
+      "主服务推断为 `postgres`，入口端口 `5432`。",
+      "扫描到 env 示例文件：.env.example",
+      "扫描到 README：README.md, README.zh-CN.md"
+    ],
+    "include_content": true
+  }
+}

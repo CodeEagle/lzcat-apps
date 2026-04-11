@@ -6,9 +6,9 @@
 - UPSTREAM_REPO: multica-ai/multica
 - UPSTREAM_URL: https://github.com/multica-ai/multica
 - HOMEPAGE: https://multica.ai
-- LICENSE: Apache-2.0
+- LICENSE: 
 - AUTHOR: multica-ai
-- VERSION: 0.1.14
+- VERSION: 0.1.23
 - IMAGE: TODO
 - PORT: 5432
 - AI_POD_SERVICE: 无
@@ -42,6 +42,7 @@
 - `GOOGLE_CLIENT_ID`: From .env.example (required=False)
 - `GOOGLE_CLIENT_SECRET`: From .env.example (required=False)
 - `GOOGLE_REDIRECT_URI`: From .env.example (required=False)
+- `NEXT_PUBLIC_GOOGLE_CLIENT_ID`: From .env.example (required=False)
 - `S3_BUCKET`: From .env.example (required=False)
 - `S3_REGION`: From .env.example (required=False)
 - `CLOUDFRONT_KEY_PAIR_ID`: From .env.example (required=False)
@@ -55,7 +56,7 @@
 - `NEXT_PUBLIC_WS_URL`: From .env.example (required=False)
 
 ## 预填数据路径
-- `/var/lib/postgresql/data` <= `/lzcapp/var/db/multica/postgres-v4` (From compose service postgres)
+- `/var/lib/postgresql/data` <= `/lzcapp/var/db/multica/postgres` (From compose service postgres)
 
 ## 预填启动说明
 - 自动扫描到 compose 文件：docker-compose.yml
@@ -75,11 +76,11 @@
 ## 当前服务拓扑初稿
 - `postgres`
   image: `registry.lazycat.cloud/placeholder/multica:postgres`
-  binds: `/lzcapp/var/db/multica/postgres-v4:/var/lib/postgresql/data`
+  binds: `/lzcapp/var/db/multica/postgres:/var/lib/postgresql/data`
   environment: `POSTGRES_DB=multica, POSTGRES_USER=multica, POSTGRES_PASSWORD=multica`
 
 ## 退出条件
 - [ ] 入口、端口、环境变量、真实写路径、初始化命令、数据库/auth 配置全部确认完毕
-- [ ] `lzc-manifest.yml` 中的镜像地址已替换为真实的 `registry.lazycat.cloud/...`
+- [ ] 构建后真实镜像地址已写入 `.lazycat-images.json`，打包阶段从该文件渲染临时 manifest
 - [ ] 构建策略相关文件（Dockerfile / template / content / overlay）已补齐
 - [ ] 可以进入预检、构建、下载 `.lpk`、安装验收阶段

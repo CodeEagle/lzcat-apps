@@ -5,9 +5,9 @@
 ## 上游项目
 - Upstream Repo: multica-ai/multica
 - Homepage: https://multica.ai
-- License: Apache-2.0
+- License: 
 - Author: multica-ai
-- Version Strategy: `github_release` -> 当前初稿版本 `0.1.14`
+- Version Strategy: `github_release` -> 当前初稿版本 `0.1.23`
 
 ## 当前迁移骨架
 - Build Strategy: `upstream_dockerfile`
@@ -50,6 +50,7 @@
 | GOOGLE_CLIENT_ID | No | - | From .env.example |
 | GOOGLE_CLIENT_SECRET | No | - | From .env.example |
 | GOOGLE_REDIRECT_URI | No | http://localhost:3000/auth/callback | From .env.example |
+| NEXT_PUBLIC_GOOGLE_CLIENT_ID | No | - | From .env.example |
 | S3_BUCKET | No | - | From .env.example |
 | S3_REGION | No | us-west-2 | From .env.example |
 | CLOUDFRONT_KEY_PAIR_ID | No | - | From .env.example |
@@ -62,22 +63,11 @@
 | NEXT_PUBLIC_API_URL | No | http://localhost:8080 | From .env.example |
 | NEXT_PUBLIC_WS_URL | No | ws://localhost:8080/ws | From .env.example |
 
-## 部署参数（manifest render）
-
-本应用已接入 `lzc-deploy-params.yml`，安装/重配置时可填写：
-
-- `resend_api_key`
-- `resend_from_email`
-
-用途：
-- 配置后：验证码通过邮件发送。
-- 未配置：后端不会实际发邮件，验证码需要在应用日志里查看。
-
 ## 数据目录
 
 | 宿主路径 | 容器路径 | 说明 |
 | --- | --- | --- |
-| /lzcapp/var/db/multica/postgres-v4 | /var/lib/postgresql/data | From compose service postgres |
+| /lzcapp/var/db/multica/postgres | /var/lib/postgresql/data | From compose service postgres |
 
 ## 首次启动/验收提醒
 

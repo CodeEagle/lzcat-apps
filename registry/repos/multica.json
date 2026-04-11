@@ -7,52 +7,11 @@
   "official_image_registry": "",
   "precompiled_binary_url": "",
   "dockerfile_type": "custom",
-  "service_port": 3000,
+  "service_port": 5432,
   "service_cmd": [],
   "image_targets": [
-    "multica",
-    "web"
+    "postgres"
   ],
-  "dependencies": [
-    {
-      "target_service": "postgres",
-      "source_image": "pgvector/pgvector:pg17"
-    },
-    {
-      "target_service": "dbfix",
-      "source_image": "pgvector/pgvector:pg17"
-    },
-    {
-      "target_service": "dbfix_task_queue",
-      "source_image": "pgvector/pgvector:pg17"
-    },
-    {
-      "target_service": "db_audit",
-      "source_image": "pgvector/pgvector:pg17"
-    },
-    {
-      "target_service": "db_smoke",
-      "source_image": "pgvector/pgvector:pg17"
-    }
-  ],
-  "service_builds": [
-    {
-      "target_service": "multica",
-      "build_strategy": "upstream_dockerfile",
-      "source_dockerfile_path": "Dockerfile",
-      "build_context": ".",
-      "build_args": {},
-      "image_name": "multica"
-    },
-    {
-      "target_service": "web",
-      "build_strategy": "upstream_with_target_template",
-      "dockerfile_path": "Dockerfile.web.template",
-      "source_dockerfile_path": "Dockerfile.web.lazycat",
-      "build_context": ".",
-      "build_args": {},
-      "image_name": "multica-web"
-    }
-  ],
+  "dependencies": [],
   "docker_platform": "linux/amd64"
 }
