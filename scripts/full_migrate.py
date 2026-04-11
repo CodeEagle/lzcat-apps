@@ -962,7 +962,11 @@ def target_host_path(slug: str, service_name: str, target: str) -> str:
         return f"/lzcapp/var/db/{slug}/{sanitize_token(service_name)}"
     if service_lower == "redis" or target_lower == "/data":
         return f"/lzcapp/var/data/{slug}/{sanitize_token(service_name)}"
-    return f"/lzcapp/var/data/{slug}/{sanitize_token(service_name)}/{sanitize_token(Path(target).name or 'data')}"
+    # For single-service apps where service == slug, avoid redundant nesting
+    tail = sanitize_token(Path(target).name or "data")
+    if service_lower == slug.lower():
+        return f"/lzcapp/var/data/{slug}"
+    return f"/lzcapp/var/data/{slug}/{sanitize_token(service_name)}/{tail}"
 
 
 _CONTENT_BIND_EXTENSIONS = frozenset(
@@ -1518,17 +1522,18 @@ def _scan_source_data_dirs(source_dir: Path) -> list[tuple[str, str]]:
     # Look for path declarations in config/source files
     patterns_by_ext = {
         (".ts", ".js", ".mjs"): [
-            # path.join(os.homedir(), ".local", "share", "appname")
-            r'path\.join\([^)]*["\']\.local["\'].*?["\']share["\'].*?\)',
-            # os.homedir() + "/.local/share/..."
-            r'homedir\(\)\s*[+,]\s*["\']/?\.local/share/([^"\']+)',
+            r'path\.join\(.*?\.local.*?share',
+            r'homedir\(\).*\.local/share',
+            r'["\']\.local/share/',
         ],
         (".py",): [
-            r'Path\.home\(\)\s*/\s*["\']\.local/share',
-            r'expanduser\(["\']~/\.local/share',
+            r'Path\.home\(\).*\.local/share',
+            r'expanduser\(.*\.local/share',
+            r'XDG_DATA_HOME',
         ],
         (".go",): [
             r'os\.UserHomeDir\(\)',
+            r'\.local/share/',
         ],
     }
     # Only scan top-level src/ and root files, not node_modules etc.
@@ -1591,10 +1596,18 @@ def parse_dockerfile_volumes(dockerfile_path: Path, slug: str, service_name: str
 
 def parse_dockerfile_healthcheck(dockerfile_path: Path) -> dict[str, Any] | None:
     text = dockerfile_path.read_text(encoding="utf-8", errors="ignore")
-    match = re.search(r"(?is)HEALTHCHECK\s+(?:--[^\n]+\s+)*CMD\s+(.+)", text)
+    # Match HEALTHCHECK with optional flags, then CMD until end of logical line.
+    # A logical line may be continued with backslash; stop at the first
+    # non-continuation newline or next Dockerfile directive.
+    match = re.search(
+        r"(?im)^[ \t]*HEALTHCHECK\s+(?:--[^\n]+\n\s*)*CMD\s+(.+?)(?:\s*\\?\s*\n\s*(?=[A-Z]{2,})|\s*$)",
+        text,
+    )
     if not match:
         return None
-    command = " ".join(match.group(1).split())
+    # Collapse continuation lines and trim trailing backslash
+    raw = match.group(1).rstrip(" \\")
+    command = " ".join(raw.split())
     return {
         "test": ["CMD-SHELL", command],
         "interval": "30s",
@@ -2724,7 +2737,20 @@ def analyze_source(normalized: NormalizedSource, source_dir: Path | None) -> Ana
 
     meta = bm.fetch_upstream_metadata(upstream_repo, "github_release") if upstream_repo else {}
     # Fork repos rarely publish releases; default to commit_sha tracking.
-    default_check_strategy = "commit_sha" if meta.get("is_fork") else "github_release"
+    # If it's a fork and metadata is sparse, fall back to the parent repo's metadata.
+    is_fork = meta.get("is_fork", False)
+    default_check_strategy = "commit_sha" if is_fork else "github_release"
+    if is_fork and upstream_repo and (not meta.get("version") or not meta.get("description")):
+        parent_meta = bm.github_api_json(f"repos/{upstream_repo}")
+        parent_repo = ""
+        if isinstance(parent_meta, dict) and isinstance(parent_meta.get("parent"), dict):
+            parent_repo = str(parent_meta["parent"].get("full_name", ""))
+        if parent_repo:
+            parent_info = bm.fetch_upstream_metadata(parent_repo, "github_release")
+            # Fill in missing fields from parent
+            for key in ("version", "description", "license", "author", "source_version", "homepage"):
+                if not meta.get(key) and parent_info.get(key):
+                    meta[key] = parent_info[key]
     meta.update({
         "upstream_repo": upstream_repo,
         "homepage": meta.get("homepage") or normalized.homepage,
@@ -4229,6 +4255,43 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
     return not issues, issues
 
 
+def _rename_slug_in_spec(spec: dict[str, Any], old: str, new: str) -> None:
+    """Recursively replace old slug with new slug in all string values and dict keys.
+
+    Uses exact-match for dict keys and word-boundary-aware replacement for
+    string values to avoid partial matches (e.g. 'app' inside 'app-test').
+    """
+    # Pattern matches old slug only when not immediately followed by more
+    # alphanumeric/hyphen characters (prevents partial replacement).
+    pat = re.compile(re.escape(old) + r"(?![a-z0-9-])", re.IGNORECASE)
+
+    def _replace(s: str) -> str:
+        return pat.sub(new, s)
+
+    for key in list(spec.keys()):
+        if key == old:
+            spec[new] = spec.pop(old)
+            key = new
+        val = spec[key]
+        if isinstance(val, dict):
+            _rename_slug_in_spec(val, old, new)
+        elif isinstance(val, str):
+            replaced = _replace(val)
+            if replaced != val:
+                spec[key] = replaced
+        elif isinstance(val, list):
+            new_list: list[Any] = []
+            for item in val:
+                if isinstance(item, str):
+                    new_list.append(_replace(item))
+                elif isinstance(item, dict):
+                    _rename_slug_in_spec(item, old, new)
+                    new_list.append(item)
+                else:
+                    new_list.append(item)
+            spec[key] = new_list
+
+
 def fork_upstream_repo(upstream_repo: str, fork_owner: str = "CodeEagle", fork_name: str = "") -> str:
     """Fork the upstream repo to fork_owner/ and make it public.
 
@@ -4618,10 +4681,16 @@ def main() -> int:
                 analysis.spec["upstream_repo"] = forked_repo
                 analysis.spec["check_strategy"] = "commit_sha"
                 analysis.spec["build_strategy"] = "upstream_dockerfile"
-                # Custom fork name also determines the app slug
+                # Custom fork name also determines the app slug, service names,
+                # subdomain, image_targets, and homepage.
                 if custom_fork_name:
-                    analysis.slug = bm.normalize_slug(custom_fork_name)
-                    analysis.spec["slug"] = analysis.slug
+                    old_slug = analysis.slug
+                    new_slug = bm.normalize_slug(custom_fork_name)
+                    analysis.slug = new_slug
+                    analysis.spec["slug"] = new_slug
+                    analysis.spec["homepage"] = f"https://github.com/{forked_repo}"
+                    # Deep-rename old_slug → new_slug across the entire spec
+                    _rename_slug_in_spec(analysis.spec, old_slug, new_slug)
                 print(f"[fork] Updated spec: upstream_repo={forked_repo}, slug={analysis.slug}, check_strategy=commit_sha")
             except Exception as exc:
                 print(f"[fork] WARNING: fork failed ({exc}), continuing with original upstream")
