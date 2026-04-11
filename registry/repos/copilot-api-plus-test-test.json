@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "upstream_repo": "CodeEagle/copilot-api-plus-test-test",
+  "check_strategy": "commit_sha",
+  "build_strategy": "upstream_dockerfile",
+  "publish_to_store": false,
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "custom",
+  "service_port": 4141,
+  "service_cmd": [],
+  "image_targets": [
+    "copilot-api-plus-test"
+  ],
+  "dependencies": [],
+  "docker_platform": "linux/amd64"
+}
