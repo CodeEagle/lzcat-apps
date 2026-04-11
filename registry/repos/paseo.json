@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "upstream_repo": "getpaseo/paseo",
+  "check_strategy": "github_release",
+  "build_strategy": "target_repo_dockerfile",
+  "publish_to_store": false,
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "custom",
+  "service_port": 6767,
+  "service_cmd": [],
+  "image_targets": [
+    "paseo"
+  ],
+  "dependencies": [],
+  "dockerfile_path": "Dockerfile",
+  "build_context": "."
+}
