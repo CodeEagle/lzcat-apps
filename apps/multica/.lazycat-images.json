@@ -3,28 +3,28 @@
   "app": "multica",
   "source_version": "v0.1.23",
   "build_version": "0.1.23",
-  "head_sha": "9d4422b5dc53",
+  "head_sha": "7012ba37e376",
   "build_recipe_hash": "ecf6f5f85fa592930aa08b676e5bf421c60028803f54387e519ff70784b2fb5c",
-  "updated_at": "2026-04-11T05:31:22.337279+00:00",
+  "updated_at": "2026-04-11T11:46:24.867684+00:00",
   "images": {
-    "backend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:f6affa71020feb6d",
-    "frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:d92db6d3e6248ab2",
+    "backend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:dd74e80d26f2a774",
+    "frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:2169930f2ef14dc0",
     "postgres": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c"
   },
   "source_images": {
-    "backend": "ghcr.io/codeeagle/lazycatimages:multicaBackend_9d4422b5dc53",
-    "frontend": "ghcr.io/codeeagle/lazycatimages:multicaFrontend_9d4422b5dc53",
+    "backend": "ghcr.io/codeeagle/lazycatimages:multicaBackend_7012ba37e376",
+    "frontend": "ghcr.io/codeeagle/lazycatimages:multicaFrontend_7012ba37e376",
     "postgres": "pgvector/pgvector:pg17"
   },
   "source_digests": {
-    "backend": "sha256:f2652282311698ca9ba985a00ece8525087ebdb8ae495d1dd6d24005982d77da",
-    "frontend": "sha256:2261c8bb8360ef3dbfef07aa863871103db4240f535d3a2c7d24ea16f48378cf"
+    "backend": "sha256:77af4a5ae090672059731870057dac6addfaee1df4bc233efe3d25b2cc6f0a87",
+    "frontend": "sha256:ffc40678fc3cd0c5b8d4b548a3353173d17d3772943fe41db23e4d01536da133"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaBackend_9d4422b5dc53",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:f6affa71020feb6d",
-      "elapsed_seconds": 63.267,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaBackend_7012ba37e376",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:dd74e80d26f2a774",
+      "elapsed_seconds": 56.948,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
@@ -32,9 +32,9 @@
       "kind": "service"
     },
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaFrontend_9d4422b5dc53",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:d92db6d3e6248ab2",
-      "elapsed_seconds": 137.981,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaFrontend_7012ba37e376",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:2169930f2ef14dc0",
+      "elapsed_seconds": 43.229,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
