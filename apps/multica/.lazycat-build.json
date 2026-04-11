@@ -1,7 +1,7 @@
 {
   "upstream_repo": "multica-ai/multica",
-  "source_version": "v0.1.23",
-  "build_version": "0.1.23",
-  "build_label": "v0.1.23@20260411T114624Z",
-  "last_checked_at": "2026-04-11T11:46:24.868202+00:00"
+  "source_version": "v0.1.24",
+  "build_version": "0.1.24",
+  "build_label": "v0.1.24@20260411T122141Z",
+  "last_checked_at": "2026-04-11T12:21:41.648504+00:00"
 }
