@@ -1,13 +1,13 @@
 # multica
 
-本目录由 `scripts/bootstrap_migration.py` 生成，用于把上游 `TODO` 初始化为懒猫微服迁移项目。
+本目录由 `scripts/bootstrap_migration.py` 生成，用于把上游 `multica-ai/multica` 初始化为懒猫微服迁移项目。
 
 ## 上游项目
-- Upstream Repo: TODO
+- Upstream Repo: multica-ai/multica
 - Homepage: https://multica.ai
-- License: TODO
+- License: 
 - Author: multica-ai
-- Version Strategy: `github_tag` -> 当前初稿版本 `0.1.0`
+- Version Strategy: `github_release` -> 当前初稿版本 `0.1.23`
 
 ## 当前迁移骨架
 - Build Strategy: `upstream_dockerfile`

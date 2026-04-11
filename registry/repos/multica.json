@@ -1,10 +1,10 @@
 {
   "enabled": true,
-  "upstream_repo": "",
-  "check_strategy": "github_tag",
+  "upstream_repo": "multica-ai/multica",
+  "check_strategy": "github_release",
   "build_strategy": "upstream_dockerfile",
   "publish_to_store": false,
-  "official_image_registry": "multica-ai/multica",
+  "official_image_registry": "",
   "precompiled_binary_url": "",
   "dockerfile_type": "custom",
   "service_port": 5432,
@@ -12,6 +12,34 @@
   "image_targets": [
     "postgres"
   ],
-  "dependencies": [],
-  "docker_platform": "linux/amd64"
+  "dependencies": [
+    {
+      "target_service": "postgres",
+      "source_image": "pgvector/pgvector:pg17"
+    }
+  ],
+  "service_builds": [
+    {
+      "target_service": "backend",
+      "build_strategy": "upstream_dockerfile",
+      "source_dockerfile_path": "Dockerfile",
+      "build_context": ".",
+      "build_args": {},
+      "image_name": "multica-backend"
+    },
+    {
+      "target_service": "frontend",
+      "build_strategy": "upstream_dockerfile",
+      "source_dockerfile_path": "Dockerfile.web",
+      "build_context": ".",
+      "build_args": {
+        "REMOTE_API_URL": "http://backend:8080"
+      },
+      "image_name": "multica-frontend"
+    }
+  ],
+  "docker_platform": "linux/amd64",
+  "build_args": {
+    "REMOTE_API_URL": "http://backend:8080"
+  }
 }
