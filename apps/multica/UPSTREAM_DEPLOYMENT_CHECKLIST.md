@@ -3,18 +3,18 @@
 ## 已确认字段
 - PROJECT_NAME: multica
 - PROJECT_SLUG: multica
-- UPSTREAM_REPO: multica-ai/multica
-- UPSTREAM_URL: https://github.com/multica-ai/multica
+- UPSTREAM_REPO: TODO
+- UPSTREAM_URL: TODO
 - HOMEPAGE: https://multica.ai
-- LICENSE: 
+- LICENSE: TODO
 - AUTHOR: multica-ai
-- VERSION: 0.1.23
-- IMAGE: TODO
+- VERSION: 0.1.0
+- IMAGE: multica-ai/multica
 - PORT: 5432
 - AI_POD_SERVICE: 无
 - AI_POD_SERVICE_NAME: 无
 - AI_POD_SERVICE_PORT: 无
-- CHECK_STRATEGY: github_release
+- CHECK_STRATEGY: github_tag
 - BUILD_STRATEGY: upstream_dockerfile
 
 ## 预填环境变量
