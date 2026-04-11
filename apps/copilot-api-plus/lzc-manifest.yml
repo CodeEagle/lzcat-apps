@@ -18,8 +18,8 @@ application:
 services:
   copilot-api-plus:
     image: registry.lazycat.cloud/placeholder/copilot-api-plus:bootstrap
-    volumes:
-      - /lzcapp/data:/root/.local/share/copilot-api-plus
+    binds:
+      - /lzcapp/var/data/copilot-api-plus:/root/.local/share/copilot-api-plus
     healthcheck:
       test:
         - CMD-SHELL
