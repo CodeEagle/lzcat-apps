@@ -3,35 +3,35 @@
   "app": "multica",
   "source_version": "v0.1.23",
   "build_version": "0.1.23",
-  "head_sha": "6c33bbb41e5d",
-  "updated_at": "2026-04-11T01:12:48.349146+00:00",
+  "head_sha": "377f47d44e9c",
+  "updated_at": "2026-04-11T02:26:25.934948+00:00",
   "images": {
     "db_audit": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
     "db_smoke": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
     "dbfix": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
     "dbfix_task_queue": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
-    "multica": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:73594b88d2cbfff3",
+    "multica": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:efd02e3f557aa684",
     "postgres": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
-    "web": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:7992ad9a7a71c2d7"
+    "web": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:84533ffbf932af06"
   },
   "source_images": {
     "db_audit": "pgvector/pgvector:pg17",
     "db_smoke": "pgvector/pgvector:pg17",
     "dbfix": "pgvector/pgvector:pg17",
     "dbfix_task_queue": "pgvector/pgvector:pg17",
-    "multica": "ghcr.io/codeeagle/lazycatimages:multica_6c33bbb41e5d",
+    "multica": "ghcr.io/codeeagle/lazycatimages:multica_377f47d44e9c",
     "postgres": "pgvector/pgvector:pg17",
-    "web": "ghcr.io/codeeagle/lazycatimages:multicaWeb_6c33bbb41e5d"
+    "web": "ghcr.io/codeeagle/lazycatimages:multicaWeb_377f47d44e9c"
   },
   "source_digests": {
-    "multica": "sha256:6269c3f33563dc983d0bc12c466af1891dfd103051bb2be9043d6913d99108c8",
-    "web": "sha256:9419b59b6bab7d65d687b283eda5cd7b83ff954431505370cdeccf8df7a1fda2"
+    "multica": "sha256:15d6302243c0482a9821d7c00b01a24dbdd81d0f895f6d95263ebb0f4f8c5e64",
+    "web": "sha256:1045d43f604483685fed694c70b0cad884162f505bda0998b9bf01e5d32ae927"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:multica_6c33bbb41e5d",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:73594b88d2cbfff3",
-      "elapsed_seconds": 51.356,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:multica_377f47d44e9c",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:efd02e3f557aa684",
+      "elapsed_seconds": 57.824,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
@@ -39,9 +39,9 @@
       "kind": "service"
     },
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaWeb_6c33bbb41e5d",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:7992ad9a7a71c2d7",
-      "elapsed_seconds": 82.135,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaWeb_377f47d44e9c",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:84533ffbf932af06",
+      "elapsed_seconds": 85.798,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
