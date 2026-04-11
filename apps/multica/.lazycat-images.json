@@ -3,27 +3,28 @@
   "app": "multica",
   "source_version": "v0.1.23",
   "build_version": "0.1.23",
-  "head_sha": "377f47d44e9c",
-  "updated_at": "2026-04-11T02:26:25.934948+00:00",
+  "head_sha": "008ea03d43cc",
+  "build_recipe_hash": "ecf6f5f85fa592930aa08b676e5bf421c60028803f54387e519ff70784b2fb5c",
+  "updated_at": "2026-04-11T04:50:12.045554+00:00",
   "images": {
-    "backend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:efd02e3f557aa684",
-    "frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:84533ffbf932af06",
+    "backend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:2f47fc3a160e9ef1",
+    "frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:91e5a17180941c6c",
     "postgres": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c"
   },
   "source_images": {
-    "backend": "ghcr.io/codeeagle/lazycatimages:multica_377f47d44e9c",
-    "frontend": "ghcr.io/codeeagle/lazycatimages:multicaWeb_377f47d44e9c",
+    "backend": "ghcr.io/codeeagle/lazycatimages:multicaBackend_008ea03d43cc",
+    "frontend": "ghcr.io/codeeagle/lazycatimages:multicaFrontend_008ea03d43cc",
     "postgres": "pgvector/pgvector:pg17"
   },
   "source_digests": {
-    "backend": "sha256:15d6302243c0482a9821d7c00b01a24dbdd81d0f895f6d95263ebb0f4f8c5e64",
-    "frontend": "sha256:1045d43f604483685fed694c70b0cad884162f505bda0998b9bf01e5d32ae927"
+    "backend": "sha256:89b4e962fdbfed46328ca0b70cac0c3f36182bc166ad3aadb9d777cc3bd5c57a",
+    "frontend": "sha256:44be0cc88f761ac279586b2b9d562a94cfb11c5434d444cc4d4949f31463206f"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:multica_377f47d44e9c",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:efd02e3f557aa684",
-      "elapsed_seconds": 57.824,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaBackend_008ea03d43cc",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:2f47fc3a160e9ef1",
+      "elapsed_seconds": 53.867,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
@@ -31,14 +32,24 @@
       "kind": "service"
     },
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaWeb_377f47d44e9c",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:84533ffbf932af06",
-      "elapsed_seconds": 85.798,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaFrontend_008ea03d43cc",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:91e5a17180941c6c",
+      "elapsed_seconds": 45.541,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
       "service": "frontend",
       "kind": "service"
+    },
+    {
+      "source_image": "pgvector/pgvector:pg17",
+      "target_image": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
+      "elapsed_seconds": 0.0,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": true,
+      "service": "postgres",
+      "kind": "dependency"
     }
   ]
 }
