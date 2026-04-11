@@ -10,15 +10,9 @@ WORKDIR /usr/src/app
 # Install build dependencies for native modules
 RUN apt-get update && apt-get install -y git python3 build-essential ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Prefer using an upstream copy included in build context at ./upstream; fallback to cloning remote
-COPY upstream /usr/src/app/upstream
-RUN if [ -d /usr/src/app/upstream ] && [ "$(ls -A /usr/src/app/upstream | wc -l)" -gt 0 ]; then \
-      echo "Using upstream from build context"; \
-      cp -a /usr/src/app/upstream/. /usr/src/app; \
-    else \
-      git clone https://github.com/${UPSTREAM_REPO}.git . && \
-      git checkout "${SOURCE_VERSION}"; \
-    fi
+# Clone upstream inside the builder (works in CI)
+RUN git clone --depth 1 https://github.com/${UPSTREAM_REPO}.git . && \
+    git checkout "${SOURCE_VERSION}"
 
 # Install workspace dependencies and build server
 RUN npm ci --workspaces --include-workspace-root
