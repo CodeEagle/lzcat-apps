@@ -14,6 +14,7 @@ import subprocess
 import tarfile
 import tempfile
 import textwrap
+import time
 import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -369,8 +370,34 @@ def download_github_archive(repo: str, dest_root: Path) -> Path:
     archive_url = f"https://codeload.github.com/{repo}/tar.gz/refs/heads/{default_branch}"
     archive_path = dest_root / f"{repo.replace('/', '-')}-{default_branch}.tar.gz"
     req = request.Request(archive_url, headers={"User-Agent": "lzcat-full-migrate"})
-    with request.urlopen(req, timeout=180) as response, archive_path.open("wb") as handle:
-        shutil.copyfileobj(response, handle)
+    last_error: Exception | None = None
+    for attempt in range(1, 4):
+        try:
+            if archive_path.exists():
+                archive_path.unlink()
+            with request.urlopen(req, timeout=180) as response, archive_path.open("wb") as handle:
+                shutil.copyfileobj(response, handle)
+            break
+        except Exception as exc:
+            last_error = exc
+            if archive_path.exists():
+                archive_path.unlink()
+            if attempt < 3:
+                time.sleep(attempt * 2)
+    else:
+        clone_dir = dest_root / repo.replace("/", "-")
+        gh = shutil.which("gh")
+        if gh:
+            try:
+                sh(["gh", "repo", "clone", repo, str(clone_dir), "--", "--depth", "1"], check=True)
+                return clone_dir
+            except Exception as exc:
+                raise RuntimeError(
+                    f"GitHub archive 下载失败，gh clone 兜底也失败：{repo}\n"
+                    f"archive error: {last_error}\n"
+                    f"clone error: {exc}"
+                ) from exc
+        raise RuntimeError(f"GitHub archive 下载失败：{repo}: {last_error}") from last_error
 
     with tarfile.open(archive_path, "r:gz") as tar:
         tar.extractall(dest_root, filter="data")
@@ -1512,6 +1539,66 @@ def choose_route_for_official_image(slug: str, meta: dict[str, Any], image_ref: 
     }
 
 
+def normalize_compose_build_args(raw_args: Any) -> dict[str, Any]:
+    if not raw_args:
+        return {}
+    if isinstance(raw_args, dict):
+        return dict(raw_args)
+    if isinstance(raw_args, list):
+        normalized: dict[str, Any] = {}
+        for item in raw_args:
+            if isinstance(item, str):
+                key, sep, value = item.partition("=")
+                key = key.strip()
+                if key:
+                    normalized[key] = value if sep else ""
+            elif isinstance(item, dict):
+                normalized.update(item)
+        return normalized
+    if isinstance(raw_args, str):
+        key, sep, value = raw_args.partition("=")
+        key = key.strip()
+        return {key: value if sep else ""} if key else {}
+    return {}
+
+
+def detect_required_upstream_submodules(source_root: Path, dockerfile_path: Path | None) -> list[str]:
+    gitmodules = source_root / ".gitmodules"
+    if not gitmodules.exists() or not dockerfile_path or not dockerfile_path.exists():
+        return []
+
+    paths: list[str] = []
+    for line in gitmodules.read_text(encoding="utf-8", errors="ignore").splitlines():
+        match = re.match(r"\s*path\s*=\s*(.+?)\s*$", line)
+        if match:
+            paths.append(match.group(1).strip())
+    if not paths:
+        return []
+
+    copied_roots: set[str] = set()
+    dockerfile_text = dockerfile_path.read_text(encoding="utf-8", errors="ignore")
+    for raw_line in dockerfile_text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        match = re.match(r"(?i)^(COPY|ADD)\s+(?:--\S+\s+)*(.+?)\s+\S+\s*$", line)
+        if not match:
+            continue
+        for source in shlex.split(match.group(2)):
+            clean = source.lstrip("./")
+            if clean and clean not in {".", "*"}:
+                copied_roots.add(clean.split("/", 1)[0])
+
+    required: list[str] = []
+    for path in paths:
+        top = path.split("/", 1)[0]
+        if top == "docs" and top not in copied_roots and path not in copied_roots:
+            continue
+        if top in copied_roots or path in copied_roots:
+            required.append(path)
+    return required
+
+
 def choose_route_for_compose(
     slug: str,
     meta: dict[str, Any],
@@ -1544,6 +1631,7 @@ def choose_route_for_compose(
     build_strategy = ""
     official_image_registry = ""
     dockerfile_path = ""
+    upstream_submodules: list[str] = []
     env_defaults = env_defaults_map(parse_env_files(env_files))
     frontend_gateway = detect_compose_frontend_gateway(source_root, compose_file, primary_name, primary_service, services)
 
@@ -1562,7 +1650,7 @@ def choose_route_for_compose(
                 dockerfile_rel = str(dockerfile_candidate.relative_to(source_root.resolve()))
             except ValueError as exc:
                 raise ValueError(f"compose build path escapes source root: {service_name}") from exc
-            raw_args = dict(build_info.get("args") or {})
+            raw_args = normalize_compose_build_args(build_info.get("args"))
             # Strip infra-only build args: upstream CI mirrors/proxies with empty optional defaults
             build_args = {
                 k: v for k, v in raw_args.items()
@@ -1651,6 +1739,7 @@ def choose_route_for_compose(
         raise ValueError("无法从 compose 主服务推断 image/build 路线")
 
     primary_image_repo = image_repository(primary_image) if primary_image else ""
+    upstream_submodules = detect_required_upstream_submodules(source_root, selected_dockerfile)
 
     for service_name, payload in services.items():
         if is_k8s_only_service(service_name, payload):
@@ -1695,7 +1784,7 @@ def choose_route_for_compose(
         if payload.get("entrypoint"):
             service_payload["entrypoint"] = payload["entrypoint"]
         if payload.get("command"):
-            service_payload["command"] = payload["command"]
+            service_payload["command"] = stringify_command(payload["command"])
         if payload.get("healthcheck"):
             service_payload["healthcheck"] = payload["healthcheck"]
 
@@ -1800,6 +1889,7 @@ def choose_route_for_compose(
         "image_targets": image_targets,
         "dependencies": dependencies,
         "service_builds": service_builds,
+        "upstream_submodules": upstream_submodules,
         "services": service_specs,
         "application": application,
         "env_vars": dedupe_env_docs(env_docs),
@@ -2639,6 +2729,29 @@ def render_deploy_param_sync_note(finalized: dict[str, Any]) -> str | None:
 
 def apply_generated_app_fixes(finalized: dict[str, Any], analysis: AnalysisResult) -> dict[str, Any]:
     upstream_repo = str(finalized.get("upstream_repo") or analysis.spec.get("upstream_repo") or "").strip()
+
+    if upstream_repo == "mudler/LocalAI":
+        finalized["build_strategy"] = "official_image"
+        finalized["official_image_registry"] = "docker.io/localai/localai"
+        finalized["image_targets"] = ["api"]
+        finalized["dependencies"] = []
+        finalized.pop("service_builds", None)
+        finalized.pop("build_args", None)
+        finalized.pop("docker_platform", None)
+        finalized.pop("upstream_submodules", None)
+        services = finalized.get("services")
+        if isinstance(services, dict):
+            api = services.get("api")
+            if isinstance(api, dict):
+                # Upstream compose uses `phi-2` as a quickstart example. Keeping it
+                # as the packaged command makes first boot try and fail to import
+                # a model, so default to an empty persistent model directory.
+                if stringify_command(api.get("command")).strip() == "phi-2":
+                    api.pop("command", None)
+        startup_notes = finalized.setdefault("startup_notes", [])
+        note = "上游 compose 的 `command: phi-2` 是示例模型参数，默认安装不预置模型；模型文件和配置由 `/models`、`/configuration` 持久化目录管理。"
+        if note not in startup_notes:
+            startup_notes.append(note)
 
     if (
         str(finalized.get("build_strategy", "")).strip() in SOURCE_BUILD_STRATEGIES

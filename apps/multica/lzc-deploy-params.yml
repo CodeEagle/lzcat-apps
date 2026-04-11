@@ -11,3 +11,15 @@ params:
     description: 发件人邮箱地址（例如 no-reply@yourdomain.com）。未填写时默认使用 noreply@multica.ai。
     default_value: noreply@multica.ai
     optional: true
+
+  - id: google_client_id
+    type: string
+    name: Google Client ID
+    description: Google OAuth 客户端 ID。填写后登录页会显示 Continue with Google。
+    optional: true
+
+  - id: google_client_secret
+    type: string
+    name: Google Client Secret
+    description: Google OAuth 客户端密钥。需要与 Google Client ID 配套填写。
+    optional: true

@@ -1,7 +1,7 @@
 {
   "upstream_repo": "4thfever/cultivation-world-simulator",
-  "source_version": "3023d2f",
-  "build_version": "2.4.1",
-  "build_label": "3023d2f@20260409T105539Z",
-  "last_checked_at": "2026-04-09T10:55:39.711421+00:00"
+  "source_version": "eb6323b",
+  "build_version": "2.4.2",
+  "build_label": "eb6323b@20260411T011612Z",
+  "last_checked_at": "2026-04-11T01:16:12.759250+00:00"
 }

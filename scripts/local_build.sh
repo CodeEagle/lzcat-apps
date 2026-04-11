@@ -28,11 +28,23 @@ cleanup() {
 trap cleanup EXIT
 
 # 加载本地 env（如果存在）
+EXISTING_GH_PAT="${GH_PAT:-}"
+EXISTING_GH_TOKEN="${GH_TOKEN:-}"
+EXISTING_LZC_CLI_TOKEN="${LZC_CLI_TOKEN:-}"
 if [ -f "$ENV_FILE" ]; then
   set -o allexport
   # shellcheck disable=SC1090
   source "$ENV_FILE"
   set +o allexport
+fi
+if [ -n "$EXISTING_GH_PAT" ]; then
+  GH_PAT="$EXISTING_GH_PAT"
+fi
+if [ -n "$EXISTING_GH_TOKEN" ]; then
+  GH_TOKEN="$EXISTING_GH_TOKEN"
+fi
+if [ -n "$EXISTING_LZC_CLI_TOKEN" ]; then
+  LZC_CLI_TOKEN="$EXISTING_LZC_CLI_TOKEN"
 fi
 
 APP="${1:-}"

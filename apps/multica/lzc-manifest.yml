@@ -33,8 +33,11 @@ services:
       - JWT_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-jwt
       - RESEND_API_KEY={{ default "" .U.resend_api_key }}
       - RESEND_FROM_EMAIL={{ default "noreply@multica.ai" .U.resend_from_email }}
+      - GOOGLE_CLIENT_ID={{ default "" .U.google_client_id }}
+      - GOOGLE_CLIENT_SECRET={{ default "" .U.google_client_secret }}
+      - GOOGLE_REDIRECT_URI=https://multica.${LAZYCAT_BOX_DOMAIN}/auth/callback
   web:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica-web:e27c34b526fa70dd
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/multica-web:890d20c22920250e
     depends_on:
       - multica
     command: >-
@@ -43,6 +46,8 @@ services:
       - REMOTE_API_URL=http://multica:8080
       - FRONTEND_PORT=3000
       - NODE_ENV=production
+      - FRONTEND_ORIGIN=https://multica.${LAZYCAT_BOX_DOMAIN}
+      - NEXT_PUBLIC_GOOGLE_CLIENT_ID={{ default "" .U.google_client_id }}
   postgres:
     image: registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c
     environment:

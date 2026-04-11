@@ -380,24 +380,57 @@ def clone_repo(repo: str, token: str, destination: Path) -> tuple[str, str]:
     return branch, head_sha
 
 
-def clone_upstream_repo(upstream_repo: str, destination: Path, env: dict[str, str]) -> None:
+def normalize_string_list(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str) and value.strip():
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return []
+
+
+def clone_upstream_repo(
+    upstream_repo: str,
+    destination: Path,
+    env: dict[str, str],
+    *,
+    submodule_paths: list[str] | None = None,
+) -> None:
+    clone_cmd = [
+        "git",
+        "clone",
+        "--depth",
+        "1",
+        "--filter=blob:none",
+    ]
+    if submodule_paths is None:
+        clone_cmd.extend(["--recurse-submodules", "--shallow-submodules"])
+    clone_cmd.extend([f"https://github.com/{upstream_repo}.git", str(destination)])
     run_streaming(
-        [
-            "git",
-            "clone",
-            "--depth",
-            "1",
-            "--filter=blob:none",
-            "--recurse-submodules",
-            "--shallow-submodules",
-            f"https://github.com/{upstream_repo}.git",
-            str(destination),
-        ],
+        clone_cmd,
         env=env,
         label=f"git clone {upstream_repo}",
         inactivity_timeout=parse_int_env(env, "LZCAT_CLONE_INACTIVITY_TIMEOUT", 1800),
         heartbeat_interval=parse_int_env(env, "LZCAT_CLONE_HEARTBEAT_INTERVAL", 60),
     )
+    if submodule_paths:
+        run_streaming(
+            [
+                "git",
+                "submodule",
+                "update",
+                "--init",
+                "--depth",
+                "1",
+                "--recursive",
+                "--",
+                *submodule_paths,
+            ],
+            cwd=destination,
+            env=env,
+            label=f"git submodule update {upstream_repo}",
+            inactivity_timeout=parse_int_env(env, "LZCAT_CLONE_INACTIVITY_TIMEOUT", 1800),
+            heartbeat_interval=parse_int_env(env, "LZCAT_CLONE_HEARTBEAT_INTERVAL", 60),
+        )
 
 
 def resolve_container_cli(env: dict[str, str]) -> str:
@@ -776,7 +809,7 @@ def copy_image_to_lazycat(source_image: str, env: dict[str, str]) -> tuple[str, 
     for attempt in range(1, max_attempts + 1):
         started = time.monotonic()
         proc = subprocess.Popen(
-            ["lzc-cli", "appstore", "copy-image", source_image],
+            ["lzc-cli", "appstore", "copy-image", "--trace-level", "quiet", source_image],
             env=env,
             text=True,
             stdout=subprocess.PIPE,
@@ -1273,7 +1306,14 @@ def build_target_image(
     keep_source_root = False
     try:
         log(f"Cloning upstream: {upstream_repo}")
-        clone_upstream_repo(upstream_repo, source_root, env)
+        clone_upstream_repo(
+            upstream_repo,
+            source_root,
+            env,
+            submodule_paths=normalize_string_list(config.get("upstream_submodules"))
+            if "upstream_submodules" in config
+            else None,
+        )
         checkout_source_ref(source_root, source_version, env)
         if build_strategy == "upstream_with_target_template":
             template_path = repo_dir / str(config.get("dockerfile_path", "Dockerfile.template"))
@@ -1342,12 +1382,13 @@ def build_service_images(
     global_build_args = dict(config.get("build_args", {}))
     global_build_args.setdefault("SOURCE_VERSION", source_version)
     global_build_args.setdefault("BUILD_VERSION", build_version)
+    configured_submodules = normalize_string_list(config.get("upstream_submodules")) if "upstream_submodules" in config else None
 
     source_root = Path(tempfile.mkdtemp(prefix="lzcat-upstream-"))
     keep_source_root = False
     try:
         log(f"Cloning upstream: {upstream_repo}")
-        clone_upstream_repo(upstream_repo, source_root, env)
+        clone_upstream_repo(upstream_repo, source_root, env, submodule_paths=configured_submodules)
         checkout_source_ref(source_root, source_version, env)
 
         built_images: dict[str, str] = {}

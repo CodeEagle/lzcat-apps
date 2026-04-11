@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "app": "jellyfish",
+  "source_version": "cda90b4",
+  "build_version": "0.1.11",
+  "head_sha": "b09b9d7c60fa",
+  "updated_at": "2026-04-10T12:33:35.962081+00:00",
+  "images": {
+    "jellyfish": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:9c03642d8e59e883"
+  },
+  "source_images": {
+    "jellyfish": "ghcr.io/codeeagle/lazycatimages:jellyfish_b09b9d7c60fa"
+  },
+  "source_digests": {
+    "_primary": "sha256:8dacac0eeb7dea0caa8f9776830f7f2660e55f7fa5d57287bce20bd16b1d5948"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:jellyfish_b09b9d7c60fa",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:9c03642d8e59e883",
+      "elapsed_seconds": 120.442,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}

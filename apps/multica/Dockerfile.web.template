@@ -3,9 +3,10 @@ RUN corepack enable
 WORKDIR /src
 COPY . .
 RUN pnpm install --frozen-lockfile
-# LazyCat migration patch: allow login UI to continue when /auth/send-code fails.
-# Backend still accepts master code 888888 in non-production APP_ENV.
-RUN sed -i "s/await sendCode(email);/await sendCode(email).catch(() => {});/g" '/src/apps/web/app/(auth)/login/page.tsx'
+# LazyCat migration patch: allow login UI to continue when /auth/send-code fails due to
+# missing email config (RESEND_API_KEY not set). Backend accepts master code 888888 in
+# non-production APP_ENV. Rate-limit (429) errors are re-thrown so the UI shows them.
+RUN node -e 'const fs=require("fs"),p="/src/apps/web/app/(auth)/login/page.tsx";let s=fs.readFileSync(p,"utf8");s=s.replace(/await sendCode\(email\);/g,"await sendCode(email).catch((err)=>{if(err instanceof Error&&err.message&&err.message.toLowerCase().includes(\x27wait\x27))throw err;});");fs.writeFileSync(p,s);'
 # LazyCat migration patch: make the verification Back button reset pending UI state.
 RUN node -e 'const fs = require("fs"); const p = "/src/apps/web/app/(auth)/login/page.tsx"; let s = fs.readFileSync(p, "utf8"); s = s.replace("setStep(\"email\");\n                setCode(\"\");\n                setError(\"\");", "setStep(\"email\");\n                setCode(\"\");\n                setError(\"\");\n                setSubmitting(false);\n                setCooldown(0);"); fs.writeFileSync(p, s);'
 ENV NODE_ENV=production

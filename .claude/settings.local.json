@@ -61,7 +61,19 @@
       "Bash(grep -rn \"preflight-check\\\\.sh\\\\|run-trigger-build\\\\.sh\\\\|download-lpk\\\\.sh\\\\|migrate-verify\\\\.sh\\\\|full-migrate\\\\.sh\" /Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/ --include=*.md --include=*.sh --include=*.py --include=*.yml --include=*.yaml --include=*.json)",
       "Bash(grep -v '^--$')",
       "Bash(for f:*)",
-      "Bash(do echo:*)"
+      "Bash(do echo:*)",
+      "Bash(SRC=\"/var/folders/5n/bml6r36s2pdgxhd9cncpbhg40000gn/T/tmp.MpViHwG3ZY/src/bytedance-deer-flow-6572fa5\")",
+      "Read(//Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/$SRC/**)",
+      "Read(//Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/$SRC/docker/**)",
+      "Read(//Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/$SRC/docker/nginx/**)",
+      "Read(//Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/$SRC/frontend/**)",
+      "Bash(SRC=/var/folders/5n/bml6r36s2pdgxhd9cncpbhg40000gn/T/tmp.MpViHwG3ZY/src/bytedance-deer-flow-6572fa5 echo '=== extensions_config.example.json ===')",
+      "Bash(/dev/null echo:*)",
+      "Bash(SRC=\"/var/folders/5n/bml6r36s2pdgxhd9cncpbhg40000gn/T/tmp.MpViHwG3ZY/src/bytedance-deer-flow-6572fa5\" grep -oE '\\\\$\\\\{[A-Z_]+' \"$SRC/docker/docker-compose.yaml\")",
+      "Bash(pytest tests/ -x -q)",
+      "Bash(git:*)",
+      "Read(//Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/=== content/**)",
+      "Bash(true echo:*)"
     ]
   }
 }
