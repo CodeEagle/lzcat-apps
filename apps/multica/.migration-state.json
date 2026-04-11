@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "source_input": "multica-ai/multica",
-  "created_at": "2026-04-11T04:13:39.711322+00:00",
-  "updated_at": "2026-04-11T04:13:52.667059+00:00",
+  "created_at": "2026-04-11T04:15:54.632619+00:00",
+  "updated_at": "2026-04-11T04:16:05.348032+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -404,22 +404,22 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-11T04:13:49.186804+00:00",
+      "completed_at": "2026-04-11T04:16:01.780692+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-11T04:13:52.619533+00:00",
+      "completed_at": "2026-04-11T04:16:05.286644+00:00",
       "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
     },
     "3": {
       "completed": true,
-      "completed_at": "2026-04-11T04:13:52.620563+00:00",
+      "completed_at": "2026-04-11T04:16:05.287646+00:00",
       "conclusion": "已完成 monorepo 注册"
     },
     "4": {
       "completed": true,
-      "completed_at": "2026-04-11T04:13:52.665723+00:00",
+      "completed_at": "2026-04-11T04:16:05.347216+00:00",
       "conclusion": "骨架文件已生成",
       "files_written": [
         "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/multica/lzc-manifest.yml",
@@ -432,12 +432,12 @@
     },
     "5": {
       "completed": true,
-      "completed_at": "2026-04-11T04:13:52.666516+00:00",
+      "completed_at": "2026-04-11T04:16:05.347710+00:00",
       "conclusion": "manifest 初稿已生成"
     },
     "6": {
       "completed": true,
-      "completed_at": "2026-04-11T04:13:52.667055+00:00",
+      "completed_at": "2026-04-11T04:16:05.348030+00:00",
       "conclusion": "剩余文件已补齐"
     }
   },
