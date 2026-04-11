@@ -2,21 +2,11 @@
   "enabled": true,
   "upstream_repo": "CodeEagle/copilot-api-plus",
   "check_strategy": "github_release",
-  "build_strategy": "upstream_with_target_template",
-  "dockerfile_path": "Dockerfile.template",
-  "overlay_paths": [
-    "src/lib/token.ts",
-    "src/start.ts",
-    "src/routes/auth/route.ts",
-    "src/routes/admin/accounts.ts",
-    "src/routes/usage/route.ts",
-    "src/server.ts",
-    "pages/index.html"
-  ],
+  "build_strategy": "upstream_dockerfile",
   "publish_to_store": false,
   "official_image_registry": "",
   "precompiled_binary_url": "",
-"service_port": 4141,
+  "service_port": 4141,
   "service_cmd": [],
   "image_targets": [
     "copilot-api-plus"
