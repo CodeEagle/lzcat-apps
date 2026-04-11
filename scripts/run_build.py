@@ -634,6 +634,23 @@ def render_packaging_manifest(
     )
 
 
+def build_recipe_fingerprint(config: dict[str, Any]) -> str:
+    relevant = {
+        "upstream_repo": str(config.get("upstream_repo", "")).strip(),
+        "build_strategy": str(config.get("build_strategy", "")).strip(),
+        "dockerfile_path": str(config.get("dockerfile_path", "")).strip(),
+        "build_context": str(config.get("build_context", ".")).strip(),
+        "docker_platform": str(config.get("docker_platform", "")).strip(),
+        "image_targets": config.get("image_targets", []),
+        "dependencies": config.get("dependencies", []),
+        "service_builds": config.get("service_builds", []),
+        "build_args": config.get("build_args", {}),
+        "service_cmd": config.get("service_cmd", []),
+    }
+    rendered = json.dumps(relevant, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(rendered.encode("utf-8")).hexdigest()
+
+
 def write_image_state(
     path: Path,
     *,
@@ -641,6 +658,7 @@ def write_image_state(
     source_version: str,
     build_version: str,
     head_sha: str,
+    build_recipe_hash: str,
     service_images: dict[str, str],
     source_images: dict[str, str],
     source_digests: dict[str, str],
@@ -654,6 +672,7 @@ def write_image_state(
                 "source_version": source_version,
                 "build_version": build_version,
                 "head_sha": head_sha,
+                "build_recipe_hash": build_recipe_hash,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
                 "images": dict(sorted(service_images.items())),
                 "source_images": dict(sorted(source_images.items())),
@@ -1611,6 +1630,8 @@ def main() -> int:
         prev_image_state = load_image_state(image_state_path) if image_state_path else {}
         prev_images = prev_image_state.get("images", {}) if isinstance(prev_image_state, dict) else {}
         prev_digests = prev_image_state.get("source_digests", {}) if isinstance(prev_image_state, dict) else {}
+        current_build_recipe_hash = build_recipe_fingerprint(config)
+        prev_build_recipe_hash = str(prev_image_state.get("build_recipe_hash", "")).strip() if isinstance(prev_image_state, dict) else ""
         if args.skip_docker:
             assert image_state_path is not None
             resolved_service_images = load_image_overrides(image_state_path)
@@ -1632,6 +1653,19 @@ def main() -> int:
                 raise RuntimeError(
                     f"{IMAGE_STATE_FILENAME} does not contain any services present in the current manifest; "
                     "run a non-skip build or refresh the cached image state first"
+                )
+            if prev_build_recipe_hash != current_build_recipe_hash and auto_skip_docker_enabled:
+                args.skip_docker = False
+                resolved_service_images = {}
+                reason = "missing" if not prev_build_recipe_hash else "changed"
+                log(
+                    f"[{app_name}] Cached image state build recipe hash is {reason}; "
+                    "falling back to Docker build."
+                )
+            elif prev_build_recipe_hash != current_build_recipe_hash:
+                raise RuntimeError(
+                    f"{IMAGE_STATE_FILENAME} build recipe hash does not match current config; "
+                    "run a non-skip build first"
                 )
             preview_manifest = render_packaging_manifest(
                 manifest_text,
@@ -1836,6 +1870,7 @@ def main() -> int:
                 source_version=source_version,
                 build_version=build_version,
                 head_sha=head_sha,
+                build_recipe_hash=current_build_recipe_hash,
                 service_images=resolved_service_images,
                 source_images=source_service_images,
                 source_digests=source_service_digests,
