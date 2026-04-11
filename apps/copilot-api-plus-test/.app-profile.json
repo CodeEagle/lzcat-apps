@@ -1,0 +1,59 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "CodeEagle/copilot-api-plus-test",
+  "fixes": {
+    "project_name": "Copilot Api Plus",
+    "description": "copilot-api-plus-test on LazyCat",
+    "homepage": "https://github.com/CodeEagle/copilot-api-plus-test",
+    "author": "TODO",
+    "build_strategy": "upstream_dockerfile",
+    "docker_platform": "linux/amd64",
+    "image_targets": [
+      "copilot-api-plus-test"
+    ],
+    "service_port": 4141,
+    "services": {
+      "copilot-api-plus-test": {
+        "image": "registry.lazycat.cloud/placeholder/copilot-api-plus-test:bootstrap",
+        "healthcheck": {
+          "test": [
+            "CMD-SHELL",
+            "wget --spider -q http://localhost:4141/ || exit 1"
+          ],
+          "interval": "30s",
+          "timeout": "10s",
+          "retries": 5
+        },
+        "binds": [
+          "/lzcapp/var/data/copilot-api-plus-test:/root/.local/share/copilot-api-plus-test"
+        ]
+      }
+    },
+    "application": {
+      "subdomain": "copilot-api-plus-test",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://copilot-api-plus-test:4141/"
+        }
+      ]
+    },
+    "data_paths": [
+      {
+        "host": "/lzcapp/var/data/copilot-api-plus-test",
+        "container": "/root/.local/share/copilot-api-plus-test",
+        "description": "From source code pattern in paths.ts"
+      }
+    ],
+    "startup_notes": [
+      "自动扫描到 Dockerfile：Dockerfile",
+      "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
+      "扫描到 env 示例文件：.env.example",
+      "扫描到 README：README.en.md, README.md"
+    ],
+    "include_content": false
+  }
+}
