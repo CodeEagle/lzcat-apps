@@ -119,6 +119,8 @@ def should_auto_skip_docker(
     app_prefix = f"apps/{target_repo}/"
     allowed_exact = {
         f"{app_prefix}icon.png",
+        f"{app_prefix}lzc-manifest.yml",
+        f"{app_prefix}README.md",
     }
     allowed_prefixes = (
         f"{app_prefix}content/",
