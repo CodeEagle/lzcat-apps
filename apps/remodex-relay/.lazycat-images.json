@@ -1,24 +1,24 @@
 {
   "schema_version": 1,
   "app": "remodex-relay",
-  "source_version": "a2dfb01",
-  "build_version": "1.0.1",
-  "head_sha": "b09b9d7c60fa",
-  "updated_at": "2026-04-10T12:41:27.174116+00:00",
+  "source_version": "4766f91",
+  "build_version": "1.0.2",
+  "head_sha": "6c33bbb41e5d",
+  "updated_at": "2026-04-11T00:55:32.878174+00:00",
   "images": {
-    "remodex-relay": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:1db59bd324c8b2ad"
+    "remodex-relay": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:0869c090edcbba09"
   },
   "source_images": {
-    "remodex-relay": "ghcr.io/codeeagle/lazycatimages:remodexRelay_b09b9d7c60fa"
+    "remodex-relay": "ghcr.io/codeeagle/lazycatimages:remodexRelay_6c33bbb41e5d"
   },
   "source_digests": {
-    "_primary": "sha256:9514d93b3425f36458d12dbea1c4c2c7429f0b2401b5ba4792ea25cd805ac6dd"
+    "_primary": "sha256:7944eebbb09dd9b8cb2041b07f0ddfa71626ecd52310c31f3598d34901e0d71d"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:remodexRelay_b09b9d7c60fa",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:1db59bd324c8b2ad",
-      "elapsed_seconds": 48.334,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:remodexRelay_6c33bbb41e5d",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:0869c090edcbba09",
+      "elapsed_seconds": 30.905,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
