@@ -575,6 +575,31 @@ def load_image_overrides(path: Path) -> dict[str, str]:
     }
 
 
+def list_manifest_services(manifest_text: str) -> set[str]:
+    match = re.search(r"^services:\s*$", manifest_text, re.MULTILINE)
+    if not match:
+        return set()
+    tail = manifest_text[match.end():]
+    services = set(re.findall(r"^\s{2}([A-Za-z0-9_.-]+):\s*$", tail, re.MULTILINE))
+    return services
+
+
+def filter_image_overrides_for_manifest(
+    manifest_text: str,
+    service_images: dict[str, str],
+) -> tuple[dict[str, str], list[str]]:
+    manifest_services = list_manifest_services(manifest_text)
+    if not manifest_services:
+        return dict(service_images), []
+    filtered = {
+        service_name: image
+        for service_name, image in service_images.items()
+        if service_name in manifest_services
+    }
+    stale = sorted(service_name for service_name in service_images if service_name not in manifest_services)
+    return filtered, stale
+
+
 def apply_image_overrides(
     manifest_text: str,
     service_images: dict[str, str],
@@ -1569,9 +1594,11 @@ def main() -> int:
 
         # Auto-enable skip_docker when upstream commit is unchanged — the image
         # hasn't changed so there's nothing to rebuild or re-copy.
+        auto_skip_docker_enabled = False
         if not args.skip_docker and not args.target_version:
             if current_source_version and current_source_version == source_version:
                 args.skip_docker = True
+                auto_skip_docker_enabled = True
                 log(
                     f"[{app_name}] Auto-enabling skip_docker: "
                     f"upstream commit unchanged ({source_version}), reusing existing image."
@@ -1592,10 +1619,43 @@ def main() -> int:
                     f"{IMAGE_STATE_FILENAME} is required for --skip-docker packaging; "
                     "run a full build first so service images are materialized outside lzc-manifest.yml"
                 )
-            log(
-                f"[{app_name}] [SKIP DOCKER] Reusing materialized LazyCat image URLs from {IMAGE_STATE_FILENAME}"
+            resolved_service_images, stale_services = filter_image_overrides_for_manifest(
+                manifest_text,
+                resolved_service_images,
             )
-        else:
+            if stale_services:
+                log(
+                    f"[{app_name}] Ignoring stale cached service images not present in current manifest: "
+                    f"{', '.join(stale_services)}"
+                )
+            if not resolved_service_images:
+                raise RuntimeError(
+                    f"{IMAGE_STATE_FILENAME} does not contain any services present in the current manifest; "
+                    "run a non-skip build or refresh the cached image state first"
+                )
+            preview_manifest = render_packaging_manifest(
+                manifest_text,
+                build_version=build_version,
+                service_images=resolved_service_images,
+            )
+            unresolved_placeholders = find_placeholder_images(collect_manifest_images(preview_manifest))
+            if unresolved_placeholders and auto_skip_docker_enabled:
+                args.skip_docker = False
+                resolved_service_images = {}
+                log(
+                    f"[{app_name}] Cached image state does not fully cover current manifest "
+                    f"({', '.join(sorted(set(unresolved_placeholders)))}); falling back to Docker build."
+                )
+            elif unresolved_placeholders:
+                raise RuntimeError(
+                    f"{IMAGE_STATE_FILENAME} does not fully cover current manifest placeholders: "
+                    + ", ".join(sorted(set(unresolved_placeholders)))
+                )
+            if args.skip_docker:
+                log(
+                    f"[{app_name}] [SKIP DOCKER] Reusing materialized LazyCat image URLs from {IMAGE_STATE_FILENAME}"
+                )
+        if not args.skip_docker:
             report["phase"] = "build_image"
             write_report(report, report_path)
             log(f"[{app_name}] Phase: build_image")
