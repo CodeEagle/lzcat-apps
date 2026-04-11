@@ -25,7 +25,10 @@
       "build_strategy": "upstream_dockerfile",
       "source_dockerfile_path": "Dockerfile",
       "build_context": ".",
-      "build_args": {},
+      "build_args": {
+        "GOPROXY": "https://proxy.golang.org,direct",
+        "REBUILD_MARKER": "2026-04-11T12:00:00Z"
+      },
       "image_name": "multica-backend"
     },
     {
@@ -41,6 +44,8 @@
   ],
   "docker_platform": "linux/amd64",
   "build_args": {
-    "REMOTE_API_URL": "http://backend:8080"
+    "REMOTE_API_URL": "http://backend:8080",
+    "GOPROXY": "https://proxy.golang.org,direct",
+    "REBUILD_MARKER": "2026-04-11T12:00:00Z"
   }
 }
