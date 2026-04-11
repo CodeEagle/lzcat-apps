@@ -6,26 +6,18 @@
   "head_sha": "377f47d44e9c",
   "updated_at": "2026-04-11T02:26:25.934948+00:00",
   "images": {
-    "db_audit": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
-    "db_smoke": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
-    "dbfix": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
-    "dbfix_task_queue": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
-    "multica": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:efd02e3f557aa684",
+    "backend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:efd02e3f557aa684",
+    "frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:84533ffbf932af06",
     "postgres": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
-    "web": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:84533ffbf932af06"
   },
   "source_images": {
-    "db_audit": "pgvector/pgvector:pg17",
-    "db_smoke": "pgvector/pgvector:pg17",
-    "dbfix": "pgvector/pgvector:pg17",
-    "dbfix_task_queue": "pgvector/pgvector:pg17",
-    "multica": "ghcr.io/codeeagle/lazycatimages:multica_377f47d44e9c",
+    "backend": "ghcr.io/codeeagle/lazycatimages:multica_377f47d44e9c",
+    "frontend": "ghcr.io/codeeagle/lazycatimages:multicaWeb_377f47d44e9c",
     "postgres": "pgvector/pgvector:pg17",
-    "web": "ghcr.io/codeeagle/lazycatimages:multicaWeb_377f47d44e9c"
   },
   "source_digests": {
-    "multica": "sha256:15d6302243c0482a9821d7c00b01a24dbdd81d0f895f6d95263ebb0f4f8c5e64",
-    "web": "sha256:1045d43f604483685fed694c70b0cad884162f505bda0998b9bf01e5d32ae927"
+    "backend": "sha256:15d6302243c0482a9821d7c00b01a24dbdd81d0f895f6d95263ebb0f4f8c5e64",
+    "frontend": "sha256:1045d43f604483685fed694c70b0cad884162f505bda0998b9bf01e5d32ae927"
   },
   "copy_image_events": [
     {
@@ -35,7 +27,7 @@
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
-      "service": "multica",
+      "service": "backend",
       "kind": "service"
     },
     {
@@ -45,58 +37,8 @@
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
-      "service": "web",
+      "service": "frontend",
       "kind": "service"
-    },
-    {
-      "source_image": "pgvector/pgvector:pg17",
-      "target_image": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
-      "elapsed_seconds": 0.0,
-      "saw_waiting": false,
-      "saw_upload_started": false,
-      "reused_existing": true,
-      "service": "postgres",
-      "kind": "dependency"
-    },
-    {
-      "source_image": "pgvector/pgvector:pg17",
-      "target_image": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
-      "elapsed_seconds": 0.0,
-      "saw_waiting": false,
-      "saw_upload_started": false,
-      "reused_existing": true,
-      "service": "dbfix",
-      "kind": "dependency"
-    },
-    {
-      "source_image": "pgvector/pgvector:pg17",
-      "target_image": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
-      "elapsed_seconds": 0.0,
-      "saw_waiting": false,
-      "saw_upload_started": false,
-      "reused_existing": true,
-      "service": "dbfix_task_queue",
-      "kind": "dependency"
-    },
-    {
-      "source_image": "pgvector/pgvector:pg17",
-      "target_image": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
-      "elapsed_seconds": 0.0,
-      "saw_waiting": false,
-      "saw_upload_started": false,
-      "reused_existing": true,
-      "service": "db_audit",
-      "kind": "dependency"
-    },
-    {
-      "source_image": "pgvector/pgvector:pg17",
-      "target_image": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
-      "elapsed_seconds": 0.0,
-      "saw_waiting": false,
-      "saw_upload_started": false,
-      "reused_existing": true,
-      "service": "db_smoke",
-      "kind": "dependency"
     }
   ]
 }

@@ -1,14 +1,14 @@
-# multica Upstream Deployment Checklist
+# Multica Upstream Deployment Checklist
 
 ## 已确认字段
-- PROJECT_NAME: multica
+- PROJECT_NAME: Multica
 - PROJECT_SLUG: multica
 - UPSTREAM_REPO: multica-ai/multica
 - UPSTREAM_URL: https://github.com/multica-ai/multica
-- HOMEPAGE: https://multica.ai
+- HOMEPAGE: https://github.com/multica-ai/multica
 - LICENSE: 
-- AUTHOR: multica-ai
-- VERSION: 0.1.23
+- AUTHOR: TODO
+- VERSION: 0.1.0
 - IMAGE: TODO
 - PORT: 3000
 - AI_POD_SERVICE: 无

@@ -2,10 +2,10 @@
   "managed_by": "full_migrate",
   "generated_from_upstream": "multica-ai/multica",
   "fixes": {
-    "project_name": "multica",
-    "description": "The open-source managed agents platform",
-    "homepage": "https://multica.ai",
-    "author": "multica-ai",
+    "project_name": "Multica",
+    "description": "multica on LazyCat",
+    "homepage": "https://github.com/multica-ai/multica",
+    "author": "TODO",
     "build_strategy": "upstream_dockerfile",
     "docker_platform": "linux/amd64",
     "image_targets": [

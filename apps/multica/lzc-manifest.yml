@@ -1,11 +1,11 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.multica
-version: 0.1.23
+version: 0.1.0
 min_os_version: 1.3.8
-name: multica
-description: The open-source managed agents platform
-homepage: https://multica.ai
-author: multica-ai
+name: Multica
+description: multica on LazyCat
+homepage: https://github.com/multica-ai/multica
+author: TODO
 application:
   subdomain: multica
   public_path:
@@ -63,8 +63,8 @@ services:
       - HOSTNAME=0.0.0.0
 locales:
   en:
-    name: multica
-    description: The open-source managed agents platform
+    name: Multica
+    description: multica on LazyCat
   zh:
-    name: multica
+    name: Multica
     description: （迁移初稿）Multica 的懒猫微服版本
