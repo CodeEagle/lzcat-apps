@@ -8,12 +8,12 @@
   "images": {
     "backend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:efd02e3f557aa684",
     "frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:84533ffbf932af06",
-    "postgres": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c",
+    "postgres": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c"
   },
   "source_images": {
     "backend": "ghcr.io/codeeagle/lazycatimages:multica_377f47d44e9c",
     "frontend": "ghcr.io/codeeagle/lazycatimages:multicaWeb_377f47d44e9c",
-    "postgres": "pgvector/pgvector:pg17",
+    "postgres": "pgvector/pgvector:pg17"
   },
   "source_digests": {
     "backend": "sha256:15d6302243c0482a9821d7c00b01a24dbdd81d0f895f6d95263ebb0f4f8c5e64",
