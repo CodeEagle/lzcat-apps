@@ -3,22 +3,22 @@
   "app": "copilot-api-plus",
   "source_version": "v1.2.5",
   "build_version": "1.2.5",
-  "head_sha": "8e4c2daa976f",
-  "updated_at": "2026-04-11T01:44:27.369125+00:00",
+  "head_sha": "d075bf1e002a",
+  "updated_at": "2026-04-11T02:05:47.579321+00:00",
   "images": {
-    "copilot-api-plus": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:bad5182f5744a3fe"
+    "copilot-api-plus": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:d5e872b92a15cb37"
   },
   "source_images": {
-    "copilot-api-plus": "ghcr.io/codeeagle/lazycatimages:copilotApiPlus_8e4c2daa976f"
+    "copilot-api-plus": "ghcr.io/codeeagle/lazycatimages:copilotApiPlus_d075bf1e002a"
   },
   "source_digests": {
-    "_primary": "sha256:a7d2e8af02ffa88908159a881dc4475ccfec3a9a9b25c9817f36b5c2b944bbfe"
+    "_primary": "sha256:356940aa27833569363cde9c4ad7549045b55a9aa295860bc53599882784dd04"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:copilotApiPlus_8e4c2daa976f",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:bad5182f5744a3fe",
-      "elapsed_seconds": 19.701,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:copilotApiPlus_d075bf1e002a",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:d5e872b92a15cb37",
+      "elapsed_seconds": 29.763,
       "saw_waiting": true,
       "saw_upload_started": true,
       "reused_existing": false,
