@@ -1,0 +1,3845 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Copilot API 用量仪表盘</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #080c12;
+        --bg-accent: #0a0e16;
+        --surface: rgba(10, 16, 26, 0.92);
+        --surface-strong: #0d1320;
+        --panel: rgba(0, 200, 255, 0.04);
+        --panel-strong: #111827;
+        --line: rgba(0, 200, 255, 0.12);
+        --line-strong: rgba(0, 200, 255, 0.22);
+        --text: #d4e4f0;
+        --muted: #5a7a8a;
+        --brand: #00c8ff;
+        --brand-strong: #0099cc;
+        --brand-soft: rgba(0, 200, 255, 0.1);
+        --success: #00e87a;
+        --success-soft: rgba(0, 232, 122, 0.1);
+        --warning: #ffaa00;
+        --warning-soft: rgba(255, 170, 0, 0.12);
+        --danger: #ff4466;
+        --danger-soft: rgba(255, 68, 102, 0.12);
+        --shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 200, 255, 0.06);
+        --radius-xl: 28px;
+        --radius-lg: 22px;
+        --radius-md: 16px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Noto Sans SC", sans-serif;
+        background:
+          radial-gradient(ellipse at 15% 0%, rgba(0, 200, 255, 0.07) 0%, transparent 45%),
+          radial-gradient(ellipse at 85% 5%, rgba(0, 232, 122, 0.04) 0%, transparent 40%),
+          radial-gradient(ellipse at 50% 100%, rgba(0, 200, 255, 0.04) 0%, transparent 50%),
+          linear-gradient(180deg, #0a0e16 0%, #060910 100%);
+        color: var(--text);
+      }
+
+      .page-shell {
+        position: relative;
+        min-height: 100vh;
+      }
+
+      .page-shell::before {
+        content: "";
+        position: fixed;
+        inset: auto -10vw -22vh auto;
+        width: 30rem;
+        height: 30rem;
+        background: radial-gradient(circle, rgba(0, 200, 255, 0.07), transparent 72%);
+        pointer-events: none;
+        filter: blur(10px);
+      }
+
+      .dashboard-card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        backdrop-filter: blur(14px);
+        box-shadow: var(--shadow);
+      }
+
+      .dashboard-card-strong {
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius-xl);
+        background: linear-gradient(180deg, rgba(15, 22, 35, 0.98), rgba(8, 13, 22, 0.98));
+        box-shadow: var(--shadow);
+      }
+
+      .metric-card {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .metric-card::after {
+        content: "";
+        position: absolute;
+        inset: auto -32px -42px auto;
+        width: 110px;
+        height: 110px;
+        border-radius: 999px;
+        background: rgba(0, 200, 255, 0.03);
+        pointer-events: none;
+      }
+
+      .section-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .section-icon,
+      .inline-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .section-icon svg,
+      .inline-icon svg {
+        width: 100%;
+        height: 100%;
+      }
+
+      .section-icon {
+        width: 2.6rem;
+        height: 2.6rem;
+        border-radius: 14px;
+        background: var(--brand-soft);
+        color: var(--brand);
+      }
+
+      .inline-icon {
+        width: 1.05rem;
+        height: 1.05rem;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.8rem;
+        border-radius: 999px;
+        background: rgba(0, 200, 255, 0.08);
+        border: 1px solid var(--line);
+        color: var(--brand);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.42rem 0.7rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        font-size: 0.78rem;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .pill-neutral {
+        background: rgba(22, 37, 43, 0.06);
+        border-color: rgba(22, 37, 43, 0.08);
+        color: var(--text);
+      }
+
+      .pill-brand {
+        background: var(--brand-soft);
+        border-color: rgba(22, 96, 110, 0.12);
+        color: var(--brand);
+      }
+
+      .pill-success {
+        background: var(--success-soft);
+        border-color: rgba(22, 122, 98, 0.14);
+        color: var(--success);
+      }
+
+      .pill-warning {
+        background: var(--warning-soft);
+        border-color: rgba(178, 104, 31, 0.18);
+        color: var(--warning);
+      }
+
+      .pill-danger {
+        background: var(--danger-soft);
+        border-color: rgba(178, 71, 63, 0.2);
+        color: var(--danger);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.65rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        padding: 0.9rem 1.25rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        transition:
+          transform 0.18s ease,
+          box-shadow 0.18s ease,
+          border-color 0.18s ease,
+          background-color 0.18s ease,
+          color 0.18s ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+
+      .btn:focus-visible,
+      .input-field:focus-visible,
+      .tab-button:focus-visible,
+      .segment-button:focus-visible,
+      .lang-toggle:focus-visible,
+      summary:focus-visible,
+      .switch-input:focus-visible + .switch-track {
+        outline: 3px solid rgba(0, 200, 255, 0.3);
+        outline-offset: 3px;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--brand), var(--brand-strong));
+        color: #050810;
+        box-shadow: 0 8px 24px rgba(0, 200, 255, 0.25);
+      }
+
+      .btn-primary:hover {
+        box-shadow: 0 12px 32px rgba(0, 200, 255, 0.35);
+      }
+
+      .btn-secondary {
+        background: rgba(0, 200, 255, 0.06);
+        border-color: var(--line);
+        color: var(--text);
+      }
+
+      .btn-secondary:hover {
+        border-color: var(--line-strong);
+        background: rgba(0, 200, 255, 0.12);
+      }
+
+      .lang-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 84px;
+        padding: 0.78rem 1rem;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(0, 200, 255, 0.06);
+        color: var(--text);
+        font-size: 0.88rem;
+        font-weight: 700;
+        transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+      }
+
+      .lang-toggle:hover {
+        transform: translateY(-1px);
+        border-color: var(--line-strong);
+      }
+
+      .input-field {
+        width: 100%;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: rgba(0, 200, 255, 0.04);
+        padding: 1rem 1.1rem;
+        font-size: 0.97rem;
+        color: var(--text);
+        transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+      }
+
+      .input-field:hover {
+        border-color: var(--line-strong);
+      }
+
+      .input-field::placeholder {
+        color: rgba(94, 109, 114, 0.9);
+      }
+
+      .helper-text {
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+
+      .status-dot {
+        width: 0.7rem;
+        height: 0.7rem;
+        border-radius: 999px;
+        display: inline-block;
+      }
+
+      .status-loading {
+        background: var(--warning);
+        box-shadow: 0 0 0 8px rgba(178, 104, 31, 0.12);
+      }
+
+      .status-success {
+        background: var(--success);
+        box-shadow: 0 0 0 8px rgba(22, 122, 98, 0.12);
+      }
+
+      .status-error {
+        background: var(--danger);
+        box-shadow: 0 0 0 8px rgba(178, 71, 63, 0.12);
+      }
+
+      .status-idle {
+        background: rgba(94, 109, 114, 0.75);
+        box-shadow: 0 0 0 8px rgba(94, 109, 114, 0.1);
+      }
+
+      .progress-track {
+        width: 100%;
+        height: 0.72rem;
+        border-radius: 999px;
+        background: rgba(22, 37, 43, 0.08);
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        border-radius: inherit;
+        transition: width 0.35s ease;
+      }
+
+      .progress-fill-brand {
+        background: linear-gradient(90deg, #00c8ff, #0099cc);
+      }
+
+      .progress-fill-success {
+        background: linear-gradient(90deg, #00ff99, #00cc66);
+      }
+
+      .progress-fill-warning {
+        background: linear-gradient(90deg, #ffc333, #ff9900);
+      }
+
+      .progress-fill-danger {
+        background: linear-gradient(90deg, #ff6680, #ff2244);
+      }
+
+      .mono {
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      .banner {
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        padding: 1rem 1.15rem;
+      }
+
+      .banner-info {
+        background: rgba(22, 96, 110, 0.08);
+        border-color: rgba(22, 96, 110, 0.16);
+      }
+
+      .banner-error {
+        background: rgba(178, 71, 63, 0.1);
+        border-color: rgba(178, 71, 63, 0.2);
+      }
+
+      .switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.85rem;
+      }
+
+      .switch-input {
+        position: absolute;
+        opacity: 0;
+        width: 1px;
+        height: 1px;
+        pointer-events: none;
+      }
+
+      .switch-track {
+        position: relative;
+        width: 3.2rem;
+        height: 1.8rem;
+        border-radius: 999px;
+        background: rgba(22, 37, 43, 0.14);
+        transition: background-color 0.18s ease;
+      }
+
+      .switch-track::after {
+        content: "";
+        position: absolute;
+        top: 0.2rem;
+        left: 0.22rem;
+        width: 1.4rem;
+        height: 1.4rem;
+        border-radius: 999px;
+        background: #ffffff;
+        box-shadow: 0 6px 14px rgba(15, 30, 35, 0.12);
+        transition: transform 0.2s ease;
+      }
+
+      .switch-input:checked + .switch-track {
+        background: linear-gradient(135deg, var(--brand), var(--brand-strong));
+      }
+
+      .switch-input:checked + .switch-track::after {
+        transform: translateX(1.38rem);
+      }
+
+      .auto-refresh-controls {
+        display: grid;
+        gap: 0.9rem;
+      }
+
+      .auto-refresh-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+
+      .auto-refresh-summary {
+        min-height: 2.4rem;
+      }
+
+      .refresh-preset-group {
+        display: grid;
+        gap: 0.5rem;
+      }
+
+      .refresh-preset-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem;
+      }
+
+      .segment-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 3rem;
+        padding: 0.7rem 0.9rem;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: rgba(0, 200, 255, 0.04);
+        color: var(--muted);
+        font-size: 0.84rem;
+        font-weight: 700;
+        line-height: 1.2;
+        text-align: center;
+        transition:
+          transform 0.18s ease,
+          border-color 0.18s ease,
+          background-color 0.18s ease,
+          color 0.18s ease,
+          box-shadow 0.18s ease;
+      }
+
+      .segment-button:hover {
+        transform: translateY(-1px);
+        border-color: var(--line-strong);
+        background: rgba(0, 200, 255, 0.08);
+        color: var(--text);
+      }
+
+      .segment-button.is-active {
+        border-color: rgba(0, 200, 255, 0.3);
+        background: linear-gradient(135deg, rgba(0, 200, 255, 0.15), rgba(0, 200, 255, 0.06));
+        color: var(--brand);
+        box-shadow: 0 0 20px rgba(0, 200, 255, 0.12);
+      }
+
+      .refresh-custom-field {
+        display: grid;
+        gap: 0.55rem;
+        padding: 0.9rem 1rem;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: rgba(0, 200, 255, 0.04);
+      }
+
+      .refresh-custom-field .input-field {
+        max-width: none;
+        min-height: 3rem;
+        padding: 0.85rem 1rem;
+      }
+
+      .tab-button {
+        border-radius: 999px;
+        border: 1px solid transparent;
+        padding: 0.65rem 0.95rem;
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: var(--muted);
+        transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+      }
+
+      .tab-button.is-active {
+        background: rgba(0, 200, 255, 0.1);
+        border-color: var(--line-strong);
+        color: var(--text);
+      }
+
+      .tab-panel {
+        display: none;
+      }
+
+      .tab-panel.is-active {
+        display: block;
+      }
+
+      .code-panel {
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        background: #182428;
+        color: #eef4f5;
+        max-height: 24rem;
+        overflow: auto;
+      }
+
+      .code-panel pre {
+        margin: 0;
+        padding: 1.1rem 1.15rem;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 0.82rem;
+        line-height: 1.65;
+      }
+
+      .details-panel[open] summary {
+        margin-bottom: 1rem;
+      }
+
+      summary {
+        list-style: none;
+        cursor: pointer;
+      }
+
+      summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .details-chevron {
+        transition: transform 0.18s ease;
+      }
+
+      .details-panel[open] .details-chevron {
+        transform: rotate(180deg);
+      }
+
+      .empty-illustration {
+        width: 4rem;
+        height: 4rem;
+        border-radius: 20px;
+        background: rgba(22, 96, 110, 0.08);
+        color: var(--brand);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .loading-bar {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .loading-bar::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, rgba(0, 200, 255, 0.2), transparent);
+        transform: translateX(-100%);
+        animation: shimmer 1.3s infinite;
+      }
+
+      @keyframes shimmer {
+        100% {
+          transform: translateX(100%);
+        }
+      }
+
+      @media (min-width: 640px) {
+        .refresh-preset-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 768px) {
+        .dashboard-card-strong,
+        .dashboard-card {
+          border-radius: 22px;
+        }
+      }
+
+      /* ── Main Tab Navigation ── */
+      .main-tab-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.35rem;
+        border-radius: 999px;
+        background: rgba(0, 200, 255, 0.04);
+        border: 1px solid var(--line);
+        backdrop-filter: blur(10px);
+      }
+
+      .main-tab-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.7rem 1.2rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--muted);
+        font-size: 0.9rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        white-space: nowrap;
+      }
+
+      .main-tab-btn:hover {
+        color: var(--text);
+        background: rgba(0, 200, 255, 0.08);
+      }
+
+      .main-tab-btn.is-active {
+        background: rgba(0, 200, 255, 0.12);
+        border-color: var(--line-strong);
+        color: var(--brand);
+        box-shadow: 0 0 16px rgba(0, 200, 255, 0.15);
+      }
+
+      .main-tab-section {
+        display: none;
+      }
+
+      .main-tab-section.is-active {
+        display: block;
+      }
+
+      /* ── Modal / Dialog ── */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 5, 15, 0.7);
+        backdrop-filter: blur(6px);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+      }
+
+      .modal-overlay.is-open {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .modal-dialog {
+        width: 92%;
+        max-width: 480px;
+        border-radius: var(--radius-xl);
+        background: var(--surface-strong);
+        border: 1px solid var(--line);
+        box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 200, 255, 0.1);
+        padding: 2rem;
+        transform: translateY(12px) scale(0.97);
+        transition: transform 0.2s ease;
+      }
+
+      .modal-overlay.is-open .modal-dialog {
+        transform: translateY(0) scale(1);
+      }
+
+      .modal-title {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: var(--text);
+        letter-spacing: -0.02em;
+      }
+
+      .modal-close {
+        position: absolute;
+        top: 1.2rem;
+        right: 1.2rem;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(0, 200, 255, 0.06);
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: border-color 0.18s ease, background-color 0.18s ease;
+      }
+
+      .modal-close:hover {
+        border-color: var(--line-strong);
+        background: rgba(0, 200, 255, 0.12);
+        color: var(--text);
+      }
+
+      /* ── Toast ── */
+      .toast-container {
+        position: fixed;
+        top: 1.2rem;
+        right: 1.2rem;
+        z-index: 1100;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        pointer-events: none;
+      }
+
+      .toast {
+        pointer-events: auto;
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 0.85rem 1.1rem;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: var(--surface-strong);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 200, 255, 0.08);
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--text);
+        animation: toast-in 0.25s ease;
+        max-width: 360px;
+      }
+
+      .toast-success { border-color: rgba(0, 232, 122, 0.3); }
+      .toast-error { border-color: rgba(255, 68, 102, 0.3); }
+
+      @keyframes toast-in {
+        from { opacity: 0; transform: translateX(20px); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+
+      /* ── Account Card ── */
+      .account-card {
+        display: grid;
+        gap: 1rem;
+        padding: 1.2rem;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--line);
+        background: var(--surface);
+        backdrop-filter: blur(14px);
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+      }
+
+      .account-card:hover {
+        border-color: var(--line-strong);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      }
+
+      .account-avatar {
+        width: 2.8rem;
+        height: 2.8rem;
+        border-radius: 999px;
+        border: 2px solid var(--line);
+        object-fit: cover;
+        background: var(--panel);
+      }
+
+      .account-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+      }
+
+      .btn-sm {
+        padding: 0.45rem 0.85rem;
+        font-size: 0.82rem;
+        border-radius: 999px;
+        font-weight: 600;
+      }
+
+      .btn-danger {
+        background: var(--danger-soft);
+        border-color: rgba(255, 68, 102, 0.2);
+        color: var(--danger);
+      }
+
+      .btn-danger:hover {
+        background: rgba(255, 68, 102, 0.2);
+      }
+
+      .btn-ghost {
+        background: transparent;
+        border-color: var(--line);
+        color: var(--muted);
+      }
+
+      .btn-ghost:hover {
+        background: rgba(0, 200, 255, 0.08);
+        border-color: var(--line-strong);
+        color: var(--text);
+      }
+
+      /* ── Admin Table ── */
+      .admin-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 0.88rem;
+      }
+
+      .admin-table th {
+        text-align: left;
+        padding: 0.75rem 1rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .admin-table th:first-child { border-radius: 14px 0 0 0; }
+      .admin-table th:last-child { border-radius: 0 14px 0 0; }
+
+      .admin-table td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--line);
+        color: var(--text);
+        vertical-align: middle;
+      }
+
+      .admin-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      .admin-table tbody tr:hover td {
+        background: rgba(0, 200, 255, 0.04);
+      }
+
+      .admin-table .input-field {
+        padding: 0.55rem 0.8rem;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        min-width: 120px;
+      }
+
+      /* ── Stats Chart (pure CSS) ── */
+      .stat-bar-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+
+      .stat-bar-row {
+        display: grid;
+        grid-template-columns: 100px 1fr auto;
+        gap: 0.75rem;
+        align-items: center;
+      }
+
+      .stat-bar-label {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--text);
+        text-align: right;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .stat-bar-track {
+        height: 1.5rem;
+        border-radius: 999px;
+        background: var(--panel);
+        overflow: hidden;
+        position: relative;
+      }
+
+      .stat-bar-fill {
+        height: 100%;
+        border-radius: inherit;
+        transition: width 0.4s ease;
+        min-width: 2px;
+      }
+
+      .stat-bar-value {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--muted);
+        min-width: 36px;
+        text-align: right;
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      /* ── Form Select ── */
+      .input-select {
+        width: 100%;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: rgba(0, 200, 255, 0.04);
+        padding: 1rem 1.1rem;
+        font-size: 0.97rem;
+        color: var(--text);
+        transition: border-color 0.18s ease;
+        appearance: auto;
+      }
+
+      .input-select:hover {
+        border-color: var(--line-strong);
+      }
+
+      /* ── Loading Spinner ── */
+      .loading-spinner {
+        display: inline-block;
+        width: 1.2rem;
+        height: 1.2rem;
+        border: 2px solid var(--line);
+        border-top-color: var(--brand);
+        border-radius: 999px;
+        animation: spin 0.6s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      /* ── Confirm Dialog ── */
+      .confirm-actions {
+        display: flex;
+        gap: 0.65rem;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-shell px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+      <div class="mx-auto max-w-7xl space-y-5 sm:space-y-6">
+        <header class="dashboard-card-strong overflow-hidden px-5 py-5 sm:px-7 sm:py-7 lg:px-8 lg:py-8">
+          <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div class="max-w-3xl space-y-4">
+              <span class="eyebrow">
+                <span class="inline-icon h-4 w-4" aria-hidden="true" id="badge-icon"></span>
+                <span id="eyebrow-text"></span>
+              </span>
+              <div class="space-y-3">
+                <div class="flex flex-wrap items-center gap-3">
+                  <h1 class="text-3xl font-extrabold tracking-tight text-[var(--text)] sm:text-4xl lg:text-[2.9rem]" id="page-title"></h1>
+                  <span class="pill pill-brand" id="mode-chip"></span>
+                </div>
+                <p class="max-w-2xl text-sm leading-7 text-[var(--muted)] sm:text-base" id="page-subtitle"></p>
+              </div>
+              <div class="flex flex-wrap gap-2" id="hero-tags"></div>
+            </div>
+
+            <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center lg:flex-col lg:items-end">
+              <button id="lang-toggle" type="button" class="lang-toggle">EN</button>
+              <div class="dashboard-card px-4 py-3 text-sm text-[var(--muted)]">
+                <div class="font-semibold text-[var(--text)]" id="quick-tip-title"></div>
+                <p class="mt-1 max-w-xs leading-6" id="quick-tip-body"></p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <!-- ── Main Tab Navigation ── -->
+        <nav class="main-tab-bar" id="main-tab-bar">
+          <button type="button" class="main-tab-btn is-active" data-main-tab="overview">
+            <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-overview"></span>
+            <span id="tab-label-overview"></span>
+          </button>
+          <button type="button" class="main-tab-btn" data-main-tab="accounts">
+            <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-accounts"></span>
+            <span id="tab-label-accounts"></span>
+          </button>
+          <button type="button" class="main-tab-btn" data-main-tab="models">
+            <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-models"></span>
+            <span id="tab-label-models"></span>
+          </button>
+          <button type="button" class="main-tab-btn" data-main-tab="statistics">
+            <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-statistics"></span>
+            <span id="tab-label-statistics"></span>
+          </button>
+          <button type="button" class="main-tab-btn" data-main-tab="proxy">
+            <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-proxy"></span>
+            <span id="tab-label-proxy"></span>
+          </button>
+        </nav>
+
+        <!-- ══════ Tab 1: Overview (existing content) ══════ -->
+        <section id="tab-overview" class="main-tab-section is-active space-y-5 sm:space-y-6">
+          <section class="dashboard-card px-5 py-5 sm:px-6 sm:py-6" aria-labelledby="connection-title">
+            <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div class="max-w-2xl space-y-2">
+                <div class="section-title text-xl text-[var(--text)]">
+                  <span class="section-icon" aria-hidden="true" id="connection-icon"></span>
+                  <span id="connection-title"></span>
+                </div>
+                <p class="text-sm leading-7 text-[var(--muted)]" id="connection-subtitle"></p>
+              </div>
+              <div class="flex flex-wrap gap-2" id="connection-chips"></div>
+            </div>
+
+            <form id="endpoint-form" class="mt-5 space-y-4">
+              <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+                <label for="endpoint-input" class="sr-only" id="endpoint-label"></label>
+                <input
+                  id="endpoint-input"
+                  class="input-field mono"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="<origin>/usage"
+                />
+                <button id="fetch-button" type="submit" class="btn btn-primary">
+                  <span class="inline-icon h-4 w-4" aria-hidden="true" id="refresh-icon"></span>
+                  <span id="fetch-button-text"></span>
+                </button>
+                <button id="reset-button" type="button" class="btn btn-secondary">
+                  <span class="inline-icon h-4 w-4" aria-hidden="true" id="reset-icon"></span>
+                  <span id="reset-button-text"></span>
+                </button>
+                <button id="export-button" type="button" class="btn btn-secondary">
+                  <span class="inline-icon h-4 w-4" aria-hidden="true" id="export-icon"></span>
+                  <span id="export-button-text"></span>
+                </button>
+              </div>
+              <div class="flex flex-col gap-2 text-sm text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">
+                <p id="endpoint-hint"></p>
+                <p class="mono text-xs sm:text-sm" id="endpoint-current"></p>
+              </div>
+            </form>
+          </section>
+
+          <section aria-labelledby="overview-title" class="space-y-4">
+            <div class="flex items-center justify-between">
+              <h2 id="overview-title" class="text-xl font-bold tracking-tight text-[var(--text)]"></h2>
+              <p class="text-sm text-[var(--muted)]" id="overview-caption"></p>
+            </div>
+            <div id="overview-grid" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4"></div>
+          </section>
+
+          <div id="status-banner" aria-live="polite"></div>
+
+          <main id="content-area" class="space-y-5" aria-live="polite"></main>
+        </section>
+
+        <!-- ══════ Tab 2: Account Management ══════ -->
+        <section id="tab-accounts" class="main-tab-section space-y-5">
+          <div id="accounts-stats" class="grid gap-4 md:grid-cols-3"></div>
+          <div class="flex items-center justify-between">
+            <h2 class="text-xl font-bold tracking-tight text-[var(--text)]" id="accounts-section-title"></h2>
+            <button type="button" id="add-account-btn" class="btn btn-primary btn-sm">
+              <span class="inline-icon h-4 w-4" aria-hidden="true" id="add-account-icon"></span>
+              <span id="add-account-text"></span>
+            </button>
+          </div>
+          <div id="accounts-list" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"></div>
+        </section>
+
+        <!-- ══════ Tab 3: Model Management ══════ -->
+        <section id="tab-models" class="main-tab-section space-y-5">
+          <!-- Available Models (collapsible, default collapsed) -->
+          <section class="dashboard-card-strong p-6 sm:p-7 space-y-4">
+            <div class="section-title text-xl text-[var(--text)]" style="cursor:pointer;user-select:none;" id="models-avail-toggle">
+              <span class="section-icon" id="models-avail-icon"></span>
+              <span id="models-avail-title"></span>
+              <span style="margin-left:auto;font-size:0.8rem;color:var(--muted);transition:transform 0.2s;" id="models-avail-arrow">▶</span>
+            </div>
+            <div class="overflow-x-auto" id="models-avail-content" style="display:none;">
+              <table class="admin-table" id="models-available-table">
+                <thead><tr id="models-avail-thead"></tr></thead>
+                <tbody id="models-available-body"></tbody>
+              </table>
+            </div>
+          </section>
+          <!-- Model Mapping -->
+          <section class="dashboard-card p-5 sm:p-6 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="section-title text-lg text-[var(--text)]">
+                <span class="section-icon" id="models-map-icon"></span>
+                <span id="models-map-title"></span>
+              </div>
+              <button type="button" id="save-mapping-btn" class="btn btn-primary btn-sm">
+                <span id="save-mapping-text"></span>
+              </button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="admin-table" id="models-mapping-table">
+                <thead><tr id="models-map-thead"></tr></thead>
+                <tbody id="models-mapping-body"></tbody>
+              </table>
+            </div>
+          </section>
+          <!-- Concurrency Config -->
+          <section class="dashboard-card p-5 sm:p-6 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="section-title text-lg text-[var(--text)]">
+                <span class="section-icon" id="models-conc-icon"></span>
+                <span id="models-conc-title"></span>
+              </div>
+              <button type="button" id="save-concurrency-btn" class="btn btn-primary btn-sm">
+                <span id="save-concurrency-text"></span>
+              </button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="admin-table" id="models-concurrency-table">
+                <thead><tr id="models-conc-thead"></tr></thead>
+                <tbody id="models-concurrency-body"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <!-- ══════ Tab 4: Statistics ══════ -->
+        <section id="tab-statistics" class="main-tab-section space-y-5">
+          <div id="stats-uptime-card" class="dashboard-card-strong p-6 sm:p-7"></div>
+          <div class="grid gap-4 lg:grid-cols-2">
+            <section class="dashboard-card p-5 sm:p-6 space-y-4" id="stats-requests-section">
+              <div class="section-title text-lg text-[var(--text)]">
+                <span class="section-icon" id="stats-req-icon"></span>
+                <span id="stats-req-title"></span>
+              </div>
+              <div id="stats-requests-content"></div>
+            </section>
+            <section class="dashboard-card p-5 sm:p-6 space-y-4" id="stats-accounts-section">
+              <div class="section-title text-lg text-[var(--text)]">
+                <span class="section-icon" id="stats-acct-icon"></span>
+                <span id="stats-acct-title"></span>
+              </div>
+              <div id="stats-accounts-content"></div>
+            </section>
+          </div>
+        </section>
+
+        <!-- ══════ Tab 5: Proxy Config ══════ -->
+        <section id="tab-proxy" class="main-tab-section space-y-5">
+          <section class="dashboard-card px-5 py-5 sm:px-6 sm:py-6">
+            <div class="section-title text-xl text-[var(--text)] mb-4">
+              <span class="section-icon" aria-hidden="true" id="proxy-section-icon"></span>
+              <span id="proxy-section-title"></span>
+            </div>
+            <p class="text-sm leading-7 text-[var(--muted)] mb-6" id="proxy-section-desc"></p>
+
+            <!-- Base URL -->
+            <div class="space-y-3 mb-6">
+              <h3 class="text-base font-bold text-[var(--text)]" id="proxy-base-url-title"></h3>
+              <div class="dashboard-card p-4 mono text-sm text-[var(--brand)]" id="proxy-base-url-value" style="word-break:break-all;"></div>
+            </div>
+
+            <!-- OpenAI Proxy -->
+            <div class="space-y-3 mb-6">
+              <h3 class="text-base font-bold text-[var(--text)]" id="proxy-openai-title"></h3>
+              <p class="text-sm text-[var(--muted)]" id="proxy-openai-desc"></p>
+              <div class="dashboard-card p-4 space-y-2 text-sm mono overflow-x-auto">
+                <div><span class="text-[var(--muted)]">OPENAI_API_KEY=</span><span class="text-[var(--warning)]">&lt;any-non-empty-string&gt;</span></div>
+                <div><span class="text-[var(--muted)]">OPENAI_BASE_URL=</span><span class="text-[var(--brand)]" id="proxy-openai-url"></span></div>
+              </div>
+            </div>
+
+            <!-- Anthropic Proxy -->
+            <div class="space-y-3 mb-6">
+              <h3 class="text-base font-bold text-[var(--text)]" id="proxy-anthropic-title"></h3>
+              <p class="text-sm text-[var(--muted)]" id="proxy-anthropic-desc"></p>
+              <div class="dashboard-card p-4 space-y-2 text-sm mono overflow-x-auto">
+                <div><span class="text-[var(--muted)]">ANTHROPIC_API_KEY=</span><span class="text-[var(--warning)]">&lt;any-non-empty-string&gt;</span></div>
+                <div><span class="text-[var(--muted)]">ANTHROPIC_BASE_URL=</span><span class="text-[var(--brand)]" id="proxy-anthropic-url"></span></div>
+              </div>
+            </div>
+
+            <!-- Claude Code / Aider examples -->
+            <div class="space-y-3 mb-6">
+              <h3 class="text-base font-bold text-[var(--text)]" id="proxy-tools-title"></h3>
+              <div class="space-y-4">
+                <div>
+                  <p class="text-xs font-bold text-[var(--muted)] uppercase tracking-widest mb-2">Claude Code</p>
+                  <div class="dashboard-card p-4 mono text-sm overflow-x-auto text-[var(--text)]">
+                    <div><span class="text-[var(--success)]">ANTHROPIC_API_KEY</span>=<span class="text-[var(--warning)]">any</span> <span class="text-[var(--brand)]">ANTHROPIC_BASE_URL</span>=<span id="proxy-claude-code-url" class="text-[var(--text)]"></span> claude</div>
+                  </div>
+                </div>
+                <div>
+                  <p class="text-xs font-bold text-[var(--muted)] uppercase tracking-widest mb-2">Aider</p>
+                  <div class="dashboard-card p-4 mono text-sm overflow-x-auto text-[var(--text)]">
+                    <div><span class="text-[var(--success)]">OPENAI_API_KEY</span>=<span class="text-[var(--warning)]">any</span> <span class="text-[var(--brand)]">OPENAI_BASE_URL</span>=<span id="proxy-aider-url" class="text-[var(--text)]"></span> aider --model <span class="text-[var(--warning)]">gpt-4o</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Note -->
+            <div class="banner banner-info text-sm text-[var(--muted)]" id="proxy-note"></div>
+          </section>
+        </section>
+
+        <!-- ── Add Account Modal ── -->
+        <div class="modal-overlay" id="add-account-modal">
+          <div class="modal-dialog" style="position:relative;">
+            <button type="button" class="modal-close" id="modal-close-btn" aria-label="Close">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+
+            <!-- Step 1: Initial form -->
+            <div id="modal-step-1" class="space-y-5">
+              <h3 class="modal-title" id="modal-title"></h3>
+              <div class="space-y-4">
+                <div class="space-y-1.5">
+                  <label class="text-sm font-semibold text-[var(--text)]" for="modal-label" id="modal-label-label"></label>
+                  <input id="modal-label" class="input-field" type="text" autocomplete="off" />
+                </div>
+                <div class="space-y-1.5">
+                  <label class="text-sm font-semibold text-[var(--text)]" for="modal-type" id="modal-type-label"></label>
+                  <select id="modal-type" class="input-select">
+                    <option value="individual" id="opt-type-individual">Individual</option>
+                    <option value="business" id="opt-type-business">Business</option>
+                    <option value="enterprise" id="opt-type-enterprise">Enterprise</option>
+                  </select>
+                </div>
+              </div>
+              <button type="button" id="modal-start-auth-btn" class="btn btn-primary w-full">
+                <span id="modal-start-auth-text"></span>
+              </button>
+            </div>
+
+            <!-- Step 2: Device Code authorization in progress -->
+            <div id="modal-step-2" class="space-y-5" style="display:none;">
+              <h3 class="modal-title" id="modal-device-title"></h3>
+              <div class="space-y-4">
+                <div class="text-sm text-[var(--muted)] space-y-1">
+                  <p id="modal-instr-1"></p>
+                  <p id="modal-instr-2"></p>
+                  <p id="modal-instr-3"></p>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.75rem;padding:1rem;border-radius:var(--radius-lg);background:var(--surface);border:1px solid var(--line);">
+                  <code id="modal-user-code" style="flex:1;font-size:1.75rem;font-weight:800;letter-spacing:0.15em;text-align:center;color:var(--text);font-family:var(--font-mono,monospace);"></code>
+                  <button type="button" id="modal-copy-code-btn" class="btn btn-secondary btn-sm" style="white-space:nowrap;">
+                    <span id="modal-copy-code-text"></span>
+                  </button>
+                </div>
+                <a id="modal-gh-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-full" style="display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;text-decoration:none;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  <span id="modal-gh-link-text"></span>
+                </a>
+                <div style="display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.75rem 0;" id="modal-waiting-indicator">
+                  <span class="loading-spinner"></span>
+                  <span class="text-sm text-[var(--muted)]" id="modal-waiting-text"></span>
+                </div>
+              </div>
+              <button type="button" id="modal-cancel-auth-btn" class="btn btn-secondary w-full">
+                <span id="modal-cancel-auth-text"></span>
+              </button>
+            </div>
+
+            <!-- Step 3: Success -->
+            <div id="modal-step-3" class="space-y-5" style="display:none;">
+              <div style="text-align:center;padding:1rem 0;">
+                <div style="width:48px;height:48px;margin:0 auto 1rem;border-radius:50%;background:var(--success);display:flex;align-items:center;justify-content:center;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <h3 class="modal-title" id="modal-success-title" style="margin-bottom:0.5rem;"></h3>
+                <p class="text-sm text-[var(--muted)]" id="modal-success-account"></p>
+              </div>
+              <button type="button" id="modal-done-btn" class="btn btn-primary w-full">
+                <span id="modal-done-text"></span>
+              </button>
+            </div>
+
+            <!-- Step 3 alt: Error -->
+            <div id="modal-step-error" class="space-y-5" style="display:none;">
+              <div style="text-align:center;padding:1rem 0;">
+                <div style="width:48px;height:48px;margin:0 auto 1rem;border-radius:50%;background:var(--danger);display:flex;align-items:center;justify-content:center;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </div>
+                <p class="text-sm text-[var(--muted)]" id="modal-error-message" style="margin-top:0.5rem;"></p>
+              </div>
+              <button type="button" id="modal-retry-btn" class="btn btn-primary w-full">
+                <span id="modal-retry-text"></span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ── Toast Container ── -->
+        <div class="toast-container" id="toast-container"></div>
+
+        <footer class="pb-3 text-center text-xs leading-6 text-[var(--muted)] sm:text-sm" id="footer-note"></footer>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const DEFAULT_ENDPOINT = window.location.origin + "/usage";
+        const DEFAULT_REFRESH_PRESET = "60";
+        const MIN_CUSTOM_REFRESH_SECONDS = 5;
+
+        const ICONS = {
+          dashboard:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13.2a9 9 0 1 1 18 0"/><path d="M12 13l4.2-4.2"/><path d="M7.5 16.5h9"/></svg>',
+          link:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 1 0-7l1.5-1.5a5 5 0 1 1 7 7L17 13"/><path d="M14 11a5 5 0 0 1 0 7L12.5 19.5a5 5 0 0 1-7-7L7 11"/></svg>',
+          refresh:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-15.3 6.36"/><path d="M3 12A9 9 0 0 1 18.3 5.64"/><path d="M3 17v-4h4"/><path d="M17 3h4v4"/></svg>',
+          reset:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10"/><path d="M6 6h.01"/><path d="M6 12h.01"/><path d="M6 18h.01"/><path d="M10 12h10"/><path d="M10 18h10"/></svg>',
+          export:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10"/><path d="m8.5 10.5 3.5 3.5 3.5-3.5"/><path d="M5 16.5v1a2.5 2.5 0 0 0 2.5 2.5h9A2.5 2.5 0 0 0 19 17.5v-1"/></svg>',
+          status:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h4l2.2-5 3.6 10L16 12h4"/></svg>',
+          mode:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/></svg>',
+          clock:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3 1.8"/></svg>',
+          auto:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.7-5.66"/><path d="M20 4v5h-5"/><path d="M20 12a8 8 0 0 1-13.7 5.66"/><path d="M4 20v-5h5"/></svg>',
+          chart:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M7 16V8"/><path d="M12 16V5"/><path d="M17 16v-4"/></svg>',
+          spark:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L19 9.7l-4.1 2.5 1.3 4.8L12 14.2 7.8 17l1.3-4.8L5 9.7l5.2-1.8L12 3Z"/></svg>',
+          claude:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7.5h10"/><path d="M7 12h10"/><path d="M7 16.5h6"/><rect x="4" y="4" width="16" height="16" rx="3"/></svg>',
+          other:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 7.2v9.6L12 21l7.5-4.2V7.2L12 3Z"/><path d="M12 12 4.5 7.2"/><path d="M12 12l7.5-4.8"/><path d="M12 12v9"/></svg>',
+          info:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 10v5"/><path d="M12 7.5h.01"/></svg>',
+          warning:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 3.5 19h17L12 4Z"/><path d="M12 9.5v4.5"/><path d="M12 17h.01"/></svg>',
+          data:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.66 3.13 3 7 3s7-1.34 7-3V6"/><path d="M5 12v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6"/></svg>',
+          chevron:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+          external:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5"/><path d="M10 14 19 5"/><path d="M19 13v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4"/></svg>',
+          terminal:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 8 4 4-4 4"/><path d="M13 16h5"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>',
+          users:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+          userPlus:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>',
+          cpu:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>',
+          activity:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+          layers:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
+          trash:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+          power:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>',
+          save:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
+          plus:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+          arrowRight:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+          server:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>',
+          check:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+        };
+
+        const I18N = {
+          zh: {
+            title: "Copilot API 用量仪表盘",
+            eyebrow: "实时状态面板",
+            subtitle:
+              "默认连接本地 /usage 接口，获取 Copilot 配额状态，把关键状态、配额和诊断信息放到同一页里。",
+            heroTags: ["中文优先", "自动刷新间隔可配置", "高级信息默认折叠"],
+            quickTipTitle: "怎么用更快",
+            quickTipBody: "直接启动服务后保持默认地址即可。若端口不同，改成完整的 /usage URL 再刷新。",
+            modeChipLabel: "等待连接",
+            connectionTitle: "当前连接目标",
+            connectionSubtitle:
+              "这里填写完整的 /usage 地址。页面加载时会优先使用 URL 里提供的端点，没有时再请求默认端点，后续也可手动切换到别的实例。",
+            endpointLabel: "用量接口地址",
+            endpointHint: "建议填写完整 URL，例如 http://localhost:4141/usage。服务端已开启 CORS，可直接从静态页请求。",
+            endpointCurrent: "当前目标",
+            fetch: "立即刷新",
+            reset: "恢复默认",
+            exportConfig: "复制环境配置",
+            exportCopied: "配置已复制",
+            exportPrompted: "手动复制配置",
+            exportManualCopy: "未能自动复制，请手动复制这段环境配置：",
+            overviewTitle: "顶部概览",
+            overviewCaption: "先看状态，再看配额细节",
+            footer: "此页面只读取你填写的接口响应，不会把原始响应上传到其他服务。",
+            statusCardTitle: "连接状态",
+            statusConnecting: "连接中",
+            statusConnected: "已连接",
+            statusFailed: "请求失败",
+            statusIdle: "待连接",
+            statusCardHelp: "用于快速判断本地服务是否可达。",
+            modeCardTitle: "当前模式",
+            modeCardHelp: "根据 /usage 返回结构自动识别。",
+            modeUnknown: "未识别",
+            lastUpdatedTitle: "上次更新时间",
+            lastUpdatedHelp: "只有成功返回后才会更新。",
+            neverUpdated: "尚未更新",
+            autoRefreshTitle: "自动刷新",
+            autoRefreshHelp: "默认关闭；只有 URL 参数显式提供 autoRefresh 时才会恢复。打开后会按当前所选间隔自动刷新。当前为 {interval}。",
+            autoRefreshOn: "已开启",
+            autoRefreshOff: "已关闭",
+            autoRefreshSelection: "当前间隔 {interval}",
+            autoRefreshPresetLabel: "刷新间隔",
+            autoRefreshPreset30: "30 秒",
+            autoRefreshPreset60: "60 秒",
+            autoRefreshPreset120: "120 秒",
+            autoRefreshPresetCustom: "自定义",
+            autoRefreshCustomLabel: "自定义秒数",
+            autoRefreshCustomPlaceholder: "至少 {min} 秒",
+            loadingBannerTitle: "正在刷新数据",
+            loadingBannerBody: "如果已有旧数据，会保留当前视图，刷新完成后再更新。",
+            errorBannerTitle: "连接失败",
+            errorBannerBody: "保留最近一次成功数据。你可以检查服务是否启动、端口是否正确，或稍后重试。",
+            retry: "重试",
+            emptyTitle: "正在连接本地服务",
+            emptyBody: "页面已自动请求默认端点。如果你看到这里停留很久，检查本地服务是否运行在 4141 端口。",
+            emptyAction: "再次尝试默认端点",
+            loadingTitle: "正在获取最新用量",
+            loadingBody: "请稍候，正在请求接口并解析当前模式。",
+            copilotSectionTitle: "Copilot 配额",
+            copilotSectionBody: "展示聊天、代码补全和高级交互三类额度，帮助你快速判断剩余可用量。",
+            quotaReset: "下次重置",
+            usageUsed: "已用",
+            usageRemaining: "剩余",
+            usageLimit: "总额度",
+            unlimited: "无限制",
+            overageAllowed: "允许超额",
+            overageCount: "超额次数",
+            quotaChat: "Chat",
+            quotaChatDesc: "对话与聊天调用额度。",
+            quotaCompletions: "Completions",
+            quotaCompletionsDesc: "代码补全相关额度。",
+            quotaPremium: "Premium Interactions",
+            quotaPremiumDesc: "高级模型或高级交互额度。",
+            copilotPlan: "计划类型",
+            accessType: "访问类型",
+            organizationCount: "组织数量",
+            chatEnabled: "聊天能力",
+            enabled: "已启用",
+            disabled: "未启用",
+            modelReset: "重置时间",
+            modelRemaining: "剩余",
+            modelHealthy: "充足",
+            modelWarning: "偏低",
+            modelCritical: "紧张",
+            advancedTitle: "高级信息 / 原始响应",
+            advancedBody: "默认折叠，减少首屏噪音；需要排查时再展开。",
+            detailsSummary: "高级信息",
+            detailsRaw: "原始响应",
+            responseKeys: "返回字段",
+            endpointField: "接口地址",
+            modeField: "识别模式",
+            responseStatusField: "最近状态",
+            lastUpdatedField: "成功更新时间",
+            resetField: "配额重置",
+            totalModelsField: "模型总数",
+            jsonEmpty: "暂无可展示的响应内容。",
+            requestFailed: "请求失败",
+            requestSuccess: "请求成功",
+            copyForDebug: "适合排查问题时复制原始 JSON。",
+            languageToggle: "EN",
+            modeCopilot: "Copilot",
+            currentTargetLabel: "当前目标：{endpoint}",
+            invalidEndpoint: "请输入有效的接口地址。",
+            networkErrorFallback: "无法请求接口，请检查本地服务与地址是否正确。",
+            noValue: "--",
+            viewMode: "查看模式",
+            // ── Tab Navigation ──
+            tabOverview: "概览",
+            tabAccounts: "账号管理",
+            tabModels: "模型管理",
+            tabStatistics: "运行统计",
+            tabProxy: "代理配置",
+            // ── Proxy Config ──
+            proxySectionTitle: "代理配置",
+            proxySectionDesc: "将此服务作为 OpenAI / Anthropic 兼容代理接入其他工具。将下方地址填入客户端配置即可，API Key 可填任意非空字符串。",
+            proxyBaseUrlTitle: "服务地址",
+            proxyOpenAITitle: "OpenAI 兼容接口",
+            proxyOpenAIDesc: "支持 /v1/chat/completions、/v1/models 等标准端点。",
+            proxyAnthropicTitle: "Anthropic 兼容接口",
+            proxyAnthropicDesc: "支持 /v1/messages 端点，适用于 Claude Code、Cursor 等工具。",
+            proxyToolsTitle: "客户端示例",
+            proxyNote: "API Key 为占位符，填任意非空字符串即可。服务本身以 GitHub Copilot Token 鉴权，无需额外 Key。",
+            // ── Account Management ──
+            accountsSectionTitle: "账号列表",
+            accountsTotal: "账号总数",
+            accountsActive: "活跃账号",
+            accountsPremiumRemaining: "Premium 剩余总额",
+            addAccount: "添加账号",
+            accountEnable: "启用",
+            accountDisable: "禁用",
+            accountRefresh: "刷新",
+            accountDelete: "删除",
+            accountDeleteConfirm: "确定要删除这个账号吗？此操作不可撤销。",
+            accountDeleteConfirmTitle: "确认删除",
+            confirmYes: "确认",
+            confirmCancel: "取消",
+            accountLastUsed: "最后使用",
+            accountNeverUsed: "从未使用",
+            accountStatusActive: "活跃",
+            accountStatusExhausted: "已耗尽",
+            accountStatusRateLimited: "限速中",
+            accountStatusBanned: "已封禁",
+            accountStatusError: "错误",
+            accountStatusDisabled: "已禁用",
+            accountStatusUnknown: "未知",
+            accountLabelPlaceholder: "账号标签（可选）",
+            accountNoAccounts: "暂无账号",
+            accountNoAccountsDesc: "点击「添加账号」按钮来添加你的第一个 GitHub 账号。",
+            // ── Add Account Modal ──
+            modalAddTitle: "添加新账号",
+            modalTokenLabel: "GitHub Token",
+            modalLabelLabel: "标签（可选）",
+            modalTypeLabel: "账号类型",
+            accountTypeIndividual: "个人版",
+            accountTypeBusiness: "商业版",
+            accountTypeEnterprise: "企业版",
+            modalSubmit: "添加",
+            modalStartAuth: "开始授权",
+            modalDeviceCodeTitle: "GitHub 设备授权",
+            modalDeviceCodeInstr1: "1. 复制下方授权码",
+            modalDeviceCodeInstr2: "2. 点击链接打开 GitHub",
+            modalDeviceCodeInstr3: "3. 粘贴授权码并确认授权",
+            modalDeviceCodeCopy: "复制授权码",
+            modalDeviceCodeCopied: "已复制!",
+            modalDeviceCodeOpenGH: "打开 GitHub 授权页面",
+            modalDeviceCodeWaiting: "等待授权中...",
+            modalDeviceCodeSuccess: "授权成功!",
+            modalDeviceCodeExpired: "授权码已过期，请重试。",
+            modalDeviceCodeDenied: "授权被拒绝，请重试。",
+            modalDeviceCodeError: "授权失败，请重试。",
+            modalDeviceCodeDone: "完成",
+            modalDeviceCodeRetry: "重试",
+            modalDeviceCodeCancel: "取消",
+            // ── Model Management ──
+            modelsAvailableTitle: "可用模型",
+            modelsColName: "模型名称",
+            modelsColVendor: "厂商",
+            modelsColMaxOutput: "最大输出",
+            modelsColPremium: "Premium",
+            modelsColMultiplier: "倍率",
+            modelsColStatus: "状态",
+            modelEnabled: "已启用",
+            modelDisabled: "已禁用",
+            modelMappingTitle: "模型映射",
+            modelMappingFrom: "请求模型",
+            modelMappingTo: "实际模型",
+            modelMappingAction: "操作",
+            modelMappingSave: "保存映射",
+            modelMappingAdd: "添加映射",
+            modelNoMappings: "暂无映射配置",
+            modelConcurrencyTitle: "并发配置",
+            modelConcurrencyModel: "模型",
+            modelConcurrencyMax: "最大并发",
+            modelConcurrencyAction: "操作",
+            modelConcurrencySave: "保存配置",
+            modelConcurrencyAdd: "添加配置",
+            modelNoConcurrency: "暂无并发配置",
+            modelNoModels: "暂无模型数据",
+            modelNoModelsDesc: "无法获取可用模型列表，请确认服务已启动。",
+            // ── Statistics ──
+            statsUptime: "运行时间",
+            statsRequests: "模型请求",
+            statsActiveRequests: "活跃请求",
+            statsQueuedRequests: "排队请求",
+            statsAccountDist: "账号状态分布",
+            statsAutoRefresh: "每 5 秒自动刷新",
+            statsNoData: "暂无统计数据",
+            statsNoDataDesc: "无法获取统计信息，请确认服务已启动。",
+            // ── API errors ──
+            apiError: "API 请求失败",
+            apiSuccess: "操作成功",
+            loading: "加载中...",
+          },
+          en: {
+            title: "Copilot API Usage Dashboard",
+            eyebrow: "Live Status Panel",
+            subtitle:
+              "Connect to a local /usage endpoint for Copilot quota status, and keep the key status, quotas, and diagnostics on one page.",
+            heroTags: ["Chinese-first copy", "Configurable auto refresh", "Advanced data stays collapsed"],
+            quickTipTitle: "Fastest setup",
+            quickTipBody: "If your server runs locally, keep the default address. Change it only when your port or host is different.",
+            modeChipLabel: "Waiting for data",
+            connectionTitle: "Current Target",
+            connectionSubtitle:
+              "Enter the full /usage URL here. On load, the page uses the endpoint from the URL first, otherwise it requests the default endpoint, and you can still switch to any other instance later.",
+            endpointLabel: "Usage endpoint URL",
+            endpointHint: "Use a full URL such as http://localhost:4141/usage. The server enables CORS, so a static page can query it directly.",
+            endpointCurrent: "Current target",
+            fetch: "Refresh now",
+            reset: "Use default",
+            exportConfig: "Copy env config",
+            exportCopied: "Config copied",
+            exportPrompted: "Copy config manually",
+            exportManualCopy: "Automatic copy is unavailable. Copy this env config:",
+            overviewTitle: "Top Overview",
+            overviewCaption: "Read the status first, then the quota details",
+            footer: "This page only reads the endpoint you provide. Raw responses are not uploaded anywhere else.",
+            statusCardTitle: "Connection",
+            statusConnecting: "Connecting",
+            statusConnected: "Connected",
+            statusFailed: "Failed",
+            statusIdle: "Idle",
+            statusCardHelp: "Quickly tells you whether the local service is reachable.",
+            modeCardTitle: "Current Mode",
+            modeCardHelp: "Detected from the /usage response shape.",
+            modeUnknown: "Unknown",
+            lastUpdatedTitle: "Last Updated",
+            lastUpdatedHelp: "Updated only after a successful response.",
+            neverUpdated: "Not updated yet",
+            autoRefreshTitle: "Auto Refresh",
+            autoRefreshHelp: "Off by default and only restored when the URL explicitly provides autoRefresh. When enabled, it refreshes on the selected interval. Current setting: {interval}.",
+            autoRefreshOn: "Enabled",
+            autoRefreshOff: "Disabled",
+            autoRefreshSelection: "Selected interval {interval}",
+            autoRefreshPresetLabel: "Refresh interval",
+            autoRefreshPreset30: "30s",
+            autoRefreshPreset60: "60s",
+            autoRefreshPreset120: "120s",
+            autoRefreshPresetCustom: "Custom",
+            autoRefreshCustomLabel: "Custom seconds",
+            autoRefreshCustomPlaceholder: "Min {min}s",
+            loadingBannerTitle: "Refreshing data",
+            loadingBannerBody: "If a previous snapshot exists, it stays visible until the new request finishes.",
+            errorBannerTitle: "Connection failed",
+            errorBannerBody: "Keeping the last successful snapshot. Check whether the server is running, the port is right, or retry in a moment.",
+            retry: "Retry",
+            emptyTitle: "Connecting to local service",
+            emptyBody: "The page already tried the default endpoint. If this stays visible, check whether the service is listening on port 4141.",
+            emptyAction: "Try default endpoint again",
+            loadingTitle: "Fetching latest usage",
+            loadingBody: "Please wait while the endpoint responds and the mode is identified.",
+            copilotSectionTitle: "Copilot Quotas",
+            copilotSectionBody: "Shows chat, completions, and premium interaction quotas so you can see what remains at a glance.",
+            quotaReset: "Next reset",
+            usageUsed: "Used",
+            usageRemaining: "Remaining",
+            usageLimit: "Limit",
+            unlimited: "Unlimited",
+            overageAllowed: "Overage allowed",
+            overageCount: "Overage count",
+            quotaChat: "Chat",
+            quotaChatDesc: "Quota for chat-style requests.",
+            quotaCompletions: "Completions",
+            quotaCompletionsDesc: "Quota for code completion traffic.",
+            quotaPremium: "Premium Interactions",
+            quotaPremiumDesc: "Quota for premium interactions or higher-tier models.",
+            copilotPlan: "Plan",
+            accessType: "Access type",
+            organizationCount: "Organizations",
+            chatEnabled: "Chat enabled",
+            enabled: "Enabled",
+            disabled: "Disabled",
+            modelReset: "Reset",
+            modelRemaining: "Remaining",
+            modelHealthy: "Healthy",
+            modelWarning: "Low",
+            modelCritical: "Critical",
+            advancedTitle: "Advanced Info / Raw Response",
+            advancedBody: "Collapsed by default to reduce noise. Expand it only when you need to inspect the payload.",
+            detailsSummary: "Advanced info",
+            detailsRaw: "Raw response",
+            responseKeys: "Response keys",
+            endpointField: "Endpoint",
+            modeField: "Detected mode",
+            responseStatusField: "Latest status",
+            lastUpdatedField: "Successful update",
+            resetField: "Quota reset",
+            totalModelsField: "Model count",
+            jsonEmpty: "No response payload to show yet.",
+            requestFailed: "Request failed",
+            requestSuccess: "Request succeeded",
+            copyForDebug: "Useful when you need the raw JSON for debugging.",
+            languageToggle: "中文",
+            modeCopilot: "Copilot",
+            currentTargetLabel: "Current target: {endpoint}",
+            invalidEndpoint: "Please enter a valid endpoint URL.",
+            networkErrorFallback: "Unable to reach the endpoint. Check the local server and the URL.",
+            noValue: "--",
+            viewMode: "View mode",
+            // ── Tab Navigation ──
+            tabOverview: "Overview",
+            tabAccounts: "Accounts",
+            tabModels: "Models",
+            tabStatistics: "Statistics",
+            tabProxy: "Proxy Config",
+            // ── Proxy Config ──
+            proxySectionTitle: "Proxy Configuration",
+            proxySectionDesc: "Use this service as an OpenAI / Anthropic compatible proxy. Set the base URL below in your client — API Key can be any non-empty string.",
+            proxyBaseUrlTitle: "Service Base URL",
+            proxyOpenAITitle: "OpenAI Compatible",
+            proxyOpenAIDesc: "Supports /v1/chat/completions, /v1/models and other standard endpoints.",
+            proxyAnthropicTitle: "Anthropic Compatible",
+            proxyAnthropicDesc: "Supports /v1/messages endpoint for Claude Code, Cursor, and similar tools.",
+            proxyToolsTitle: "Client Examples",
+            proxyNote: "The API Key is a placeholder — any non-empty string works. The service authenticates via your GitHub Copilot Token internally.",
+            // ── Account Management ──
+            accountsSectionTitle: "Account List",
+            accountsTotal: "Total Accounts",
+            accountsActive: "Active Accounts",
+            accountsPremiumRemaining: "Total Premium Remaining",
+            addAccount: "Add Account",
+            accountEnable: "Enable",
+            accountDisable: "Disable",
+            accountRefresh: "Refresh",
+            accountDelete: "Delete",
+            accountDeleteConfirm: "Are you sure you want to delete this account? This cannot be undone.",
+            accountDeleteConfirmTitle: "Confirm Deletion",
+            confirmYes: "Confirm",
+            confirmCancel: "Cancel",
+            accountLastUsed: "Last used",
+            accountNeverUsed: "Never used",
+            accountStatusActive: "Active",
+            accountStatusExhausted: "Exhausted",
+            accountStatusRateLimited: "Rate Limited",
+            accountStatusBanned: "Banned",
+            accountStatusError: "Error",
+            accountStatusDisabled: "Disabled",
+            accountStatusUnknown: "Unknown",
+            accountLabelPlaceholder: "Account label (optional)",
+            accountNoAccounts: "No accounts",
+            accountNoAccountsDesc: "Click the \"Add Account\" button to add your first GitHub account.",
+            // ── Add Account Modal ──
+            modalAddTitle: "Add New Account",
+            modalTokenLabel: "GitHub Token",
+            modalLabelLabel: "Label (optional)",
+            modalTypeLabel: "Account Type",
+            accountTypeIndividual: "Individual",
+            accountTypeBusiness: "Business",
+            accountTypeEnterprise: "Enterprise",
+            modalSubmit: "Add",
+            modalStartAuth: "Start Authorization",
+            modalDeviceCodeTitle: "GitHub Device Authorization",
+            modalDeviceCodeInstr1: "1. Copy the code below",
+            modalDeviceCodeInstr2: "2. Click the link to open GitHub",
+            modalDeviceCodeInstr3: "3. Paste the code and authorize",
+            modalDeviceCodeCopy: "Copy Code",
+            modalDeviceCodeCopied: "Copied!",
+            modalDeviceCodeOpenGH: "Open GitHub Authorization",
+            modalDeviceCodeWaiting: "Waiting for authorization...",
+            modalDeviceCodeSuccess: "Authorization successful!",
+            modalDeviceCodeExpired: "Authorization code expired. Please try again.",
+            modalDeviceCodeDenied: "Authorization was denied. Please try again.",
+            modalDeviceCodeError: "Authorization failed. Please try again.",
+            modalDeviceCodeDone: "Done",
+            modalDeviceCodeRetry: "Retry",
+            modalDeviceCodeCancel: "Cancel",
+            // ── Model Management ──
+            modelsAvailableTitle: "Available Models",
+            modelsColName: "Model Name",
+            modelsColVendor: "Vendor",
+            modelsColMaxOutput: "Max Output",
+            modelsColPremium: "Premium",
+            modelsColMultiplier: "Rate",
+            modelsColStatus: "Status",
+            modelEnabled: "Enabled",
+            modelDisabled: "Disabled",
+            modelMappingTitle: "Model Mapping",
+            modelMappingFrom: "Request Model",
+            modelMappingTo: "Actual Model",
+            modelMappingAction: "Action",
+            modelMappingSave: "Save Mapping",
+            modelMappingAdd: "Add Mapping",
+            modelNoMappings: "No mapping configured",
+            modelConcurrencyTitle: "Concurrency Config",
+            modelConcurrencyModel: "Model",
+            modelConcurrencyMax: "Max Concurrent",
+            modelConcurrencyAction: "Action",
+            modelConcurrencySave: "Save Config",
+            modelConcurrencyAdd: "Add Config",
+            modelNoConcurrency: "No concurrency configured",
+            modelNoModels: "No model data",
+            modelNoModelsDesc: "Unable to fetch available models. Make sure the service is running.",
+            // ── Statistics ──
+            statsUptime: "Uptime",
+            statsRequests: "Model Requests",
+            statsActiveRequests: "Active Requests",
+            statsQueuedRequests: "Queued Requests",
+            statsAccountDist: "Account Status Distribution",
+            statsAutoRefresh: "Auto-refreshes every 5 seconds",
+            statsNoData: "No statistics data",
+            statsNoDataDesc: "Unable to fetch statistics. Make sure the service is running.",
+            // ── API errors ──
+            apiError: "API request failed",
+            apiSuccess: "Operation successful",
+            loading: "Loading...",
+          },
+        };
+
+        const modeLabels = {
+          copilot: () => text("modeCopilot"),
+          unknown: () => text("modeUnknown"),
+        };
+
+        const quotaMeta = {
+          chat: {
+            titleKey: "quotaChat",
+            descriptionKey: "quotaChatDesc",
+            tone: "brand",
+          },
+          completions: {
+            titleKey: "quotaCompletions",
+            descriptionKey: "quotaCompletionsDesc",
+            tone: "success",
+          },
+          premium_interactions: {
+            titleKey: "quotaPremium",
+            descriptionKey: "quotaPremiumDesc",
+            tone: "warning",
+          },
+        };
+
+        const STORAGE_KEYS = {
+          language: "dashboard-language",
+          autoRefresh: "dashboard-auto-refresh",
+          refreshPreset: "dashboard-refresh-preset",
+          customRefreshSeconds: "dashboard-refresh-custom-seconds",
+        };
+
+        const REFRESH_PRESETS = ["30", "60", "120", "custom"];
+
+        function readStoredValue(key, fallback = "") {
+          try {
+            const value = localStorage.getItem(key);
+            return value === null ? fallback : value;
+          } catch {
+            return fallback;
+          }
+        }
+
+        function readStoredNumber(key, fallback) {
+          const value = Number(readStoredValue(key, String(fallback)));
+          return Number.isFinite(value) ? value : fallback;
+        }
+
+        function getValidLanguage(value) {
+          return value === "en" ? "en" : "zh";
+        }
+
+        function getValidRefreshPreset(value) {
+          return REFRESH_PRESETS.includes(value) ? value : DEFAULT_REFRESH_PRESET;
+        }
+
+        function readQueryParams() {
+          try {
+            return new URLSearchParams(window.location.search);
+          } catch {
+            return null;
+          }
+        }
+
+        function readQueryValue(params, key) {
+          if (!params) return null;
+          const value = params.get(key);
+          return value === null ? null : value.trim();
+        }
+
+        function readQueryBoolean(params, key) {
+          const value = readQueryValue(params, key);
+          if (value === null) return null;
+          const normalized = value.toLowerCase();
+          if (["1", "true", "yes", "on"].includes(normalized)) return true;
+          if (["0", "false", "no", "off"].includes(normalized)) return false;
+          return null;
+        }
+
+        const queryParams = readQueryParams();
+        const queryLanguage = (() => {
+          const value = readQueryValue(queryParams, "lang");
+          return value === "zh" || value === "en" ? value : null;
+        })();
+        const queryEndpoint = (() => {
+          const value = readQueryValue(queryParams, "endpoint");
+          return value ? getNormalizedEndpoint(value) : "";
+        })();
+        const queryRefreshPreset = (() => {
+          const value = readQueryValue(queryParams, "refreshPreset");
+          return value !== null && REFRESH_PRESETS.includes(value) ? value : null;
+        })();
+        const queryCustomRefreshSeconds = (() => {
+          const value = readQueryValue(queryParams, "customRefreshSeconds");
+          if (value === null || value === "") return null;
+          const parsed = Number(value);
+          return Number.isFinite(parsed) ? clampCustomRefreshSeconds(parsed) : null;
+        })();
+        const queryAutoRefresh = readQueryBoolean(queryParams, "autoRefresh");
+
+        // Extract apiKey from URL, persist to localStorage, then strip from URL
+        (() => {
+          const qKey = readQueryValue(queryParams, "apiKey");
+          if (qKey) {
+            try { localStorage.setItem("dashboard-api-key", qKey); } catch {}
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.delete("apiKey");
+              window.history.replaceState({}, "", url.toString());
+            } catch {}
+          }
+        })();
+
+        const state = {
+          language: getValidLanguage(queryLanguage || readStoredValue(STORAGE_KEYS.language, "zh")),
+          endpoint: queryEndpoint || DEFAULT_ENDPOINT,
+          status: "idle",
+          data: null,
+          error: null,
+          lastUpdated: null,
+          autoRefresh: queryAutoRefresh === null ? false : queryAutoRefresh,
+          refreshIntervalPreset:
+            queryRefreshPreset ||
+            getValidRefreshPreset(readStoredValue(STORAGE_KEYS.refreshPreset, DEFAULT_REFRESH_PRESET)),
+          customRefreshSeconds:
+            queryCustomRefreshSeconds ??
+            clampCustomRefreshSeconds(readStoredNumber(STORAGE_KEYS.customRefreshSeconds, 60)),
+          activeDetailsTab: "summary",
+          detailsOpen: false,
+          activeMainTab: "overview",
+        };
+
+        let autoRefreshTimer = null;
+        let exportFeedbackTimer = null;
+        let activeRequestController = null;
+        let latestRequestId = 0;
+
+        const refs = {
+          pageTitle: document.getElementById("page-title"),
+          eyebrowText: document.getElementById("eyebrow-text"),
+          pageSubtitle: document.getElementById("page-subtitle"),
+          heroTags: document.getElementById("hero-tags"),
+          quickTipTitle: document.getElementById("quick-tip-title"),
+          quickTipBody: document.getElementById("quick-tip-body"),
+          modeChip: document.getElementById("mode-chip"),
+          langToggle: document.getElementById("lang-toggle"),
+          connectionTitle: document.getElementById("connection-title"),
+          connectionSubtitle: document.getElementById("connection-subtitle"),
+          connectionChips: document.getElementById("connection-chips"),
+          endpointForm: document.getElementById("endpoint-form"),
+          endpointInput: document.getElementById("endpoint-input"),
+          endpointLabel: document.getElementById("endpoint-label"),
+          endpointHint: document.getElementById("endpoint-hint"),
+          endpointCurrent: document.getElementById("endpoint-current"),
+          fetchButtonText: document.getElementById("fetch-button-text"),
+          resetButton: document.getElementById("reset-button"),
+          resetButtonText: document.getElementById("reset-button-text"),
+          overviewTitle: document.getElementById("overview-title"),
+          overviewCaption: document.getElementById("overview-caption"),
+          overviewGrid: document.getElementById("overview-grid"),
+          statusBanner: document.getElementById("status-banner"),
+          contentArea: document.getElementById("content-area"),
+          footerNote: document.getElementById("footer-note"),
+          badgeIcon: document.getElementById("badge-icon"),
+          connectionIcon: document.getElementById("connection-icon"),
+          refreshIcon: document.getElementById("refresh-icon"),
+          resetIcon: document.getElementById("reset-icon"),
+          exportIcon: document.getElementById("export-icon"),
+          exportButton: document.getElementById("export-button"),
+          exportButtonText: document.getElementById("export-button-text"),
+        };
+
+        function text(key, replacements = {}) {
+          const dictionary = I18N[state.language] || I18N.zh;
+          const template = dictionary[key] || I18N.en[key] || key;
+          return Object.entries(replacements).reduce(
+            (value, [token, replacement]) => value.replaceAll(`{${token}}`, replacement),
+            template,
+          );
+        }
+
+        function icon(name, className = "h-4 w-4") {
+          return `<span class="inline-icon ${className}" aria-hidden="true">${ICONS[name] || ""}</span>`;
+        }
+
+        function escapeHtml(value) {
+          return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#39;");
+        }
+
+        function formatDateTime(value) {
+          if (!value) return text("neverUpdated");
+          const date = new Date(value);
+          if (Number.isNaN(date.getTime())) return String(value);
+          return new Intl.DateTimeFormat(state.language === "zh" ? "zh-CN" : "en-US", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }).format(date);
+        }
+
+        function formatNumber(value) {
+          if (value === null || value === undefined || Number.isNaN(Number(value))) {
+            return text("noValue");
+          }
+          return new Intl.NumberFormat(state.language === "zh" ? "zh-CN" : "en-US").format(
+            Number(value),
+          );
+        }
+
+        function formatPercent(value) {
+          if (value === null || value === undefined || Number.isNaN(Number(value))) {
+            return text("noValue");
+          }
+          return `${Math.round(Number(value))}%`;
+        }
+
+        function getMode(data) {
+          if (!data || typeof data !== "object") return "copilot";
+          if (data.quota_snapshots) return "copilot";
+          return "copilot";
+        }
+
+        function getModeLabel(mode) {
+          return (modeLabels[mode] || modeLabels.unknown)();
+        }
+
+        function getConnectionState() {
+          if (state.status === "loading") {
+            return {
+              label: text("statusConnecting"),
+              dotClass: "status-loading",
+              pillClass: "pill-warning",
+            };
+          }
+          if (state.status === "success") {
+            return {
+              label: text("statusConnected"),
+              dotClass: "status-success",
+              pillClass: "pill-success",
+            };
+          }
+          if (state.status === "error") {
+            return {
+              label: text("statusFailed"),
+              dotClass: "status-error",
+              pillClass: "pill-danger",
+            };
+          }
+          return {
+            label: text("statusIdle"),
+            dotClass: "status-idle",
+            pillClass: "pill-neutral",
+          };
+        }
+
+        function getProgressTone(percentUsed, unlimited = false) {
+          if (unlimited) return "progress-fill-brand";
+          if (percentUsed >= 90) return "progress-fill-danger";
+          if (percentUsed >= 75) return "progress-fill-warning";
+          if (percentUsed >= 45) return "progress-fill-brand";
+          return "progress-fill-success";
+        }
+
+        function getHealthLabel(percentRemaining) {
+          const number = Number(percentRemaining);
+          if (number <= 15) return { text: text("modelCritical"), className: "pill-danger" };
+          if (number <= 40) return { text: text("modelWarning"), className: "pill-warning" };
+          return { text: text("modelHealthy"), className: "pill-success" };
+        }
+
+        function getNormalizedEndpoint(value) {
+          const trimmed = value.trim();
+          if (!trimmed) return "";
+          try {
+            return new URL(trimmed).toString();
+          } catch {
+            return "";
+          }
+        }
+
+        function updateUrl(endpoint) {
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.set("endpoint", endpoint);
+            window.history.replaceState({}, "", url);
+          } catch (error) {
+            console.warn("Failed to update URL", error);
+          }
+        }
+
+        function getExportBaseUrl(endpoint) {
+          const normalized = getNormalizedEndpoint(endpoint);
+          if (!normalized) return "";
+
+          try {
+            const url = new URL(normalized);
+            const pathname = url.pathname.replace(/\/usage\/?$/, "");
+            return `${url.origin}${pathname === "/" ? "" : pathname}`;
+          } catch {
+            return normalized.replace(/[?#].*$/, "").replace(/\/usage\/?$/, "");
+          }
+        }
+
+        function getApiBaseUrl() {
+          try {
+            const endpoint = new URL(state.endpoint);
+            const pathname = endpoint.pathname.replace(/\/usage\/?$/, "");
+            return `${endpoint.origin}${pathname === "/" ? "" : pathname}`;
+          } catch {
+            return state.endpoint.replace(/\/usage\/?$/, "");
+          }
+        }
+
+        function getApiHeaders() {
+          const headers = { "Content-Type": "application/json" };
+          try {
+            const apiKey = localStorage.getItem("dashboard-api-key");
+            if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+          } catch {}
+          const params = readQueryParams();
+          const qKey = readQueryValue(params, "apiKey");
+          if (qKey) headers["Authorization"] = `Bearer ${qKey}`;
+          return headers;
+        }
+
+        function buildExportConfigJson(mainModel, smallModel, authToken) {
+          const baseUrl = getExportBaseUrl(state.endpoint) || state.endpoint;
+          if (!authToken) {
+            authToken = "dummy";
+            try {
+              const savedKey = localStorage.getItem("dashboard-api-key");
+              if (savedKey) authToken = savedKey;
+            } catch {}
+            const params = readQueryParams();
+            const qKey = readQueryValue(params, "apiKey");
+            if (qKey) authToken = qKey;
+          }
+
+          return JSON.stringify(
+            {
+              env: {
+                ANTHROPIC_BASE_URL: baseUrl,
+                ANTHROPIC_AUTH_TOKEN: authToken,
+                ANTHROPIC_MODEL: mainModel,
+                ANTHROPIC_DEFAULT_SONNET_MODEL: mainModel,
+                ANTHROPIC_DEFAULT_OPUS_MODEL: mainModel,
+                ANTHROPIC_REASONING_MODEL: mainModel,
+                ANTHROPIC_SMALL_FAST_MODEL: smallModel,
+                ANTHROPIC_DEFAULT_HAIKU_MODEL: smallModel,
+                DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
+                CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+              },
+            },
+            null,
+            2,
+          );
+        }
+
+        function copyTextWithExecCommand(value) {
+          const textArea = document.createElement("textarea");
+          textArea.value = value;
+          textArea.setAttribute("readonly", "readonly");
+          textArea.style.position = "fixed";
+          textArea.style.opacity = "0";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          textArea.setSelectionRange(0, textArea.value.length);
+
+          try {
+            return document.execCommand("copy");
+          } catch {
+            return false;
+          } finally {
+            textArea.remove();
+          }
+        }
+
+        async function copyTextToClipboard(value) {
+          if (navigator.clipboard?.writeText) {
+            try {
+              await navigator.clipboard.writeText(value);
+              return true;
+            } catch (error) {
+              console.warn("Failed to copy with navigator.clipboard", error);
+            }
+          }
+          return copyTextWithExecCommand(value);
+        }
+
+        function setExportFeedback(labelKey) {
+          refs.exportButtonText.textContent = text(labelKey);
+          if (exportFeedbackTimer) {
+            window.clearTimeout(exportFeedbackTimer);
+          }
+          exportFeedbackTimer = window.setTimeout(() => {
+            refs.exportButtonText.textContent = text("exportConfig");
+            exportFeedbackTimer = null;
+          }, 1800);
+        }
+
+        function clampCustomRefreshSeconds(value) {
+          const parsed = Number(value);
+          if (!Number.isFinite(parsed)) return 60;
+          return Math.max(MIN_CUSTOM_REFRESH_SECONDS, Math.round(parsed));
+        }
+
+        function getRefreshIntervalSeconds() {
+          if (state.refreshIntervalPreset === "custom") {
+            return clampCustomRefreshSeconds(state.customRefreshSeconds);
+          }
+          const presetValue = Number(state.refreshIntervalPreset);
+          return Number.isFinite(presetValue) ? presetValue : Number(DEFAULT_REFRESH_PRESET);
+        }
+
+        function getRefreshIntervalLabel(seconds = getRefreshIntervalSeconds()) {
+          return state.language === "zh" ? `${seconds} 秒` : `${seconds}s`;
+        }
+
+        function persistPreferences() {
+          try {
+            localStorage.setItem(STORAGE_KEYS.language, state.language);
+            localStorage.setItem(STORAGE_KEYS.autoRefresh, String(Boolean(state.autoRefresh)));
+            localStorage.setItem(STORAGE_KEYS.refreshPreset, state.refreshIntervalPreset);
+            localStorage.setItem(
+              STORAGE_KEYS.customRefreshSeconds,
+              String(clampCustomRefreshSeconds(state.customRefreshSeconds)),
+            );
+          } catch (error) {
+            console.warn("Failed to persist dashboard preferences", error);
+          }
+        }
+
+        function syncAutoRefresh() {
+          if (autoRefreshTimer) {
+            window.clearInterval(autoRefreshTimer);
+            autoRefreshTimer = null;
+          }
+          if (!state.autoRefresh) return;
+          autoRefreshTimer = window.setInterval(() => {
+            fetchData({ preserveContent: true, endpointOverride: state.endpoint });
+          }, getRefreshIntervalSeconds() * 1000);
+        }
+
+        function setEndpoint(endpoint) {
+          state.endpoint = endpoint;
+          refs.endpointInput.value = endpoint;
+          refs.endpointCurrent.textContent = text("currentTargetLabel", { endpoint });
+        }
+
+        function cancelActiveRequest() {
+          latestRequestId += 1;
+          if (activeRequestController) {
+            activeRequestController.abort();
+            activeRequestController = null;
+          }
+        }
+
+        function renderStaticTexts() {
+          document.documentElement.lang = state.language === "zh" ? "zh-CN" : "en";
+          document.title = text("title");
+          refs.badgeIcon.innerHTML = ICONS.dashboard;
+          refs.connectionIcon.innerHTML = ICONS.link;
+          refs.refreshIcon.innerHTML = ICONS.refresh;
+          refs.resetIcon.innerHTML = ICONS.reset;
+          refs.exportIcon.innerHTML = ICONS.export;
+          refs.eyebrowText.textContent = text("eyebrow");
+          refs.pageTitle.textContent = text("title");
+          refs.pageSubtitle.textContent = text("subtitle");
+          refs.quickTipTitle.textContent = text("quickTipTitle");
+          refs.quickTipBody.textContent = text("quickTipBody");
+          refs.connectionTitle.textContent = text("connectionTitle");
+          refs.connectionSubtitle.textContent = text("connectionSubtitle");
+          refs.endpointLabel.textContent = text("endpointLabel");
+          refs.endpointHint.textContent = text("endpointHint");
+          refs.fetchButtonText.textContent = text("fetch");
+          refs.resetButtonText.textContent = text("reset");
+          refs.exportButtonText.textContent = text("exportConfig");
+          refs.overviewTitle.textContent = text("overviewTitle");
+          refs.overviewCaption.textContent = text("overviewCaption");
+          refs.footerNote.textContent = text("footer");
+          refs.langToggle.textContent = text("languageToggle");
+          refs.heroTags.innerHTML = (I18N[state.language].heroTags || []).map((item) => `<span class="pill pill-neutral">${escapeHtml(item)}</span>`).join("");
+          refs.modeChip.textContent = state.data ? getModeLabel(getMode(state.data)) : text("modeChipLabel");
+          refs.connectionChips.innerHTML = [
+            `<span class="pill pill-neutral">${icon("link")}${escapeHtml(text("endpointCurrent"))}</span>`,
+            `<span class="pill pill-brand">${icon("terminal")}${escapeHtml("/usage")}</span>`,
+          ].join("");
+          refs.endpointCurrent.textContent = text("currentTargetLabel", { endpoint: state.endpoint });
+
+          // ── Tab labels and icons ──
+          const tabIconMap = { overview: "chart", accounts: "users", models: "cpu", statistics: "activity", proxy: "terminal" };
+          const tabLabelMap = { overview: "tabOverview", accounts: "tabAccounts", models: "tabModels", statistics: "tabStatistics", proxy: "tabProxy" };
+          for (const [key, iconName] of Object.entries(tabIconMap)) {
+            const iconEl = document.getElementById(`tab-icon-${key}`);
+            const labelEl = document.getElementById(`tab-label-${key}`);
+            if (iconEl) iconEl.innerHTML = ICONS[iconName] || "";
+            if (labelEl) labelEl.textContent = text(tabLabelMap[key]);
+          }
+
+          // ── Accounts tab static texts ──
+          const acctTitle = document.getElementById("accounts-section-title");
+          if (acctTitle) acctTitle.textContent = text("accountsSectionTitle");
+          const addIcon = document.getElementById("add-account-icon");
+          if (addIcon) addIcon.innerHTML = ICONS.userPlus;
+          const addText = document.getElementById("add-account-text");
+          if (addText) addText.textContent = text("addAccount");
+
+          // ── Models tab static texts ──
+          const mAvailIcon = document.getElementById("models-avail-icon");
+          if (mAvailIcon) mAvailIcon.innerHTML = ICONS.layers;
+          const mAvailTitle = document.getElementById("models-avail-title");
+          if (mAvailTitle) mAvailTitle.textContent = text("modelsAvailableTitle");
+          const mMapIcon = document.getElementById("models-map-icon");
+          if (mMapIcon) mMapIcon.innerHTML = ICONS.arrowRight;
+          const mMapTitle = document.getElementById("models-map-title");
+          if (mMapTitle) mMapTitle.textContent = text("modelMappingTitle");
+          const mConcIcon = document.getElementById("models-conc-icon");
+          if (mConcIcon) mConcIcon.innerHTML = ICONS.server;
+          const mConcTitle = document.getElementById("models-conc-title");
+          if (mConcTitle) mConcTitle.textContent = text("modelConcurrencyTitle");
+          const saveMappingText = document.getElementById("save-mapping-text");
+          if (saveMappingText) saveMappingText.textContent = text("modelMappingSave");
+          const saveConcText = document.getElementById("save-concurrency-text");
+          if (saveConcText) saveConcText.textContent = text("modelConcurrencySave");
+          // Model table headers
+          const mAvailThead = document.getElementById("models-avail-thead");
+          if (mAvailThead) mAvailThead.innerHTML = `<th>${escapeHtml(text("modelsColName"))}</th><th>${escapeHtml(text("modelsColVendor"))}</th><th>${escapeHtml(text("modelsColMaxOutput"))}</th><th>${escapeHtml(text("modelsColMultiplier"))}</th><th>${escapeHtml(text("modelsColPremium"))}</th><th>${escapeHtml(text("modelsColStatus"))}</th>`;
+          const mMapThead = document.getElementById("models-map-thead");
+          if (mMapThead) mMapThead.innerHTML = `<th>${escapeHtml(text("modelMappingFrom"))}</th><th></th><th>${escapeHtml(text("modelMappingTo"))}</th><th>${escapeHtml(text("modelMappingAction"))}</th>`;
+          const mConcThead = document.getElementById("models-conc-thead");
+          if (mConcThead) mConcThead.innerHTML = `<th>${escapeHtml(text("modelConcurrencyModel"))}</th><th>${escapeHtml(text("modelConcurrencyMax"))}</th><th>${escapeHtml(text("modelConcurrencyAction"))}</th>`;
+
+          // ── Stats tab static texts ──
+          const sReqIcon = document.getElementById("stats-req-icon");
+          if (sReqIcon) sReqIcon.innerHTML = ICONS.activity;
+          const sReqTitle = document.getElementById("stats-req-title");
+          if (sReqTitle) sReqTitle.textContent = text("statsRequests");
+          const sAcctIcon = document.getElementById("stats-acct-icon");
+          if (sAcctIcon) sAcctIcon.innerHTML = ICONS.users;
+          const sAcctTitle = document.getElementById("stats-acct-title");
+          if (sAcctTitle) sAcctTitle.textContent = text("statsAccountDist");
+
+          // ── Modal static texts ──
+          const modalTitle = document.getElementById("modal-title");
+          if (modalTitle) modalTitle.textContent = text("modalAddTitle");
+          const modalLabelLabel = document.getElementById("modal-label-label");
+          if (modalLabelLabel) modalLabelLabel.textContent = text("modalLabelLabel");
+          const modalTypeLabel = document.getElementById("modal-type-label");
+          if (modalTypeLabel) modalTypeLabel.textContent = text("modalTypeLabel");
+          const optIndividual = document.getElementById("opt-type-individual");
+          if (optIndividual) optIndividual.textContent = text("accountTypeIndividual");
+          const optBusiness = document.getElementById("opt-type-business");
+          if (optBusiness) optBusiness.textContent = text("accountTypeBusiness");
+          const optEnterprise = document.getElementById("opt-type-enterprise");
+          if (optEnterprise) optEnterprise.textContent = text("accountTypeEnterprise");
+          const modalStartAuthText = document.getElementById("modal-start-auth-text");
+          if (modalStartAuthText) modalStartAuthText.textContent = text("modalStartAuth");
+          const modalDeviceTitle = document.getElementById("modal-device-title");
+          if (modalDeviceTitle) modalDeviceTitle.textContent = text("modalDeviceCodeTitle");
+          const modalInstr1 = document.getElementById("modal-instr-1");
+          if (modalInstr1) modalInstr1.textContent = text("modalDeviceCodeInstr1");
+          const modalInstr2 = document.getElementById("modal-instr-2");
+          if (modalInstr2) modalInstr2.textContent = text("modalDeviceCodeInstr2");
+          const modalInstr3 = document.getElementById("modal-instr-3");
+          if (modalInstr3) modalInstr3.textContent = text("modalDeviceCodeInstr3");
+          const modalCopyCodeText = document.getElementById("modal-copy-code-text");
+          if (modalCopyCodeText) modalCopyCodeText.textContent = text("modalDeviceCodeCopy");
+          const modalGhLinkText = document.getElementById("modal-gh-link-text");
+          if (modalGhLinkText) modalGhLinkText.textContent = text("modalDeviceCodeOpenGH");
+          const modalWaitingText = document.getElementById("modal-waiting-text");
+          if (modalWaitingText) modalWaitingText.textContent = text("modalDeviceCodeWaiting");
+          const modalCancelAuthText = document.getElementById("modal-cancel-auth-text");
+          if (modalCancelAuthText) modalCancelAuthText.textContent = text("modalDeviceCodeCancel");
+          const modalSuccessTitle = document.getElementById("modal-success-title");
+          if (modalSuccessTitle) modalSuccessTitle.textContent = text("modalDeviceCodeSuccess");
+          const modalDoneText = document.getElementById("modal-done-text");
+          if (modalDoneText) modalDoneText.textContent = text("modalDeviceCodeDone");
+          const modalRetryText = document.getElementById("modal-retry-text");
+          if (modalRetryText) modalRetryText.textContent = text("modalDeviceCodeRetry");
+
+          // ── Proxy tab static texts ──
+          const base = window.location.origin;
+          const proxySecIcon = document.getElementById("proxy-section-icon");
+          if (proxySecIcon) proxySecIcon.innerHTML = ICONS.terminal;
+          const proxySecTitle = document.getElementById("proxy-section-title");
+          if (proxySecTitle) proxySecTitle.textContent = text("proxySectionTitle");
+          const proxySecDesc = document.getElementById("proxy-section-desc");
+          if (proxySecDesc) proxySecDesc.textContent = text("proxySectionDesc");
+          const proxyBaseTitle = document.getElementById("proxy-base-url-title");
+          if (proxyBaseTitle) proxyBaseTitle.textContent = text("proxyBaseUrlTitle");
+          const proxyBaseVal = document.getElementById("proxy-base-url-value");
+          if (proxyBaseVal) proxyBaseVal.textContent = base;
+          const proxyOAITitle = document.getElementById("proxy-openai-title");
+          if (proxyOAITitle) proxyOAITitle.textContent = text("proxyOpenAITitle");
+          const proxyOAIDesc = document.getElementById("proxy-openai-desc");
+          if (proxyOAIDesc) proxyOAIDesc.textContent = text("proxyOpenAIDesc");
+          const proxyOAIUrl = document.getElementById("proxy-openai-url");
+          if (proxyOAIUrl) proxyOAIUrl.textContent = base + "/v1";
+          const proxyANTHTitle = document.getElementById("proxy-anthropic-title");
+          if (proxyANTHTitle) proxyANTHTitle.textContent = text("proxyAnthropicTitle");
+          const proxyANTHDesc = document.getElementById("proxy-anthropic-desc");
+          if (proxyANTHDesc) proxyANTHDesc.textContent = text("proxyAnthropicDesc");
+          const proxyANTHUrl = document.getElementById("proxy-anthropic-url");
+          if (proxyANTHUrl) proxyANTHUrl.textContent = base;
+          const proxyToolsTitle = document.getElementById("proxy-tools-title");
+          if (proxyToolsTitle) proxyToolsTitle.textContent = text("proxyToolsTitle");
+          const proxyClaudeUrl = document.getElementById("proxy-claude-code-url");
+          if (proxyClaudeUrl) proxyClaudeUrl.textContent = base;
+          const proxyAiderUrl = document.getElementById("proxy-aider-url");
+          if (proxyAiderUrl) proxyAiderUrl.textContent = base + "/v1";
+          const proxyNote = document.getElementById("proxy-note");
+          if (proxyNote) proxyNote.textContent = text("proxyNote");
+        }
+
+        function renderOverview() {
+          const connectionState = getConnectionState();
+          const mode = getMode(state.data);
+          const cards = [
+            {
+              icon: "status",
+              title: text("statusCardTitle"),
+              value: `<span class="inline-flex items-center gap-3"><span class="status-dot ${connectionState.dotClass}"></span><span>${escapeHtml(connectionState.label)}</span></span>`,
+              helper: text("statusCardHelp"),
+              accent: connectionState.pillClass,
+              extra: `<span class="pill ${connectionState.pillClass}">${icon("link")}${escapeHtml(state.endpoint)}</span>`,
+            },
+            {
+              icon: "mode",
+              title: text("modeCardTitle"),
+              value: escapeHtml(getModeLabel(mode)),
+              helper: text("modeCardHelp"),
+              accent: "pill-brand",
+              extra: `<span class="pill pill-brand">${icon("chart")}${escapeHtml(text("viewMode"))}</span>`,
+            },
+            {
+              icon: "clock",
+              title: text("lastUpdatedTitle"),
+              value: escapeHtml(formatDateTime(state.lastUpdated)),
+              helper: text("lastUpdatedHelp"),
+              accent: "pill-neutral",
+              extra: `<span class="pill pill-neutral mono">${escapeHtml(state.lastUpdated ? formatDateTime(state.lastUpdated) : text("neverUpdated"))}</span>`,
+            },
+            {
+              icon: "auto",
+              title: text("autoRefreshTitle"),
+              value: `
+                <span class="inline-flex flex-wrap items-center gap-2">
+                  <span>${escapeHtml(state.autoRefresh ? text("autoRefreshOn") : text("autoRefreshOff"))}</span>
+                  <span class="pill pill-neutral">${escapeHtml(getRefreshIntervalLabel())}</span>
+                </span>
+              `,
+              helper: text("autoRefreshHelp", { interval: getRefreshIntervalLabel() }),
+              accent: state.autoRefresh ? "pill-success" : "pill-neutral",
+              extra: `
+                <div class="auto-refresh-controls">
+                  <div class="auto-refresh-header">
+                    <label class="switch" for="auto-refresh-toggle">
+                      <input id="auto-refresh-toggle" class="switch-input" type="checkbox" ${state.autoRefresh ? "checked" : ""} />
+                      <span class="switch-track"></span>
+                    </label>
+                    <span class="pill ${state.autoRefresh ? "pill-success" : "pill-neutral"} auto-refresh-summary">${escapeHtml(text("autoRefreshSelection", { interval: getRefreshIntervalLabel() }))}</span>
+                  </div>
+                  <div class="refresh-preset-group">
+                    <span class="helper-text">${escapeHtml(text("autoRefreshPresetLabel"))}</span>
+                    <div class="refresh-preset-grid" role="group" aria-label="${escapeHtml(text("autoRefreshPresetLabel"))}">
+                      ${REFRESH_PRESETS.map((preset) => {
+                        const labelKey = preset === "custom" ? "autoRefreshPresetCustom" : `autoRefreshPreset${preset}`;
+                        return `<button type="button" class="segment-button ${state.refreshIntervalPreset === preset ? "is-active" : ""}" data-refresh-preset="${preset}" aria-pressed="${String(state.refreshIntervalPreset === preset)}">${escapeHtml(text(labelKey))}</button>`;
+                      }).join("")}
+                    </div>
+                  </div>
+                  ${
+                    state.refreshIntervalPreset === "custom"
+                      ? `
+                        <label class="refresh-custom-field" for="custom-refresh-seconds">
+                          <span class="helper-text">${escapeHtml(text("autoRefreshCustomLabel"))}</span>
+                          <input
+                            id="custom-refresh-seconds"
+                            class="input-field mono"
+                            type="number"
+                            inputmode="numeric"
+                            min="${MIN_CUSTOM_REFRESH_SECONDS}"
+                            step="1"
+                            value="${escapeHtml(String(clampCustomRefreshSeconds(state.customRefreshSeconds)))}"
+                            placeholder="${escapeHtml(text("autoRefreshCustomPlaceholder", { min: String(MIN_CUSTOM_REFRESH_SECONDS) }))}"
+                          />
+                        </label>
+                      `
+                      : ""
+                  }
+                </div>
+              `,
+            },
+          ];
+
+          refs.overviewGrid.innerHTML = cards
+            .map(
+              (card) => `
+                <article class="dashboard-card metric-card p-5 sm:p-6">
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="section-title text-base text-[var(--text)]">
+                      <span class="section-icon">${ICONS[card.icon]}</span>
+                      <span>${card.title}</span>
+                    </div>
+                    <span class="pill ${card.accent}">${card.icon === "auto" ? icon("auto") : icon(card.icon)} </span>
+                  </div>
+                  <div class="mt-5 text-lg font-bold leading-8 text-[var(--text)] sm:text-xl">${card.value}</div>
+                  <p class="mt-2 text-sm leading-6 text-[var(--muted)]">${card.helper}</p>
+                  <div class="mt-4">${card.extra}</div>
+                </article>
+              `,
+            )
+            .join("");
+
+          const toggle = document.getElementById("auto-refresh-toggle");
+          if (toggle) {
+            toggle.addEventListener("change", (event) => {
+              state.autoRefresh = event.currentTarget.checked;
+              persistPreferences();
+              syncAutoRefresh();
+              renderAll();
+            });
+          }
+
+          refs.overviewGrid.querySelectorAll("[data-refresh-preset]").forEach((button) => {
+            button.addEventListener("click", () => {
+              state.refreshIntervalPreset = getValidRefreshPreset(
+                button.getAttribute("data-refresh-preset") || DEFAULT_REFRESH_PRESET,
+              );
+              persistPreferences();
+              syncAutoRefresh();
+              renderAll();
+            });
+          });
+
+          const customInput = document.getElementById("custom-refresh-seconds");
+          if (customInput) {
+            const commitCustomRefresh = () => {
+              state.customRefreshSeconds = clampCustomRefreshSeconds(customInput.value);
+              persistPreferences();
+              syncAutoRefresh();
+              renderAll();
+            };
+            customInput.addEventListener("change", commitCustomRefresh);
+            customInput.addEventListener("blur", commitCustomRefresh);
+          }
+        }
+
+        function renderStatusBanner() {
+          if (state.status === "loading") {
+            refs.statusBanner.innerHTML = `
+              <div class="banner banner-info flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-start gap-3">
+                  <span class="section-icon h-10 w-10">${ICONS.refresh}</span>
+                  <div>
+                    <p class="font-bold text-[var(--text)]">${escapeHtml(text("loadingBannerTitle"))}</p>
+                    <p class="mt-1 text-sm leading-6 text-[var(--muted)]">${escapeHtml(text("loadingBannerBody"))}</p>
+                  </div>
+                </div>
+                <div class="loading-bar h-2 w-full rounded-full bg-white/70 sm:max-w-48"></div>
+              </div>
+            `;
+            return;
+          }
+
+          if (state.status === "error") {
+            refs.statusBanner.innerHTML = `
+              <div class="banner banner-error flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-start gap-3">
+                  <span class="section-icon h-10 w-10 bg-[var(--danger-soft)] text-[var(--danger)]">${ICONS.warning}</span>
+                  <div>
+                    <p class="font-bold text-[var(--text)]">${escapeHtml(text("errorBannerTitle"))}</p>
+                    <p class="mt-1 text-sm leading-6 text-[var(--muted)]">${escapeHtml(state.error || text("errorBannerBody"))}</p>
+                  </div>
+                </div>
+                <button type="button" data-action="retry" class="btn btn-secondary self-start sm:self-auto">${icon("refresh")}${escapeHtml(text("retry"))}</button>
+              </div>
+            `;
+            const retryButton = refs.statusBanner.querySelector('[data-action="retry"]');
+            if (retryButton) {
+              retryButton.addEventListener("click", () => fetchData({ preserveContent: true }));
+            }
+            return;
+          }
+
+          refs.statusBanner.innerHTML = "";
+        }
+
+        function renderContent() {
+          if (!state.data && state.status === "loading") {
+            refs.contentArea.innerHTML = renderLoadingState();
+            bindContentActions();
+            return;
+          }
+
+          if (!state.data && state.status === "error") {
+            refs.contentArea.innerHTML = renderEmptyState({
+              title: text("requestFailed"),
+              body: state.error || text("networkErrorFallback"),
+              actionLabel: text("retry"),
+              action: "retry",
+              tone: "error",
+            });
+            bindContentActions();
+            return;
+          }
+
+          if (!state.data) {
+            refs.contentArea.innerHTML = renderEmptyState({
+              title: text("emptyTitle"),
+              body: text("emptyBody"),
+              actionLabel: text("emptyAction"),
+              action: "default",
+              tone: "info",
+            });
+            bindContentActions();
+            return;
+          }
+
+          const mode = getMode(state.data);
+          const sections = [];
+          sections.push(renderCopilotSection(state.data));
+          sections.push(renderAdvancedPanel(state.data, mode));
+          refs.contentArea.innerHTML = sections.join("");
+          bindContentActions();
+        }
+
+        function renderLoadingState() {
+          return `
+            <section class="dashboard-card-strong p-8 sm:p-10">
+              <div class="max-w-xl space-y-4">
+                <div class="empty-illustration">${ICONS.refresh}</div>
+                <div>
+                  <h3 class="text-2xl font-bold tracking-tight text-[var(--text)]">${escapeHtml(text("loadingTitle"))}</h3>
+                  <p class="mt-2 text-sm leading-7 text-[var(--muted)] sm:text-base">${escapeHtml(text("loadingBody"))}</p>
+                </div>
+                <div class="space-y-3">
+                  <div class="loading-bar h-4 rounded-full bg-white/75"></div>
+                  <div class="loading-bar h-4 w-4/5 rounded-full bg-white/75"></div>
+                  <div class="loading-bar h-24 rounded-[20px] bg-white/75"></div>
+                </div>
+              </div>
+            </section>
+          `;
+        }
+
+        function renderEmptyState({ title, body, actionLabel, action, tone }) {
+          const illustration = tone === "error" ? ICONS.warning : ICONS.dashboard;
+          const toneClass = tone === "error" ? "pill-danger" : "pill-brand";
+          return `
+            <section class="dashboard-card-strong p-8 sm:p-10">
+              <div class="max-w-2xl space-y-4">
+                <div class="empty-illustration ${tone === "error" ? "text-[var(--danger)] bg-[var(--danger-soft)]" : ""}">${illustration}</div>
+                <div>
+                  <span class="pill ${toneClass}">${tone === "error" ? icon("warning") : icon("info")}${escapeHtml(tone === "error" ? text("requestFailed") : text("statusConnecting"))}</span>
+                  <h3 class="mt-4 text-2xl font-bold tracking-tight text-[var(--text)]">${escapeHtml(title)}</h3>
+                  <p class="mt-2 text-sm leading-7 text-[var(--muted)] sm:text-base">${escapeHtml(body)}</p>
+                </div>
+                <button type="button" data-action="${action}" class="btn btn-primary">${icon(action === "retry" ? "refresh" : "link")}${escapeHtml(actionLabel)}</button>
+              </div>
+            </section>
+          `;
+        }
+
+        function renderCopilotSection(data) {
+          const quotas = data.quota_snapshots || {};
+          const keys = ["chat", "completions", "premium_interactions"];
+          const resetAt = data.quota_reset_date;
+          const metaPills = [
+            `<span class="pill pill-brand">${icon("mode")}${escapeHtml(text("copilotPlan"))}: ${escapeHtml(data.copilot_plan || text("noValue"))}</span>`,
+            `<span class="pill pill-neutral">${icon("link")}${escapeHtml(text("accessType"))}: ${escapeHtml(data.access_type_sku || text("noValue"))}</span>`,
+            `<span class="pill pill-neutral">${icon("chart")}${escapeHtml(text("organizationCount"))}: ${escapeHtml(formatNumber((data.organization_login_list || []).length))}</span>`,
+          ].join("");
+
+          const cards = keys
+            .map((key) => {
+              const detail = quotas[key];
+              const meta = quotaMeta[key];
+              if (!detail) return "";
+              const unlimited = Boolean(detail.unlimited);
+              const total = unlimited ? text("unlimited") : formatNumber(detail.entitlement);
+              const remaining = unlimited ? text("unlimited") : formatNumber(detail.remaining ?? detail.quota_remaining);
+              const used = unlimited
+                ? text("noValue")
+                : formatNumber((detail.entitlement || 0) - (detail.remaining ?? detail.quota_remaining ?? 0));
+              const percentRemaining = unlimited ? 100 : Number(detail.percent_remaining || 0);
+              const percentUsed = unlimited ? 0 : Math.max(0, 100 - percentRemaining);
+              const tone = getProgressTone(percentUsed, unlimited);
+              const iconName = key === "chat" ? "mode" : key === "completions" ? "chart" : "spark";
+              return `
+                <article class="dashboard-card p-5 sm:p-6">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="space-y-2">
+                      <span class="pill ${meta.tone === "warning" ? "pill-warning" : meta.tone === "success" ? "pill-success" : "pill-brand"}">${icon(iconName)}${escapeHtml(text(meta.titleKey))}</span>
+                      <h3 class="text-xl font-bold tracking-tight text-[var(--text)]">${escapeHtml(text(meta.titleKey))}</h3>
+                      <p class="text-sm leading-6 text-[var(--muted)]">${escapeHtml(text(meta.descriptionKey))}</p>
+                    </div>
+                    <span class="pill ${unlimited ? "pill-brand" : percentUsed >= 90 ? "pill-danger" : percentUsed >= 75 ? "pill-warning" : "pill-success"}">${unlimited ? escapeHtml(text("unlimited")) : escapeHtml(formatPercent(percentUsed))}</span>
+                  </div>
+
+                  <div class="mt-5 space-y-3">
+                    <div class="progress-track">
+                      <div class="progress-fill ${tone}" style="width: ${unlimited ? 100 : percentUsed}%"></div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                      <div class="rounded-2xl bg-[var(--panel)] p-3">
+                        <p class="text-[var(--muted)]">${escapeHtml(text("usageUsed"))}</p>
+                        <p class="mt-1 font-bold text-[var(--text)] mono">${escapeHtml(used)}</p>
+                      </div>
+                      <div class="rounded-2xl bg-[var(--panel)] p-3">
+                        <p class="text-[var(--muted)]">${escapeHtml(text("usageRemaining"))}</p>
+                        <p class="mt-1 font-bold text-[var(--text)] mono">${escapeHtml(remaining)}</p>
+                      </div>
+                      <div class="rounded-2xl bg-[var(--panel)] p-3">
+                        <p class="text-[var(--muted)]">${escapeHtml(text("usageLimit"))}</p>
+                        <p class="mt-1 font-bold text-[var(--text)] mono">${escapeHtml(total)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mt-5 flex flex-wrap gap-2 text-sm">
+                    <span class="pill pill-neutral">${escapeHtml(text("overageAllowed"))}: ${escapeHtml(detail.overage_permitted ? text("enabled") : text("disabled"))}</span>
+                    <span class="pill pill-neutral">${escapeHtml(text("overageCount"))}: ${escapeHtml(formatNumber(detail.overage_count))}</span>
+                  </div>
+                </article>
+              `;
+            })
+            .join("");
+
+          return `
+            <section class="space-y-5">
+              <div class="dashboard-card-strong p-6 sm:p-7">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                  <div class="max-w-2xl space-y-3">
+                    <div class="section-title text-2xl text-[var(--text)]">
+                      <span class="section-icon">${ICONS.chart}</span>
+                      <span>${escapeHtml(text("copilotSectionTitle"))}</span>
+                    </div>
+                    <p class="text-sm leading-7 text-[var(--muted)] sm:text-base">${escapeHtml(text("copilotSectionBody"))}</p>
+                  </div>
+                  <div class="rounded-[22px] border border-[var(--line)] bg-white/70 px-4 py-3 text-sm text-[var(--muted)]">
+                    <div class="font-semibold text-[var(--text)]">${escapeHtml(text("quotaReset"))}</div>
+                    <div class="mt-1 mono">${escapeHtml(resetAt ? formatDateTime(resetAt) : text("noValue"))}</div>
+                  </div>
+                </div>
+                <div class="mt-5 flex flex-wrap gap-2">${metaPills}</div>
+              </div>
+
+              <div class="grid gap-4 lg:grid-cols-3">${cards}</div>
+            </section>
+          `;
+        }
+
+        function getAdvancedFacts(data, mode) {
+          const facts = [
+            [text("endpointField"), state.endpoint],
+            [text("modeField"), getModeLabel(mode)],
+            [text("responseStatusField"), state.status === "error" ? text("requestFailed") : text("requestSuccess")],
+            [text("lastUpdatedField"), state.lastUpdated ? formatDateTime(state.lastUpdated) : text("neverUpdated")],
+            [text("responseKeys"), Object.keys(data || {}).join(", ") || text("noValue")],
+          ];
+
+          if (mode === "copilot") {
+            facts.push([text("copilotPlan"), data.copilot_plan || text("noValue")]);
+            facts.push([text("accessType"), data.access_type_sku || text("noValue")]);
+            facts.push([text("resetField"), data.quota_reset_date ? formatDateTime(data.quota_reset_date) : text("noValue")]);
+            facts.push([text("chatEnabled"), data.chat_enabled ? text("enabled") : text("disabled")]);
+          }
+
+          return facts;
+        }
+
+        function renderAdvancedPanel(data, mode) {
+          const facts = getAdvancedFacts(data, mode)
+            .map(
+              ([label, value]) => `
+                <div class="rounded-2xl bg-[var(--panel)] p-4">
+                  <p class="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">${escapeHtml(label)}</p>
+                  <p class="mt-2 break-all text-sm leading-6 text-[var(--text)] mono">${escapeHtml(value || text("noValue"))}</p>
+                </div>
+              `,
+            )
+            .join("");
+          const rawJson = data ? JSON.stringify(data, null, 2) : text("jsonEmpty");
+
+          return `
+            <section class="dashboard-card p-5 sm:p-6">
+              <details class="details-panel" id="advanced-details" ${state.detailsOpen ? "open" : ""}>
+                <summary class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div class="section-title text-xl text-[var(--text)]">
+                      <span class="section-icon">${ICONS.data}</span>
+                      <span>${escapeHtml(text("advancedTitle"))}</span>
+                    </div>
+                    <p class="mt-2 text-sm leading-6 text-[var(--muted)]">${escapeHtml(text("advancedBody"))}</p>
+                  </div>
+                  <span class="pill pill-neutral">${icon("chevron", "details-chevron h-4 w-4")}${escapeHtml(text("detailsSummary"))}</span>
+                </summary>
+
+                <div class="space-y-4">
+                  <div class="flex flex-wrap gap-2 rounded-full bg-[var(--panel)] p-1">
+                    <button type="button" class="tab-button ${state.activeDetailsTab === "summary" ? "is-active" : ""}" data-tab="summary">${escapeHtml(text("detailsSummary"))}</button>
+                    <button type="button" class="tab-button ${state.activeDetailsTab === "raw" ? "is-active" : ""}" data-tab="raw">${escapeHtml(text("detailsRaw"))}</button>
+                  </div>
+
+                  <div class="tab-panel ${state.activeDetailsTab === "summary" ? "is-active" : ""}" data-panel="summary">
+                    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">${facts}</div>
+                  </div>
+
+                  <div class="tab-panel ${state.activeDetailsTab === "raw" ? "is-active" : ""}" data-panel="raw">
+                    <div class="mb-3 flex items-center justify-between gap-3">
+                      <span class="pill pill-neutral">${icon("terminal")}${escapeHtml(text("copyForDebug"))}</span>
+                    </div>
+                    <div class="code-panel"><pre>${escapeHtml(rawJson)}</pre></div>
+                  </div>
+                </div>
+              </details>
+            </section>
+          `;
+        }
+
+        function bindContentActions() {
+          refs.contentArea.querySelectorAll("[data-action='retry']").forEach((button) => {
+            button.addEventListener("click", () => fetchData({ preserveContent: true }));
+          });
+          refs.contentArea.querySelectorAll("[data-action='default']").forEach((button) => {
+            button.addEventListener("click", () => {
+              setEndpoint(DEFAULT_ENDPOINT);
+              updateUrl(DEFAULT_ENDPOINT);
+              fetchData({ preserveContent: false });
+            });
+          });
+          const advancedDetails = refs.contentArea.querySelector("#advanced-details");
+          if (advancedDetails) {
+            advancedDetails.addEventListener("toggle", () => {
+              state.detailsOpen = advancedDetails.open;
+            });
+          }
+          refs.contentArea.querySelectorAll("[data-tab]").forEach((button) => {
+            button.addEventListener("click", () => {
+              state.activeDetailsTab = button.getAttribute("data-tab") || "summary";
+              state.detailsOpen = true;
+              renderContent();
+            });
+          });
+        }
+
+        function renderAll() {
+          renderStaticTexts();
+          renderTabBar();
+          // Skip overview rebuild if user has focus inside it (prevents input destruction)
+          const overviewHasFocus = refs.overviewGrid && refs.overviewGrid.contains(document.activeElement);
+          if (!overviewHasFocus) renderOverview();
+          renderStatusBanner();
+          renderContent();
+          refs.modeChip.textContent = state.data ? getModeLabel(getMode(state.data)) : text("modeChipLabel");
+        }
+
+        async function fetchData({ preserveContent = true, endpointOverride } = {}) {
+          const endpointSource =
+            typeof endpointOverride === "string" ? endpointOverride : refs.endpointInput.value;
+          const endpoint = getNormalizedEndpoint(endpointSource);
+          if (!endpoint) {
+            cancelActiveRequest();
+            state.status = "error";
+            state.error = text("invalidEndpoint");
+            if (!preserveContent) {
+              state.data = null;
+              state.lastUpdated = null;
+            }
+            renderAll();
+            return;
+          }
+
+          const requestId = latestRequestId + 1;
+          if (activeRequestController) {
+            activeRequestController.abort();
+          }
+          latestRequestId = requestId;
+          const controller = new AbortController();
+          activeRequestController = controller;
+
+          setEndpoint(endpoint);
+          updateUrl(endpoint);
+          state.status = "loading";
+          state.error = null;
+          renderAll();
+
+          try {
+            const response = await fetch(endpoint, { signal: controller.signal });
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status} ${response.statusText}`);
+            }
+            const data = await response.json();
+            if (requestId !== latestRequestId) {
+              return;
+            }
+            state.data = data;
+            state.status = "success";
+            state.error = null;
+            state.lastUpdated = new Date().toISOString();
+          } catch (error) {
+            if (controller.signal.aborted || requestId !== latestRequestId) {
+              return;
+            }
+            console.error("Failed to fetch usage data", error);
+            state.status = "error";
+            state.error = error instanceof Error && error.message ? error.message : text("networkErrorFallback");
+            if (!preserveContent) {
+              state.data = null;
+            }
+          } finally {
+            if (requestId === latestRequestId && activeRequestController === controller) {
+              activeRequestController = null;
+            }
+          }
+
+          if (requestId === latestRequestId) {
+            renderAll();
+          }
+        }
+
+        function handleSubmit(event) {
+          event.preventDefault();
+          fetchData({ preserveContent: Boolean(state.data) });
+        }
+
+        function handleReset() {
+          state.activeDetailsTab = "summary";
+          setEndpoint(DEFAULT_ENDPOINT);
+          updateUrl(DEFAULT_ENDPOINT);
+          fetchData({ preserveContent: Boolean(state.data) });
+        }
+
+        async function handleExportConfig() {
+          // Fetch current config from server (selected models + API key)
+          let mainModel = "claude-sonnet-4";
+          let smallModel = "gpt-4.1";
+          let authToken = "dummy";
+          try {
+            const apiBase = getApiBaseUrl();
+            const res = await fetch(apiBase + "/api/config", { headers: getApiHeaders() });
+            if (res.ok) {
+              const cfg = await res.json();
+              if (cfg.selectedModel) mainModel = cfg.selectedModel;
+              if (cfg.selectedSmallModel) smallModel = cfg.selectedSmallModel;
+              if (cfg.apiKey) authToken = cfg.apiKey;
+            }
+          } catch {}
+
+          const configJson = buildExportConfigJson(mainModel, smallModel, authToken);
+          const copied = await copyTextToClipboard(configJson);
+
+          if (copied) {
+            setExportFeedback("exportCopied");
+            return;
+          }
+
+          setExportFeedback("exportPrompted");
+          window.prompt(text("exportManualCopy"), configJson);
+        }
+
+        // ═══════════════════════════════════════
+        //  Toast Notification System
+        // ═══════════════════════════════════════
+        function showToast(message, type = "success") {
+          const container = document.getElementById("toast-container");
+          if (!container) return;
+          const toast = document.createElement("div");
+          toast.className = `toast toast-${type}`;
+          const iconName = type === "error" ? "warning" : "check";
+          toast.innerHTML = `${icon(iconName)}${escapeHtml(message)}`;
+          container.appendChild(toast);
+          setTimeout(() => {
+            toast.style.opacity = "0";
+            toast.style.transition = "opacity 0.2s ease";
+            setTimeout(() => toast.remove(), 200);
+          }, 3000);
+        }
+
+        // ═══════════════════════════════════════
+        //  Main Tab Switching
+        // ═══════════════════════════════════════
+        function renderTabBar() {
+          const tabs = document.querySelectorAll(".main-tab-btn");
+          const sections = document.querySelectorAll(".main-tab-section");
+          tabs.forEach((t) => {
+            const key = t.getAttribute("data-main-tab");
+            t.classList.toggle("is-active", key === state.activeMainTab);
+          });
+          sections.forEach((s) => {
+            const id = s.id.replace("tab-", "");
+            s.classList.toggle("is-active", id === state.activeMainTab);
+          });
+        }
+
+        function switchMainTab(tabKey) {
+          state.activeMainTab = tabKey;
+          renderTabBar();
+          // Load data for tab on switch
+          if (tabKey === "accounts") loadAccounts();
+          if (tabKey === "models") { loadAvailableModels(); loadModelMapping(); loadModelConcurrency(); }
+          if (tabKey === "statistics") { loadStats(); startStatsAutoRefresh(); }
+          if (tabKey !== "statistics") stopStatsAutoRefresh();
+        }
+
+        // ═══════════════════════════════════════
+        //  Admin API Helpers
+        // ═══════════════════════════════════════
+        async function adminFetch(path, options = {}) {
+          // Admin API is always served by the same origin as this page.
+          // Do NOT derive the base from state.endpoint (which may point to
+          // a remote /usage URL and break cross-origin admin requests).
+          const url = path;
+          const headers = getApiHeaders();
+          try {
+            const response = await fetch(url, { ...options, headers: { ...headers, ...options.headers } });
+            if (!response.ok) {
+              const errText = await response.text().catch(() => "");
+              throw new Error(`HTTP ${response.status}: ${errText || response.statusText}`);
+            }
+            const ct = response.headers.get("content-type") || "";
+            if (ct.includes("application/json")) return await response.json();
+            return null;
+          } catch (err) {
+            console.error(`Admin API error [${path}]:`, err);
+            throw err;
+          }
+        }
+
+        // ═══════════════════════════════════════
+        //  Modal Management (Device Code Flow)
+        // ═══════════════════════════════════════
+        let deviceCodePollTimer = null;
+
+        function showModalStep(stepId) {
+          ["modal-step-1", "modal-step-2", "modal-step-3", "modal-step-error"].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = id === stepId ? "" : "none";
+          });
+        }
+
+        function openModal() {
+          showModalStep("modal-step-1");
+          const overlay = document.getElementById("add-account-modal");
+          if (overlay) overlay.classList.add("is-open");
+        }
+
+        function closeModal() {
+          // Stop any active polling
+          if (deviceCodePollTimer) {
+            clearInterval(deviceCodePollTimer);
+            deviceCodePollTimer = null;
+          }
+          const overlay = document.getElementById("add-account-modal");
+          if (overlay) overlay.classList.remove("is-open");
+          // Clear inputs
+          const labelInput = document.getElementById("modal-label");
+          const typeInput = document.getElementById("modal-type");
+          if (labelInput) labelInput.value = "";
+          if (typeInput) typeInput.value = "individual";
+          // Reset to step 1
+          showModalStep("modal-step-1");
+        }
+
+        async function startDeviceCodeAuth() {
+          const startBtn = document.getElementById("modal-start-auth-btn");
+          if (startBtn) startBtn.disabled = true;
+
+          try {
+            const response = await adminFetch("/api/accounts/auth/start", { method: "POST" });
+            if (!response) {
+              showToast(text("modalDeviceCodeError"), "error");
+              if (startBtn) startBtn.disabled = false;
+              return;
+            }
+
+            // Show step 2
+            showModalStep("modal-step-2");
+            if (startBtn) startBtn.disabled = false;
+
+            // Populate user code
+            const userCodeEl = document.getElementById("modal-user-code");
+            if (userCodeEl) userCodeEl.textContent = response.user_code;
+
+            // Set verification link
+            const ghLink = document.getElementById("modal-gh-link");
+            if (ghLink) ghLink.href = response.verification_uri;
+
+            // Reset copy button text
+            const copyText = document.getElementById("modal-copy-code-text");
+            if (copyText) copyText.textContent = text("modalDeviceCodeCopy");
+
+            // Start polling
+            const pollInterval = (response.interval || 5) * 1000;
+            deviceCodePollTimer = setInterval(async () => {
+              try {
+                const pollResponse = await adminFetch("/api/accounts/auth/poll", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    device_code: response.device_code,
+                    label: document.getElementById("modal-label")?.value?.trim() || "",
+                    account_type: document.getElementById("modal-type")?.value || "individual",
+                  }),
+                });
+
+                if (!pollResponse) return;
+
+                if (pollResponse.status === "complete") {
+                  clearInterval(deviceCodePollTimer);
+                  deviceCodePollTimer = null;
+                  showAuthSuccess(pollResponse.account);
+                } else if (pollResponse.status === "expired") {
+                  clearInterval(deviceCodePollTimer);
+                  deviceCodePollTimer = null;
+                  showAuthError(text("modalDeviceCodeExpired"));
+                } else if (pollResponse.status === "denied") {
+                  clearInterval(deviceCodePollTimer);
+                  deviceCodePollTimer = null;
+                  showAuthError(text("modalDeviceCodeDenied"));
+                } else if (pollResponse.status === "error") {
+                  clearInterval(deviceCodePollTimer);
+                  deviceCodePollTimer = null;
+                  showAuthError(pollResponse.message || text("modalDeviceCodeError"));
+                }
+                // "pending" → keep polling
+              } catch (err) {
+                // Network error during poll — keep trying
+                console.error("Poll error:", err);
+              }
+            }, pollInterval);
+          } catch (err) {
+            showToast(text("modalDeviceCodeError") + ": " + err.message, "error");
+            if (startBtn) startBtn.disabled = false;
+          }
+        }
+
+        function showAuthSuccess(account) {
+          showModalStep("modal-step-3");
+          const accountInfo = document.getElementById("modal-success-account");
+          if (accountInfo && account) {
+            const displayName = account.githubLogin || account.label || account.id;
+            accountInfo.textContent = displayName;
+          }
+        }
+
+        function showAuthError(message) {
+          showModalStep("modal-step-error");
+          const errorMsg = document.getElementById("modal-error-message");
+          if (errorMsg) errorMsg.textContent = message;
+        }
+
+        async function handleCopyCode() {
+          const userCodeEl = document.getElementById("modal-user-code");
+          if (!userCodeEl) return;
+          const code = userCodeEl.textContent;
+          const copied = await copyTextToClipboard(code);
+          if (copied) {
+            const copyText = document.getElementById("modal-copy-code-text");
+            if (copyText) {
+              copyText.textContent = text("modalDeviceCodeCopied");
+              setTimeout(() => {
+                copyText.textContent = text("modalDeviceCodeCopy");
+              }, 2000);
+            }
+          } else {
+            showToast(text("exportManualCopy"), "error");
+          }
+        }
+
+        function handleAuthDone() {
+          closeModal();
+          loadAccounts();
+        }
+
+        function handleAuthRetry() {
+          showModalStep("modal-step-1");
+        }
+
+        // ═══════════════════════════════════════
+        //  Confirm Dialog
+        // ═══════════════════════════════════════
+        function showConfirm(title, message) {
+          return new Promise((resolve) => {
+            const overlay = document.createElement("div");
+            overlay.className = "modal-overlay is-open";
+            overlay.innerHTML = `
+              <div class="modal-dialog" style="position:relative;max-width:400px;">
+                <h3 class="modal-title">${escapeHtml(title)}</h3>
+                <p class="mt-3 text-sm leading-6 text-[var(--muted)]">${escapeHtml(message)}</p>
+                <div class="confirm-actions">
+                  <button type="button" class="btn btn-secondary btn-sm" data-confirm="cancel">${escapeHtml(text("confirmCancel"))}</button>
+                  <button type="button" class="btn btn-primary btn-sm" style="background:linear-gradient(135deg,var(--danger),#8b2e28);box-shadow:0 8px 18px rgba(178,71,63,0.18);" data-confirm="yes">${escapeHtml(text("confirmYes"))}</button>
+                </div>
+              </div>
+            `;
+            document.body.appendChild(overlay);
+            overlay.querySelector('[data-confirm="cancel"]').addEventListener("click", () => {
+              overlay.remove();
+              resolve(false);
+            });
+            overlay.querySelector('[data-confirm="yes"]').addEventListener("click", () => {
+              overlay.remove();
+              resolve(true);
+            });
+            overlay.addEventListener("click", (e) => {
+              if (e.target === overlay) { overlay.remove(); resolve(false); }
+            });
+          });
+        }
+
+        // ═══════════════════════════════════════
+        //  Account Management
+        // ═══════════════════════════════════════
+        let accountsData = [];
+
+        function getStatusPill(status) {
+          const map = {
+            active: { label: "accountStatusActive", cls: "pill-success" },
+            exhausted: { label: "accountStatusExhausted", cls: "pill-warning" },
+            rate_limited: { label: "accountStatusRateLimited", cls: "pill-warning" },
+            banned: { label: "accountStatusBanned", cls: "pill-danger" },
+            error: { label: "accountStatusError", cls: "pill-danger" },
+            disabled: { label: "accountStatusDisabled", cls: "pill-neutral" },
+          };
+          const entry = map[status] || { label: "accountStatusUnknown", cls: "pill-neutral" };
+          return `<span class="pill ${entry.cls}">${escapeHtml(text(entry.label))}</span>`;
+        }
+
+        async function loadAccounts() {
+          const statsEl = document.getElementById("accounts-stats");
+          const listEl = document.getElementById("accounts-list");
+          if (!statsEl || !listEl) return;
+          // Show loading
+          listEl.innerHTML = `<div class="dashboard-card p-6 text-center col-span-full"><span class="loading-spinner"></span> <span class="text-sm text-[var(--muted)] ml-2">${escapeHtml(text("loading"))}</span></div>`;
+          try {
+            const data = await adminFetch("/api/accounts");
+            accountsData = Array.isArray(data) ? data : (data && data.accounts ? data.accounts : []);
+          } catch (err) {
+            accountsData = [];
+            listEl.innerHTML = renderAccountsEmpty();
+            statsEl.innerHTML = renderAccountsStats(0, 0, 0);
+            showToast(text("apiError") + ": " + err.message, "error");
+            return;
+          }
+          const totalAccounts = accountsData.length;
+          const activeAccounts = accountsData.filter((a) => a.status === "active").length;
+          const premiumRemaining = accountsData.reduce((sum, a) => {
+            return sum + Number(a.usage?.premium_remaining || 0);
+          }, 0);
+          statsEl.innerHTML = renderAccountsStats(totalAccounts, activeAccounts, premiumRemaining);
+          if (accountsData.length === 0) {
+            listEl.innerHTML = renderAccountsEmpty();
+            return;
+          }
+          listEl.innerHTML = accountsData.map((acct) => renderAccountCard(acct)).join("");
+          bindAccountActions();
+        }
+
+        function renderAccountsStats(total, active, premium) {
+          return [
+            { title: text("accountsTotal"), value: formatNumber(total), icon: "users", pill: "pill-brand" },
+            { title: text("accountsActive"), value: formatNumber(active), icon: "check", pill: "pill-success" },
+            { title: text("accountsPremiumRemaining"), value: formatNumber(premium), icon: "spark", pill: "pill-warning" },
+          ].map((c) => `
+            <article class="dashboard-card metric-card p-5 sm:p-6">
+              <div class="flex items-start justify-between gap-3">
+                <span class="text-sm font-semibold text-[var(--muted)]">${escapeHtml(c.title)}</span>
+                <span class="pill ${c.pill}">${icon(c.icon)}</span>
+              </div>
+              <div class="mt-3 text-2xl font-bold text-[var(--text)] mono">${escapeHtml(String(c.value))}</div>
+            </article>
+          `).join("");
+        }
+
+        function renderAccountsEmpty() {
+          return `
+            <div class="dashboard-card-strong p-8 text-center col-span-full space-y-3">
+              <div class="empty-illustration mx-auto">${ICONS.users}</div>
+              <h3 class="text-lg font-bold text-[var(--text)]">${escapeHtml(text("accountNoAccounts"))}</h3>
+              <p class="text-sm text-[var(--muted)] max-w-md mx-auto">${escapeHtml(text("accountNoAccountsDesc"))}</p>
+            </div>
+          `;
+        }
+
+        function renderAccountCard(acct) {
+          const login = acct.githubLogin || "unknown";
+          const avatarUrl = `https://github.com/${login}.png?size=64`;
+          const label = acct.label || "";
+          const status = acct.status || "unknown";
+          const isDisabled = status === "disabled";
+          const lastUsed = acct.lastUsedAt ? formatDateTime(acct.lastUsedAt) : text("accountNeverUsed");
+
+          // Quota progress
+          const entitlement = acct.usage?.premium_total || 0;
+          const remaining = acct.usage?.premium_remaining || 0;
+          const unlimited = false;
+          const percentUsed = !entitlement ? 0 : Math.max(0, ((entitlement - remaining) / entitlement) * 100);
+          const tone = getProgressTone(percentUsed, unlimited);
+
+          return `
+            <div class="account-card" data-account-id="${escapeHtml(String(acct.id || login))}">
+              <div class="flex items-center gap-3">
+                <img class="account-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(login)}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect fill=%22%23e8e3db%22 width=%2264%22 height=%2264%22/><text x=%2232%22 y=%2238%22 text-anchor=%22middle%22 fill=%22%2316606e%22 font-size=%2224%22>?</text></svg>'" />
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-[var(--text)] truncate">${escapeHtml(login)}</span>
+                    ${label ? `<span class="pill pill-neutral text-xs">${escapeHtml(label)}</span>` : ""}
+                  </div>
+                  <div class="flex items-center gap-2 mt-1">
+                    ${getStatusPill(status)}
+                    <span class="text-xs text-[var(--muted)]">${escapeHtml(text("accountLastUsed"))}: ${escapeHtml(lastUsed)}</span>
+                  </div>
+                </div>
+              </div>
+              ${entitlement || unlimited ? `
+                <div class="space-y-1.5">
+                  <div class="flex justify-between text-xs text-[var(--muted)]">
+                    <span>${escapeHtml(text("modelsColPremium"))}</span>
+                    <span class="mono">${unlimited ? escapeHtml(text("unlimited")) : `${escapeHtml(formatNumber(remaining))} / ${escapeHtml(formatNumber(entitlement))}`}</span>
+                  </div>
+                  <div class="progress-track">
+                    <div class="progress-fill ${tone}" style="width: ${unlimited ? 100 : Math.min(percentUsed, 100)}%"></div>
+                  </div>
+                </div>
+              ` : ""}
+              <div class="account-actions">
+                <button type="button" class="btn btn-ghost btn-sm" data-acct-action="${isDisabled ? "enable" : "disable"}" data-acct-id="${escapeHtml(String(acct.id || login))}">
+                  ${icon("power")}${escapeHtml(isDisabled ? text("accountEnable") : text("accountDisable"))}
+                </button>
+                <button type="button" class="btn btn-ghost btn-sm" data-acct-action="refresh" data-acct-id="${escapeHtml(String(acct.id || login))}">
+                  ${icon("refresh")}${escapeHtml(text("accountRefresh"))}
+                </button>
+                <button type="button" class="btn btn-danger btn-sm" data-acct-action="delete" data-acct-id="${escapeHtml(String(acct.id || login))}">
+                  ${icon("trash")}${escapeHtml(text("accountDelete"))}
+                </button>
+              </div>
+            </div>
+          `;
+        }
+
+        function bindAccountActions() {
+          document.querySelectorAll("[data-acct-action]").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+              const action = btn.getAttribute("data-acct-action");
+              const id = btn.getAttribute("data-acct-id");
+              btn.disabled = true;
+              const origHTML = btn.innerHTML;
+              btn.innerHTML = icon("refresh") + " ...";
+              try {
+                if (action === "delete") {
+                  const confirmed = await showConfirm(text("accountDeleteConfirmTitle"), text("accountDeleteConfirm"));
+                  if (!confirmed) { btn.disabled = false; btn.innerHTML = origHTML; return; }
+                  await adminFetch(`/api/accounts/${encodeURIComponent(id)}`, { method: "DELETE" });
+                  showToast(text("apiSuccess"));
+                } else if (action === "enable" || action === "disable") {
+                  await adminFetch(`/api/accounts/${encodeURIComponent(id)}/status`, {
+                    method: "PUT",
+                    body: JSON.stringify({ status: action === "enable" ? "active" : "disabled" }),
+                  });
+                  showToast(text("apiSuccess"));
+                } else if (action === "refresh") {
+                  await adminFetch(`/api/accounts/${encodeURIComponent(id)}/refresh`, { method: "POST" });
+                  showToast(text("apiSuccess"));
+                }
+              } catch (err) {
+                showToast(text("apiError") + ": " + err.message, "error");
+              } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHTML;
+              }
+              loadAccounts();
+            });
+          });
+        }
+
+        // ═══════════════════════════════════════
+        //  Model Management
+        // ═══════════════════════════════════════
+        let modelMappingData = {};
+        let modelConcurrencyData = {};
+
+        async function loadAvailableModels() {
+          const body = document.getElementById("models-available-body");
+          if (!body) return;
+          body.innerHTML = `<tr><td colspan="5" class="text-center py-6"><span class="loading-spinner"></span></td></tr>`;
+          try {
+            const data = await adminFetch("/api/models/available");
+            const rawModels = Array.isArray(data) ? data : (data && data.data ? data.data : (data && data.models ? (Array.isArray(data.models) ? data.models : data.models.data || []) : []));
+            // Sort: enabled (model_picker_enabled !== false) first
+            const models = [...rawModels].sort((a, b) => {
+              const ae = a.model_picker_enabled !== false ? 0 : 1;
+              const be = b.model_picker_enabled !== false ? 0 : 1;
+              return ae - be;
+            });
+            window._availableModels = models;
+            // Show count in title
+            const titleEl = document.getElementById("models-avail-title");
+            if (titleEl) titleEl.textContent = text("modelsAvailableTitle") + ` (${models.length})`;
+            if (models.length === 0) {
+              body.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-sm text-[var(--muted)]">${escapeHtml(text("modelNoModels"))}</td></tr>`;
+              return;
+            }
+            body.innerHTML = models.map((m) => {
+              const multiplier = m.billing?.multiplier;
+              let multiplierCell;
+              if (multiplier === undefined || multiplier === null) {
+                multiplierCell = `<span class="pill pill-neutral">-</span>`;
+              } else if (multiplier === 0) {
+                multiplierCell = `<span class="pill pill-success" title="免费">0×</span>`;
+              } else if (multiplier < 1) {
+                multiplierCell = `<span class="pill pill-brand" title="${multiplier}×">${multiplier}×</span>`;
+              } else if (multiplier === 1) {
+                multiplierCell = `<span class="pill pill-neutral" title="标准">1×</span>`;
+              } else {
+                multiplierCell = `<span class="pill pill-warning" title="${multiplier}×">${multiplier}×</span>`;
+              }
+              return `
+              <tr>
+                <td class="font-semibold mono text-sm">${escapeHtml(m.name || m.id || text("noValue"))}</td>
+                <td>${escapeHtml(m.vendor || text("noValue"))}</td>
+                <td class="mono">${escapeHtml(m.capabilities?.limits?.max_output_tokens ? formatNumber(m.capabilities.limits.max_output_tokens) : text("noValue"))}</td>
+                <td>${multiplierCell}</td>
+                <td>${m.billing?.is_premium ? `<span class="pill pill-warning">${escapeHtml(text("modelsColPremium"))}</span>` : `<span class="pill pill-neutral">-</span>`}</td>
+                <td>${m.model_picker_enabled !== false ? `<span class="pill pill-success">${escapeHtml(text("modelEnabled"))}</span>` : `<span class="pill pill-neutral">${escapeHtml(text("modelDisabled"))}</span>`}</td>
+              </tr>
+            `}).join("");
+          } catch (err) {
+            body.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-sm text-[var(--muted)]">${escapeHtml(text("modelNoModelsDesc"))}</td></tr>`;
+          }
+        }
+
+        async function loadModelMapping() {
+          const body = document.getElementById("models-mapping-body");
+          if (!body) return;
+          try {
+            const data = await adminFetch("/api/models/mapping");
+            modelMappingData = data && data.mapping && typeof data.mapping === "object" ? data.mapping : (data && typeof data === "object" && !data.mapping && !data.concurrency ? data : {});
+          } catch {
+            modelMappingData = {};
+          }
+          renderModelMappingTable();
+        }
+
+        function renderModelMappingTable() {
+          const body = document.getElementById("models-mapping-body");
+          if (!body) return;
+          const entries = Object.entries(modelMappingData);
+          if (entries.length === 0) {
+            body.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-sm text-[var(--muted)]">${escapeHtml(text("modelNoMappings"))}</td></tr>`;
+          } else {
+            body.innerHTML = entries.map(([from, to], i) => `
+              <tr>
+                <td><input class="input-field mono" type="text" value="${escapeHtml(from)}" data-map-idx="${i}" data-map-field="from" /></td>
+                <td class="text-center text-[var(--muted)]">${icon("arrowRight")}</td>
+                <td><input class="input-field mono" type="text" value="${escapeHtml(to)}" data-map-idx="${i}" data-map-field="to" /></td>
+                <td><button type="button" class="btn btn-danger btn-sm" data-map-delete="${i}">${icon("trash")}</button></td>
+              </tr>
+            `).join("");
+          }
+          // Add row
+          body.innerHTML += `
+            <tr>
+              <td><input class="input-field mono" type="text" placeholder="gpt-4" id="new-map-from" /></td>
+              <td class="text-center text-[var(--muted)]">${icon("arrowRight")}</td>
+              <td><input class="input-field mono" type="text" placeholder="gpt-4o" id="new-map-to" /></td>
+              <td><button type="button" class="btn btn-ghost btn-sm" id="add-mapping-row">${icon("plus")}${escapeHtml(text("modelMappingAdd"))}</button></td>
+            </tr>
+          `;
+          // Bind
+          body.querySelectorAll("[data-map-delete]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const entries = Object.entries(modelMappingData);
+              const idx = Number(btn.getAttribute("data-map-delete"));
+              if (entries[idx]) {
+                delete modelMappingData[entries[idx][0]];
+                renderModelMappingTable();
+              }
+            });
+          });
+          body.querySelectorAll("[data-map-field]").forEach((input) => {
+            input.addEventListener("change", () => {
+              // Rebuild from inputs
+              const rows = body.querySelectorAll("tr");
+              const newMap = {};
+              rows.forEach((row) => {
+                const fromInput = row.querySelector('[data-map-field="from"]');
+                const toInput = row.querySelector('[data-map-field="to"]');
+                if (fromInput && toInput && fromInput.value.trim()) {
+                  newMap[fromInput.value.trim()] = toInput.value.trim();
+                }
+              });
+              modelMappingData = newMap;
+            });
+          });
+          const addBtn = document.getElementById("add-mapping-row");
+          if (addBtn) {
+            addBtn.addEventListener("click", () => {
+              const from = document.getElementById("new-map-from")?.value?.trim();
+              const to = document.getElementById("new-map-to")?.value?.trim();
+              if (from && to) {
+                modelMappingData[from] = to;
+                renderModelMappingTable();
+              }
+            });
+          }
+        }
+
+        async function saveModelMapping() {
+          try {
+            // Flush any unfocused input edits before saving
+            const body = document.getElementById("models-mapping-body");
+            if (body) {
+              const newMap = {};
+              body.querySelectorAll("tr").forEach((row) => {
+                const fromInput = row.querySelector('[data-map-field="from"]');
+                const toInput = row.querySelector('[data-map-field="to"]');
+                if (fromInput && toInput && fromInput.value.trim()) {
+                  newMap[fromInput.value.trim()] = toInput.value.trim();
+                }
+              });
+              if (Object.keys(newMap).length > 0) modelMappingData = newMap;
+            }
+            await adminFetch("/api/models/mapping", {
+              method: "PUT",
+              body: JSON.stringify({ mapping: modelMappingData }),
+            });
+            showToast(text("apiSuccess"));
+          } catch (err) {
+            showToast(text("apiError") + ": " + err.message, "error");
+          }
+        }
+
+        async function loadModelConcurrency() {
+          const body = document.getElementById("models-concurrency-body");
+          if (!body) return;
+          try {
+            const data = await adminFetch("/api/models/concurrency");
+            modelConcurrencyData = data && data.concurrency && typeof data.concurrency === "object" ? data.concurrency : (data && typeof data === "object" && !data.concurrency ? data : {});
+          } catch {
+            modelConcurrencyData = {};
+          }
+          renderModelConcurrencyTable();
+        }
+
+        function renderModelConcurrencyTable() {
+          const body = document.getElementById("models-concurrency-body");
+          if (!body) return;
+          const entries = Object.entries(modelConcurrencyData);
+          if (entries.length === 0) {
+            body.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-sm text-[var(--muted)]">${escapeHtml(text("modelNoConcurrency"))}</td></tr>`;
+          } else {
+            body.innerHTML = entries.map(([model, max], i) => `
+              <tr>
+                <td><input class="input-field mono" type="text" value="${escapeHtml(model)}" data-conc-idx="${i}" data-conc-field="model" /></td>
+                <td><input class="input-field mono" type="number" min="1" value="${escapeHtml(String(max))}" data-conc-idx="${i}" data-conc-field="max" /></td>
+                <td><button type="button" class="btn btn-danger btn-sm" data-conc-delete="${i}">${icon("trash")}</button></td>
+              </tr>
+            `).join("");
+          }
+          body.innerHTML += `
+            <tr>
+              <td><input class="input-field mono" type="text" placeholder="gpt-4o" id="new-conc-model" /></td>
+              <td><input class="input-field mono" type="number" min="1" placeholder="5" id="new-conc-max" /></td>
+              <td><button type="button" class="btn btn-ghost btn-sm" id="add-concurrency-row">${icon("plus")}${escapeHtml(text("modelConcurrencyAdd"))}</button></td>
+            </tr>
+          `;
+          body.querySelectorAll("[data-conc-delete]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const entries = Object.entries(modelConcurrencyData);
+              const idx = Number(btn.getAttribute("data-conc-delete"));
+              if (entries[idx]) {
+                delete modelConcurrencyData[entries[idx][0]];
+                renderModelConcurrencyTable();
+              }
+            });
+          });
+          body.querySelectorAll("[data-conc-field]").forEach((input) => {
+            input.addEventListener("change", () => {
+              const rows = body.querySelectorAll("tr");
+              const newConc = {};
+              rows.forEach((row) => {
+                const modelInput = row.querySelector('[data-conc-field="model"]');
+                const maxInput = row.querySelector('[data-conc-field="max"]');
+                if (modelInput && maxInput && modelInput.value.trim()) {
+                  newConc[modelInput.value.trim()] = Number(maxInput.value) || 1;
+                }
+              });
+              modelConcurrencyData = newConc;
+            });
+          });
+          const addBtn = document.getElementById("add-concurrency-row");
+          if (addBtn) {
+            addBtn.addEventListener("click", () => {
+              const model = document.getElementById("new-conc-model")?.value?.trim();
+              const max = Number(document.getElementById("new-conc-max")?.value) || 1;
+              if (model) {
+                modelConcurrencyData[model] = max;
+                renderModelConcurrencyTable();
+              }
+            });
+          }
+        }
+
+        async function saveModelConcurrency() {
+          try {
+            // Flush any unfocused input edits before saving
+            const body = document.getElementById("models-concurrency-body");
+            if (body) {
+              const newConc = {};
+              body.querySelectorAll("tr").forEach((row) => {
+                const modelInput = row.querySelector('[data-conc-field="model"]');
+                const maxInput = row.querySelector('[data-conc-field="max"]');
+                if (modelInput && maxInput && modelInput.value.trim()) {
+                  newConc[modelInput.value.trim()] = Number(maxInput.value) || 1;
+                }
+              });
+              if (Object.keys(newConc).length > 0) modelConcurrencyData = newConc;
+            }
+            await adminFetch("/api/models/concurrency", {
+              method: "PUT",
+              body: JSON.stringify({ concurrency: modelConcurrencyData }),
+            });
+            showToast(text("apiSuccess"));
+          } catch (err) {
+            showToast(text("apiError") + ": " + err.message, "error");
+          }
+        }
+
+        // ═══════════════════════════════════════
+        //  Statistics
+        // ═══════════════════════════════════════
+        let statsRefreshTimer = null;
+
+        function startStatsAutoRefresh() {
+          stopStatsAutoRefresh();
+          statsRefreshTimer = setInterval(loadStats, 5000);
+        }
+
+        function stopStatsAutoRefresh() {
+          if (statsRefreshTimer) {
+            clearInterval(statsRefreshTimer);
+            statsRefreshTimer = null;
+          }
+        }
+
+        async function loadStats() {
+          const uptimeCard = document.getElementById("stats-uptime-card");
+          const reqContent = document.getElementById("stats-requests-content");
+          const acctContent = document.getElementById("stats-accounts-content");
+          if (!uptimeCard || !reqContent || !acctContent) return;
+
+          try {
+            const data = await adminFetch("/api/stats");
+            if (!data) throw new Error("Empty response");
+
+            // Uptime
+            const uptimeSeconds = data.uptime || 0;
+            const hours = Math.floor(uptimeSeconds / 3600);
+            const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+            const seconds = Math.floor(uptimeSeconds % 60);
+            const uptimeStr = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+
+            uptimeCard.innerHTML = `
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div class="section-title text-xl text-[var(--text)]">
+                    <span class="section-icon">${ICONS.server}</span>
+                    <span>${escapeHtml(text("statsUptime"))}</span>
+                  </div>
+                  <p class="mt-2 text-sm text-[var(--muted)]">${escapeHtml(text("statsAutoRefresh"))}</p>
+                </div>
+                <div class="text-3xl font-bold mono text-[var(--brand)]">${escapeHtml(uptimeStr)}</div>
+              </div>
+            `;
+
+            // Per-model requests
+            const models = data.models || data.model_stats || {};
+            const modelEntries = Object.entries(models);
+            if (modelEntries.length === 0) {
+              reqContent.innerHTML = `<p class="text-sm text-[var(--muted)]">${escapeHtml(text("statsNoData"))}</p>`;
+            } else {
+              const maxVal = Math.max(1, ...modelEntries.map(([, v]) => (v.active || 0) + (v.queued || 0)));
+              reqContent.innerHTML = `
+                <div class="stat-bar-group">
+                  ${modelEntries.map(([model, v]) => {
+                    const active = v.active || 0;
+                    const queued = v.queued || 0;
+                    const total = active + queued;
+                    const pct = Math.min((total / maxVal) * 100, 100);
+                    return `
+                      <div class="stat-bar-row">
+                        <span class="stat-bar-label" title="${escapeHtml(model)}">${escapeHtml(model)}</span>
+                        <div class="stat-bar-track">
+                          <div class="stat-bar-fill progress-fill-brand" style="width:${pct}%"></div>
+                        </div>
+                        <span class="stat-bar-value">${active}<span class="text-[var(--muted)] text-xs">/${queued}q</span></span>
+                      </div>
+                    `;
+                  }).join("")}
+                </div>
+                <div class="mt-3 flex gap-4 text-xs text-[var(--muted)]">
+                  <span>${icon("activity")} ${escapeHtml(text("statsActiveRequests"))}</span>
+                  <span>${icon("clock")} ${escapeHtml(text("statsQueuedRequests"))} (q)</span>
+                </div>
+              `;
+            }
+
+            // Account status distribution — always fetch fresh data
+            try {
+              const acctResp = await adminFetch("/api/accounts");
+              accountsData = Array.isArray(acctResp) ? acctResp : (acctResp && acctResp.accounts ? acctResp.accounts : []);
+            } catch {}
+            const acctStats = {};
+            accountsData.forEach((a) => { acctStats[a.status || "unknown"] = (acctStats[a.status || "unknown"] || 0) + 1; });
+            const statusEntries = Object.entries(acctStats);
+            if (statusEntries.length === 0) {
+              acctContent.innerHTML = `<p class="text-sm text-[var(--muted)]">${escapeHtml(text("statsNoData"))}</p>`;
+            } else {
+              const totalAcct = statusEntries.reduce((sum, [, count]) => sum + (Number(count) || 0), 0) || 1;
+              const statusColorMap = { active: "progress-fill-success", exhausted: "progress-fill-warning", rate_limited: "progress-fill-warning", banned: "progress-fill-danger", error: "progress-fill-danger", disabled: "" };
+              // Stacked bar
+              acctContent.innerHTML = `
+                <div class="space-y-3">
+                  <div class="progress-track" style="height:1.8rem">
+                    <div class="flex h-full">
+                      ${statusEntries.map(([status, count]) => {
+                        const pct = (Number(count) / totalAcct) * 100;
+                        const colorCls = statusColorMap[status] || "progress-fill-brand";
+                        const bgFallback = colorCls ? "" : "background:var(--panel);";
+                        return `<div class="${colorCls}" style="width:${pct}%;${bgFallback}" title="${escapeHtml(status)}: ${count}"></div>`;
+                      }).join("")}
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap gap-3">
+                    ${statusEntries.map(([status, count]) => `
+                      <div class="flex items-center gap-2 text-sm">
+                        ${getStatusPill(status)}
+                        <span class="mono font-bold">${count}</span>
+                      </div>
+                    `).join("")}
+                  </div>
+                </div>
+              `;
+            }
+          } catch (err) {
+            uptimeCard.innerHTML = `
+              <div class="text-center py-4 space-y-2">
+                <div class="empty-illustration mx-auto">${ICONS.activity}</div>
+                <p class="text-sm text-[var(--muted)]">${escapeHtml(text("statsNoDataDesc"))}</p>
+              </div>
+            `;
+            reqContent.innerHTML = `<p class="text-sm text-[var(--muted)]">${escapeHtml(text("statsNoData"))}</p>`;
+            acctContent.innerHTML = `<p class="text-sm text-[var(--muted)]">${escapeHtml(text("statsNoData"))}</p>`;
+          }
+        }
+
+        function initialize() {
+          refs.endpointForm.addEventListener("submit", handleSubmit);
+          refs.resetButton.addEventListener("click", handleReset);
+          refs.exportButton.addEventListener("click", handleExportConfig);
+
+          // ── Collapsible available models ──
+          const modelsToggle = document.getElementById("models-avail-toggle");
+          if (modelsToggle) {
+            modelsToggle.addEventListener("click", () => {
+              const content = document.getElementById("models-avail-content");
+              const arrow = document.getElementById("models-avail-arrow");
+              if (!content) return;
+              const isHidden = content.style.display === "none";
+              content.style.display = isHidden ? "" : "none";
+              if (arrow) arrow.textContent = isHidden ? "▼" : "▶";
+            });
+          }
+
+          refs.langToggle.addEventListener("click", () => {
+            state.language = state.language === "zh" ? "en" : "zh";
+            persistPreferences();
+            renderAll();
+          });
+
+          // ── Main tab switching ──
+          document.querySelectorAll(".main-tab-btn").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const tabKey = btn.getAttribute("data-main-tab");
+              if (tabKey) switchMainTab(tabKey);
+            });
+          });
+
+          // ── Add Account modal (Device Code flow) ──
+          const addAccountBtn = document.getElementById("add-account-btn");
+          if (addAccountBtn) addAccountBtn.addEventListener("click", openModal);
+          const modalCloseBtn = document.getElementById("modal-close-btn");
+          if (modalCloseBtn) modalCloseBtn.addEventListener("click", closeModal);
+          const modalOverlay = document.getElementById("add-account-modal");
+          if (modalOverlay) modalOverlay.addEventListener("click", (e) => { if (e.target === modalOverlay) closeModal(); });
+          const modalStartAuthBtn = document.getElementById("modal-start-auth-btn");
+          if (modalStartAuthBtn) modalStartAuthBtn.addEventListener("click", startDeviceCodeAuth);
+          const modalCopyCodeBtn = document.getElementById("modal-copy-code-btn");
+          if (modalCopyCodeBtn) modalCopyCodeBtn.addEventListener("click", handleCopyCode);
+          const modalCancelAuthBtn = document.getElementById("modal-cancel-auth-btn");
+          if (modalCancelAuthBtn) modalCancelAuthBtn.addEventListener("click", closeModal);
+          const modalDoneBtn = document.getElementById("modal-done-btn");
+          if (modalDoneBtn) modalDoneBtn.addEventListener("click", handleAuthDone);
+          const modalRetryBtn = document.getElementById("modal-retry-btn");
+          if (modalRetryBtn) modalRetryBtn.addEventListener("click", handleAuthRetry);
+
+          // ── Model management save buttons ──
+          const saveMappingBtn = document.getElementById("save-mapping-btn");
+          if (saveMappingBtn) saveMappingBtn.addEventListener("click", saveModelMapping);
+          const saveConcurrencyBtn = document.getElementById("save-concurrency-btn");
+          if (saveConcurrencyBtn) saveConcurrencyBtn.addEventListener("click", saveModelConcurrency);
+
+          // ── Keyboard: Escape closes modal (only if not actively polling) ──
+          document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && !deviceCodePollTimer) closeModal();
+          });
+
+          setEndpoint(state.endpoint);
+          renderAll();
+          syncAutoRefresh();
+          fetchData({ preserveContent: false });
+        }
+
+        initialize();
+      });
+    </script>
+  </body>
+</html>

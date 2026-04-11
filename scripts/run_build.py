@@ -1160,6 +1160,7 @@ def build_target_image(
     docker_platform = str(config.get("docker_platform", "")).strip()
     build_args = dict(config.get("build_args", {}))
     overlay_paths = [str(item).strip() for item in config.get("overlay_paths", []) if str(item).strip()]
+    name_lower = app_name.lower()
     build_args.setdefault("SOURCE_VERSION", source_version)
     build_args.setdefault("BUILD_VERSION", build_version)
 

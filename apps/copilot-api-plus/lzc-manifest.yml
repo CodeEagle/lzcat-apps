@@ -5,7 +5,7 @@ min_os_version: 1.3.8
 name: copilot-api-plus
 description: Turn GitHub Copilot into OpenAI/Anthropic API compatible server
 license: MIT
-homepage: https://github.com/imbuxiangnan-cyber/copilot-api-plus
+homepage: https://github.com/CodeEagle/copilot-api-plus
 author: imbuxiangnan-cyber
 application:
   subdomain: copilot-api-plus
@@ -18,10 +18,12 @@ application:
 services:
   copilot-api-plus:
     image: registry.lazycat.cloud/placeholder/copilot-api-plus:bootstrap
+    volumes:
+      - /lzcapp/data:/root/.local/share/copilot-api-plus
     healthcheck:
       test:
         - CMD-SHELL
-        - wget --spider -q http://localhost:4141/ || exit 1 COPY entrypoint.sh /entrypoint.sh RUN chmod +x /entrypoint.sh ENTRYPOINT ["/entrypoint.sh"]
+        - wget --spider -q http://localhost:4141/ || exit 1
       interval: 30s
       timeout: 10s
       retries: 5
