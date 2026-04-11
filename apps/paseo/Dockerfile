@@ -40,7 +40,18 @@ RUN set -eux; \
         ls -la /usr/src/app/packages || true; \
         false; \
     fi; \
-    echo "--- after normalize ls /usr/src/app/dist ---"; ls -la /usr/src/app/dist || true
+    echo "--- after normalize ls /usr/src/app/dist ---"; ls -la /usr/src/app/dist || true; \
+    # Ensure workspace packages are available as real packages in node_modules for runtime
+    mkdir -p /usr/src/app/node_modules/@getpaseo; \
+    rm -rf /usr/src/app/node_modules/@getpaseo/relay || true; \
+    if [ -d /usr/src/app/packages/relay ]; then \
+        cp -a /usr/src/app/packages/relay /usr/src/app/node_modules/@getpaseo/relay; \
+    fi; \
+    rm -rf /usr/src/app/node_modules/@getpaseo/highlight || true; \
+    if [ -d /usr/src/app/packages/highlight ]; then \
+        cp -a /usr/src/app/packages/highlight /usr/src/app/node_modules/@getpaseo/highlight; \
+    fi; \
+    echo "--- after normalize ls /usr/src/app/node_modules/@getpaseo ---"; ls -la /usr/src/app/node_modules/@getpaseo || true
 
 # Runtime image
 FROM node:22-bullseye-slim AS runner
