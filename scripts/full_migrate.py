@@ -52,7 +52,26 @@ INFRA_KEYWORDS = {
 WEB_HINTS = ("web", "ui", "frontend", "app", "server", "api", "dashboard", "console")
 GATEWAY_IMAGE_NAMES = {"nginx", "caddy", "traefik", "haproxy", "envoy"}
 K8S_ENV_PREFIXES = ("K8S_", "KUBE_", "KUBERNETES_", "KUBECONFIG")
-COMPOSE_FILENAMES = ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml")
+COMPOSE_FILENAMES = (
+    "docker-compose.yml",
+    "docker-compose.yaml",
+    "compose.yml",
+    "compose.yaml",
+    "docker-compose.selfhost.yml",
+    "docker-compose.selfhost.yaml",
+    "compose.selfhost.yml",
+    "compose.selfhost.yaml",
+)
+DEPLOY_COMPOSE_NAME_HINTS = (
+    "selfhost",
+    "self-host",
+    "prod",
+    "production",
+    "deploy",
+    "release",
+    "stack",
+)
+DEV_COMPOSE_NAME_HINTS = ("dev", "develop", "development", "local", "override", "example", "sample", "test")
 DEV_COMMAND_HINTS = (" dev", "vite", "webpack", "storybook", "hot-reload")
 LOW_PRIORITY_DOCKERFILE_DIRS = {
     ".github",
@@ -280,7 +299,8 @@ def step_report(
 
 
 def github_repo_exists(repo: str) -> bool:
-    data = bm.github_api_json(f"repos/{repo}")
+    token = os.environ.get("GH_PAT") or os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") or ""
+    data = bm.github_api_json(f"repos/{repo}", token)
     return isinstance(data, dict) and bool(data.get("full_name"))
 
 
@@ -437,7 +457,38 @@ def select_compose_file(source_dir: Path) -> Path | None:
         candidates.extend(source_dir.rglob(name))
     if not candidates:
         return None
-    return sorted(candidates, key=lambda p: (len(p.relative_to(source_dir).parts), str(p)))[0]
+    return sorted(candidates, key=lambda p: (-compose_file_score(source_dir, p), str(p)))[0]
+
+
+def compose_file_score(source_dir: Path, path: Path) -> int:
+    try:
+        relative = path.relative_to(source_dir)
+    except ValueError:
+        return -1000
+
+    parts = [part.lower() for part in relative.parts]
+    filename = path.name.lower()
+    stem = path.stem.lower()
+    score = 0
+
+    score -= len(parts) * 10
+    if len(parts) == 1:
+        score += 40
+
+    joined = "/".join(parts)
+    for hint in DEPLOY_COMPOSE_NAME_HINTS:
+        if hint in filename or hint in stem or hint in joined:
+            score += 80
+    for hint in DEV_COMPOSE_NAME_HINTS:
+        if hint in filename or hint in stem or hint in joined:
+            score -= 80
+
+    if filename.startswith("docker-compose"):
+        score += 10
+    if filename in {"docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"}:
+        score += 5
+
+    return score
 
 
 def select_dockerfile(source_dir: Path) -> Path | None:
@@ -2515,10 +2566,12 @@ def analyze_source(normalized: NormalizedSource, source_dir: Path | None) -> Ana
     slug = bm.normalize_slug(repo_name or Path(normalized.source).stem or normalized.source.split("/")[-1])
 
     meta = bm.fetch_upstream_metadata(upstream_repo, "github_release") if upstream_repo else {}
+    # Fork repos rarely publish releases; default to commit_sha tracking.
+    default_check_strategy = "commit_sha" if meta.get("is_fork") else "github_release"
     meta.update({
         "upstream_repo": upstream_repo,
         "homepage": meta.get("homepage") or normalized.homepage,
-        "check_strategy": "github_release",
+        "check_strategy": default_check_strategy,
     })
 
     if normalized.kind == "docker_image":
@@ -2660,7 +2713,31 @@ def generate_app_profile(finalized: dict[str, Any]) -> dict[str, Any]:
         if k in _PROFILE_GENERATED_FIELDS
         and v is not None and v != "" and v != [] and v != {}
     }
-    return {"fixes": fixes}
+    return {
+        "managed_by": "full_migrate",
+        "generated_from_upstream": str(finalized.get("upstream_repo") or ""),
+        "fixes": fixes,
+    }
+
+
+def is_generated_app_profile(profile: dict[str, Any]) -> bool:
+    if not isinstance(profile, dict):
+        return False
+    allowed_top_level = {"managed_by", "generated_from_upstream", "fixes", "content_files", "deploy_params_file"}
+    if any(key not in allowed_top_level for key in profile):
+        return False
+    fixes = profile.get("fixes")
+    if not isinstance(fixes, dict):
+        return False
+    return all(key in _PROFILE_GENERATED_FIELDS for key in fixes)
+
+
+def refresh_generated_app_profile(existing: dict[str, Any], finalized: dict[str, Any]) -> dict[str, Any]:
+    refreshed = generate_app_profile(finalized)
+    for key in ("content_files", "deploy_params_file"):
+        if key in existing:
+            refreshed[key] = existing[key]
+    return refreshed
 
 
 def apply_app_profile_fixes(finalized: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
@@ -3912,6 +3989,11 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
                 "command is often rendered as folded YAML and may break shell parsing. "
                 "Prefer setup_script, an external script file, or printf/envsubst."
             )
+        if "volumes" in payload:
+            issues.append(
+                f"service {service_name} uses 'volumes' key which LazyCat silently ignores; "
+                "change to 'binds' for persistent storage."
+            )
         binds = [str(item) for item in bm.ensure_list(payload.get("binds"))]
         if "/lzcapp/pkg/content/bootstrap.mjs" in command_text and not any(bind.endswith(":/app-state") or ":/crucix-state" in bind or ":/deer-flow-state" in bind for bind in binds):
             issues.append(
@@ -4268,7 +4350,15 @@ def main() -> int:
                 finalized["image_owner"] = image_owner
             finalized = apply_generated_app_fixes(finalized, analysis)
             _profile_path = repo_root / "apps" / finalized["slug"] / ".app-profile.json"
-            if not _profile_path.exists():
+            existing_profile = load_app_profile(repo_root, finalized["slug"]) if _profile_path.exists() else None
+            if args.force and existing_profile and is_generated_app_profile(existing_profile):
+                refreshed_profile = refresh_generated_app_profile(existing_profile, finalized)
+                _profile_path.write_text(
+                    json.dumps(refreshed_profile, indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8",
+                )
+                existing_profile = refreshed_profile
+            elif not _profile_path.exists():
                 _profile_path.parent.mkdir(parents=True, exist_ok=True)
                 # If app already has a content/ dir, ensure include_content is on
                 _content_dir = _profile_path.parent / "content"
@@ -4278,7 +4368,7 @@ def main() -> int:
                     json.dumps(generate_app_profile(finalized), indent=2, ensure_ascii=False) + "\n",
                     encoding="utf-8",
                 )
-            profile = load_app_profile(repo_root, finalized["slug"])
+            profile = existing_profile if existing_profile is not None else load_app_profile(repo_root, finalized["slug"])
             if profile:
                 finalized = apply_app_profile_fixes(finalized, profile)
             config_path = repo_root / "registry" / "repos" / f"{finalized['slug']}.json"

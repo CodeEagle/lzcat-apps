@@ -342,6 +342,7 @@ def fetch_upstream_metadata(upstream_repo: str, check_strategy: str, token: str 
         "source_version": source_version,
         "version": build_version,
         "default_branch": default_branch,
+        "is_fork": bool(repo_meta.get("fork")),
     }
 
 
