@@ -2,7 +2,7 @@ ARG SOURCE_VERSION=main
 ARG BUILD_VERSION=0.1.0
 ARG UPSTREAM_REPO=getpaseo/paseo
 
-FROM node:20-bullseye AS builder
+FROM node:22-bullseye AS builder
 ARG SOURCE_VERSION
 ARG UPSTREAM_REPO
 WORKDIR /usr/src/app
@@ -20,7 +20,7 @@ RUN npm ci --workspaces --include-workspace-root
 RUN npm run build --workspaces --if-present
 
 # Runtime image
-FROM node:20-bullseye-slim AS runner
+FROM node:22-bullseye-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
