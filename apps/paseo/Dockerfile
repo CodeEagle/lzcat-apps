@@ -22,6 +22,26 @@ RUN npm ci --workspaces --include-workspace-root
 # Build required workspaces only to reduce CI load and avoid electron/electron-builder
 RUN npm --workspace=@getpaseo/highlight run build --if-present && npm --workspace=@getpaseo/relay run build --if-present && npm --workspace=@getpaseo/server run build --if-present
 
+# Normalize and verify build outputs so runner COPY succeeds
+RUN set -eux; \
+    echo "--- ls workspace root ---"; ls -la /usr/src/app || true; \
+    echo "--- ls packages/server ---"; ls -la /usr/src/app/packages/server || true; \
+    echo "--- ls packages/server/dist ---"; ls -la /usr/src/app/packages/server/dist || true; \
+    mkdir -p /usr/src/app/dist; \
+    if [ -d /usr/src/app/packages/server/dist/server ]; then \
+        cp -a /usr/src/app/packages/server/dist/server /usr/src/app/dist/server; \
+    elif [ -d /usr/src/app/packages/server/dist ]; then \
+        cp -a /usr/src/app/packages/server/dist /usr/src/app/dist/server; \
+    elif [ -d /usr/src/app/dist/server ]; then \
+        echo "dist/server already exists"; \
+    else \
+        echo "Warning: no server build output found"; \
+        ls -la /usr/src/app || true; \
+        ls -la /usr/src/app/packages || true; \
+        false; \
+    fi; \
+    echo "--- after normalize ls /usr/src/app/dist ---"; ls -la /usr/src/app/dist || true
+
 # Runtime image
 FROM node:22-bullseye-slim AS runner
 WORKDIR /app
