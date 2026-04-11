@@ -2730,12 +2730,12 @@ def choose_route_for_image(source: str) -> dict[str, Any]:
     }
 
 
-def analyze_source(normalized: NormalizedSource, source_dir: Path | None) -> AnalysisResult:
+def analyze_source(normalized: NormalizedSource, source_dir: Path | None, gh_token: str = "") -> AnalysisResult:
     upstream_repo = normalized.upstream_repo
     repo_name = upstream_repo.split("/", 1)[1] if upstream_repo else ""
     slug = bm.normalize_slug(repo_name or Path(normalized.source).stem or normalized.source.split("/")[-1])
 
-    meta = bm.fetch_upstream_metadata(upstream_repo, "github_release") if upstream_repo else {}
+    meta = bm.fetch_upstream_metadata(upstream_repo, "github_release", gh_token) if upstream_repo else {}
     # Fork repos rarely publish releases; default to commit_sha tracking.
     # If it's a fork and metadata is sparse, fall back to the parent repo's metadata.
     is_fork = meta.get("is_fork", False)
@@ -2746,7 +2746,7 @@ def analyze_source(normalized: NormalizedSource, source_dir: Path | None) -> Ana
         if isinstance(parent_meta, dict) and isinstance(parent_meta.get("parent"), dict):
             parent_repo = str(parent_meta["parent"].get("full_name", ""))
         if parent_repo:
-            parent_info = bm.fetch_upstream_metadata(parent_repo, "github_release")
+            parent_info = bm.fetch_upstream_metadata(parent_repo, "github_release", gh_token)
             # Fill in missing fields from parent
             for key in ("version", "description", "license", "author", "source_version", "homepage"):
                 if not meta.get(key) and parent_info.get(key):
@@ -4642,7 +4642,7 @@ def main() -> int:
         ms.mark_step_completed(state, 1, conclusion=f"已识别输入类型为 `{normalized.kind}`")
 
         step_state.current_step = 2
-        analysis = analyze_source(normalized, source_dir)
+        analysis = analyze_source(normalized, source_dir, gh_token)
         step2_outputs = [
             f"slug={analysis.slug}",
             f"route={analysis.route}",
