@@ -1411,9 +1411,14 @@ def parse_dockerfile_ports(dockerfile_path: Path) -> list[int]:
     return list(dict.fromkeys(ports))
 
 
-def parse_dockerfile_volumes(dockerfile_path: Path, slug: str, service_name: str) -> list[dict[str, Any]]:
-    text = dockerfile_path.read_text(encoding="utf-8", errors="ignore")
-    entries: list[dict[str, Any]] = []
+def _scan_dockerfile_write_paths(text: str) -> list[tuple[str, str]]:
+    """Scan Dockerfile text for paths that the container is likely to write to.
+
+    Returns (container_path, source_hint) pairs.
+    """
+    results: list[tuple[str, str]] = []
+
+    # 1. Explicit VOLUME directives
     for match in re.finditer(r"(?im)^\s*VOLUME\s+(.+)$", text):
         raw = match.group(1).strip()
         targets: list[str] = []
@@ -1425,10 +1430,162 @@ def parse_dockerfile_volumes(dockerfile_path: Path, slug: str, service_name: str
                 pass
         else:
             targets.extend(part.strip().strip('"').strip("'") for part in raw.split())
-        for target in targets:
-            if target.startswith("/"):
-                host = target_host_path(slug, service_name, target)
-                entries.append({"host": host, "container": target, "description": "From Dockerfile VOLUME"})
+        for t in targets:
+            if t.startswith("/"):
+                results.append((t, "Dockerfile VOLUME"))
+
+    # 2. mkdir -p in RUN/CMD/ENTRYPOINT/entrypoint scripts
+    for match in re.finditer(r"mkdir\s+-p\s+([\w/.${}~-]+)", text):
+        path = match.group(1).strip()
+        if path.startswith("/") and not path.startswith("/tmp"):
+            results.append((path, "mkdir -p in Dockerfile"))
+
+    # 3. Resolve HOME-relative data dirs
+    home_dir = "/root"  # default for most containers
+    home_match = re.search(r"(?im)^\s*ENV\s+HOME[=\s]+([^\s]+)", text)
+    if home_match:
+        home_dir = home_match.group(1).strip().rstrip("/")
+
+    workdir = ""
+    for match in re.finditer(r"(?im)^\s*WORKDIR\s+(.+)$", text):
+        workdir = match.group(1).strip()
+
+    # Common app-data subdirs under $HOME
+    home_data_patterns = [
+        ".local/share", ".config", ".cache",
+    ]
+    for pattern in home_data_patterns:
+        full = f"{home_dir}/{pattern}"
+        # Check if Dockerfile references this path
+        if full in text or f"$HOME/{pattern}" in text or f"~/{pattern}" in text:
+            results.append((full, f"HOME-relative data dir ({pattern})"))
+
+    # 4. Common absolute write path patterns referenced in Dockerfile
+    common_write_patterns = [
+        r"/data(?:/|\s|$|\")",
+        r"/app/data(?:/|\s|$|\")",
+        r"/opt/[a-z_-]+/data(?:/|\s|$|\")",
+        r"/var/data(?:/|\s|$|\")",
+    ]
+    for pat in common_write_patterns:
+        if re.search(pat, text):
+            # Extract the clean path
+            clean = re.search(pat, text)
+            if clean:
+                path = clean.group(0).rstrip(' "/\n')
+                if path not in [r[0] for r in results]:
+                    results.append((path, "common data path pattern"))
+
+    return results
+
+
+def _scan_entrypoint_write_paths(source_dir: Path, dockerfile_path: Path) -> list[tuple[str, str]]:
+    """Scan entrypoint scripts referenced by COPY in Dockerfile for write paths."""
+    results: list[tuple[str, str]] = []
+    text = dockerfile_path.read_text(encoding="utf-8", errors="ignore")
+
+    # Find COPY'd shell scripts that are made executable or used as ENTRYPOINT
+    entrypoint_files: list[str] = []
+    for match in re.finditer(r"(?im)^\s*COPY\s+(?:--[^\s]+\s+)*(\S+\.sh)\s+", text):
+        entrypoint_files.append(match.group(1))
+    for match in re.finditer(r'(?im)^\s*ENTRYPOINT\s+\[?"?([^"\]\s]+)', text):
+        name = match.group(1).strip("'\"")
+        if name.endswith(".sh"):
+            entrypoint_files.append(Path(name).name)
+
+    for script_name in set(entrypoint_files):
+        script_path = source_dir / script_name
+        if not script_path.is_file():
+            # Try without leading path
+            script_path = source_dir / Path(script_name).name
+        if not script_path.is_file():
+            continue
+        try:
+            script_text = script_path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+        for match in re.finditer(r"mkdir\s+-p\s+([\w/.${}~-]+)", script_text):
+            path = match.group(1).strip()
+            if path.startswith("/") and not path.startswith("/tmp"):
+                results.append((path, f"mkdir -p in {script_name}"))
+
+    return results
+
+
+def _scan_source_data_dirs(source_dir: Path) -> list[tuple[str, str]]:
+    """Scan common source files for hardcoded data directory references."""
+    results: list[tuple[str, str]] = []
+    # Look for path declarations in config/source files
+    patterns_by_ext = {
+        (".ts", ".js", ".mjs"): [
+            # path.join(os.homedir(), ".local", "share", "appname")
+            r'path\.join\([^)]*["\']\.local["\'].*?["\']share["\'].*?\)',
+            # os.homedir() + "/.local/share/..."
+            r'homedir\(\)\s*[+,]\s*["\']/?\.local/share/([^"\']+)',
+        ],
+        (".py",): [
+            r'Path\.home\(\)\s*/\s*["\']\.local/share',
+            r'expanduser\(["\']~/\.local/share',
+        ],
+        (".go",): [
+            r'os\.UserHomeDir\(\)',
+        ],
+    }
+    # Only scan top-level src/ and root files, not node_modules etc.
+    scan_dirs = [source_dir / "src", source_dir / "lib", source_dir]
+    scanned = set()
+    for scan_dir in scan_dirs:
+        if not scan_dir.is_dir():
+            continue
+        for ext_group, pats in patterns_by_ext.items():
+            for f in scan_dir.rglob("*"):
+                if f.suffix not in ext_group or f in scanned:
+                    continue
+                if any(skip in str(f) for skip in ("node_modules", ".git", "dist", "build", "__pycache__")):
+                    continue
+                scanned.add(f)
+                try:
+                    content = f.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+                for pat in pats:
+                    if re.search(pat, content):
+                        results.append(("$HOME/.local/share/<app>", f"source code pattern in {f.name}"))
+                        break
+    return results
+
+
+def parse_dockerfile_volumes(dockerfile_path: Path, slug: str, service_name: str, source_dir: Path | None = None) -> list[dict[str, Any]]:
+    text = dockerfile_path.read_text(encoding="utf-8", errors="ignore")
+    raw_paths = _scan_dockerfile_write_paths(text)
+
+    # Also scan entrypoint scripts and source code if source_dir available
+    if source_dir and source_dir.is_dir():
+        raw_paths.extend(_scan_entrypoint_write_paths(source_dir, dockerfile_path))
+        raw_paths.extend(_scan_source_data_dirs(source_dir))
+
+    # Resolve HOME-relative patterns for this specific app
+    home_dir = "/root"
+    home_match = re.search(r"(?im)^\s*ENV\s+HOME[=\s]+([^\s]+)", text)
+    if home_match:
+        home_dir = home_match.group(1).strip().rstrip("/")
+
+    entries: list[dict[str, Any]] = []
+    seen_containers: set[str] = set()
+    for container_path, source_hint in raw_paths:
+        # Resolve $HOME placeholder from source code scan
+        if container_path == "$HOME/.local/share/<app>":
+            container_path = f"{home_dir}/.local/share/{slug}"
+
+        # Skip paths we already have
+        if container_path in seen_containers:
+            continue
+        seen_containers.add(container_path)
+
+        if container_path.startswith("/"):
+            host = target_host_path(slug, service_name, container_path)
+            entries.append({"host": host, "container": container_path, "description": f"From {source_hint}"})
+
     return dedupe_data_paths(entries)
 
 
@@ -1962,7 +2119,7 @@ def choose_route_for_dockerfile(
     ports = parse_dockerfile_ports(dockerfile_path)
     port = ports[0] if ports else 3000
     healthcheck = parse_dockerfile_healthcheck(dockerfile_path)
-    data_paths = parse_dockerfile_volumes(dockerfile_path, slug, slug)
+    data_paths = parse_dockerfile_volumes(dockerfile_path, slug, slug, source_root)
 
     build_strategy = "upstream_dockerfile"
     post_write: dict[str, str] = {}
@@ -3979,6 +4136,9 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
         if not targets:
             issues.append("deploy_param_sync must declare at least one target file")
 
+    # Collect all bind-mounted container paths across services for coverage check
+    all_bind_containers: set[str] = set()
+
     for service_name, payload in services.items():
         if not isinstance(payload, dict):
             continue
@@ -3995,6 +4155,10 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
                 "change to 'binds' for persistent storage."
             )
         binds = [str(item) for item in bm.ensure_list(payload.get("binds"))]
+        for bind in binds:
+            parts = bind.split(":")
+            if len(parts) >= 2:
+                all_bind_containers.add(parts[1])
         if "/lzcapp/pkg/content/bootstrap.mjs" in command_text and not any(bind.endswith(":/app-state") or ":/crucix-state" in bind or ":/deer-flow-state" in bind for bind in binds):
             issues.append(
                 f"service {service_name} uses bootstrap.mjs but no dedicated state-dir bind was found; prefer /lzcapp/var/data/{slug}/runtime:/app-state-style mapping"
@@ -4004,7 +4168,108 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
                 f"service {service_name} writes config directly under /lzcapp/var/data inside the container; prefer binding host runtime to a normal container path like /app-state or /{slug}-state"
             )
 
+    # Detect interactive startup patterns that may block container in LazyCat
+    for dockerfile_name in ("Dockerfile", "Dockerfile.template"):
+        df_path = app_dir / dockerfile_name
+        if not df_path.is_file():
+            continue
+        df_text = df_path.read_text(encoding="utf-8", errors="ignore")
+        # Check entrypoint scripts too
+        scan_texts = [df_text]
+        for ep_match in re.finditer(r"(?im)^\s*COPY\s+(?:--[^\s]+\s+)*(\S+\.sh)\s+", df_text):
+            ep_file = app_dir / Path(ep_match.group(1)).name
+            if ep_file.is_file():
+                try:
+                    scan_texts.append(ep_file.read_text(encoding="utf-8", errors="ignore"))
+                except Exception:
+                    pass
+        combined = "\n".join(scan_texts)
+        interactive_patterns = [
+            (r"\breadline\b", "readline"),
+            (r"\bprompt\b.*\binput\b", "interactive prompt"),
+            (r"\bdevice.?code\b", "device code auth"),
+            (r"\bperformFreshAuthentication\b", "interactive authentication"),
+            (r"\bread\s+-[rsp]", "shell read from stdin"),
+            (r"\bselect\b.*\bin\b.*\bdo\b", "shell interactive select"),
+        ]
+        for pat, label in interactive_patterns:
+            if re.search(pat, combined, re.IGNORECASE):
+                issues.append(
+                    f"entrypoint may use interactive input ({label}); "
+                    "LazyCat containers run headless — ensure the app can start "
+                    "without stdin/TTY (e.g. deferred auth via web UI)."
+                )
+                break  # one warning is enough
+        break  # only check first found Dockerfile
+
+    # Cross-check: scan Dockerfile for write paths not covered by any bind
+    for dockerfile_name in ("Dockerfile", "Dockerfile.template"):
+        dockerfile_path = app_dir / dockerfile_name
+        if not dockerfile_path.is_file():
+            continue
+        discovered = _scan_dockerfile_write_paths(
+            dockerfile_path.read_text(encoding="utf-8", errors="ignore")
+        )
+        discovered.extend(_scan_entrypoint_write_paths(app_dir, dockerfile_path))
+        for container_path, hint in discovered:
+            if container_path.startswith("$"):
+                continue
+            # Check if any bind covers this path (exact match or parent)
+            covered = any(
+                container_path == b or container_path.startswith(b.rstrip("/") + "/")
+                for b in all_bind_containers
+            )
+            if not covered:
+                issues.append(
+                    f"write path {container_path} (from {hint}) has no matching bind mount; "
+                    "data written here will be lost on container restart."
+                )
+        break  # only check first found Dockerfile
+
     return not issues, issues
+
+
+def fork_upstream_repo(upstream_repo: str, fork_owner: str = "CodeEagle") -> str:
+    """Fork the upstream repo to fork_owner/ and make it public.
+
+    Returns the full name of the fork (e.g. "CodeEagle/repo-name").
+    If the fork already exists, returns it without re-forking.
+    """
+    repo_name = upstream_repo.split("/", 1)[1] if "/" in upstream_repo else upstream_repo
+    fork_full = f"{fork_owner}/{repo_name}"
+
+    # Check if fork already exists
+    existing = bm.github_api_json(f"repos/{fork_full}")
+    if isinstance(existing, dict) and existing.get("full_name", "").lower() == fork_full.lower():
+        log(f"[fork] Fork already exists: {fork_full}")
+        # Ensure it's public
+        if existing.get("private"):
+            _set_repo_visibility(fork_full, private=False)
+        return fork_full
+
+    # Create fork via gh CLI (more reliable than API for org forks)
+    result = subprocess.run(
+        ["gh", "repo", "fork", upstream_repo, "--org", fork_owner, "--clone=false"],
+        capture_output=True, text=True, timeout=60,
+    )
+    if result.returncode != 0 and "already exists" not in result.stderr:
+        raise RuntimeError(f"Failed to fork {upstream_repo}: {result.stderr}")
+
+    log(f"[fork] Forked {upstream_repo} → {fork_full}")
+
+    # Ensure public visibility
+    _set_repo_visibility(fork_full, private=False)
+    return fork_full
+
+
+def _set_repo_visibility(repo: str, *, private: bool = False) -> None:
+    """Set repo visibility via gh CLI."""
+    visibility = "--private" if private else "--public"
+    subprocess.run(
+        ["gh", "repo", "edit", repo, "--visibility", "public" if not private else "private"],
+        capture_output=True, text=True, timeout=30,
+    )
+    log(f"[fork] Set {repo} visibility to {'private' if private else 'public'}")
 
 
 def detect_gh_token(env: dict[str, str]) -> tuple[str, str]:
@@ -4210,6 +4475,8 @@ def parse_args() -> argparse.Namespace:
                         help="Resume from step N (1-10), keeping context from prior steps")
     parser.add_argument("--verify", action="store_true",
                         help="Run from scratch and compare against existing state for reproducibility")
+    parser.add_argument("--fork", action="store_true",
+                        help="Fork the upstream repo to CodeEagle/ before building (sets upstream_repo to fork, check_strategy to commit_sha)")
     return parser.parse_args()
 
 
@@ -4326,6 +4593,18 @@ def main() -> int:
             "normalized": analysis.spec.get("version", ""),
         }
         ms.mark_step_completed(state, 2, conclusion=f"已自动推断构建路线为 `{analysis.route}`")
+
+        # Fork upstream if requested — updates spec to point to fork
+        if getattr(args, "fork", False) and normalized.upstream_repo:
+            try:
+                fork_name = fork_upstream_repo(normalized.upstream_repo)
+                analysis.spec["upstream_repo"] = fork_name
+                analysis.spec["check_strategy"] = "commit_sha"
+                analysis.spec["build_strategy"] = "upstream_dockerfile"
+                log(f"[fork] Updated spec: upstream_repo={fork_name}, check_strategy=commit_sha")
+            except Exception as exc:
+                log(f"[fork] WARNING: fork failed ({exc}), continuing with original upstream")
+
         # First time we know the slug — create app_dir and save
         app_dir = repo_root / "apps" / analysis.slug
         app_dir.mkdir(parents=True, exist_ok=True)
