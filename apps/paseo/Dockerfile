@@ -15,7 +15,9 @@ RUN set -eux; \
     git clone --depth 1 --branch "${SOURCE_VERSION}" https://github.com/${UPSTREAM_REPO}.git . || \
     (git clone https://github.com/${UPSTREAM_REPO}.git . && git checkout "${SOURCE_VERSION}")
 
-# Install workspace dependencies and build all workspaces
+# Remove desktop workspace to avoid electron/electron-builder CI failures
+RUN rm -rf packages/desktop || true
+# Install workspace dependencies and build workspaces (excluding desktop)
 RUN npm ci --workspaces --include-workspace-root
 RUN npm run build --workspaces --if-present
 
