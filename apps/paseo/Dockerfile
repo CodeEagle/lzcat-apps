@@ -11,8 +11,9 @@ WORKDIR /usr/src/app
 RUN apt-get update && apt-get install -y git python3 build-essential ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Clone upstream inside the builder (works in CI)
-RUN git clone --depth 1 https://github.com/${UPSTREAM_REPO}.git . && \
-    git checkout "${SOURCE_VERSION}"
+RUN set -eux; \
+    git clone --depth 1 --branch "${SOURCE_VERSION}" https://github.com/${UPSTREAM_REPO}.git . || \
+    (git clone https://github.com/${UPSTREAM_REPO}.git . && git checkout "${SOURCE_VERSION}")
 
 # Install workspace dependencies and build server
 RUN npm ci --workspaces --include-workspace-root
