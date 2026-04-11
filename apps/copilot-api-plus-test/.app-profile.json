@@ -2,10 +2,11 @@
   "managed_by": "full_migrate",
   "generated_from_upstream": "CodeEagle/copilot-api-plus-test",
   "fixes": {
-    "project_name": "Copilot Api Plus",
-    "description": "copilot-api-plus-test on LazyCat",
+    "project_name": "copilot-api-plus-test",
+    "description": "Turn GitHub Copilot into OpenAI/Anthropic API compatible server",
     "homepage": "https://github.com/CodeEagle/copilot-api-plus-test",
-    "author": "TODO",
+    "license": "MIT",
+    "author": "imbuxiangnan-cyber",
     "build_strategy": "upstream_dockerfile",
     "docker_platform": "linux/amd64",
     "image_targets": [

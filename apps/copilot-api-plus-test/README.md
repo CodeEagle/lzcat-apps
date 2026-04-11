@@ -1,13 +1,13 @@
-# Copilot Api Plus
+# copilot-api-plus-test
 
 本目录由 `scripts/bootstrap_migration.py` 生成，用于把上游 `CodeEagle/copilot-api-plus-test` 初始化为懒猫微服迁移项目。
 
 ## 上游项目
 - Upstream Repo: CodeEagle/copilot-api-plus-test
 - Homepage: https://github.com/CodeEagle/copilot-api-plus-test
-- License: 
-- Author: TODO
-- Version Strategy: `commit_sha` -> 当前初稿版本 `0.1.0`
+- License: MIT
+- Author: imbuxiangnan-cyber
+- Version Strategy: `commit_sha` -> 当前初稿版本 `1.2.5`
 
 ## 当前迁移骨架
 - Build Strategy: `upstream_dockerfile`

@@ -1,14 +1,14 @@
-# Copilot Api Plus Upstream Deployment Checklist
+# copilot-api-plus-test Upstream Deployment Checklist
 
 ## 已确认字段
-- PROJECT_NAME: Copilot Api Plus
+- PROJECT_NAME: copilot-api-plus-test
 - PROJECT_SLUG: copilot-api-plus-test
 - UPSTREAM_REPO: CodeEagle/copilot-api-plus-test
 - UPSTREAM_URL: https://github.com/CodeEagle/copilot-api-plus-test
 - HOMEPAGE: https://github.com/CodeEagle/copilot-api-plus-test
-- LICENSE: 
-- AUTHOR: TODO
-- VERSION: 0.1.0
+- LICENSE: MIT
+- AUTHOR: imbuxiangnan-cyber
+- VERSION: 1.2.5
 - IMAGE: TODO
 - PORT: 4141
 - AI_POD_SERVICE: 无
