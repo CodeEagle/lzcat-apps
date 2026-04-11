@@ -17,9 +17,10 @@ RUN set -eux; \
 
 # Remove desktop workspace to avoid electron/electron-builder CI failures
 RUN rm -rf packages/desktop || true
-# Install workspace dependencies and build workspaces (excluding desktop)
+# Install workspace dependencies and build only server-related workspaces (exclude heavy/unneeded ones)
 RUN npm ci --workspaces --include-workspace-root
-RUN npm run build --workspaces --if-present
+# Build required workspaces only to reduce CI load and avoid electron/electron-builder
+RUN npm --workspace=@getpaseo/highlight run build --if-present && npm --workspace=@getpaseo/relay run build --if-present && npm --workspace=@getpaseo/server run build --if-present
 
 # Runtime image
 FROM node:22-bullseye-slim AS runner
