@@ -7,10 +7,11 @@
   "official_image_registry": "",
   "precompiled_binary_url": "",
   "dockerfile_type": "custom",
-  "service_port": 5432,
+  "service_port": 3000,
   "service_cmd": [],
   "image_targets": [
-    "postgres"
+    "frontend",
+    "backend"
   ],
   "dependencies": [
     {

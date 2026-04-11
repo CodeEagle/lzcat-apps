@@ -12,11 +12,13 @@
 ## 当前迁移骨架
 - Build Strategy: `upstream_dockerfile`
 - Primary Subdomain: `multica`
-- Image Targets: `postgres`
-- Service Port: `5432`
+- Image Targets: `frontend, backend`
+- Service Port: `3000`
 
 ### Services
 - `postgres` -> `registry.lazycat.cloud/placeholder/multica:postgres`
+- `backend` -> `registry.lazycat.cloud/placeholder/multica:backend`
+- `frontend` -> `registry.lazycat.cloud/placeholder/multica:frontend`
 
 ## AIPod
 
@@ -29,12 +31,26 @@
 | POSTGRES_DB | No | multica | From compose service postgres |
 | POSTGRES_USER | No | multica | From compose service postgres |
 | POSTGRES_PASSWORD | No | multica | From compose service postgres |
+| DATABASE_URL | No | postgres://${POSTGRES_USER:-multica}:${POSTGRES_PASSWORD:-multica}@postgres:5432/${POSTGRES_DB:-multica}?sslmode=disable | From compose service backend |
+| PORT | No | 8080 | From compose service backend |
+| JWT_SECRET | No | change-me-in-production | From compose service backend |
+| FRONTEND_ORIGIN | No | http://localhost:3000 | From compose service backend |
+| CORS_ALLOWED_ORIGINS | No | - | From compose service backend |
+| RESEND_API_KEY | No | - | From compose service backend |
+| RESEND_FROM_EMAIL | No | noreply@multica.ai | From compose service backend |
+| GOOGLE_CLIENT_ID | No | - | From compose service backend |
+| GOOGLE_CLIENT_SECRET | No | - | From compose service backend |
+| GOOGLE_REDIRECT_URI | No | http://localhost:3000/auth/callback | From compose service backend |
+| S3_BUCKET | No | - | From compose service backend |
+| S3_REGION | No | us-west-2 | From compose service backend |
+| CLOUDFRONT_DOMAIN | No | - | From compose service backend |
+| CLOUDFRONT_KEY_PAIR_ID | No | - | From compose service backend |
+| CLOUDFRONT_PRIVATE_KEY | No | - | From compose service backend |
+| COOKIE_DOMAIN | No | - | From compose service backend |
+| MULTICA_APP_URL | No | http://localhost:3000 | From compose service backend |
+| HOSTNAME | No | 0.0.0.0 | From compose service frontend |
 | POSTGRES_PORT | No | 5432 | From .env.example |
-| DATABASE_URL | No | postgres://multica:multica@localhost:5432/multica?sslmode=disable | From .env.example |
-| PORT | No | 8080 | From .env.example |
-| JWT_SECRET | No | change-me-in-production | From .env.example |
 | MULTICA_SERVER_URL | No | ws://localhost:8080/ws | From .env.example |
-| MULTICA_APP_URL | No | http://localhost:3000 | From .env.example |
 | MULTICA_DAEMON_CONFIG | No | - | From .env.example |
 | MULTICA_WORKSPACE_ID | No | - | From .env.example |
 | MULTICA_DAEMON_ID | No | - | From .env.example |
@@ -45,21 +61,9 @@
 | MULTICA_CODEX_MODEL | No | - | From .env.example |
 | MULTICA_CODEX_WORKDIR | No | - | From .env.example |
 | MULTICA_CODEX_TIMEOUT | No | 20m | From .env.example |
-| RESEND_API_KEY | No | - | From .env.example |
-| RESEND_FROM_EMAIL | No | noreply@multica.ai | From .env.example |
-| GOOGLE_CLIENT_ID | No | - | From .env.example |
-| GOOGLE_CLIENT_SECRET | No | - | From .env.example |
-| GOOGLE_REDIRECT_URI | No | http://localhost:3000/auth/callback | From .env.example |
 | NEXT_PUBLIC_GOOGLE_CLIENT_ID | No | - | From .env.example |
-| S3_BUCKET | No | - | From .env.example |
-| S3_REGION | No | us-west-2 | From .env.example |
-| CLOUDFRONT_KEY_PAIR_ID | No | - | From .env.example |
 | CLOUDFRONT_PRIVATE_KEY_SECRET | No | multica/cloudfront-signing-key | From .env.example |
-| CLOUDFRONT_PRIVATE_KEY | No | - | From .env.example |
-| CLOUDFRONT_DOMAIN | No | - | From .env.example |
-| COOKIE_DOMAIN | No | - | From .env.example |
 | FRONTEND_PORT | No | 3000 | From .env.example |
-| FRONTEND_ORIGIN | No | http://localhost:3000 | From .env.example |
 | NEXT_PUBLIC_API_URL | No | http://localhost:8080 | From .env.example |
 | NEXT_PUBLIC_WS_URL | No | ws://localhost:8080/ws | From .env.example |
 
@@ -71,8 +75,9 @@
 
 ## 首次启动/验收提醒
 
-- 自动扫描到 compose 文件：docker-compose.yml
-- 主服务推断为 `postgres`，入口端口 `5432`。
+- 自动扫描到 compose 文件：docker-compose.selfhost.yml
+- 主服务推断为 `frontend`，入口端口 `3000`。
+- 依赖服务镜像已写入 dependencies，首次完整构建时会自动 copy-image。
 - 扫描到 env 示例文件：.env.example
 - 扫描到 README：README.md, README.zh-CN.md
 

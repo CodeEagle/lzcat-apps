@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "source_input": "multica-ai/multica",
-  "created_at": "2026-04-11T04:12:30.561306+00:00",
-  "updated_at": "2026-04-11T04:12:41.259597+00:00",
+  "created_at": "2026-04-11T04:13:01.849738+00:00",
+  "updated_at": "2026-04-11T04:13:14.430573+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -50,7 +50,8 @@
       "overlay_paths": [],
       "upstream_submodules": [],
       "image_targets": [
-        "postgres"
+        "frontend",
+        "backend"
       ],
       "dependencies": [
         {
@@ -82,7 +83,7 @@
         "REMOTE_API_URL": "http://backend:8080"
       },
       "service_cmd": [],
-      "service_port": 5432,
+      "service_port": 3000,
       "services": {
         "postgres": {
           "image": "registry.lazycat.cloud/placeholder/multica:postgres",
@@ -93,6 +94,49 @@
           ],
           "binds": [
             "/lzcapp/var/db/multica/postgres:/var/lib/postgresql/data"
+          ],
+          "healthcheck": {
+            "test": [
+              "CMD-SHELL",
+              "pg_isready -U ${POSTGRES_USER:-multica} -d ${POSTGRES_DB:-multica}"
+            ],
+            "interval": "5s",
+            "timeout": "5s",
+            "retries": 5
+          }
+        },
+        "backend": {
+          "image": "registry.lazycat.cloud/placeholder/multica:backend",
+          "environment": [
+            "DATABASE_URL=postgres://${POSTGRES_USER:-multica}:${POSTGRES_PASSWORD:-multica}@postgres:5432/${POSTGRES_DB:-multica}?sslmode=disable",
+            "PORT=8080",
+            "JWT_SECRET=change-me-in-production",
+            "FRONTEND_ORIGIN=http://localhost:3000",
+            "CORS_ALLOWED_ORIGINS=",
+            "RESEND_API_KEY=",
+            "RESEND_FROM_EMAIL=noreply@multica.ai",
+            "GOOGLE_CLIENT_ID=",
+            "GOOGLE_CLIENT_SECRET=",
+            "GOOGLE_REDIRECT_URI=http://localhost:3000/auth/callback",
+            "S3_BUCKET=",
+            "S3_REGION=us-west-2",
+            "CLOUDFRONT_DOMAIN=",
+            "CLOUDFRONT_KEY_PAIR_ID=",
+            "CLOUDFRONT_PRIVATE_KEY=",
+            "COOKIE_DOMAIN=",
+            "MULTICA_APP_URL=http://localhost:3000"
+          ],
+          "depends_on": [
+            "postgres"
+          ]
+        },
+        "frontend": {
+          "image": "registry.lazycat.cloud/placeholder/multica:frontend",
+          "environment": [
+            "HOSTNAME=0.0.0.0"
+          ],
+          "depends_on": [
+            "backend"
           ]
         }
       },
@@ -103,8 +147,12 @@
         ],
         "upstreams": [
           {
+            "location": "/api/",
+            "backend": "http://backend:8080/"
+          },
+          {
             "location": "/",
-            "backend": "http://postgres:5432/"
+            "backend": "http://frontend:3000/"
           }
         ]
       },
@@ -128,40 +176,115 @@
           "value": "multica"
         },
         {
+          "name": "DATABASE_URL",
+          "description": "From compose service backend",
+          "required": false,
+          "value": "postgres://${POSTGRES_USER:-multica}:${POSTGRES_PASSWORD:-multica}@postgres:5432/${POSTGRES_DB:-multica}?sslmode=disable"
+        },
+        {
+          "name": "PORT",
+          "description": "From compose service backend",
+          "required": false,
+          "value": "8080"
+        },
+        {
+          "name": "JWT_SECRET",
+          "description": "From compose service backend",
+          "required": false,
+          "value": "change-me-in-production"
+        },
+        {
+          "name": "FRONTEND_ORIGIN",
+          "description": "From compose service backend",
+          "required": false,
+          "value": "http://localhost:3000"
+        },
+        {
+          "name": "CORS_ALLOWED_ORIGINS",
+          "description": "From compose service backend",
+          "required": false
+        },
+        {
+          "name": "RESEND_API_KEY",
+          "description": "From compose service backend",
+          "required": false
+        },
+        {
+          "name": "RESEND_FROM_EMAIL",
+          "description": "From compose service backend",
+          "required": false,
+          "value": "noreply@multica.ai"
+        },
+        {
+          "name": "GOOGLE_CLIENT_ID",
+          "description": "From compose service backend",
+          "required": false
+        },
+        {
+          "name": "GOOGLE_CLIENT_SECRET",
+          "description": "From compose service backend",
+          "required": false
+        },
+        {
+          "name": "GOOGLE_REDIRECT_URI",
+          "description": "From compose service backend",
+          "required": false,
+          "value": "http://localhost:3000/auth/callback"
+        },
+        {
+          "name": "S3_BUCKET",
+          "description": "From compose service backend",
+          "required": false
+        },
+        {
+          "name": "S3_REGION",
+          "description": "From compose service backend",
+          "required": false,
+          "value": "us-west-2"
+        },
+        {
+          "name": "CLOUDFRONT_DOMAIN",
+          "description": "From compose service backend",
+          "required": false
+        },
+        {
+          "name": "CLOUDFRONT_KEY_PAIR_ID",
+          "description": "From compose service backend",
+          "required": false
+        },
+        {
+          "name": "CLOUDFRONT_PRIVATE_KEY",
+          "description": "From compose service backend",
+          "required": false
+        },
+        {
+          "name": "COOKIE_DOMAIN",
+          "description": "From compose service backend",
+          "required": false
+        },
+        {
+          "name": "MULTICA_APP_URL",
+          "description": "From compose service backend",
+          "required": false,
+          "value": "http://localhost:3000"
+        },
+        {
+          "name": "HOSTNAME",
+          "description": "From compose service frontend",
+          "required": false,
+          "value": "0.0.0.0"
+        },
+        {
           "name": "POSTGRES_PORT",
           "description": "From .env.example",
           "required": false,
           "value": "5432"
         },
         {
-          "name": "DATABASE_URL",
-          "description": "From .env.example",
-          "required": false,
-          "value": "postgres://multica:multica@localhost:5432/multica?sslmode=disable"
-        },
-        {
-          "name": "PORT",
-          "description": "From .env.example",
-          "required": false,
-          "value": "8080"
-        },
-        {
-          "name": "JWT_SECRET",
-          "description": "From .env.example",
-          "required": false,
-          "value": "change-me-in-production"
-        },
-        {
           "name": "MULTICA_SERVER_URL",
           "description": "From .env.example",
           "required": false,
           "value": "ws://localhost:8080/ws"
-        },
-        {
-          "name": "MULTICA_APP_URL",
-          "description": "From .env.example",
-          "required": false,
-          "value": "http://localhost:3000"
         },
         {
           "name": "MULTICA_DAEMON_CONFIG",
@@ -218,50 +341,7 @@
           "value": "20m"
         },
         {
-          "name": "RESEND_API_KEY",
-          "description": "From .env.example",
-          "required": false
-        },
-        {
-          "name": "RESEND_FROM_EMAIL",
-          "description": "From .env.example",
-          "required": false,
-          "value": "noreply@multica.ai"
-        },
-        {
-          "name": "GOOGLE_CLIENT_ID",
-          "description": "From .env.example",
-          "required": false
-        },
-        {
-          "name": "GOOGLE_CLIENT_SECRET",
-          "description": "From .env.example",
-          "required": false
-        },
-        {
-          "name": "GOOGLE_REDIRECT_URI",
-          "description": "From .env.example",
-          "required": false,
-          "value": "http://localhost:3000/auth/callback"
-        },
-        {
           "name": "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
-          "description": "From .env.example",
-          "required": false
-        },
-        {
-          "name": "S3_BUCKET",
-          "description": "From .env.example",
-          "required": false
-        },
-        {
-          "name": "S3_REGION",
-          "description": "From .env.example",
-          "required": false,
-          "value": "us-west-2"
-        },
-        {
-          "name": "CLOUDFRONT_KEY_PAIR_ID",
           "description": "From .env.example",
           "required": false
         },
@@ -272,31 +352,10 @@
           "value": "multica/cloudfront-signing-key"
         },
         {
-          "name": "CLOUDFRONT_PRIVATE_KEY",
-          "description": "From .env.example",
-          "required": false
-        },
-        {
-          "name": "CLOUDFRONT_DOMAIN",
-          "description": "From .env.example",
-          "required": false
-        },
-        {
-          "name": "COOKIE_DOMAIN",
-          "description": "From .env.example",
-          "required": false
-        },
-        {
           "name": "FRONTEND_PORT",
           "description": "From .env.example",
           "required": false,
           "value": "3000"
-        },
-        {
-          "name": "FRONTEND_ORIGIN",
-          "description": "From .env.example",
-          "required": false,
-          "value": "http://localhost:3000"
         },
         {
           "name": "NEXT_PUBLIC_API_URL",
@@ -319,12 +378,13 @@
         }
       ],
       "startup_notes": [
-        "自动扫描到 compose 文件：docker-compose.yml",
-        "主服务推断为 `postgres`，入口端口 `5432`。",
+        "自动扫描到 compose 文件：docker-compose.selfhost.yml",
+        "主服务推断为 `frontend`，入口端口 `3000`。",
+        "依赖服务镜像已写入 dependencies，首次完整构建时会自动 copy-image。",
         "扫描到 env 示例文件：.env.example",
         "扫描到 README：README.md, README.zh-CN.md"
       ],
-      "include_content": true,
+      "include_content": false,
       "ai_pod_service": "",
       "ai_pod_service_name": "multica",
       "ai_pod_service_port": 3000,
@@ -344,22 +404,22 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-11T04:12:37.741416+00:00",
+      "completed_at": "2026-04-11T04:13:10.370729+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-11T04:12:41.211997+00:00",
+      "completed_at": "2026-04-11T04:13:14.383174+00:00",
       "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
     },
     "3": {
       "completed": true,
-      "completed_at": "2026-04-11T04:12:41.212971+00:00",
+      "completed_at": "2026-04-11T04:13:14.384347+00:00",
       "conclusion": "已完成 monorepo 注册"
     },
     "4": {
       "completed": true,
-      "completed_at": "2026-04-11T04:12:41.258729+00:00",
+      "completed_at": "2026-04-11T04:13:14.429625+00:00",
       "conclusion": "骨架文件已生成",
       "files_written": [
         "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/multica/lzc-manifest.yml",
@@ -372,12 +432,12 @@
     },
     "5": {
       "completed": true,
-      "completed_at": "2026-04-11T04:12:41.259308+00:00",
+      "completed_at": "2026-04-11T04:13:14.430233+00:00",
       "conclusion": "manifest 初稿已生成"
     },
     "6": {
       "completed": true,
-      "completed_at": "2026-04-11T04:12:41.259594+00:00",
+      "completed_at": "2026-04-11T04:13:14.430570+00:00",
       "conclusion": "剩余文件已补齐"
     }
   },

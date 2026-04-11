@@ -10,7 +10,7 @@
 - AUTHOR: multica-ai
 - VERSION: 0.1.23
 - IMAGE: TODO
-- PORT: 5432
+- PORT: 3000
 - AI_POD_SERVICE: 无
 - AI_POD_SERVICE_NAME: 无
 - AI_POD_SERVICE_PORT: 无
@@ -21,12 +21,26 @@
 - `POSTGRES_DB`: From compose service postgres (required=False)
 - `POSTGRES_USER`: From compose service postgres (required=False)
 - `POSTGRES_PASSWORD`: From compose service postgres (required=False)
+- `DATABASE_URL`: From compose service backend (required=False)
+- `PORT`: From compose service backend (required=False)
+- `JWT_SECRET`: From compose service backend (required=False)
+- `FRONTEND_ORIGIN`: From compose service backend (required=False)
+- `CORS_ALLOWED_ORIGINS`: From compose service backend (required=False)
+- `RESEND_API_KEY`: From compose service backend (required=False)
+- `RESEND_FROM_EMAIL`: From compose service backend (required=False)
+- `GOOGLE_CLIENT_ID`: From compose service backend (required=False)
+- `GOOGLE_CLIENT_SECRET`: From compose service backend (required=False)
+- `GOOGLE_REDIRECT_URI`: From compose service backend (required=False)
+- `S3_BUCKET`: From compose service backend (required=False)
+- `S3_REGION`: From compose service backend (required=False)
+- `CLOUDFRONT_DOMAIN`: From compose service backend (required=False)
+- `CLOUDFRONT_KEY_PAIR_ID`: From compose service backend (required=False)
+- `CLOUDFRONT_PRIVATE_KEY`: From compose service backend (required=False)
+- `COOKIE_DOMAIN`: From compose service backend (required=False)
+- `MULTICA_APP_URL`: From compose service backend (required=False)
+- `HOSTNAME`: From compose service frontend (required=False)
 - `POSTGRES_PORT`: From .env.example (required=False)
-- `DATABASE_URL`: From .env.example (required=False)
-- `PORT`: From .env.example (required=False)
-- `JWT_SECRET`: From .env.example (required=False)
 - `MULTICA_SERVER_URL`: From .env.example (required=False)
-- `MULTICA_APP_URL`: From .env.example (required=False)
 - `MULTICA_DAEMON_CONFIG`: From .env.example (required=False)
 - `MULTICA_WORKSPACE_ID`: From .env.example (required=False)
 - `MULTICA_DAEMON_ID`: From .env.example (required=False)
@@ -37,21 +51,9 @@
 - `MULTICA_CODEX_MODEL`: From .env.example (required=False)
 - `MULTICA_CODEX_WORKDIR`: From .env.example (required=False)
 - `MULTICA_CODEX_TIMEOUT`: From .env.example (required=False)
-- `RESEND_API_KEY`: From .env.example (required=False)
-- `RESEND_FROM_EMAIL`: From .env.example (required=False)
-- `GOOGLE_CLIENT_ID`: From .env.example (required=False)
-- `GOOGLE_CLIENT_SECRET`: From .env.example (required=False)
-- `GOOGLE_REDIRECT_URI`: From .env.example (required=False)
 - `NEXT_PUBLIC_GOOGLE_CLIENT_ID`: From .env.example (required=False)
-- `S3_BUCKET`: From .env.example (required=False)
-- `S3_REGION`: From .env.example (required=False)
-- `CLOUDFRONT_KEY_PAIR_ID`: From .env.example (required=False)
 - `CLOUDFRONT_PRIVATE_KEY_SECRET`: From .env.example (required=False)
-- `CLOUDFRONT_PRIVATE_KEY`: From .env.example (required=False)
-- `CLOUDFRONT_DOMAIN`: From .env.example (required=False)
-- `COOKIE_DOMAIN`: From .env.example (required=False)
 - `FRONTEND_PORT`: From .env.example (required=False)
-- `FRONTEND_ORIGIN`: From .env.example (required=False)
 - `NEXT_PUBLIC_API_URL`: From .env.example (required=False)
 - `NEXT_PUBLIC_WS_URL`: From .env.example (required=False)
 
@@ -59,8 +61,9 @@
 - `/var/lib/postgresql/data` <= `/lzcapp/var/db/multica/postgres` (From compose service postgres)
 
 ## 预填启动说明
-- 自动扫描到 compose 文件：docker-compose.yml
-- 主服务推断为 `postgres`，入口端口 `5432`。
+- 自动扫描到 compose 文件：docker-compose.selfhost.yml
+- 主服务推断为 `frontend`，入口端口 `3000`。
+- 依赖服务镜像已写入 dependencies，首次完整构建时会自动 copy-image。
 - 扫描到 env 示例文件：.env.example
 - 扫描到 README：README.md, README.zh-CN.md
 
@@ -78,6 +81,14 @@
   image: `registry.lazycat.cloud/placeholder/multica:postgres`
   binds: `/lzcapp/var/db/multica/postgres:/var/lib/postgresql/data`
   environment: `POSTGRES_DB=multica, POSTGRES_USER=multica, POSTGRES_PASSWORD=multica`
+- `backend`
+  image: `registry.lazycat.cloud/placeholder/multica:backend`
+  depends_on: `postgres`
+  environment: `DATABASE_URL=postgres://${POSTGRES_USER:-multica}:${POSTGRES_PASSWORD:-multica}@postgres:5432/${POSTGRES_DB:-multica}?sslmode=disable, PORT=8080, JWT_SECRET=change-me-in-production, FRONTEND_ORIGIN=http://localhost:3000, CORS_ALLOWED_ORIGINS=, RESEND_API_KEY=, RESEND_FROM_EMAIL=noreply@multica.ai, GOOGLE_CLIENT_ID=, GOOGLE_CLIENT_SECRET=, GOOGLE_REDIRECT_URI=http://localhost:3000/auth/callback, S3_BUCKET=, S3_REGION=us-west-2, CLOUDFRONT_DOMAIN=, CLOUDFRONT_KEY_PAIR_ID=, CLOUDFRONT_PRIVATE_KEY=, COOKIE_DOMAIN=, MULTICA_APP_URL=http://localhost:3000`
+- `frontend`
+  image: `registry.lazycat.cloud/placeholder/multica:frontend`
+  depends_on: `backend`
+  environment: `HOSTNAME=0.0.0.0`
 
 ## 退出条件
 - [ ] 入口、端口、环境变量、真实写路径、初始化命令、数据库/auth 配置全部确认完毕
