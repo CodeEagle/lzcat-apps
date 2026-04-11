@@ -4247,23 +4247,27 @@ def fork_upstream_repo(upstream_repo: str, fork_owner: str = "CodeEagle", fork_n
     # Check if fork already exists
     existing = bm.github_api_json(f"repos/{fork_full}")
     if isinstance(existing, dict) and existing.get("full_name", "").lower() == fork_full.lower():
-        log(f"[fork] Fork already exists: {fork_full}")
+        print(f"[fork] Fork already exists: {fork_full}")
         # Ensure it's public
         if existing.get("private"):
             _set_repo_visibility(fork_full, private=False)
         return fork_full
 
-    # Create fork via gh CLI (more reliable than API for org forks)
-    cmd = ["gh", "repo", "fork", upstream_repo, "--org", fork_owner, "--clone=false"]
+    # Create fork via gh CLI
+    cmd = ["gh", "repo", "fork", upstream_repo, "--clone=false"]
     if fork_name:
         cmd.extend(["--fork-name", fork_name])
+    # Only use --org for organization accounts; user accounts fork to themselves
+    owner_meta = bm.github_api_json(f"users/{fork_owner}")
+    if isinstance(owner_meta, dict) and owner_meta.get("type", "").lower() == "organization":
+        cmd.extend(["--org", fork_owner])
     result = subprocess.run(
         cmd, capture_output=True, text=True, timeout=60,
     )
     if result.returncode != 0 and "already exists" not in result.stderr:
         raise RuntimeError(f"Failed to fork {upstream_repo}: {result.stderr}")
 
-    log(f"[fork] Forked {upstream_repo} → {fork_full}")
+    print(f"[fork] Forked {upstream_repo} → {fork_full}")
 
     # Ensure public visibility
     _set_repo_visibility(fork_full, private=False)
@@ -4277,7 +4281,7 @@ def _set_repo_visibility(repo: str, *, private: bool = False) -> None:
         ["gh", "repo", "edit", repo, "--visibility", "public" if not private else "private"],
         capture_output=True, text=True, timeout=30,
     )
-    log(f"[fork] Set {repo} visibility to {'private' if private else 'public'}")
+    print(f"[fork] Set {repo} visibility to {'private' if private else 'public'}")
 
 
 def detect_gh_token(env: dict[str, str]) -> tuple[str, str]:
@@ -4612,9 +4616,9 @@ def main() -> int:
                 analysis.spec["upstream_repo"] = fork_name
                 analysis.spec["check_strategy"] = "commit_sha"
                 analysis.spec["build_strategy"] = "upstream_dockerfile"
-                log(f"[fork] Updated spec: upstream_repo={fork_name}, check_strategy=commit_sha")
+                print(f"[fork] Updated spec: upstream_repo={fork_name}, check_strategy=commit_sha")
             except Exception as exc:
-                log(f"[fork] WARNING: fork failed ({exc}), continuing with original upstream")
+                print(f"[fork] WARNING: fork failed ({exc}), continuing with original upstream")
 
         # First time we know the slug — create app_dir and save
         app_dir = repo_root / "apps" / analysis.slug
