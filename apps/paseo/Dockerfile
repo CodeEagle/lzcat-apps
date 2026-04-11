@@ -15,9 +15,9 @@ RUN set -eux; \
     git clone --depth 1 --branch "${SOURCE_VERSION}" https://github.com/${UPSTREAM_REPO}.git . || \
     (git clone https://github.com/${UPSTREAM_REPO}.git . && git checkout "${SOURCE_VERSION}")
 
-# Install workspace dependencies and build server
+# Install workspace dependencies and build all workspaces
 RUN npm ci --workspaces --include-workspace-root
-RUN npm run build --workspace=@getpaseo/server
+RUN npm run build --workspaces --if-present
 
 # Runtime image
 FROM node:20-bullseye-slim AS runner
