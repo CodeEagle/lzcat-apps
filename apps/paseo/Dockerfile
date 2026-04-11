@@ -63,7 +63,12 @@ ENV NODE_ENV=production
 
 # Copy built server and node_modules from builder
 COPY --from=builder /usr/src/app/dist/server /app/dist/server
+# Ensure workspace packages are available as real packages in runtime node_modules to avoid symlink resolution issues
+RUN mkdir -p /app/node_modules/@getpaseo
 COPY --from=builder /usr/src/app/node_modules /app/node_modules
+# Copy built workspace packages (if present) into runtime node_modules to ensure Node can resolve @getpaseo/* packages
+COPY --from=builder /usr/src/app/node_modules/@getpaseo/relay /app/node_modules/@getpaseo/relay
+COPY --from=builder /usr/src/app/node_modules/@getpaseo/highlight /app/node_modules/@getpaseo/highlight
 COPY --from=builder /usr/src/app/packages/server/package.json /app/package.json
 
 ENV PASEO_LISTEN=0.0.0.0:6767
