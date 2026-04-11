@@ -1567,6 +1567,16 @@ def main() -> int:
 
         log(f"[{app_name}] Update needed: {current_build_version} -> {build_version} (source: {source_version})")
 
+        # Auto-enable skip_docker when upstream commit is unchanged — the image
+        # hasn't changed so there's nothing to rebuild or re-copy.
+        if not args.skip_docker and not args.target_version:
+            if current_source_version and current_source_version == source_version:
+                args.skip_docker = True
+                log(
+                    f"[{app_name}] Auto-enabling skip_docker: "
+                    f"upstream commit unchanged ({source_version}), reusing existing image."
+                )
+
         resolved_service_images: dict[str, str] = {}
         source_service_images: dict[str, str] = {}
         source_service_digests: dict[str, str] = {}
