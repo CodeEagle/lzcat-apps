@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "app": "vane",
+  "source_version": "v1.12.2",
+  "build_version": "1.12.2",
+  "head_sha": "6c33bbb41e5d",
+  "updated_at": "2026-04-11T01:08:41.125525+00:00",
+  "images": {
+    "vane": "registry.lazycat.cloud/invokerlaw/itzcrazykns1337/vane:593322dde4c9e0c7"
+  },
+  "source_images": {
+    "vane": "docker.io/itzcrazykns1337/vane:v1.12.2"
+  },
+  "source_digests": {
+    "_primary": ""
+  },
+  "copy_image_events": [
+    {
+      "source_image": "docker.io/itzcrazykns1337/vane:v1.12.2",
+      "target_image": "registry.lazycat.cloud/invokerlaw/itzcrazykns1337/vane:593322dde4c9e0c7",
+      "elapsed_seconds": 756.901,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}

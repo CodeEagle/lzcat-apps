@@ -1,7 +1,7 @@
 {
   "upstream_repo": "ItzCrazyKns/Vane",
-  "source_version": "v1.12.1",
-  "build_version": "1.12.1",
-  "build_label": "v1.12.1@20260325T025013Z",
-  "last_checked_at": "2026-03-25T02:50:13.294206+00:00"
+  "source_version": "v1.12.2",
+  "build_version": "1.12.2",
+  "build_label": "v1.12.2@20260411T010841Z",
+  "last_checked_at": "2026-04-11T01:08:41.125892+00:00"
 }
