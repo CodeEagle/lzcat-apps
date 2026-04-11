@@ -43,7 +43,6 @@
     "hermes-webui-aio.json",
     "cultivation-world-simulator.json",
     "copilot-api-plus.json",
-    "localai.json",
-    "copilot-api-plus-test-test.json"
+    "localai.json"
   ]
 }
