@@ -60,7 +60,6 @@ on:
           - "cultivation-world-simulator"
           - "copilot-api-plus"
           - "localai"
-          - "copilot-api-plus-test"
           - "paseo"
           # END AUTO-GENERATED APP OPTIONS
       target_version:
