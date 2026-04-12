@@ -4,7 +4,7 @@
   "source_version": "v0.1.52",
   "build_version": "0.1.52",
   "head_sha": "35adda3060dc",
-  "build_recipe_hash": "aec2ea1fb594cb4f712f7e30935f3142f4a1329f4ee95760f7724be9c5fdff65",
+  "build_recipe_hash": "d15b3c404b15979ca67aa32266c39bbf7c6d7968f874b4f2a149142f79fa8122",
   "updated_at": "2026-04-11T11:31:12.626177+00:00",
   "images": {
     "paseo": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:bf3348064d213d1e"
