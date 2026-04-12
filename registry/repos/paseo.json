@@ -14,5 +14,6 @@
   ],
   "dependencies": [],
   "dockerfile_path": "Dockerfile",
-  "build_context": "."
+  "build_context": ".",
+  "docker_platform": "linux/amd64"
 }
