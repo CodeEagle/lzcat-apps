@@ -41,7 +41,7 @@
       },
       "overlays": [
         "apps/multica/patch-login-build.js"
-      ]
+      ],
       "image_name": "multica-frontend"
     }
   ],
