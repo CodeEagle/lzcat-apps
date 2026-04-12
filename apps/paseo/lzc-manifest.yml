@@ -1,28 +1,23 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.paseo
-version: 0.1.52
-min_os_version: 1.3.8
-name: Paseo
-description: Orchestrate coding agents remotely from your phone, desktop and CLI
-homepage: https://paseo.sh
-author: getpaseo
+version: '0.1.0'
 application:
   subdomain: paseo
   public_path:
     - /
   upstreams:
-    -
-      location: /
+    - location: /
       backend: http://paseo:6767/
 services:
   paseo:
-    image: registry.lazycat.cloud/placeholder/paseo:bootstrap
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:bf3348064d213d1e
     environment:
       - PASEO_LISTEN=0.0.0.0:6767
-locales:
-  en:
-    name: Paseo
-    description: Orchestrate coding agents remotely from your phone, desktop and CLI
-  zh:
-    name: Paseo
-    description: Paseo 的懒猫微服打包版本
+      - PASEO_ALLOWED_HOSTS=.rx79.heiyu.space
+      - PASEO_RELAY_ENDPOINT=relay.paseo.sh:443
+      - PASEO_RELAY_PUBLIC_ENDPOINT=relay.paseo.sh:443
+    binds:
+      - /lzcapp/pkg/content/@getpaseo:/app/node_modules/@getpaseo
+      - /lzcapp/pkg/content/dist/server/utils:/app/dist/server/utils
+      - /lzcapp/pkg/content/dist/server/server/bootstrap.js:/app/dist/server/server/bootstrap.js
+      - /lzcapp/pkg/content/public:/app/public

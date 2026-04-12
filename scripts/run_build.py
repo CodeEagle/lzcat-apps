@@ -351,11 +351,37 @@ def ensure_manifest_images_materialized(
 
 
 def inspect_lpk_manifest(lpk_path: Path) -> dict[str, Any]:
-    with zipfile.ZipFile(lpk_path) as archive:
+    manifest_text = None
+    # Try LPK v1 (zip)
+    try:
+        with zipfile.ZipFile(lpk_path) as archive:
+            try:
+                manifest_text = archive.read("manifest.yml").decode("utf-8")
+            except KeyError as exc:
+                raise RuntimeError(f"LPK missing manifest.yml: {lpk_path}") from exc
+    except zipfile.BadZipFile:
+        # Fallback to LPK v2 (tar-based)
+        import tarfile
+
         try:
-            manifest_text = archive.read("manifest.yml").decode("utf-8")
-        except KeyError as exc:
-            raise RuntimeError(f"LPK missing manifest.yml: {lpk_path}") from exc
+            with tarfile.open(lpk_path) as tar:
+                member = None
+                for m in tar.getmembers():
+                    # manifest may be at top-level or under a directory
+                    if m.name == "manifest.yml" or m.name.endswith("/manifest.yml"):
+                        member = m
+                        break
+                if member is None:
+                    raise RuntimeError(f"LPK missing manifest.yml (tar): {lpk_path}")
+                f = tar.extractfile(member)
+                if f is None:
+                    raise RuntimeError(f"Unable to read manifest.yml in LPK: {lpk_path}")
+                manifest_text = f.read().decode("utf-8")
+        except tarfile.TarError as exc:
+            raise RuntimeError(f"LPK is neither zip nor tar: {lpk_path}") from exc
+
+    if manifest_text is None:
+        raise RuntimeError(f"Unable to read manifest.yml from LPK: {lpk_path}")
 
     image_matches = ensure_manifest_images_materialized(
         manifest_text,
@@ -1613,8 +1639,9 @@ def main() -> int:
 
         # Auto-enable skip_docker when upstream commit is unchanged — the image
         # hasn't changed so there's nothing to rebuild or re-copy.
+        # However, if the user explicitly requested --force-build, do not auto-enable skip_docker
         auto_skip_docker_enabled = False
-        if not args.skip_docker and not args.target_version:
+        if not args.skip_docker and not args.target_version and not args.force_build:
             if current_source_version and current_source_version == source_version:
                 args.skip_docker = True
                 auto_skip_docker_enabled = True
