@@ -1,33 +1,33 @@
 {
   "schema_version": 1,
   "app": "deer-flow",
-  "source_version": "c4d273a",
-  "build_version": "0.1.32",
-  "head_sha": "6395f4440d1e",
+  "source_version": "5db71cb",
+  "build_version": "0.1.33",
+  "head_sha": "59cb6abe787c",
   "build_recipe_hash": "2525394d0c6548266232d83c7fdc6627207f33ba455fc8a3a5d2cb556d605aac",
-  "updated_at": "2026-04-11T12:52:54.200917+00:00",
+  "updated_at": "2026-04-12T15:00:21.947302+00:00",
   "images": {
-    "frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:a3fef08728190f30",
-    "gateway": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:cd68f6980cbf8864",
-    "langgraph": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:c2ea7dc0985ceeec",
+    "frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:c82ab336f1eaca1a",
+    "gateway": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:2675f83de63f7b6a",
+    "langgraph": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:bb7c4ff160a74903",
     "nginx": "registry.lazycat.cloud/invokerlaw/library/nginx:f14898f5b3ebfb0b"
   },
   "source_images": {
-    "frontend": "ghcr.io/codeeagle/lazycatimages:deerFlowFrontend_6395f4440d1e",
-    "gateway": "ghcr.io/codeeagle/lazycatimages:deerFlowGateway_6395f4440d1e",
-    "langgraph": "ghcr.io/codeeagle/lazycatimages:deerFlowLanggraph_6395f4440d1e",
+    "frontend": "ghcr.io/codeeagle/lazycatimages:deerFlowFrontend_59cb6abe787c",
+    "gateway": "ghcr.io/codeeagle/lazycatimages:deerFlowGateway_59cb6abe787c",
+    "langgraph": "ghcr.io/codeeagle/lazycatimages:deerFlowLanggraph_59cb6abe787c",
     "nginx": "nginx:alpine"
   },
   "source_digests": {
-    "frontend": "sha256:9ca038fcb5147187f25e57144fdbd4dd87cb32c9ba5f8780d45c0144c1e090b9",
-    "gateway": "sha256:61ed4b368e016560e3c96aba30e2a820e705b43e68bb9f1e7b819835f49193b9",
-    "langgraph": "sha256:61ed4b368e016560e3c96aba30e2a820e705b43e68bb9f1e7b819835f49193b9"
+    "frontend": "sha256:1c7aede18d099fd9b25687889b63dd67e6a7ad025bb90c745a81e8d411c04091",
+    "gateway": "sha256:ce229537c656854dcf87de44a1ca4c1cc137f42eb85d014843eb867a8b25e73b",
+    "langgraph": "sha256:ce229537c656854dcf87de44a1ca4c1cc137f42eb85d014843eb867a8b25e73b"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:deerFlowFrontend_6395f4440d1e",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:a3fef08728190f30",
-      "elapsed_seconds": 86.17,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:deerFlowFrontend_59cb6abe787c",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:c82ab336f1eaca1a",
+      "elapsed_seconds": 2138.171,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
@@ -35,9 +35,9 @@
       "kind": "service"
     },
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:deerFlowGateway_6395f4440d1e",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:cd68f6980cbf8864",
-      "elapsed_seconds": 1178.527,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:deerFlowGateway_59cb6abe787c",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:2675f83de63f7b6a",
+      "elapsed_seconds": 2802.066,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
@@ -45,9 +45,9 @@
       "kind": "service"
     },
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:deerFlowLanggraph_6395f4440d1e",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:c2ea7dc0985ceeec",
-      "elapsed_seconds": 31.876,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:deerFlowLanggraph_59cb6abe787c",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:bb7c4ff160a74903",
+      "elapsed_seconds": 24.502,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
