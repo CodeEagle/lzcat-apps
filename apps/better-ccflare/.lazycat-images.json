@@ -1,23 +1,27 @@
 {
   "schema_version": 1,
   "app": "better-ccflare",
-  "source_version": "v3.3.25",
-  "build_version": "3.3.25",
-  "head_sha": "14a952e7e17f",
-  "updated_at": "2026-04-09T03:07:29.675117+00:00",
+  "source_version": "v3.4.0",
+  "build_version": "3.4.0",
+  "head_sha": "fbc17e0829ae",
+  "build_recipe_hash": "a29c2f38f55f49df79a976ab6534574575f7cc4b466d2797a0ac805137d2f439",
+  "updated_at": "2026-04-13T01:00:52.821489+00:00",
   "images": {
-    "better-ccflare": "registry.lazycat.cloud/invokerlaw/codeeagle/better-ccflare-lzcat:d662c06c72641bd0"
+    "better-ccflare": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:7998820f7a591eb4"
   },
   "source_images": {
-    "better-ccflare": "ghcr.io/codeeagle/better-ccflare-lzcat:14a952e7e17f"
+    "better-ccflare": "ghcr.io/codeeagle/lazycatimages:betterCcflareLzcat_fbc17e0829ae"
+  },
+  "source_digests": {
+    "_primary": "sha256:55103cd65226911bee01aebd1f18460a1fbd8a611ccc8a0aea5d07ad2d47d72c"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/better-ccflare-lzcat:14a952e7e17f",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/better-ccflare-lzcat:d662c06c72641bd0",
-      "elapsed_seconds": 40.655,
-      "saw_waiting": true,
-      "saw_upload_started": true,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:betterCcflareLzcat_fbc17e0829ae",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:7998820f7a591eb4",
+      "elapsed_seconds": 65.86,
+      "saw_waiting": false,
+      "saw_upload_started": false,
       "reused_existing": false,
       "kind": "primary"
     }
