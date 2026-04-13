@@ -4764,6 +4764,15 @@ def main() -> int:
         if not ms.should_skip_step(state, 4) and start_step <= 4:
             effective_force = args.force
             try:
+                # preserve existing migration_status from current registry if present
+                existing_registry = repo_root / "registry" / "repos" / f"{finalized['slug']}.json"
+                if existing_registry.exists():
+                    try:
+                        regobj = json.loads(existing_registry.read_text(encoding='utf-8'))
+                        if isinstance(regobj, dict) and regobj.get('migration_status') is not None:
+                            finalized['migration_status'] = regobj['migration_status']
+                    except Exception:
+                        pass
                 written = bm.write_files(repo_root, finalized, effective_force)
             except FileExistsError:
                 if args.force:

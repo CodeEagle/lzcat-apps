@@ -681,6 +681,9 @@ def build_registry_config(spec: dict[str, Any]) -> dict[str, Any]:
         payload["build_args"] = spec["build_args"]
     if spec.get("deploy_param_sync"):
         payload["deploy_param_sync"] = spec["deploy_param_sync"]
+    # preserve migration_status when present (added by registry or prior migration)
+    if spec.get("migration_status") is not None:
+        payload["migration_status"] = spec["migration_status"]
     return payload
 
 
