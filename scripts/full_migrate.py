@@ -4769,8 +4769,31 @@ def main() -> int:
                 if existing_registry.exists():
                     try:
                         regobj = json.loads(existing_registry.read_text(encoding='utf-8'))
-                        if isinstance(regobj, dict) and regobj.get('migration_status') is not None:
-                            finalized['migration_status'] = regobj['migration_status']
+                        if isinstance(regobj, dict):
+                            if regobj.get('migration_status') is not None:
+                                finalized['migration_status'] = regobj['migration_status']
+                            # In verify mode, prefer values from the existing registry for stable reproducibility
+                            if getattr(args, 'verify', False):
+                                for key in (
+                                    "build_strategy",
+                                    "build_context",
+                                    "dockerfile_path",
+                                    "dockerfile_type",
+                                    "overlay_paths",
+                                    "image_targets",
+                                    "service_port",
+                                    "service_cmd",
+                                    "service_builds",
+                                    "docker_platform",
+                                    "dependencies",
+                                    "official_image_registry",
+                                    "precompiled_binary_url",
+                                    "publish_to_store",
+                                    "image_owner",
+                                    "build_args",
+                                ):
+                                    if key in regobj:
+                                        finalized[key] = regobj[key]
                     except Exception:
                         pass
                 written = bm.write_files(repo_root, finalized, effective_force)
