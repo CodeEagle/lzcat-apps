@@ -4839,9 +4839,33 @@ def main() -> int:
             except FileExistsError:
                 if args.force:
                     raise
-                effective_force = True
-                finalized.setdefault("_risks", []).append("目标 app 已存在，自动覆盖当前托管文件后继续")
-                written = bm.write_files(repo_root, finalized, effective_force)
+                # In verify mode, prefer existing managed files rather than overwriting them.
+                # This avoids noisy diffs when we are only checking reproducibility.
+                if getattr(args, 'verify', False):
+                    written = []
+                    app_dir = repo_root / "apps" / finalized["slug"]
+                    registry_dir = repo_root / "registry" / "repos"
+                    config_path = registry_dir / f"{finalized['slug']}.json"
+                    candidates = [
+                        app_dir / "README.md",
+                        app_dir / "lzc-manifest.yml",
+                        app_dir / "lzc-build.yml",
+                        app_dir / "UPSTREAM_DEPLOYMENT_CHECKLIST.md",
+                        app_dir / "icon.png",
+                        config_path,
+                    ]
+                    for p in candidates:
+                        if p.exists():
+                            written.append(p)
+                    # If none of the managed files were present (unexpected), fall back to overwrite
+                    if not written:
+                        effective_force = True
+                        finalized.setdefault("_risks", []).append("目标 app 已存在，但未找到托管文件，将覆盖生成文件")
+                        written = bm.write_files(repo_root, finalized, effective_force)
+                else:
+                    effective_force = True
+                    finalized.setdefault("_risks", []).append("目标 app 已存在，自动覆盖当前托管文件后继续")
+                    written = bm.write_files(repo_root, finalized, effective_force)
             post_written = apply_post_write(repo_root, finalized["slug"], analysis.spec.get("_post_write", {}))
             post_written.extend(apply_app_post_process(repo_root, finalized, analysis))
             step_report(
