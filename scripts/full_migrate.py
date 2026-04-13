@@ -4794,6 +4794,13 @@ def main() -> int:
                                 ):
                                     if key in regobj:
                                         finalized[key] = regobj[key]
+                                    else:
+                                        # if registry does not have the key, remove any auto-generated value
+                                        if key in finalized:
+                                            try:
+                                                del finalized[key]
+                                            except Exception:
+                                                pass
                     except Exception:
                         pass
                 written = bm.write_files(repo_root, finalized, effective_force)
