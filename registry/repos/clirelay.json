@@ -14,5 +14,6 @@
   "image_targets": [
     "clirelay"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "migrated"
 }

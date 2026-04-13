@@ -31,5 +31,6 @@
       "build_args": {},
       "image_name": "shadowbroker-frontend"
     }
-  ]
+  ],
+  "migration_status": "in_progress"
 }

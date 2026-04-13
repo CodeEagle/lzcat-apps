@@ -32,5 +32,6 @@
       "target_service": "panda-wiki-minio",
       "source_image": "chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/panda-wiki-minio:RELEASE.2025-04-22T22-12-26Z-cpuv1"
     }
-  ]
+  ],
+  "migration_status": "in_progress"
 }

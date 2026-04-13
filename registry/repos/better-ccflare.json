@@ -16,5 +16,6 @@
   "image_targets": [
     "better-ccflare"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "migrated"
 }

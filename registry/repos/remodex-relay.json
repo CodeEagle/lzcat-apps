@@ -17,5 +17,6 @@
   "image_targets": [
     "remodex-relay"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "migrated"
 }

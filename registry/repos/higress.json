@@ -12,5 +12,6 @@
   "image_targets": [
     "higress"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "migrated"
 }

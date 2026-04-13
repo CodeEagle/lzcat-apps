@@ -15,5 +15,6 @@
   "image_targets": [
     "jellyfish"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "in_progress"
 }

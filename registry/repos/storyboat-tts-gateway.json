@@ -20,5 +20,6 @@
   "docker_platform": "linux/amd64",
   "build_args": {
     "UPSTREAM_REF": "7f02ee1f87ee9ad1605176d0a42e1c47374834b5"
-  }
+  },
+  "migration_status": "migrated"
 }

@@ -36,5 +36,6 @@
     "ENABLE_PYTHON": "${ENABLE_PYTHON:-true}",
     "ENABLE_FULL_SKILLS": "${ENABLE_FULL_SKILLS:-false}",
     "VERSION": "${GOCLAW_VERSION:-dev}"
-  }
+  },
+  "migration_status": "in_progress"
 }

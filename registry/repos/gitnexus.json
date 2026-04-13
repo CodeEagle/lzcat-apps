@@ -14,5 +14,6 @@
   "image_targets": [
     "gitnexus"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "migrated"
 }

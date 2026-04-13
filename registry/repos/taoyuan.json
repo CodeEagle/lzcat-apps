@@ -12,5 +12,6 @@
   "image_targets": [
     "taoyuan-web"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "migrated"
 }

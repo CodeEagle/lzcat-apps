@@ -11,5 +11,6 @@
   "image_targets": [
     "tts-story"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "in_progress"
 }

@@ -14,5 +14,6 @@
   "image_targets": [
     "hucre-web"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "migrated"
 }

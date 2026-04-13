@@ -12,5 +12,6 @@
   "service_port": 7860,
   "service_cmd": [],
   "image_targets": [],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "in_progress"
 }

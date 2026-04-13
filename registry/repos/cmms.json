@@ -39,5 +39,6 @@
       "build_args": {},
       "image_name": "cmms-frontend"
     }
-  ]
+  ],
+  "migration_status": "in_progress"
 }

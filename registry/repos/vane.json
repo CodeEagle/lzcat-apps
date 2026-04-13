@@ -14,5 +14,6 @@
   "image_targets": [
     "vane"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "migrated"
 }

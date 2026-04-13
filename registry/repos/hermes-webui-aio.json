@@ -9,7 +9,9 @@
   "dockerfile_type": "custom",
   "service_port": 8787,
   "service_cmd": [],
-  "image_targets": ["hermes"],
+  "image_targets": [
+    "hermes"
+  ],
   "dependencies": [],
   "service_builds": [
     {
@@ -22,5 +24,6 @@
       "image_name": "hermes-webui-aio-hermes"
     }
   ],
-  "docker_platform": "linux/amd64"
+  "docker_platform": "linux/amd64",
+  "migration_status": "in_progress"
 }

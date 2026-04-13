@@ -25,5 +25,6 @@
       "target_service": "redis",
       "source_image": "redis:7-alpine"
     }
-  ]
+  ],
+  "migration_status": "migrated"
 }

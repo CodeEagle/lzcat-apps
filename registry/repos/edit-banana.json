@@ -14,5 +14,6 @@
   "image_targets": [
     "edit-banana"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "in_progress"
 }

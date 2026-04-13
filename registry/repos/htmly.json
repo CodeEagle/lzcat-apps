@@ -14,5 +14,6 @@
   "image_targets": [
     "htmly"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "migrated"
 }

@@ -23,5 +23,6 @@
       "image_name": "crucix-crucix"
     }
   ],
-  "docker_platform": "linux/amd64"
+  "docker_platform": "linux/amd64",
+  "migration_status": "migrated"
 }

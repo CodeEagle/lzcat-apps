@@ -12,5 +12,6 @@
   "image_targets": [
     "gateway"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "in_progress"
 }

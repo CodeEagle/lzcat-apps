@@ -33,5 +33,6 @@
       "target_service": "redis",
       "source_image": "redis:7.4.0"
     }
-  ]
+  ],
+  "migration_status": "migrated"
 }

@@ -15,5 +15,6 @@
   "image_targets": [
     "shadmin"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "migrated"
 }

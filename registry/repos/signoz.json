@@ -29,5 +29,6 @@
       "target_service": "otel-collector",
       "source_image": "signoz/signoz-otel-collector:v0.144.2"
     }
-  ]
+  ],
+  "migration_status": "in_progress"
 }

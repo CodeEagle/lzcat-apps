@@ -14,5 +14,6 @@
   "image_targets": [
     "markitdown"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "migrated"
 }

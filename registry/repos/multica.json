@@ -9,10 +9,7 @@
   "dockerfile_type": "custom",
   "service_port": 3000,
   "service_cmd": [],
-  "image_targets": [
-    "frontend",
-    "backend"
-  ],
+  "image_targets": ["frontend", "backend"],
   "dependencies": [
     {
       "target_service": "postgres",
@@ -39,9 +36,7 @@
       "build_args": {
         "REMOTE_API_URL": "http://backend:8080"
       },
-      "overlays": [
-        "apps/multica/patch-login-build.js"
-      ],
+      "overlays": ["apps/multica/patch-login-build.js"],
       "image_name": "multica-frontend"
     }
   ],
@@ -50,5 +45,6 @@
     "REMOTE_API_URL": "http://backend:8080",
     "GOPROXY": "https://proxy.golang.org,direct",
     "REBUILD_MARKER": "2026-04-11T12:00:00Z"
-  }
+  },
+  "migration_status": "in_progress"
 }

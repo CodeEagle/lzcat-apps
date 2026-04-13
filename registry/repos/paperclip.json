@@ -18,5 +18,6 @@
   "dependencies": [],
   "overlay_paths": [
     "lazycat"
-  ]
+  ],
+  "migration_status": "migrated"
 }

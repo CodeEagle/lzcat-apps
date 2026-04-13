@@ -15,5 +15,6 @@
   "image_targets": [
     "chatgpt-on-wechat"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "migrated"
 }

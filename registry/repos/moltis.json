@@ -12,5 +12,6 @@
   "image_targets": [
     "moltis"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "in_progress"
 }

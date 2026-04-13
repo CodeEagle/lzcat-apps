@@ -15,5 +15,6 @@
   "image_targets": [
     "openfang"
   ],
-  "dependencies": []
+  "dependencies": [],
+  "migration_status": "migrated"
 }

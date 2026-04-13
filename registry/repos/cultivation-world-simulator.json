@@ -36,5 +36,6 @@
       "image_name": "cultivation-world-simulator-frontend"
     }
   ],
-  "docker_platform": "linux/amd64"
+  "docker_platform": "linux/amd64",
+  "migration_status": "in_progress"
 }

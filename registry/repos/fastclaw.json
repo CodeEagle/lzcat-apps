@@ -15,5 +15,6 @@
     "fastclaw"
   ],
   "dependencies": [],
-  "dockerfile_path": "Dockerfile.template"
+  "dockerfile_path": "Dockerfile.template",
+  "migration_status": "in_progress"
 }

@@ -21,5 +21,6 @@
       "target_service": "rabbitmq",
       "source_image": "rabbitmq:3.8.17-management-alpine"
     }
-  ]
+  ],
+  "migration_status": "migrated"
 }

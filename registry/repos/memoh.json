@@ -33,5 +33,6 @@
       "target_service": "browser",
       "source_image": "memohai/browser:$BUILD_VERSION"
     }
-  ]
+  ],
+  "migration_status": "in_progress"
 }
