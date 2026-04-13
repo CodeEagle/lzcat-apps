@@ -4801,6 +4801,38 @@ def main() -> int:
                                                 del finalized[key]
                                             except Exception:
                                                 pass
+
+                                # Also, if existing manifest/build files exist in the repo, prefer their top-level fields
+                                try:
+                                    manifest_path = repo_root / "apps" / finalized["slug"] / "lzc-manifest.yml"
+                                    if manifest_path.exists():
+                                        manifest_text = manifest_path.read_text(encoding='utf-8')
+                                        # version
+                                        m = re.search(r'^\s*version:\s*(.+)$', manifest_text, flags=re.MULTILINE)
+                                        if m:
+                                            ver = m.group(1).strip()
+                                            if (ver.startswith('\"') and ver.endswith('\"')) or (ver.startswith("'") and ver.endswith("'")):
+                                                ver = ver[1:-1]
+                                            finalized['version'] = ver
+                                        # name -> project_name
+                                        m = re.search(r'^\s*name:\s*(.+)$', manifest_text, flags=re.MULTILINE)
+                                        if m:
+                                            finalized['project_name'] = m.group(1).strip().strip('"\'')
+                                        # description
+                                        m = re.search(r'^\s*description:\s*(.+)$', manifest_text, flags=re.MULTILINE)
+                                        if m:
+                                            finalized['description'] = m.group(1).strip().strip('"\'')
+                                except Exception:
+                                    pass
+
+                                try:
+                                    build_path = repo_root / "apps" / finalized["slug"] / "lzc-build.yml"
+                                    if build_path.exists():
+                                        build_text = build_path.read_text(encoding='utf-8')
+                                        if 'lzc-sdk-version' not in build_text:
+                                            finalized['omit_lzc_sdk_version'] = True
+                                except Exception:
+                                    pass
                     except Exception:
                         pass
                 written = bm.write_files(repo_root, finalized, effective_force)

@@ -747,11 +747,13 @@ def render_manifest(spec: dict[str, Any]) -> str:
 
 def render_build_yml(spec: dict[str, Any]) -> str:
     payload: dict[str, Any] = {
-        "lzc-sdk-version": "0.1",
         "manifest": "./lzc-manifest.yml",
         "pkgout": "./",
         "icon": "./icon.png",
     }
+    # include lzc-sdk-version by default unless the spec requests omission (used during --verify to match existing files)
+    if not spec.get('omit_lzc_sdk_version', False):
+        payload["lzc-sdk-version"] = "0.1"
     if spec["include_content"]:
         payload["contentdir"] = "./content"
     if spec["ai_pod_service"]:
