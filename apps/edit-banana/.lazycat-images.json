@@ -1,23 +1,27 @@
 {
   "schema_version": 1,
   "app": "edit-banana",
-  "source_version": "79b50ae",
-  "build_version": "1.0.6",
-  "head_sha": "dcb5f9af82d5",
-  "updated_at": "2026-04-09T00:51:49.703378+00:00",
+  "source_version": "02b768a",
+  "build_version": "1.0.7",
+  "head_sha": "7d1c6cdce186",
+  "build_recipe_hash": "c9a3114e3e26f80b60b4084dcd12a5720709f281253391a880cf031bfc01222c",
+  "updated_at": "2026-04-13T13:21:06.016429+00:00",
   "images": {
-    "edit-banana": "registry.lazycat.cloud/invokerlaw/codeeagle/edit-banana:0178b16801bb32a3"
+    "edit-banana": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:03bcb4b302c56435"
   },
   "source_images": {
-    "edit-banana": "ghcr.io/codeeagle/edit-banana:dcb5f9af82d5"
+    "edit-banana": "ghcr.io/codeeagle/lazycatimages:editBanana_7d1c6cdce186"
+  },
+  "source_digests": {
+    "_primary": "sha256:864e72633c126bfac1093c157ce1c48af2c736b61c4f20ed187b984856b82d5a"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/edit-banana:dcb5f9af82d5",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/edit-banana:0178b16801bb32a3",
-      "elapsed_seconds": 169.738,
-      "saw_waiting": true,
-      "saw_upload_started": true,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:editBanana_7d1c6cdce186",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:03bcb4b302c56435",
+      "elapsed_seconds": 2412.471,
+      "saw_waiting": false,
+      "saw_upload_started": false,
       "reused_existing": false,
       "kind": "primary"
     }
