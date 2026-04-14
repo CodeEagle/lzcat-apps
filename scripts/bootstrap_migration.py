@@ -45,7 +45,8 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def dump_json(path: Path, payload: dict[str, Any]) -> None:
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # Ensure deterministic key order when writing JSON files
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def ensure_list(value: Any) -> list[Any]:
@@ -140,9 +141,15 @@ def render_yaml_value(value: Any, indent: int = 0) -> list[str]:
 
 
 def render_yaml_mapping(mapping: dict[str, Any], indent: int = 0) -> list[str]:
+    """Render a YAML mapping deterministically by iterating keys in sorted order.
+
+    Sorting keys stabilizes output regardless of dict insertion order and
+    helps produce reproducible manifests.
+    """
     lines: list[str] = []
     prefix = " " * indent
-    for key, value in mapping.items():
+    for key in sorted(mapping.keys()):
+        value = mapping[key]
         if isinstance(value, dict):
             if not value:
                 lines.append(f"{prefix}{key}: {{}}")
@@ -684,7 +691,26 @@ def build_registry_config(spec: dict[str, Any]) -> dict[str, Any]:
     # preserve migration_status when present (added by registry or prior migration)
     if spec.get("migration_status") is not None:
         payload["migration_status"] = spec["migration_status"]
-    return payload
+
+    # Canonicalize list/dict fields to make the registry payload deterministic
+    for list_key in ("image_targets", "dependencies", "overlay_paths", "upstream_submodules"):
+        if list_key in payload and isinstance(payload[list_key], list):
+            payload[list_key] = sorted(payload[list_key])
+
+    if "service_builds" in payload and isinstance(payload["service_builds"], list):
+        try:
+            payload["service_builds"] = sorted(
+                payload["service_builds"],
+                key=lambda x: json.dumps(x, sort_keys=True, ensure_ascii=False),
+            )
+        except Exception:
+            # best-effort; if serialization fails, leave as-is
+            pass
+
+    if "build_args" in payload and isinstance(payload["build_args"], dict):
+        payload["build_args"] = {k: payload["build_args"][k] for k in sorted(payload["build_args"].keys())}
+
+    return prune_empty(payload)
 
 
 def build_manifest(spec: dict[str, Any]) -> dict[str, Any]:
@@ -1162,10 +1188,9 @@ def write_files(repo_root: Path, spec: dict[str, Any], force: bool) -> list[Path
         write_placeholder_icon(icon_path)
     written.append(icon_path)
 
-    config_path.write_text(
-        json.dumps(build_registry_config(spec), ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    # write registry config deterministically using dump_json
+    reg_payload = build_registry_config(spec)
+    dump_json(config_path, reg_payload)
     written.append(config_path)
 
     if spec["include_content"]:
