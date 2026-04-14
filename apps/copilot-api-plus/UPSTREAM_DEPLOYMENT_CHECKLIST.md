@@ -3,11 +3,11 @@
 ## 已确认字段
 - PROJECT_NAME: copilot-api-plus
 - PROJECT_SLUG: copilot-api-plus
-- UPSTREAM_REPO: imbuxiangnan-cyber/copilot-api-plus
-- UPSTREAM_URL: https://github.com/imbuxiangnan-cyber/copilot-api-plus
-- HOMEPAGE: https://github.com/imbuxiangnan-cyber/copilot-api-plus
+- UPSTREAM_REPO: CodeEagle/copilot-api-plus
+- UPSTREAM_URL: https://github.com/CodeEagle/copilot-api-plus
+- HOMEPAGE: https://github.com/CodeEagle/copilot-api-plus
 - LICENSE: MIT
-- AUTHOR: imbuxiangnan-cyber
+- AUTHOR: CodeEagle
 - VERSION: 1.2.5
 - IMAGE: TODO
 - PORT: 4141
