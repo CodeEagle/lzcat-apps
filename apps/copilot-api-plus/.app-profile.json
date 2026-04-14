@@ -43,6 +43,6 @@
       "\u626b\u63cf\u5230 env \u793a\u4f8b\u6587\u4ef6\uff1a.env.example",
       "\u626b\u63cf\u5230 README\uff1aREADME.en.md, README.md"
     ],
-    "include_content": false
+    "include_content": true
   }
 }
