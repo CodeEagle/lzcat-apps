@@ -6,7 +6,7 @@ name: copilot-api-plus
 description: Turn GitHub Copilot into OpenAI/Anthropic API compatible server
 license: MIT
 homepage: https://github.com/CodeEagle/copilot-api-plus
-author: imbuxiangnan-cyber
+author: CodeEagle
 application:
   subdomain: copilot-api-plus
   public_path:
