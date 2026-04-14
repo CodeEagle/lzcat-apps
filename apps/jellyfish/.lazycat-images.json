@@ -1,25 +1,25 @@
 {
   "schema_version": 1,
   "app": "jellyfish",
-  "source_version": "0964377",
-  "build_version": "0.1.12",
-  "head_sha": "7d1c6cdce186",
+  "source_version": "d7eeada",
+  "build_version": "0.1.13",
+  "head_sha": "450df0e0193e",
   "build_recipe_hash": "61568a9d95df2256349e10533961b023d464cfef76dc63d484f7f197be58cb6a",
-  "updated_at": "2026-04-13T12:42:08.315665+00:00",
+  "updated_at": "2026-04-14T13:07:46.268120+00:00",
   "images": {
-    "jellyfish": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:0c0a751354bedd17"
+    "jellyfish": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:b797067e34c66233"
   },
   "source_images": {
-    "jellyfish": "ghcr.io/codeeagle/lazycatimages:jellyfish_7d1c6cdce186"
+    "jellyfish": "ghcr.io/codeeagle/lazycatimages:jellyfish_450df0e0193e"
   },
   "source_digests": {
-    "_primary": "sha256:f5c6f1089a3a27d296bec55496a47f8f32534333b52481763ac85e135de30341"
+    "_primary": "sha256:8c7c9c2003518826c991f6a6d6c32950c89a5bb6a479a24dc4a1c21cd3ddf53a"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:jellyfish_7d1c6cdce186",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:0c0a751354bedd17",
-      "elapsed_seconds": 102.598,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:jellyfish_450df0e0193e",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:b797067e34c66233",
+      "elapsed_seconds": 1707.439,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
