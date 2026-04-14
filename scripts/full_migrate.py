@@ -377,8 +377,16 @@ def normalize_source(source: str) -> NormalizedSource:
 
 def fetch_text(url: str) -> str:
     req = request.Request(url, headers={"User-Agent": "lzcat-full-migrate"})
-    with request.urlopen(req, timeout=30) as response:
-        return response.read().decode("utf-8")
+    last_error: Exception | None = None
+    for attempt in range(1, 4):
+        try:
+            with request.urlopen(req, timeout=30) as response:
+                return response.read().decode("utf-8")
+        except Exception as exc:
+            last_error = exc
+            if attempt < 4:
+                time.sleep(attempt * 2)
+    raise RuntimeError(f"Failed to fetch {url}: {last_error}") from last_error
 
 
 def download_github_archive(repo: str, dest_root: Path) -> Path:
@@ -425,7 +433,25 @@ def download_github_archive(repo: str, dest_root: Path) -> Path:
     extracted_dirs = sorted(path for path in dest_root.iterdir() if path.is_dir())
     if not extracted_dirs:
         raise RuntimeError(f"未能从 GitHub archive 解出仓库目录：{repo}")
-    return extracted_dirs[0]
+    repo_dir = extracted_dirs[0]
+
+    # If repository contains submodules, prefer a proper git clone with submodules.
+    try:
+        if (repo_dir / ".gitmodules").exists():
+            git = shutil.which("git")
+            if git:
+                clone_dir = dest_root / repo.replace("/", "-")
+                try:
+                    sh(["git", "clone", "--depth", "1", "--recurse-submodules", f"https://github.com/{repo}.git", str(clone_dir)], check=True)
+                    return clone_dir
+                except Exception:
+                    # fall back to archive result
+                    pass
+    except Exception:
+        # best-effort: ignore any errors and return archive dir
+        pass
+
+    return repo_dir
 
 
 def prepare_source(normalized: NormalizedSource) -> tuple[Path | None, list[str], callable]:
@@ -438,6 +464,21 @@ def prepare_source(normalized: NormalizedSource) -> tuple[Path | None, list[str]
 
     if normalized.kind == "github_repo":
         repo_dir = download_github_archive(normalized.upstream_repo, temp_root)
+        # If .gitmodules present in the extracted archive, attempt a full clone with submodules.
+        try:
+            if (repo_dir / ".gitmodules").exists():
+                git = shutil.which("git")
+                clone_dir = temp_root / normalized.upstream_repo.replace("/", "-")
+                if git:
+                    try:
+                        sh(["git", "clone", "--depth", "1", "--recurse-submodules", f"https://github.com/{normalized.upstream_repo}.git", str(clone_dir)], check=True)
+                        outputs.append(str(clone_dir))
+                        return clone_dir, outputs, lambda: shutil.rmtree(temp_root, ignore_errors=True)
+                    except Exception:
+                        # keep archive result
+                        pass
+        except Exception:
+            pass
         outputs.append(str(repo_dir))
         return repo_dir, outputs, lambda: shutil.rmtree(temp_root, ignore_errors=True)
 
@@ -4475,6 +4516,34 @@ def run_local_build(
     )
 
 
+def attempt_build_with_strategy(repo_root: Path, slug: str, build_mode: str, env: dict[str, str], override_strategy: str) -> BuildExecutionResult:
+    """Temporarily override registry config build_strategy, run local build, and restore config."""
+    registry_path = repo_root / "registry" / "repos" / f"{slug}.json"
+    lpk_output = repo_root / "dist" / f"{slug}.lpk"
+    if not registry_path.exists():
+        return BuildExecutionResult(command=[], returncode=1, stdout="", stderr="registry config missing", lpk_path=lpk_output)
+    try:
+        original = registry_path.read_text(encoding="utf-8")
+        cfg = json.loads(original)
+    except Exception as exc:
+        return BuildExecutionResult(command=[], returncode=1, stdout="", stderr=f"failed to read/parse registry json: {exc}", lpk_path=lpk_output)
+    backup_path = registry_path.with_suffix(registry_path.suffix + ".bak")
+    try:
+        # write backup and override
+        backup_path.write_text(original, encoding="utf-8")
+        cfg['build_strategy'] = override_strategy
+        registry_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        res = run_local_build(repo_root, slug, build_mode, env)
+        return res
+    finally:
+        # restore original config if possible
+        try:
+            if backup_path.exists():
+                registry_path.write_text(backup_path.read_text(encoding="utf-8"), encoding="utf-8")
+                backup_path.unlink()
+        except Exception:
+            pass
+
 def manifest_package_id(repo_root: Path, slug: str) -> str:
     manifest = (repo_root / "apps" / slug / "lzc-manifest.yml").read_text(encoding="utf-8")
     match = re.search(r"^package:\s*(.+)$", manifest, re.MULTILINE)
@@ -5009,18 +5078,62 @@ def main() -> int:
         build_result = run_local_build(repo_root, finalized["slug"], build_mode=effective_build_mode, env=runtime_env)
         if build_result.returncode != 0:
             failure_excerpt = tail_text(build_result.stderr or build_result.stdout)
-            step_report(
-                8,
-                "触发并监听构建",
-                conclusion="本地构建失败，自动流程停在构建阶段。",
-                outputs=[str(app_dir), str(repo_root / "dist" / f"{finalized['slug']}.lpk")],
-                scripts=["scripts/full_migrate.py", "scripts/run_build.py"],
-                risks=[failure_excerpt or "run_build 返回非零退出码"],
-                next_step="停止，修复构建错误后重跑同一命令即可继续",
-            )
-            ms.add_problem(state, 8, failure_excerpt or "build failed", "build")
-            ms.save_state(app_dir, state)
-            return 1
+            # Attempt fallback strategies when possible
+            orig_strategy = str(finalized.get("build_strategy", "")).strip()
+            fallback_candidates: list[str] = []
+            if orig_strategy in SOURCE_BUILD_STRATEGIES:
+                # prefer official_image if available
+                if str(finalized.get("official_image_registry", "")).strip() or (
+                    analysis and isinstance(analysis.spec, dict) and str(analysis.spec.get("official_image_registry", "")).strip()
+                ):
+                    fallback_candidates.append("official_image")
+                # try upstream_with_target_template if dockerfile present
+                if finalized.get("dockerfile_path") or analysis and analysis.dockerfile:
+                    fallback_candidates.append("upstream_with_target_template")
+                # lastly upstream_dockerfile
+                fallback_candidates.append("upstream_dockerfile")
+            elif orig_strategy == "official_image":
+                if analysis and analysis.dockerfile:
+                    fallback_candidates.append("upstream_dockerfile")
+
+            fallback_succeeded = False
+            for candidate in fallback_candidates:
+                try:
+                    print(f"[build-fallback] 尝试回退构建策略 -> {candidate}")
+                    fb_result = attempt_build_with_strategy(repo_root, finalized["slug"], effective_build_mode, runtime_env, candidate)
+                    if fb_result.returncode == 0:
+                        step_report(
+                            8,
+                            "触发并监听构建",
+                            conclusion=f"本地构建失败后使用回退策略 `{candidate}` 重试并成功。",
+                            outputs=[
+                                str(repo_root / "dist" / f"{finalized['slug']}.lpk"),
+                                str(app_dir / ".lazycat-images.json"),
+                            ],
+                            scripts=["scripts/full_migrate.py", "scripts/run_build.py"],
+                            risks=[f"fallback={candidate}"],
+                            next_step="进入 [9/10] 下载并核对 .lpk",
+                        )
+                        ms.mark_step_completed(state, 8, conclusion=f"构建成功 (fallback={candidate})", build_mode=effective_build_mode)
+                        ms.save_state(app_dir, state)
+                        build_result = fb_result
+                        fallback_succeeded = True
+                        break
+                except Exception as exc:
+                    print(f"[build-fallback] 回退策略 {candidate} 失败: {exc}")
+            if not fallback_succeeded:
+                step_report(
+                    8,
+                    "触发并监听构建",
+                    conclusion="本地构建失败，自动流程停在构建阶段。",
+                    outputs=[str(app_dir), str(repo_root / "dist" / f"{finalized['slug']}.lpk")],
+                    scripts=["scripts/full_migrate.py", "scripts/run_build.py"],
+                    risks=[failure_excerpt or "run_build 返回非零退出码"],
+                    next_step="停止，修复构建错误后重跑同一命令即可继续",
+                )
+                ms.add_problem(state, 8, failure_excerpt or "build failed", "build")
+                ms.save_state(app_dir, state)
+                return 1
 
         step_report(
             8,

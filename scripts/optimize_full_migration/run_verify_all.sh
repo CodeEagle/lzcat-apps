@@ -11,9 +11,16 @@ count_total=0
 count_match=0
 count_diff=0
 count_error=0
+ALL=false
+if [ "${1:-}" = "--all" ]; then
+  ALL=true
+fi
+
 for f in "$REPO/registry/repos/"*.json; do
-  migration_status=$(jq -r '.migration_status // "none"' "$f")
-  if [ "$migration_status" != "migrated" ]; then continue; fi
+  if [ "$ALL" = "false" ]; then
+    migration_status=$(jq -r '.migration_status // "none"' "$f")
+    if [ "$migration_status" != "migrated" ]; then continue; fi
+  fi
   slug=$(jq -r '.slug // empty' "$f")
   if [ -z "$slug" ]; then slug=$(basename "$f" .json); fi
   upstream=$(jq -r '.upstream_repo // empty' "$f")
