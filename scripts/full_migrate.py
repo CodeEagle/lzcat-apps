@@ -4718,6 +4718,18 @@ def main() -> int:
             ):
                 finalized["image_owner"] = image_owner
             finalized = apply_generated_app_fixes(finalized, analysis)
+            # Canonicalize finalized for deterministic output before writing files
+            try:
+                for list_key in ("image_targets", "dependencies", "overlay_paths", "upstream_submodules", "service_builds"):
+                    if list_key in finalized and isinstance(finalized[list_key], list):
+                        finalized[list_key] = sorted(finalized[list_key], key=lambda x: json.dumps(x, sort_keys=True, ensure_ascii=False) if isinstance(x, (dict, list)) else str(x))
+                if "build_args" in finalized and isinstance(finalized["build_args"], dict):
+                    finalized["build_args"] = {k: finalized["build_args"][k] for k in sorted(finalized["build_args"].keys())}
+                if "services" in finalized and isinstance(finalized["services"], dict):
+                    finalized["services"] = {k: finalized["services"][k] for k in sorted(finalized["services"].keys())}
+            except Exception:
+                # Best-effort canonicalization: don't fail the overall run if something unexpected appears
+                pass
             _profile_path = repo_root / "apps" / finalized["slug"] / ".app-profile.json"
             existing_profile = load_app_profile(repo_root, finalized["slug"]) if _profile_path.exists() else None
             if args.force and existing_profile and is_generated_app_profile(existing_profile):
