@@ -686,6 +686,12 @@ def build_registry_config(spec: dict[str, Any]) -> dict[str, Any]:
         payload["image_owner"] = spec["image_owner"]
     if spec["build_args"]:
         payload["build_args"] = spec["build_args"]
+    if spec.get("image_name"):
+        payload["image_name"] = spec["image_name"]
+    if spec.get("official_image_fallback_tag"):
+        payload["official_image_fallback_tag"] = spec["official_image_fallback_tag"]
+    if spec.get("repo"):
+        payload["repo"] = spec["repo"]
     if spec.get("deploy_param_sync"):
         payload["deploy_param_sync"] = spec["deploy_param_sync"]
     # preserve migration_status when present (added by registry or prior migration)
@@ -710,7 +716,31 @@ def build_registry_config(spec: dict[str, Any]) -> dict[str, Any]:
     if "build_args" in payload and isinstance(payload["build_args"], dict):
         payload["build_args"] = {k: payload["build_args"][k] for k in sorted(payload["build_args"].keys())}
 
-    return prune_empty(payload)
+    pruned = prune_empty(payload)
+
+    # Restore schema-required fields that prune_empty may have stripped.
+    # All registry configs in the repo carry these fields even when empty,
+    # and downstream tooling (run_build.py, collect_targets.py) expects them.
+    _REGISTRY_SCHEMA_DEFAULTS: dict[str, Any] = {
+        "dependencies": [],
+        "service_cmd": [],
+        "official_image_registry": "",
+        "precompiled_binary_url": "",
+    }
+    # upstream_repo must survive pruning even if empty
+    if "upstream_repo" not in pruned and "upstream_repo" in payload:
+        pruned["upstream_repo"] = payload["upstream_repo"]
+    for key, default in _REGISTRY_SCHEMA_DEFAULTS.items():
+        if key not in pruned:
+            pruned[key] = default
+
+    # Restore build_args in service_builds entries — downstream tooling expects the key
+    if "service_builds" in pruned and isinstance(pruned["service_builds"], list):
+        for entry in pruned["service_builds"]:
+            if isinstance(entry, dict) and "build_args" not in entry:
+                entry["build_args"] = {}
+
+    return pruned
 
 
 def build_manifest(spec: dict[str, Any]) -> dict[str, Any]:
@@ -777,8 +807,9 @@ def render_build_yml(spec: dict[str, Any]) -> str:
         "pkgout": "./",
         "icon": "./icon.png",
     }
-    # include lzc-sdk-version by default unless the spec requests omission (used during --verify to match existing files)
-    if not spec.get('omit_lzc_sdk_version', False):
+    # Only include lzc-sdk-version in build.yml when explicitly requested.
+    # The majority of migrated apps omit it (manifest already carries the field).
+    if spec.get('include_lzc_sdk_version', False):
         payload["lzc-sdk-version"] = "0.1"
     if spec["include_content"]:
         payload["contentdir"] = "./content"

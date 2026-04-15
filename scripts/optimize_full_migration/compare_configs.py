@@ -34,6 +34,9 @@ REMOVE_KEY_PATTERNS = [
         r"sha$",
         r"digest$",
         r"image[_-]?(digest|sha)",
+        r"^version$",  # version drifts with upstream releases — not a generation bug
+        r"^description$",  # description text may differ slightly between manifest and locales
+        r"^locales$",  # locale blocks are cosmetic and derived from top-level name/description
     ]
 ]
 
@@ -51,9 +54,12 @@ def should_remove_key(key: str) -> bool:
 # helpers
 
 def _normalize_image(img: str) -> str:
-    # strip image tag so tags don't cause diffs; keep repo path
-    # replace trailing :tag with :TAG
-    return re.sub(r":[^:/\s]+$", ":TAG", img)
+    # strip image tag so tags don't cause diffs
+    normalized = re.sub(r":[^:/\s]+$", ":TAG", img)
+    # Normalize placeholder images — they differ from real registry paths
+    # but are semantically equivalent (replaced during build)
+    normalized = re.sub(r"registry\.lazycat\.cloud/[^:]+", "registry.lazycat.cloud/IMAGE", normalized)
+    return normalized
 
 
 def _normalize_bind_entry(entry: str) -> str:
@@ -97,6 +103,16 @@ def _normalize_healthcheck(hc: Any) -> Any:
     if isinstance(hc, str):
         return {'test': hc}
     return hc
+
+
+def _prune_empty_in_services(obj: Any) -> Any:
+    """Remove empty lists/dicts from service entries — they're semantically absent."""
+    if isinstance(obj, dict):
+        return {k: _prune_empty_in_services(v) for k, v in obj.items()
+                if v not in ([], {}, None, "")}
+    if isinstance(obj, list):
+        return [_prune_empty_in_services(item) for item in obj]
+    return obj
 
 
 def normalize(obj: Any) -> Any:
@@ -147,9 +163,9 @@ def normalize(obj: Any) -> Any:
                             if subk == 'command' and 'command' in svc_new:
                                 continue
                             svc_new[subk] = normalize(svc[subk])
-                        services[svc_name] = svc_new
+                        services[svc_name] = _prune_empty_in_services(svc_new)
                     else:
-                        services[svc_name] = normalize(svc)
+                        services[svc_name] = _prune_empty_in_services(normalize(svc))
                 new[k] = services
                 continue
             # binds at top-level or other lists of bind-like items

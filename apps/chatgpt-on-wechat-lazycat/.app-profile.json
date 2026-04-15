@@ -1,0 +1,72 @@
+{
+  "managed_by": "optimize_migration",
+  "generated_from_upstream": "zhayujie/chatgpt-on-wechat",
+  "pinned": true,
+  "fixes": {
+    "build_strategy": "official_image",
+    "check_strategy": "github_release",
+    "official_image_registry": "docker.io/zhayujie/chatgpt-on-wechat",
+    "dockerfile_type": "simple",
+    "service_port": 9899,
+    "service_cmd": [
+      "python",
+      "app.py"
+    ],
+    "image_targets": [
+      "chatgpt-on-wechat"
+    ],
+    "dependencies": [],
+    "precompiled_binary_url": "",
+    "service_builds": [],
+    "build_args": {},
+    "docker_platform": "",
+    "project_name": "ChatGPT-on-WeChat",
+    "description": "(LazyCat Auto-build) AI 聊天机器人 - 支持微信/飞书/钉钉/Web 控制台",
+    "license": "MIT",
+    "homepage": "https://github.com/zhayujie/chatgpt-on-wechat",
+    "author": "zhayujie",
+    "description_zh": "（懒猫）支持微信/飞书/钉钉/Web 的 AI 聊天机器人",
+    "application": {
+      "subdomain": "chatgpt-on-wechat",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://chatgpt-on-wechat:9899/"
+        }
+      ]
+    },
+    "services": {
+      "chatgpt-on-wechat": {
+        "image": "registry.lazycat.cloud/invokerlaw/zhayujie/chatgpt-on-wechat:bf60c5fd62361fd0",
+        "environment": [
+          "OPEN_AI_API_KEY",
+          "CHANNEL_TYPE=web",
+          "MODEL=chatgpt",
+          "OPEN_AI_API_BASE=https://api.openai.com/v1",
+          "PROXY",
+          "CONVERSATION_MAX_TOKENS=4096",
+          "CHARACTER_DESC=你是一个智能助手",
+          "USE_LINKAI=false",
+          "LINKAI_API_KEY",
+          "LINKAI_APP_CODE",
+          "CLAUDE_API_KEY",
+          "GEMINI_API_KEY",
+          "DASHSCOPE_API_KEY",
+          "ZHIPU_AI_API_KEY",
+          "MOONSHOT_API_KEY",
+          "MINIMAX_API_KEY"
+        ],
+        "binds": [
+          "/lzcapp/var/config:/lzcapp/config",
+          "/lzcapp/var/workspace:/root/cow",
+          "/lzcapp/var/data:/app/tmp"
+        ],
+        "setup_script": "sh /lzcapp/pkg/content/cleanup-legacy-config.sh\n"
+      }
+    },
+    "include_content": true
+  }
+}

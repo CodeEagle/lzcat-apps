@@ -9,3 +9,5 @@ dist/
 .acc/sessions/
 .acc/bundles/
 .acc/archive/
+optimize_full_migration_test/
+optimize_full_migration/

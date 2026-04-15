@@ -2,7 +2,7 @@
   "enabled": true,
   "upstream_repo": "CodeEagle/copilot-api-plus",
   "check_strategy": "commit_sha",
-  "build_strategy": "upstream_dockerfile",
+  "build_strategy": "target_repo_dockerfile",
   "publish_to_store": false,
   "official_image_registry": "",
   "precompiled_binary_url": "",

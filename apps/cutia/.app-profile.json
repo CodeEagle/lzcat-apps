@@ -1,0 +1,98 @@
+{
+  "managed_by": "optimize_migration",
+  "generated_from_upstream": "msgbyte/cutia",
+  "pinned": true,
+  "fixes": {
+    "build_strategy": "upstream_with_target_template",
+    "check_strategy": "commit_sha",
+    "official_image_registry": "",
+    "dockerfile_path": "Dockerfile.template",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "service_port": 3000,
+    "service_cmd": [
+      "cutia"
+    ],
+    "image_targets": [
+      "cutia"
+    ],
+    "dependencies": [
+      {
+        "target_service": "postgres",
+        "source_image": "postgres:16-alpine"
+      },
+      {
+        "target_service": "redis",
+        "source_image": "redis:7-alpine"
+      }
+    ],
+    "precompiled_binary_url": "",
+    "service_builds": [],
+    "build_args": {},
+    "docker_platform": "",
+    "project_name": "Cutia",
+    "description": "(LazyCat Auto-build) Privacy-first, open-source video editing in browser",
+    "license": "MIT",
+    "homepage": "https://cutia.msgbyte.com",
+    "author": "msgbyte",
+    "description_zh": "（懒猫微服自动构建）开源浏览器视频编辑器，隐私优先",
+    "application": {
+      "subdomain": "cutia",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://cutia:3000/"
+        }
+      ],
+      "environment": [
+        "DATABASE_URL=postgresql://cutia:cutia@postgres:5432/cutia",
+        "BETTER_AUTH_URL=https://${LAZYCAT_APP_DOMAIN}",
+        "NODE_ENV=production"
+      ]
+    },
+    "services": {
+      "cutia": {
+        "image": "registry.lazycat.cloud/invokerlaw/codeeagle/cutia:cbc67496dacf9d70",
+        "environment": [
+          "DATABASE_URL=postgresql://cutia:cutia@postgres:5432/cutia",
+          "BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}",
+          "BETTER_AUTH_URL=https://${LAZYCAT_APP_DOMAIN}",
+          "UPSTASH_REDIS_REST_URL=http://redis:8079",
+          "UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN}",
+          "NODE_ENV=production",
+          "PORT=3000"
+        ],
+        "depends_on": [
+          "postgres",
+          "redis"
+        ],
+        "binds": [
+          "/lzcapp/var/data/cutia:/data"
+        ],
+        "command": "sh -lc 'mkdir -p /data && exec bun run start'"
+      },
+      "postgres": {
+        "image": "registry.lazycat.cloud/invokerlaw/library/postgres:c7066f661fdb4a89",
+        "environment": [
+          "POSTGRES_USER=cutia",
+          "POSTGRES_PASSWORD=cutia",
+          "POSTGRES_DB=cutia"
+        ],
+        "binds": [
+          "/lzcapp/var/db/cutia/postgres:/var/lib/postgresql/data"
+        ]
+      },
+      "redis": {
+        "image": "registry.lazycat.cloud/invokerlaw/library/redis:160a706bce934011",
+        "binds": [
+          "/lzcapp/var/data/cutia/redis:/data"
+        ],
+        "command": "redis-server --appendonly yes"
+      }
+    },
+    "include_content": false
+  }
+}

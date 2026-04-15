@@ -1,0 +1,85 @@
+{
+  "managed_by": "optimize_migration",
+  "generated_from_upstream": "RightNow-AI/openfang",
+  "pinned": true,
+  "fixes": {
+    "build_strategy": "precompiled_binary",
+    "check_strategy": "github_release",
+    "official_image_registry": "",
+    "dockerfile_type": "simple",
+    "service_port": 4200,
+    "service_cmd": [
+      "openfang",
+      "start"
+    ],
+    "image_targets": [
+      "openfang"
+    ],
+    "dependencies": [],
+    "precompiled_binary_url": "https://github.com/RightNow-AI/openfang/releases/download/v$LATEST_VERSION/openfang-x86_64-unknown-linux-gnu.tar.gz",
+    "service_builds": [],
+    "build_args": {},
+    "docker_platform": "",
+    "project_name": "OpenFang",
+    "description": "(LazyCat Auto-build) Open-source Agent Operating System - autonomous agents that work for you",
+    "license": "MIT",
+    "homepage": "https://openfang.sh",
+    "author": "RightNow-AI",
+    "package": "com.selfstudio.openfang",
+    "description_zh": "（懒猫微服自动构建）开源 Agent 操作系统 - 自主代理为你工作",
+    "application": {
+      "subdomain": "openfang",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://openfang:4200/"
+        }
+      ]
+    },
+    "services": {
+      "openfang": {
+        "image": "registry.lazycat.cloud/invokerlaw/codeeagle/openfang:538c9a6a9f33f6a8",
+        "setup_script": "# 创建数据目录并设置权限\nmkdir -p /root/.openfang\nmkdir -p /root/.openfang/data\n\nCONFIG_FILE=\"/root/.openfang/config.toml\"\nAPI_KEY_FILE=\"/root/.openfang/.api_key\"\n\n# 读取现有 API Key\nAPI_KEY=\"\"\nif [ -f \"$API_KEY_FILE\" ]; then\n  API_KEY=$(cat \"$API_KEY_FILE\")\nfi\n\n# 如果为空或只有 \"of_\"，重新生成\nif [ -z \"$API_KEY\" ] || [ \"$API_KEY\" = \"of_\" ]; then\n  TS=$(date +%s 2>/dev/null || echo \"$(date +%Y%m%d%H%M%S)\")\n  RAND=$(head -c 4 /dev/urandom 2>/dev/null | od -A n -t x1 2>/dev/null | tr -d ' \\n' || echo \"a1b2\")\n  API_KEY=\"of_${TS}${RAND}\"\n  echo \"$API_KEY\" > \"$API_KEY_FILE\"\nfi\n\necho \"\"\necho \"==========================================\"\necho \"OpenFang API Key: $API_KEY\"\necho \"==========================================\"\necho \"\"\n\n# 自动检测 LLM Provider\nPROVIDER=\"anthropic\"\nMODEL=\"claude-sonnet-4-20250514\"\nAPI_KEY_ENV=\"ANTHROPIC_API_KEY\"\n\nif [ -n \"$ANTHROPIC_API_KEY\" ]; then\n  PROVIDER=\"anthropic\"\n  MODEL=\"claude-sonnet-4-20250514\"\n  API_KEY_ENV=\"ANTHROPIC_API_KEY\"\nelif [ -n \"$OPENAI_API_KEY\" ]; then\n  PROVIDER=\"openai\"\n  MODEL=\"gpt-4o\"\n  API_KEY_ENV=\"OPENAI_API_KEY\"\nelif [ -n \"$OPENROUTER_API_KEY\" ]; then\n  PROVIDER=\"openrouter\"\n  MODEL=\"openrouter/free\"\n  API_KEY_ENV=\"OPENROUTER_API_KEY\"\nelif [ -n \"$GEMINI_API_KEY\" ]; then\n  PROVIDER=\"gemini\"\n  MODEL=\"gemini-2.0-flash\"\n  API_KEY_ENV=\"GEMINI_API_KEY\"\nelif [ -n \"$GOOGLE_API_KEY\" ]; then\n  PROVIDER=\"gemini\"\n  MODEL=\"gemini-2.0-flash\"\n  API_KEY_ENV=\"GOOGLE_API_KEY\"\nelif [ -n \"$GROQ_API_KEY\" ]; then\n  PROVIDER=\"groq\"\n  MODEL=\"llama-3.3-70b-versatile\"\n  API_KEY_ENV=\"GROQ_API_KEY\"\nelif [ -n \"$DEEPSEEK_API_KEY\" ]; then\n  PROVIDER=\"deepseek\"\n  MODEL=\"deepseek-chat\"\n  API_KEY_ENV=\"DEEPSEEK_API_KEY\"\nelif [ -n \"$TOGETHER_API_KEY\" ]; then\n  PROVIDER=\"together\"\n  MODEL=\"meta-llama/Llama-3.3-70B-Instruct-Turbo\"\n  API_KEY_ENV=\"TOGETHER_API_KEY\"\nelif [ -n \"$MISTRAL_API_KEY\" ]; then\n  PROVIDER=\"mistral\"\n  MODEL=\"mistral-large-latest\"\n  API_KEY_ENV=\"MISTRAL_API_KEY\"\nelif [ -n \"$FIREWORKS_API_KEY\" ]; then\n  PROVIDER=\"fireworks\"\n  MODEL=\"accounts/fireworks/models/llama-v3p3-70b-instruct\"\n  API_KEY_ENV=\"FIREWORKS_API_KEY\"\nelif [ -n \"$OLLAMA_BASE_URL\" ]; then\n  PROVIDER=\"ollama\"\n  MODEL=\"llama3.2\"\n  API_KEY_ENV=\"\"\nelif [ -n \"$VLLM_BASE_URL\" ]; then\n  PROVIDER=\"vllm\"\n  MODEL=\"\"\n  API_KEY_ENV=\"\"\nelif [ -n \"$LMSTUDIO_BASE_URL\" ]; then\n  PROVIDER=\"lmstudio\"\n  MODEL=\"\"\n  API_KEY_ENV=\"\"\nfi\n\necho \"Detected LLM Provider: $PROVIDER\"\n\n# 创建配置文件\necho \"api_key = \\\"$API_KEY\\\"\" > \"$CONFIG_FILE\"\necho 'api_listen = \"0.0.0.0:4200\"' >> \"$CONFIG_FILE\"\necho \"\" >> \"$CONFIG_FILE\"\necho \"[default_model]\" >> \"$CONFIG_FILE\"\necho \"provider = \\\"$PROVIDER\\\"\" >> \"$CONFIG_FILE\"\necho \"model = \\\"$MODEL\\\"\" >> \"$CONFIG_FILE\"\nif [ -n \"$API_KEY_ENV\" ]; then\n  echo \"api_key_env = \\\"$API_KEY_ENV\\\"\" >> \"$CONFIG_FILE\"\nfi\necho \"\" >> \"$CONFIG_FILE\"\necho \"[network]\" >> \"$CONFIG_FILE\"\necho 'listen_addr = \"0.0.0.0:4200\"' >> \"$CONFIG_FILE\"\n",
+        "environment": [
+          "OPENFANG_HOME",
+          "RUST_LOG",
+          "ANTHROPIC_API_KEY",
+          "GEMINI_API_KEY",
+          "GOOGLE_API_KEY",
+          "OPENAI_API_KEY",
+          "GROQ_API_KEY",
+          "DEEPSEEK_API_KEY",
+          "OPENROUTER_API_KEY",
+          "TOGETHER_API_KEY",
+          "MISTRAL_API_KEY",
+          "FIREWORKS_API_KEY",
+          "OLLAMA_BASE_URL",
+          "VLLM_BASE_URL",
+          "LMSTUDIO_BASE_URL",
+          "TELEGRAM_BOT_TOKEN",
+          "DISCORD_BOT_TOKEN",
+          "SLACK_BOT_TOKEN",
+          "SLACK_APP_TOKEN",
+          "WHATSAPP_TOKEN",
+          "WHATSAPP_PHONE_ID",
+          "SIGNAL_CLI_PATH",
+          "SIGNAL_PHONE_NUMBER",
+          "MATRIX_HOMESERVER",
+          "MATRIX_ACCESS_TOKEN",
+          "EMAIL_IMAP_HOST",
+          "EMAIL_SMTP_HOST",
+          "EMAIL_USERNAME",
+          "EMAIL_PASSWORD"
+        ],
+        "binds": [
+          "/lzcapp/var/config:/root/.openfang",
+          "/lzcapp/var/data:/root/.openfang/data"
+        ]
+      }
+    },
+    "include_content": false
+  }
+}

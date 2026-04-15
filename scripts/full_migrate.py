@@ -2780,7 +2780,9 @@ def analyze_source(normalized: NormalizedSource, source_dir: Path | None, gh_tok
     # Fork repos rarely publish releases; default to commit_sha tracking.
     # If it's a fork and metadata is sparse, fall back to the parent repo's metadata.
     is_fork = meta.get("is_fork", False)
-    default_check_strategy = "commit_sha" if is_fork else "github_release"
+    # Use commit_sha for forks and repos with no releases/tags
+    has_releases = bool(meta.get("version") or meta.get("source_version"))
+    default_check_strategy = "commit_sha" if (is_fork or not has_releases) else "github_release"
     if is_fork and upstream_repo and (not meta.get("version") or not meta.get("description")):
         parent_meta = bm.github_api_json(f"repos/{upstream_repo}")
         parent_repo = ""
@@ -2918,9 +2920,14 @@ def load_app_profile(repo_root: Path, slug: str) -> dict[str, Any] | None:
 
 
 _PROFILE_GENERATED_FIELDS: frozenset[str] = frozenset({
-    "project_name", "description", "license", "homepage", "author",
-    "build_strategy", "official_image_registry", "docker_platform",
-    "service_port", "image_targets", "dependencies", "service_builds",
+    "project_name", "description", "description_zh", "license", "homepage", "author",
+    "build_strategy", "check_strategy", "official_image_registry", "docker_platform",
+    "dockerfile_path", "dockerfile_type", "build_context", "overlay_paths",
+    "image_name", "service_port", "service_cmd", "image_targets",
+    "dependencies", "service_builds", "build_args",
+    "precompiled_binary_url", "upstream_submodules",
+    "deploy_param_sync", "image_owner", "package",
+    "official_image_fallback_tag", "repo",
     "application", "services", "env_vars", "data_paths",
     "include_content", "startup_notes", "usage",
 })
@@ -4910,12 +4917,21 @@ def main() -> int:
                                     build_path = repo_root / "apps" / finalized["slug"] / "lzc-build.yml"
                                     if build_path.exists():
                                         build_text = build_path.read_text(encoding='utf-8')
-                                        if 'lzc-sdk-version' not in build_text:
-                                            finalized['omit_lzc_sdk_version'] = True
+                                        if 'lzc-sdk-version' in build_text:
+                                            finalized['include_lzc_sdk_version'] = True
                                 except Exception:
                                     pass
                     except Exception:
                         pass
+                # Detect lzc-sdk-version in existing build.yml (always, not just verify mode)
+                try:
+                    _build_path = repo_root / "apps" / finalized["slug"] / "lzc-build.yml"
+                    if _build_path.exists():
+                        _build_text = _build_path.read_text(encoding='utf-8')
+                        if 'lzc-sdk-version' in _build_text:
+                            finalized['include_lzc_sdk_version'] = True
+                except Exception:
+                    pass
                 written = bm.write_files(repo_root, finalized, effective_force)
             except FileExistsError:
                 if args.force:
