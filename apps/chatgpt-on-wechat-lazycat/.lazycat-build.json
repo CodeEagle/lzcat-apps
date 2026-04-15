@@ -1,7 +1,7 @@
 {
   "upstream_repo": "zhayujie/chatgpt-on-wechat",
-  "source_version": "2.0.5",
-  "build_version": "2.0.5",
-  "build_label": "2.0.5@20260409T032747Z",
-  "last_checked_at": "2026-04-09T03:27:47.920141+00:00"
+  "source_version": "2.0.6",
+  "build_version": "2.0.6",
+  "build_label": "2.0.6@20260415T010302Z",
+  "last_checked_at": "2026-04-15T01:03:02.839561+00:00"
 }

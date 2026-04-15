@@ -1,24 +1,28 @@
 {
   "schema_version": 1,
   "app": "chatgpt-on-wechat-lazycat",
-  "source_version": "2.0.5",
-  "build_version": "2.0.5",
-  "head_sha": "14a952e7e17f",
-  "updated_at": "2026-04-09T03:27:47.919846+00:00",
+  "source_version": "2.0.6",
+  "build_version": "2.0.6",
+  "head_sha": "9703f39d79d8",
+  "build_recipe_hash": "adf5cea97f4177483f9ab4a879976d213b204cd89af7f34957386023a3e38913",
+  "updated_at": "2026-04-15T01:03:02.839178+00:00",
   "images": {
-    "chatgpt-on-wechat": "registry.lazycat.cloud/invokerlaw/zhayujie/chatgpt-on-wechat:bf60c5fd62361fd0"
+    "chatgpt-on-wechat": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:94a41ceacb6e20f7"
   },
   "source_images": {
-    "chatgpt-on-wechat": "docker.io/zhayujie/chatgpt-on-wechat:2.0.5"
+    "chatgpt-on-wechat": "ghcr.io/codeeagle/lazycatimages:chatgptOnWechatLazycat_9703f39d79d8"
+  },
+  "source_digests": {
+    "_primary": "sha256:b3ad60a2f1fbb7b5e61c428761043dd0fb22ae34c091d4e0869220ca7e3faab9"
   },
   "copy_image_events": [
     {
-      "source_image": "docker.io/zhayujie/chatgpt-on-wechat:2.0.5",
-      "target_image": "registry.lazycat.cloud/invokerlaw/zhayujie/chatgpt-on-wechat:bf60c5fd62361fd0",
-      "elapsed_seconds": 0.0,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:chatgptOnWechatLazycat_9703f39d79d8",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:94a41ceacb6e20f7",
+      "elapsed_seconds": 165.109,
       "saw_waiting": false,
       "saw_upload_started": false,
-      "reused_existing": true,
+      "reused_existing": false,
       "kind": "primary"
     }
   ]
