@@ -43,6 +43,7 @@
     "cultivation-world-simulator.json",
     "localai.json",
     "paseo.json",
-    "hermes.json"
+    "hermes.json",
+    "copilot-api-plus.json"
   ]
 }
