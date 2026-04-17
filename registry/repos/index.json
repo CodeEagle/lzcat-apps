@@ -44,6 +44,7 @@
     "localai.json",
     "paseo.json",
     "hermes.json",
-    "copilot-api-plus.json"
+    "copilot-api-plus.json",
+    "multica.json"
   ]
 }

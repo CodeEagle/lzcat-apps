@@ -1,0 +1,148 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.multica
+version: 0.2.5
+name: Multica
+description: Open-source managed agents platform — turn AI agents into real teammates with autonomous task execution, skill reuse, and progress tracking.
+homepage: https://github.com/multica-ai/multica
+author: multica-ai
+license: MIT
+min_os_version: 1.3.8
+
+application:
+  subdomain: multica
+  public_path:
+    - /
+  upstreams:
+    - backend: http://multica-backend:8080/
+      location: /api/
+    - backend: http://multica-backend:8080/
+      location: /ws/
+    - backend: http://multica-frontend:3000/
+      location: /
+  injects:
+    # Browser inject: auto-fill email and OTP code on login page for password-free access
+    - id: multica-autofill-login
+      auth_required: false
+      when:
+        - /login
+      do: |
+        (function () {
+          const TARGET_EMAIL = ctx.deploy_params && ctx.deploy_params.login_email
+            ? ctx.deploy_params.login_email
+            : (ctx.persist.get("multica.login_email") || "");
+
+          function fillInput(el, value) {
+            el.value = value;
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+            el.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+
+          function tryFillOtp() {
+            const otpInputs = document.querySelectorAll(
+              'input[type="text"][maxlength="6"], input[name="code"], ' +
+              'input[placeholder*="code" i], input[placeholder*="验证码"]'
+            );
+            for (const input of otpInputs) {
+              if (input && !input.value) {
+                fillInput(input, "888888");
+                return true;
+              }
+            }
+            return false;
+          }
+
+          function tryFillEmail() {
+            const emailInput = document.querySelector(
+              'input[type="email"], input[name="email"], input[placeholder*="email" i]'
+            );
+            if (emailInput && TARGET_EMAIL && !emailInput.value) {
+              fillInput(emailInput, TARGET_EMAIL);
+              if (TARGET_EMAIL) {
+                ctx.persist.set("multica.login_email", TARGET_EMAIL);
+              }
+              return true;
+            }
+            return false;
+          }
+
+          let otpFilled = false;
+          const observer = new MutationObserver(function () {
+            tryFillEmail();
+            if (!otpFilled) {
+              otpFilled = tryFillOtp();
+            }
+          });
+          observer.observe(document.body, { childList: true, subtree: true });
+          tryFillEmail();
+          setTimeout(tryFillOtp, 1500);
+        })();
+
+locales:
+  en:
+    name: Multica
+    description: Open-source AI agent management platform. Turn coding agents into real teammates — assign tasks, track progress, compound skills automatically.
+  zh:
+    name: Multica
+    description: 开源 AI 代理管理平台。将 AI 编程代理变成真正的团队成员——分配任务、追踪进度、自动复用技能。
+
+deploy_params:
+  - key: login_email
+    description: Login email for password-free access (leave blank to enter manually)
+    required: false
+    default: ""
+
+services:
+  multica-postgres:
+    image: registry.lazycat.cloud/pgvector/pgvector:pg17
+    environment:
+      - POSTGRES_DB=multica
+      - POSTGRES_USER=multica
+      - POSTGRES_PASSWORD=multica_lzc_secret
+    binds:
+      - /lzcapp/var/data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U multica -d multica
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  multica-backend:
+    image: registry.lazycat.cloud/placeholder/multica-multica-backend:bootstrap
+    environment:
+      - DATABASE_URL=postgres://multica:multica_lzc_secret@multica-postgres:5432/multica?sslmode=disable
+      - PORT=8080
+      - JWT_SECRET=lzc_multica_jwt_secret_please_change_in_production
+      - RESEND_API_KEY=
+      - LOCAL_UPLOAD_DIR=/lzcapp/var/data/uploads
+      - LOCAL_UPLOAD_BASE_URL=/api/files
+    binds:
+      - /lzcapp/var/data/uploads:/lzcapp/var/data/uploads
+    depends_on:
+      - multica-postgres
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget --spider -q http://localhost:8080/api/health || exit 1
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+
+  multica-frontend:
+    image: registry.lazycat.cloud/placeholder/multica-multica-frontend:bootstrap
+    environment:
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
+    depends_on:
+      - multica-backend
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget --spider -q http://localhost:3000 || exit 1
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3

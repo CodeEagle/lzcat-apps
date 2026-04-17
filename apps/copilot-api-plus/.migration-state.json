@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "https://github.com/imbuxiangnan-cyber/copilot-api-plus",
   "created_at": "2026-04-17T09:40:00.221814+00:00",
-  "updated_at": "2026-04-17T09:40:04.724088+00:00",
+  "updated_at": "2026-04-17T09:44:06.462623+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -120,12 +120,12 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-17T09:40:02.163444+00:00",
+      "completed_at": "2026-04-17T09:44:00.671682+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-17T09:40:04.672283+00:00",
+      "completed_at": "2026-04-17T09:44:06.314486+00:00",
       "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
     },
     "3": {
@@ -155,8 +155,23 @@
       "completed": true,
       "completed_at": "2026-04-17T09:40:04.724086+00:00",
       "conclusion": "剩余文件已补齐"
+    },
+    "7": {
+      "completed": true,
+      "completed_at": "2026-04-17T09:40:04.979924+00:00",
+      "conclusion": "预检通过",
+      "all_passed": true
     }
   },
-  "problems": [],
+  "problems": [
+    {
+      "id": "p1",
+      "step": 7,
+      "description": "trigger-build workflow options are out of sync and auto-fix failed: Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f6e9b080 (most recent call first):\n  <no Python frame>",
+      "category": "preflight",
+      "status": "open",
+      "created_at": "2026-04-17T09:44:06.462611+00:00"
+    }
+  ],
   "verification": {}
 }
