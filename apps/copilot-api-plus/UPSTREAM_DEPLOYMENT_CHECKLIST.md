@@ -3,12 +3,12 @@
 ## 已确认字段
 - PROJECT_NAME: copilot-api-plus
 - PROJECT_SLUG: copilot-api-plus
-- UPSTREAM_REPO: CodeEagle/copilot-api-plus
-- UPSTREAM_URL: https://github.com/CodeEagle/copilot-api-plus
-- HOMEPAGE: https://github.com/CodeEagle/copilot-api-plus
+- UPSTREAM_REPO: imbuxiangnan-cyber/copilot-api-plus
+- UPSTREAM_URL: https://github.com/imbuxiangnan-cyber/copilot-api-plus
+- HOMEPAGE: https://github.com/imbuxiangnan-cyber/copilot-api-plus
 - LICENSE: MIT
-- AUTHOR: CodeEagle
-- VERSION: 1.2.5
+- AUTHOR: imbuxiangnan-cyber
+- VERSION: 1.2.24
 - IMAGE: TODO
 - PORT: 4141
 - AI_POD_SERVICE: 无
@@ -21,7 +21,7 @@
 - 待补充
 
 ## 预填数据路径
-- 待补充
+- `/root/.local/share/copilot-api-plus` <= `/lzcapp/var/data/copilot-api-plus` (From source code pattern in paths.ts)
 
 ## 预填启动说明
 - 自动扫描到 Dockerfile：Dockerfile
@@ -41,6 +41,7 @@
 ## 当前服务拓扑初稿
 - `copilot-api-plus`
   image: `registry.lazycat.cloud/placeholder/copilot-api-plus:bootstrap`
+  binds: `/lzcapp/var/data/copilot-api-plus:/root/.local/share/copilot-api-plus`
 
 ## 退出条件
 - [ ] 入口、端口、环境变量、真实写路径、初始化命令、数据库/auth 配置全部确认完毕

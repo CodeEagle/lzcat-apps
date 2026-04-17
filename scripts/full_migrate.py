@@ -2955,6 +2955,30 @@ def generate_app_profile(finalized: dict[str, Any]) -> dict[str, Any]:
         if k in _PROFILE_GENERATED_FIELDS
         and v is not None and v != "" and v != [] and v != {}
     }
+
+    # Do not emit env_vars entries that do not have an explicit non-empty 'value'.
+    # This prevents generating profiles that claim to set variables without a concrete value.
+    if "env_vars" in fixes and isinstance(fixes["env_vars"], list):
+        filtered_env: list[Any] = []
+        for entry in fixes["env_vars"]:
+            # Preserve non-dict entries as-is (backwards compatibility)
+            if not isinstance(entry, dict):
+                filtered_env.append(entry)
+                continue
+            # Require an explicit non-empty 'value' to be present
+            if "value" not in entry:
+                continue
+            val = entry.get("value")
+            if val is None:
+                continue
+            if isinstance(val, str) and val.strip() == "":
+                continue
+            filtered_env.append(entry)
+        if filtered_env:
+            fixes["env_vars"] = filtered_env
+        else:
+            fixes.pop("env_vars", None)
+
     return {
         "managed_by": "full_migrate",
         "generated_from_upstream": str(finalized.get("upstream_repo") or ""),

@@ -1,36 +1,39 @@
-lzc-sdk-version: '0.1'
-package: fun.selfstudio.app.migration.copilot-api-plus
-version: 1.2.5
-min_os_version: 1.3.8
-name: copilot-api-plus
-description: Turn GitHub Copilot into OpenAI/Anthropic API compatible server
-license: MIT
-homepage: https://github.com/CodeEagle/copilot-api-plus
-author: CodeEagle
 application:
-  subdomain: copilot-api-plus
   public_path:
     - /
+  subdomain: copilot-api-plus
   upstreams:
     -
-      location: /
       backend: http://copilot-api-plus:4141/
+      location: /
+author: imbuxiangnan-cyber
+description: Turn GitHub Copilot into OpenAI/Anthropic API compatible server
+homepage: https://github.com/imbuxiangnan-cyber/copilot-api-plus
+license: MIT
+locales:
+  en:
+    description: Turn GitHub Copilot into OpenAI/Anthropic API compatible server with multi-account management
+    name: Copilot API Plus
+  zh:
+    description: 将 GitHub Copilot 订阅转为 OpenAI/Anthropic 兼容 API，支持多账号管理与模型映射
+    name: Copilot API Plus
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+name: copilot-api-plus
+package: fun.selfstudio.app.migration.copilot-api-plus
 services:
   copilot-api-plus:
     image: registry.lazycat.cloud/placeholder/copilot-api-plus:bootstrap
+    environment:
+      - COPILOT_API_DATA_DIR=/lzcapp/var/data
     binds:
-      - /lzcapp/var/data/copilot-api-plus:/root/.local/share/copilot-api-plus
+      - /lzcapp/var/data:/lzcapp/var/data
     healthcheck:
       test:
         - CMD-SHELL
         - wget --spider -q http://localhost:4141/ || exit 1
       interval: 30s
       timeout: 10s
-      retries: 5
-locales:
-  en:
-    name: copilot-api-plus
-    description: Turn GitHub Copilot into OpenAI/Anthropic API compatible server
-  zh:
-    name: copilot-api-plus
-    description: （迁移初稿）Copilot Api Plus 的懒猫微服版本
+      start_period: 15s
+      retries: 3
+version: 1.2.24

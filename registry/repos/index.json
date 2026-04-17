@@ -34,7 +34,6 @@
     "fastclaw.json",
     "vibevoice.json",
     "crucix.json",
-    "multica.json",
     "cc-gateway.json",
     "hucre.json",
     "htmly.json",
@@ -42,9 +41,10 @@
     "goclaw.json",
     "hermes-webui-aio.json",
     "cultivation-world-simulator.json",
-    "copilot-api-plus.json",
     "localai.json",
     "paseo.json",
-    "hermes.json"
+    "hermes.json",
+    "copilot-api-plus.json",
+    "multica.json"
   ]
 }

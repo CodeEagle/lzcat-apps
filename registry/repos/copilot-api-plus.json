@@ -1,16 +1,27 @@
 {
+  "build_strategy": "upstream_dockerfile",
+  "check_strategy": "github_release",
+  "dependencies": [],
+  "docker_platform": "linux/amd64",
+  "dockerfile_type": "custom",
   "enabled": true,
-  "upstream_repo": "CodeEagle/copilot-api-plus",
-  "check_strategy": "commit_sha",
-  "build_strategy": "target_repo_dockerfile",
-  "publish_to_store": false,
-  "official_image_registry": "",
-  "precompiled_binary_url": "",
-  "service_port": 4141,
-  "service_cmd": [],
   "image_targets": [
     "copilot-api-plus"
   ],
-  "dependencies": [],
-  "docker_platform": "linux/amd64"
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "publish_to_store": false,
+  "service_builds": [
+    {
+      "build_args": {},
+      "build_context": ".",
+      "build_strategy": "upstream_dockerfile",
+      "dockerfile_path": "Dockerfile",
+      "image_name": "copilot-api-plus-copilot-api-plus",
+      "target_service": "copilot-api-plus"
+    }
+  ],
+  "service_cmd": [],
+  "service_port": 4141,
+  "upstream_repo": "CodeEagle/copilot-api-plus"
 }

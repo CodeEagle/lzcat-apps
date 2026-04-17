@@ -1,11 +1,18 @@
 {
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "imbuxiangnan-cyber/copilot-api-plus",
   "fixes": {
     "project_name": "copilot-api-plus",
     "description": "Turn GitHub Copilot into OpenAI/Anthropic API compatible server",
-    "homepage": "https://github.com/CodeEagle/copilot-api-plus",
+    "description_zh": "（迁移初稿）Copilot Api Plus 的懒猫微服版本",
+    "homepage": "https://github.com/imbuxiangnan-cyber/copilot-api-plus",
     "license": "MIT",
-    "author": "CodeEagle",
+    "author": "imbuxiangnan-cyber",
+    "package": "fun.selfstudio.app.migration.copilot-api-plus",
+    "check_strategy": "github_release",
     "build_strategy": "upstream_dockerfile",
+    "dockerfile_type": "custom",
+    "build_context": ".",
     "docker_platform": "linux/amd64",
     "image_targets": [
       "copilot-api-plus"
@@ -17,12 +24,15 @@
         "healthcheck": {
           "test": [
             "CMD-SHELL",
-            "wget --spider -q http://localhost:4141/ || exit 1 COPY entrypoint.sh /entrypoint.sh RUN chmod +x /entrypoint.sh ENTRYPOINT [\"/entrypoint.sh\"]"
+            "wget --spider -q http://localhost:4141/ || exit 1"
           ],
           "interval": "30s",
           "timeout": "10s",
           "retries": 5
-        }
+        },
+        "binds": [
+          "/lzcapp/var/data/copilot-api-plus:/root/.local/share/copilot-api-plus"
+        ]
       }
     },
     "application": {
@@ -37,12 +47,19 @@
         }
       ]
     },
-    "startup_notes": [
-      "\u81ea\u52a8\u626b\u63cf\u5230 Dockerfile\uff1aDockerfile",
-      "\u5f53\u524d\u8def\u7ebf\u6309\u6e90\u7801\u6784\u5efa\u5904\u7406\uff0c\u540e\u7eed\u9700\u786e\u8ba4\u771f\u5b9e\u5165\u53e3\u3001\u521d\u59cb\u5316\u547d\u4ee4\u548c\u5199\u8def\u5f84\u3002",
-      "\u626b\u63cf\u5230 env \u793a\u4f8b\u6587\u4ef6\uff1a.env.example",
-      "\u626b\u63cf\u5230 README\uff1aREADME.en.md, README.md"
+    "data_paths": [
+      {
+        "host": "/lzcapp/var/data/copilot-api-plus",
+        "container": "/root/.local/share/copilot-api-plus",
+        "description": "From source code pattern in paths.ts"
+      }
     ],
-    "include_content": true
+    "startup_notes": [
+      "自动扫描到 Dockerfile：Dockerfile",
+      "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
+      "扫描到 env 示例文件：.env.example",
+      "扫描到 README：README.en.md, README.md"
+    ],
+    "include_content": false
   }
 }

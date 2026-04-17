@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "source_input": "https://github.com/CodeEagle/copilot-api-plus",
-  "created_at": "2026-04-10T23:09:14.931342+00:00",
-  "updated_at": "2026-04-10T23:14:01.241189+00:00",
+  "source_input": "https://github.com/imbuxiangnan-cyber/copilot-api-plus",
+  "created_at": "2026-04-17T09:40:00.221814+00:00",
+  "updated_at": "2026-04-17T09:44:06.462623+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
-      "url": "https://github.com/CodeEagle/copilot-api-plus",
-      "upstream_repo": "CodeEagle/copilot-api-plus",
-      "homepage": "https://github.com/CodeEagle/copilot-api-plus"
+      "url": "https://github.com/imbuxiangnan-cyber/copilot-api-plus",
+      "upstream_repo": "imbuxiangnan-cyber/copilot-api-plus",
+      "homepage": "https://github.com/imbuxiangnan-cyber/copilot-api-plus"
     },
     "environment": {
       "gh_token_source": "GH_PAT",
@@ -24,18 +24,18 @@
     },
     "version": {
       "upstream": "",
-      "normalized": "1.2.5"
+      "normalized": "1.2.24"
     },
     "finalized": {
       "slug": "copilot-api-plus",
       "project_name": "copilot-api-plus",
       "description": "Turn GitHub Copilot into OpenAI/Anthropic API compatible server",
-      "description_zh": "\uff08\u8fc1\u79fb\u521d\u7a3f\uff09Copilot Api Plus \u7684\u61d2\u732b\u5fae\u670d\u7248\u672c",
-      "upstream_repo": "CodeEagle/copilot-api-plus",
-      "homepage": "https://github.com/CodeEagle/copilot-api-plus",
+      "description_zh": "（迁移初稿）Copilot Api Plus 的懒猫微服版本",
+      "upstream_repo": "imbuxiangnan-cyber/copilot-api-plus",
+      "homepage": "https://github.com/imbuxiangnan-cyber/copilot-api-plus",
       "license": "MIT",
-      "author": "CodeEagle",
-      "version": "1.2.5",
+      "author": "imbuxiangnan-cyber",
+      "version": "1.2.24",
       "package": "fun.selfstudio.app.migration.copilot-api-plus",
       "min_os_version": "1.3.8",
       "check_strategy": "github_release",
@@ -48,6 +48,7 @@
       "docker_platform": "linux/amd64",
       "image_owner": "",
       "overlay_paths": [],
+      "upstream_submodules": [],
       "image_targets": [
         "copilot-api-plus"
       ],
@@ -62,12 +63,15 @@
           "healthcheck": {
             "test": [
               "CMD-SHELL",
-              "wget --spider -q http://localhost:4141/ || exit 1 COPY entrypoint.sh /entrypoint.sh RUN chmod +x /entrypoint.sh ENTRYPOINT [\"/entrypoint.sh\"]"
+              "wget --spider -q http://localhost:4141/ || exit 1"
             ],
             "interval": "30s",
             "timeout": "10s",
             "retries": 5
-          }
+          },
+          "binds": [
+            "/lzcapp/var/data/copilot-api-plus:/root/.local/share/copilot-api-plus"
+          ]
         }
       },
       "application": {
@@ -83,12 +87,18 @@
         ]
       },
       "env_vars": [],
-      "data_paths": [],
+      "data_paths": [
+        {
+          "host": "/lzcapp/var/data/copilot-api-plus",
+          "container": "/root/.local/share/copilot-api-plus",
+          "description": "From source code pattern in paths.ts"
+        }
+      ],
       "startup_notes": [
-        "\u81ea\u52a8\u626b\u63cf\u5230 Dockerfile\uff1aDockerfile",
-        "\u5f53\u524d\u8def\u7ebf\u6309\u6e90\u7801\u6784\u5efa\u5904\u7406\uff0c\u540e\u7eed\u9700\u786e\u8ba4\u771f\u5b9e\u5165\u53e3\u3001\u521d\u59cb\u5316\u547d\u4ee4\u548c\u5199\u8def\u5f84\u3002",
-        "\u626b\u63cf\u5230 env \u793a\u4f8b\u6587\u4ef6\uff1a.env.example",
-        "\u626b\u63cf\u5230 README\uff1aREADME.en.md, README.md"
+        "自动扫描到 Dockerfile：Dockerfile",
+        "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
+        "扫描到 env 示例文件：.env.example",
+        "扫描到 README：README.en.md, README.md"
       ],
       "include_content": false,
       "ai_pod_service": "",
@@ -110,68 +120,58 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-10T23:09:16.701518+00:00",
-      "conclusion": "\u5df2\u8bc6\u522b\u8f93\u5165\u7c7b\u578b\u4e3a `github_repo`"
+      "completed_at": "2026-04-17T09:44:00.671682+00:00",
+      "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-10T23:09:18.413025+00:00",
-      "conclusion": "\u5df2\u81ea\u52a8\u63a8\u65ad\u6784\u5efa\u8def\u7ebf\u4e3a `upstream_dockerfile`"
+      "completed_at": "2026-04-17T09:44:06.314486+00:00",
+      "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
     },
     "3": {
       "completed": true,
-      "completed_at": "2026-04-10T23:09:18.415729+00:00",
-      "conclusion": "\u5df2\u5b8c\u6210 monorepo \u6ce8\u518c"
+      "completed_at": "2026-04-17T09:40:04.675254+00:00",
+      "conclusion": "已完成 monorepo 注册"
     },
     "4": {
       "completed": true,
-      "completed_at": "2026-04-10T23:09:18.478078+00:00",
-      "conclusion": "\u9aa8\u67b6\u6587\u4ef6\u5df2\u751f\u6210",
+      "completed_at": "2026-04-17T09:40:04.723348+00:00",
+      "conclusion": "骨架文件已生成",
       "files_written": [
-        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/copilot-api-plus/lzc-manifest.yml",
-        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/copilot-api-plus/lzc-build.yml",
-        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/copilot-api-plus/README.md",
-        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/copilot-api-plus/UPSTREAM_DEPLOYMENT_CHECKLIST.md",
-        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/copilot-api-plus/icon.png",
-        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/registry/repos/copilot-api-plus.json"
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/copilot-api-plus/lzc-manifest.yml",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/copilot-api-plus/lzc-build.yml",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/copilot-api-plus/README.md",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/copilot-api-plus/UPSTREAM_DEPLOYMENT_CHECKLIST.md",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/copilot-api-plus/icon.png",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/registry/repos/copilot-api-plus.json"
       ]
     },
     "5": {
       "completed": true,
-      "completed_at": "2026-04-10T23:09:18.478588+00:00",
-      "conclusion": "manifest \u521d\u7a3f\u5df2\u751f\u6210"
+      "completed_at": "2026-04-17T09:40:04.723840+00:00",
+      "conclusion": "manifest 初稿已生成"
     },
     "6": {
       "completed": true,
-      "completed_at": "2026-04-10T23:09:18.478877+00:00",
-      "conclusion": "\u5269\u4f59\u6587\u4ef6\u5df2\u8865\u9f50"
+      "completed_at": "2026-04-17T09:40:04.724086+00:00",
+      "conclusion": "剩余文件已补齐"
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-04-10T23:09:18.724876+00:00",
-      "conclusion": "\u9884\u68c0\u901a\u8fc7",
+      "completed_at": "2026-04-17T09:40:04.979924+00:00",
+      "conclusion": "预检通过",
       "all_passed": true
-    },
-    "8": {
-      "completed": true,
-      "completed_at": "2026-04-10T23:14:00.388477+00:00",
-      "conclusion": "\u6784\u5efa\u6210\u529f",
-      "build_mode": "reinstall"
-    },
-    "9": {
-      "completed": true,
-      "completed_at": "2026-04-10T23:14:00.389999+00:00",
-      "conclusion": "lpk \u5df2\u9a8c\u8bc1",
-      "lpk_sha256": "e83c550c5c715c236df3d4559c36bb753181e553753f98418292a3145b9aead5",
-      "lpk_size_bytes": 903
-    },
-    "10": {
-      "completed": true,
-      "completed_at": "2026-04-10T23:14:01.241120+00:00",
-      "conclusion": "\u9a8c\u6536\u5b8c\u6210",
-      "pending_backports": []
     }
   },
-  "problems": [],
+  "problems": [
+    {
+      "id": "p1",
+      "step": 7,
+      "description": "trigger-build workflow options are out of sync and auto-fix failed: Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f6e9b080 (most recent call first):\n  <no Python frame>",
+      "category": "preflight",
+      "status": "open",
+      "created_at": "2026-04-17T09:44:06.462611+00:00"
+    }
+  ],
   "verification": {}
 }

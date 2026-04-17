@@ -1,89 +1,55 @@
 # Multica
 
-本目录由 `scripts/bootstrap_migration.py` 生成，用于把上游 `multica-ai/multica` 初始化为懒猫微服迁移项目。
+开源 AI 代理管理平台，将 AI 编程代理转变为真正的团队成员。
 
-## 上游项目
-- Upstream Repo: multica-ai/multica
-- Homepage: https://github.com/multica-ai/multica
-- License: 
-- Author: TODO
-- Version Strategy: `github_release` -> 当前初稿版本 `0.1.0`
+## 架构
 
-## 当前迁移骨架
-- Build Strategy: `upstream_dockerfile`
-- Primary Subdomain: `multica`
-- Image Targets: `frontend, backend`
-- Service Port: `3000`
+| 服务 | 技术 | 端口 |
+|------|------|------|
+| Frontend | Next.js 16 (standalone) | 3000 |
+| Backend | Go + WebSocket | 8080 |
+| Database | PostgreSQL 17 + pgvector | 5432 |
 
-### Services
-- `postgres` -> `registry.lazycat.cloud/placeholder/multica:postgres`
-- `backend` -> `registry.lazycat.cloud/placeholder/multica:backend`
-- `frontend` -> `registry.lazycat.cloud/placeholder/multica:frontend`
+## 访问
 
-## AIPod
+安装后访问：`https://multica.<device>.lazycat.cloud`
 
-当前未启用 AIPod / AI 服务。
+## 首次登录（免密）
+
+1. 打开应用，在邮箱字段输入任意邮箱（或由安装时配置的 `login_email` 自动填充）
+2. 点击「发送验证码」
+3. **验证码字段输入 `888888`**（开发模式下的万能验证码）
+4. 点击「验证」即可登录
+
+> 验证码 `888888` 在未配置 `RESEND_API_KEY` 的情况下始终有效（非生产模式）。
+
+## 免密登录（LazyCat）
+
+应用已配置 LazyCat Inject，会自动填充邮箱和验证码。只需在安装时设置 `login_email` deploy param，即可实现一键登录。
+
+## 数据持久化
+
+| 目录 | 说明 |
+|------|------|
+| `/lzcapp/var/data/postgres/` | PostgreSQL 数据库文件 |
+| `/lzcapp/var/data/uploads/` | 用户上传文件 |
 
 ## 环境变量
 
-| 变量名 | 必填 | 默认值 | 说明 |
-| --- | --- | --- | --- |
-| POSTGRES_DB | No | multica | From compose service postgres |
-| POSTGRES_USER | No | multica | From compose service postgres |
-| POSTGRES_PASSWORD | No | multica | From compose service postgres |
-| DATABASE_URL | No | postgres://${POSTGRES_USER:-multica}:${POSTGRES_PASSWORD:-multica}@postgres:5432/${POSTGRES_DB:-multica}?sslmode=disable | From compose service backend |
-| PORT | No | 8080 | From compose service backend |
-| JWT_SECRET | No | change-me-in-production | From compose service backend |
-| FRONTEND_ORIGIN | No | http://localhost:3000 | From compose service backend |
-| CORS_ALLOWED_ORIGINS | No | - | From compose service backend |
-| RESEND_API_KEY | No | - | From compose service backend |
-| RESEND_FROM_EMAIL | No | noreply@multica.ai | From compose service backend |
-| GOOGLE_CLIENT_ID | No | - | From compose service backend |
-| GOOGLE_CLIENT_SECRET | No | - | From compose service backend |
-| GOOGLE_REDIRECT_URI | No | http://localhost:3000/auth/callback | From compose service backend |
-| S3_BUCKET | No | - | From compose service backend |
-| S3_REGION | No | us-west-2 | From compose service backend |
-| CLOUDFRONT_DOMAIN | No | - | From compose service backend |
-| CLOUDFRONT_KEY_PAIR_ID | No | - | From compose service backend |
-| CLOUDFRONT_PRIVATE_KEY | No | - | From compose service backend |
-| COOKIE_DOMAIN | No | - | From compose service backend |
-| MULTICA_APP_URL | No | http://localhost:3000 | From compose service backend |
-| HOSTNAME | No | 0.0.0.0 | From compose service frontend |
-| POSTGRES_PORT | No | 5432 | From .env.example |
-| MULTICA_SERVER_URL | No | ws://localhost:8080/ws | From .env.example |
-| MULTICA_DAEMON_CONFIG | No | - | From .env.example |
-| MULTICA_WORKSPACE_ID | No | - | From .env.example |
-| MULTICA_DAEMON_ID | No | - | From .env.example |
-| MULTICA_DAEMON_DEVICE_NAME | No | - | From .env.example |
-| MULTICA_DAEMON_POLL_INTERVAL | No | 3s | From .env.example |
-| MULTICA_DAEMON_HEARTBEAT_INTERVAL | No | 15s | From .env.example |
-| MULTICA_CODEX_PATH | No | codex | From .env.example |
-| MULTICA_CODEX_MODEL | No | - | From .env.example |
-| MULTICA_CODEX_WORKDIR | No | - | From .env.example |
-| MULTICA_CODEX_TIMEOUT | No | 20m | From .env.example |
-| NEXT_PUBLIC_GOOGLE_CLIENT_ID | No | - | From .env.example |
-| CLOUDFRONT_PRIVATE_KEY_SECRET | No | multica/cloudfront-signing-key | From .env.example |
-| FRONTEND_PORT | No | 3000 | From .env.example |
-| NEXT_PUBLIC_API_URL | No | http://localhost:8080 | From .env.example |
-| NEXT_PUBLIC_WS_URL | No | ws://localhost:8080/ws | From .env.example |
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `JWT_SECRET` | JWT 签名密钥 | 已预设（生产环境请修改） |
+| `RESEND_API_KEY` | Resend 邮件服务 API Key | 空（禁用真实邮件，启用 888888 主码） |
+| `DATABASE_URL` | PostgreSQL 连接串 | 自动配置 |
 
-## 数据目录
+## 上游项目
 
-| 宿主路径 | 容器路径 | 说明 |
-| --- | --- | --- |
-| /lzcapp/var/db/multica/postgres | /var/lib/postgresql/data | From compose service postgres |
+- GitHub: https://github.com/multica-ai/multica
+- 本地 fork: https://github.com/CodeEagle/multica
 
-## 首次启动/验收提醒
+## 构建说明
 
-- 自动扫描到 compose 文件：docker-compose.selfhost.yml
-- 主服务推断为 `frontend`，入口端口 `3000`。
-- 依赖服务镜像已写入 dependencies，首次完整构建时会自动 copy-image。
-- 扫描到 env 示例文件：.env.example
-- 扫描到 README：README.md, README.zh-CN.md
-
-## 下一步
-
-1. 补完 `UPSTREAM_DEPLOYMENT_CHECKLIST.md`，把真实入口、环境变量、写路径和初始化动作全部核实清楚。
-2. 按真实部署拓扑修正 `lzc-manifest.yml`，不要直接沿用占位镜像、端口或命令。
-3. 如果是源码构建，补齐 `Dockerfile` / `Dockerfile.template`、`content/`、`overlay_paths` 等资产。
-4. 初稿补全后执行 `./scripts/local_build.sh multica --check-only`，再进入实际构建与验收。
+- Backend：从 `Dockerfile` 构建 Go 二进制
+- Frontend：从 `Dockerfile.web` 构建 Next.js standalone 输出
+  - 构建参数 `REMOTE_API_URL=http://multica-backend:8080`（服务端代理到后端 API）
+- Database：使用官方 `pgvector/pgvector:pg17` 镜像
