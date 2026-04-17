@@ -1480,9 +1480,15 @@ def _scan_dockerfile_write_paths(text: str) -> list[tuple[str, str]]:
                 results.append((t, "Dockerfile VOLUME"))
 
     # 2. mkdir -p in RUN/CMD/ENTRYPOINT/entrypoint scripts
+    # Exclude system-managed directories that don't hold user data and don't need bind mounts.
+    _SYSTEM_PATH_PREFIXES = (
+        "/tmp", "/etc/", "/var/log/", "/var/run/", "/run/",
+        "/usr/", "/lib/", "/lib64/", "/proc/", "/sys/", "/dev/",
+        "/bin/", "/sbin/", "/opt/",
+    )
     for match in re.finditer(r"mkdir\s+-p\s+([\w/.${}~-]+)", text):
         path = match.group(1).strip()
-        if path.startswith("/") and not path.startswith("/tmp"):
+        if path.startswith("/") and not any(path.startswith(p) for p in _SYSTEM_PATH_PREFIXES):
             results.append((path, "mkdir -p in Dockerfile"))
 
     # 3. Resolve HOME-relative data dirs
@@ -1549,9 +1555,14 @@ def _scan_entrypoint_write_paths(source_dir: Path, dockerfile_path: Path) -> lis
             script_text = script_path.read_text(encoding="utf-8", errors="ignore")
         except Exception:
             continue
+        _SYSTEM_PATH_PREFIXES_EP = (
+            "/tmp", "/etc/", "/var/log/", "/var/run/", "/run/",
+            "/usr/", "/lib/", "/lib64/", "/proc/", "/sys/", "/dev/",
+            "/bin/", "/sbin/", "/opt/",
+        )
         for match in re.finditer(r"mkdir\s+-p\s+([\w/.${}~-]+)", script_text):
             path = match.group(1).strip()
-            if path.startswith("/") and not path.startswith("/tmp"):
+            if path.startswith("/") and not any(path.startswith(p) for p in _SYSTEM_PATH_PREFIXES_EP):
                 results.append((path, f"mkdir -p in {script_name}"))
 
     return results

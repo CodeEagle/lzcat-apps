@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "https://github.com/CodeEagle/hermes",
   "created_at": "2026-04-17T06:56:12.010997+00:00",
-  "updated_at": "2026-04-17T07:08:00.604975+00:00",
+  "updated_at": "2026-04-17T07:11:00.805477+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -626,10 +626,31 @@
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-04-17T06:56:17.563008+00:00",
+      "completed_at": "2026-04-17T07:08:00.908358+00:00",
       "conclusion": "预检通过",
-      "all_passed": true,
-      "status": "pending"
+      "all_passed": true
+    },
+    "8": {
+      "completed": true,
+      "completed_at": "2026-04-17T07:11:00.804382+00:00",
+      "conclusion": "构建成功",
+      "build_mode": "build"
+    },
+    "9": {
+      "completed": true,
+      "completed_at": "2026-04-17T07:11:00.805173+00:00",
+      "conclusion": "lpk 已验证",
+      "lpk_sha256": "a2066ba4cbf1b70d434a75bad8eba0480462d82a9dda91abaee3229ed6bfcf2d",
+      "lpk_size_bytes": 949
+    },
+    "10": {
+      "completed": true,
+      "completed_at": "2026-04-17T07:11:00.805474+00:00",
+      "conclusion": "验收完成",
+      "pending_backports": [
+        "p1",
+        "p2"
+      ]
     }
   },
   "problems": [

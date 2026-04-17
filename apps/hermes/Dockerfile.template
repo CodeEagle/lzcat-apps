@@ -34,6 +34,14 @@ COPY manager /app/manager
 # Canonical .env.example (seeded into /data/.env on first run by entrypoint)
 COPY .env.example /app/.env.example
 
+# Patch upstream bugs:
+# 1. browser_tool.py: handle BROWSER_INACTIVITY_TIMEOUT="" (empty env var injected by LazyCat)
+# 2. .env.example: set sensible defaults so seeded /data/.env has valid values
+RUN sed -i 's/int(os\.environ\.get("BROWSER_INACTIVITY_TIMEOUT", "300"))/int(os.environ.get("BROWSER_INACTIVITY_TIMEOUT") or "300")/g' \
+        /opt/hermes-agent/tools/browser_tool.py && \
+    sed -i 's/^BROWSER_INACTIVITY_TIMEOUT=$/BROWSER_INACTIVITY_TIMEOUT=120/' /app/.env.example && \
+    sed -i 's/^BROWSER_SESSION_TIMEOUT=$/BROWSER_SESSION_TIMEOUT=300/' /app/.env.example
+
 # -----------------------------------------------------------------------------
 # Python dependencies (single venv via system pip)
 # -----------------------------------------------------------------------------
