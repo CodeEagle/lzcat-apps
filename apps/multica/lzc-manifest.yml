@@ -148,7 +148,7 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - wget --spider -q http://localhost:3000 || exit 1
+        - wget --spider -q http://127.0.0.1:3000 || exit 1
       interval: 30s
       timeout: 10s
       start_period: 60s
