@@ -61,6 +61,7 @@ on:
           - "paseo"
           - "hermes"
           - "copilot-api-plus"
+          - "multica"
           # END AUTO-GENERATED APP OPTIONS
       target_version:
         description: "Target upstream version to build. Leave empty for latest."
