@@ -1,5 +1,5 @@
 {
-  "build_strategy": "upstream_dockerfile",
+  "build_strategy": "upstream_with_target_template",
   "check_strategy": "commit_sha",
   "dependencies": [],
   "docker_platform": "linux/amd64",
@@ -15,7 +15,8 @@
     {
       "build_args": {},
       "build_context": ".",
-      "build_strategy": "upstream_dockerfile",
+      "build_strategy": "upstream_with_target_template",
+      "dockerfile_path": "Dockerfile.template",
       "image_name": "hermes-hermes",
       "source_dockerfile_path": "Dockerfile",
       "target_service": "hermes"

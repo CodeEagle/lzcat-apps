@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "https://github.com/CodeEagle/hermes",
   "created_at": "2026-04-17T06:56:12.010997+00:00",
-  "updated_at": "2026-04-17T06:56:17.355998+00:00",
+  "updated_at": "2026-04-17T07:08:00.604975+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -588,12 +588,12 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-17T06:56:13.790240+00:00",
+      "completed_at": "2026-04-17T07:07:57.749308+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-17T06:56:17.317481+00:00",
+      "completed_at": "2026-04-17T07:08:00.604943+00:00",
       "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
     },
     "3": {
@@ -623,8 +623,32 @@
       "completed": true,
       "completed_at": "2026-04-17T06:56:17.355996+00:00",
       "conclusion": "剩余文件已补齐"
+    },
+    "7": {
+      "completed": true,
+      "completed_at": "2026-04-17T06:56:17.563008+00:00",
+      "conclusion": "预检通过",
+      "all_passed": true,
+      "status": "pending"
     }
   },
-  "problems": [],
+  "problems": [
+    {
+      "id": "p1",
+      "step": 8,
+      "description": "Setting up python3.13 (3.13.5-2) ...\nSetting up python3 (3.13.5-1) ...\nSetting up libidn2-0:amd64 (2.3.8-2) ...\nSetting up python3-autocommand (2.2.2-3) ...\nSetting up libperl5.40:amd64 (5.40.1-6) ...\nSetting up perl (5.40.1-6) ...\nSetting up libgssapi-krb5-2:amd64 (1.21.3-5) ...\nSetting up python3-typing-extensions (4.13.2-1) ...\nSetting up rsync (3.4.1+ds1-5+deb13u1) ...\ninvoke-rc.d: could not determine current runlevel\ninvoke-rc.d: policy-rc.d denied execution of start.\nSetting up libgnutls30t64:amd64 (3.8.9-3+deb13u2) ...\nSetting up python3-more-itertools (10.7.0-1) ...\nSetting up python3-jaraco.functools (4.1.0-1) ...\nSetting up python3-jaraco.context (6.0.1-1+deb13u1) ...\nSetting up libtirpc3t64:amd64 (1.3.6+ds-1) ...\nSetting up iproute2 (6.15.0-1) ...\nSetting up python3-typeguard (4.4.2-1) ...\nSetting up libpsl5t64:amd64 (0.21.2-1.1+b1) ...\nSetting up liberror-perl (0.17030-1) ...\nSetting up python3-inflect (7.3.1-2) ...\nSetting up librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2+b5) ...\nSetting up libngtcp2-crypto-gnutls8:amd64 (1.11.0-1) ...\nSetting up python3-pkg-resources (78.1.1-0.1) ...\nSetting up supervisor (4.2.5-3) ...\ninvoke-rc.d: could not determine current runlevel\ninvoke-rc.d: policy-rc.d denied execution of start.\nSetting up libcurl4t64:amd64 (8.14.1-2+deb13u2) ...\nSetting up nginx (1.26.3-3+deb13u2) ...\nCannot open netlink socket: Protocol not supported\ninvoke-rc.d: could not determine current runlevel\ninvoke-rc.d: policy-rc.d denied execution of start.\nSetting up libcurl3t64-gnutls:amd64 (8.14.1-2+deb13u2) ...\nSetting up git (1:2.47.3-0+deb13u1) ...\nSetting up curl (8.14.1-2+deb13u2) ...\nProcessing triggers for libc-bin (2.41-12+deb13u2) ...\n ---> Removed intermediate container d51680390ae3\n ---> 10224a73797b\nStep 4/16 : COPY repos/hermes-agent /opt/hermes-agent\nCOPY failed: file not found in build context or excluded by .dockerignore: stat repos/hermes-agent: file does not exist",
+      "category": "build",
+      "status": "resolved",
+      "created_at": "2026-04-17T06:58:13.299675+00:00"
+    },
+    {
+      "id": "p2",
+      "step": 7,
+      "description": "write path /etc/nginx/conf.d (from mkdir -p in Dockerfile) has no matching bind mount; data written here will be lost on container restart.",
+      "category": "preflight",
+      "status": "resolved",
+      "created_at": "2026-04-17T07:04:38.376103+00:00"
+    }
+  ],
   "verification": {}
 }
