@@ -593,12 +593,28 @@ def load_image_overrides(path: Path) -> dict[str, str]:
     payload = load_image_state(path)
     images = payload.get("images")
     if not isinstance(images, dict):
-        return {}
-    return {
-        str(service).strip(): str(image).strip()
-        for service, image in images.items()
-        if str(service).strip() and str(image).strip()
-    }
+        raise RuntimeError(
+            f"{IMAGE_STATE_FILENAME} must contain a top-level 'images' mapping: {path}"
+        )
+
+    overrides: dict[str, str] = {}
+    for service, image in images.items():
+        service_name = str(service).strip()
+        image_value = str(image).strip()
+        if not service_name:
+            continue
+        if not image_value:
+            raise RuntimeError(
+                f"{IMAGE_STATE_FILENAME} contains empty image value for service '{service_name}' in {path}"
+            )
+        # Validate LazyCat registry address format
+        if not image_value.startswith("registry.lazycat.cloud/"):
+            raise RuntimeError(
+                f"{IMAGE_STATE_FILENAME} contains non-LazyCat image for service '{service_name}': {image_value}. "
+                "Expected image addresses under registry.lazycat.cloud/"
+            )
+        overrides[service_name] = image_value
+    return overrides
 
 
 def list_manifest_services(manifest_text: str) -> set[str]:
