@@ -98,7 +98,7 @@ deploy_params:
 
 services:
   multica-postgres:
-    image: registry.lazycat.cloud/pgvector/pgvector:pg17
+    image: pgvector/pgvector:pg17
     environment:
       - POSTGRES_DB=multica
       - POSTGRES_USER=multica

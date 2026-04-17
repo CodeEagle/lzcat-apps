@@ -1,7 +1,12 @@
 {
   "build_strategy": "upstream_dockerfile",
   "check_strategy": "github_release",
-  "dependencies": [],
+  "dependencies": [
+    {
+      "target_service": "multica-postgres",
+      "source_image": "pgvector/pgvector:pg17"
+    }
+  ],
   "docker_platform": "linux/amd64",
   "dockerfile_type": "custom",
   "enabled": true,
