@@ -1,4 +1,0 @@
-# Default hermes agent config (packaged)
-# Minimal placeholder to let webui detect the agent config directory
-agent:
-  name: hermes-agent
