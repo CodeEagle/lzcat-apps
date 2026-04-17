@@ -1,47 +1,47 @@
-# copilot-api-plus
+# Copilot API Plus
 
-本目录由 `scripts/bootstrap_migration.py` 生成，用于把上游 `imbuxiangnan-cyber/copilot-api-plus` 初始化为懒猫微服迁移项目。
+将 GitHub Copilot 订阅转换为 OpenAI/Anthropic 兼容 API 代理，支持多账号管理和使用量监控。
 
 ## 上游项目
-- Upstream Repo: imbuxiangnan-cyber/copilot-api-plus
+
+- Upstream Repo: CodeEagle/copilot-api-plus (fork of imbuxiangnan-cyber/copilot-api-plus)
 - Homepage: https://github.com/imbuxiangnan-cyber/copilot-api-plus
 - License: MIT
-- Author: imbuxiangnan-cyber
-- Version Strategy: `github_release` -> 当前初稿版本 `1.2.24`
+- Build Strategy: `upstream_dockerfile` (CodeEagle fork)
+- Version Strategy: `github_release` → current `1.2.25`
 
-## 当前迁移骨架
-- Build Strategy: `upstream_dockerfile`
-- Primary Subdomain: `copilot-api-plus`
-- Image Targets: `copilot-api-plus`
-- Service Port: `4141`
+## 访问入口
 
-### Services
-- `copilot-api-plus` -> `registry.lazycat.cloud/placeholder/copilot-api-plus:bootstrap`
+安装后通过微服地址访问：`https://copilot-api-plus.<your-device>.lazycat.cloud`
 
-## AIPod
+## 首次使用
 
-当前未启用 AIPod / AI 服务。
+1. 打开 Web 管理界面（访问上方地址）→「账号管理」标签
+2. 点击「添加账号」，通过 GitHub Device Code 授权
+3. 授权成功后，API 服务即可使用
 
-## 环境变量
+## API 配置
 
-当前未预填环境变量，待补充。
+将以下地址配置到 Claude Code、OpenCode 等工具：
+- **OpenAI Base URL**: `https://copilot-api-plus.<device>.lazycat.cloud/v1`
+- **Anthropic Base URL**: `https://copilot-api-plus.<device>.lazycat.cloud`
 
 ## 数据目录
 
 | 宿主路径 | 容器路径 | 说明 |
-| --- | --- | --- |
-| /lzcapp/var/data/copilot-api-plus | /root/.local/share/copilot-api-plus | From source code pattern in paths.ts |
+|----------|----------|------|
+| /lzcapp/var/data | /lzcapp/var/data | 账号信息 + GitHub Token 持久化 |
 
-## 首次启动/验收提醒
+持久化文件：
+- `github_token` — 单账号 Token（向后兼容）
+- `accounts.json` — 多账号配置
 
-- 自动扫描到 Dockerfile：Dockerfile
-- 当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。
-- 扫描到 env 示例文件：.env.example
-- 扫描到 README：README.en.md, README.md
+## Fork 修改内容
 
-## 下一步
+CodeEagle fork 相对上游做了以下 LazyCat 适配：
 
-1. 补完 `UPSTREAM_DEPLOYMENT_CHECKLIST.md`，把真实入口、环境变量、写路径和初始化动作全部核实清楚。
-2. 按真实部署拓扑修正 `lzc-manifest.yml`，不要直接沿用占位镜像、端口或命令。
-3. 如果是源码构建，补齐 `Dockerfile` / `Dockerfile.template`、`content/`、`overlay_paths` 等资产。
-4. 初稿补全后执行 `./scripts/local_build.sh copilot-api-plus --check-only`，再进入实际构建与验收。
+- `entrypoint.sh`：移除强制 GH_TOKEN，允许无 Token 启动
+- `src/lib/paths.ts`：支持 `COPILOT_API_DATA_DIR` 环境变量覆盖数据目录
+- `src/start.ts`：启动时无 Token 时优雅跳过认证，避免设备码流程阻塞容器
+- `src/server.ts`：`/` 路由提供内嵌 Web 管理 UI
+- `Dockerfile`：将 `pages/` 打包进运行镜像
