@@ -35,6 +35,13 @@ application:
             ? ctx.deploy_params.login_email
             : (ctx.persist.get("multica.login_email") || "");
 
+          // Cooldown guard: don't auto-submit if we sent a code within the last 60s.
+          // This prevents "please wait" errors when the page reloads (browser Back,
+          // unauth redirect, etc.) while the backend rate-limit is still active.
+          const COOLDOWN_MS = 62000;
+          const lastSent = parseInt(ctx.persist.get("multica.last_code_sent_at") || "0", 10);
+          const inCooldown = (Date.now() - lastSent) < COOLDOWN_MS;
+
           // Use React's native value setter to trigger React onChange properly
           const nativeSetter = Object.getOwnPropertyDescriptor(
             window.HTMLInputElement.prototype, "value"
@@ -59,13 +66,25 @@ application:
             return false;
           }
 
-          // Mark submitted BEFORE the setTimeout to prevent MutationObserver
-          // from triggering a duplicate sendCode call during the 600ms delay,
-          // which would cause the backend's "please wait" rate-limit error.
+          // Intercept the "Back" button on the OTP code step so it navigates
+          // to homepage instead of reverting to the email step.
+          function patchBackButton() {
+            const btns = document.querySelectorAll('button[type="button"]');
+            btns.forEach(function (btn) {
+              if (btn.textContent.trim() === "Back" && !btn.__lzcPatched) {
+                btn.__lzcPatched = true;
+                btn.addEventListener("click", function (e) {
+                  e.stopImmediatePropagation();
+                  window.location.href = "/";
+                }, true);
+              }
+            });
+          }
+
           let emailSubmitted = false;
 
           function tryFillAndSubmitEmail() {
-            if (emailSubmitted) return false;
+            if (emailSubmitted || inCooldown) return false;
             const emailInput = document.querySelector(
               'input[type="email"], input[id="login-email"]'
             );
@@ -82,8 +101,10 @@ application:
                 'button[type="submit"][form="login-form"], button[type="submit"]'
               );
               if (form) {
+                ctx.persist.set("multica.last_code_sent_at", String(Date.now()));
                 try { form.requestSubmit(); } catch (e) { form.submit(); }
               } else if (submitBtn && !submitBtn.disabled) {
+                ctx.persist.set("multica.last_code_sent_at", String(Date.now()));
                 submitBtn.click();
               }
             }, 600);
@@ -92,11 +113,13 @@ application:
 
           let otpFilled = false;
           const observer = new MutationObserver(function () {
-            if (!emailSubmitted) tryFillAndSubmitEmail();
+            if (!emailSubmitted && !inCooldown) tryFillAndSubmitEmail();
             if (!otpFilled) otpFilled = tryFillOtp();
+            patchBackButton();
           });
           observer.observe(document.body, { childList: true, subtree: true });
           tryFillAndSubmitEmail();
+          patchBackButton();
           setTimeout(tryFillOtp, 2000);
         })();
 
