@@ -13,10 +13,102 @@ application:
   upstreams:
     -
       location: /api/
-      backend: http://backend:8080/api/
-    -
+    - backend: http://multica-backend:8080/
+      location: /auth/
+    - backend: http://multica-backend:8080/
+      location: /ws/
+    - backend: http://multica-frontend:3000/
       location: /
-      backend: http://frontend:3000/
+  injects:
+    # Browser inject: auto-fill email, submit login form, then fill OTP for password-free access
+    - id: multica-autofill-login
+      auth_required: false
+      when:
+        - /login
+      do: |
+        (function () {
+          const TARGET_EMAIL = ctx.deploy_params && ctx.deploy_params.login_email
+            ? ctx.deploy_params.login_email
+            : (ctx.persist.get("multica.login_email") || "");
+
+          // Use React's native value setter to trigger React onChange properly
+          const nativeSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype, "value"
+          ).set;
+
+          function fillReactInput(el, value) {
+            nativeSetter.call(el, value);
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+            el.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+
+          // Fill the OTP hidden input rendered by input-otp (maxlength=6)
+          function tryFillOtp() {
+            const otpInput = document.querySelector(
+              'input[data-input-otp], input[autocomplete="one-time-code"], ' +
+              'input[type="text"][maxlength="6"]'
+            );
+            if (otpInput && !otpInput.value) {
+              fillReactInput(otpInput, "888888");
+              return true;
+            }
+            return false;
+          }
+
+          let emailSubmitted = false;
+
+          function tryFillAndSubmitEmail() {
+            if (emailSubmitted) return false;
+            const emailInput = document.querySelector(
+              'input[type="email"], input[id="login-email"]'
+            );
+            if (!emailInput || !TARGET_EMAIL) return false;
+            if (!emailInput.value) {
+              fillReactInput(emailInput, TARGET_EMAIL);
+              ctx.persist.set("multica.login_email", TARGET_EMAIL);
+            }
+            // Auto-submit the login form after email is filled
+            setTimeout(function () {
+              if (emailSubmitted) return;
+              const form = document.getElementById("login-form");
+              const submitBtn = document.querySelector(
+                'button[type="submit"][form="login-form"], button[type="submit"]'
+              );
+              if (form) {
+                emailSubmitted = true;
+                try { form.requestSubmit(); } catch (e) { form.submit(); }
+              } else if (submitBtn && !submitBtn.disabled) {
+                emailSubmitted = true;
+                submitBtn.click();
+              }
+            }, 600);
+            return true;
+          }
+
+          let otpFilled = false;
+          const observer = new MutationObserver(function () {
+            if (!emailSubmitted) tryFillAndSubmitEmail();
+            if (!otpFilled) otpFilled = tryFillOtp();
+          });
+          observer.observe(document.body, { childList: true, subtree: true });
+          tryFillAndSubmitEmail();
+          setTimeout(tryFillOtp, 2000);
+        })();
+
+locales:
+  en:
+    name: Multica
+    description: Open-source AI agent management platform. Turn coding agents into real teammates — assign tasks, track progress, compound skills automatically.
+  zh:
+    name: Multica
+    description: 开源 AI 代理管理平台。将 AI 编程代理变成真正的团队成员——分配任务、追踪进度、自动复用技能。
+
+deploy_params:
+  - key: login_email
+    description: Login email for password-free access (leave blank to enter manually)
+    required: false
+    default: ""
+
 services:
   postgres:
     image: registry.lazycat.cloud/placeholder/multica:postgres
