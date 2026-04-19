@@ -27,6 +27,10 @@ application:
         - /login
       do: |
         (function () {
+          // Guard against re-injection within the same page session
+          if (window.__multicaLoginInjected) return;
+          window.__multicaLoginInjected = true;
+
           const TARGET_EMAIL = ctx.deploy_params && ctx.deploy_params.login_email
             ? ctx.deploy_params.login_email
             : (ctx.persist.get("multica.login_email") || "");
@@ -55,6 +59,9 @@ application:
             return false;
           }
 
+          // Mark submitted BEFORE the setTimeout to prevent MutationObserver
+          // from triggering a duplicate sendCode call during the 600ms delay,
+          // which would cause the backend's "please wait" rate-limit error.
           let emailSubmitted = false;
 
           function tryFillAndSubmitEmail() {
@@ -67,18 +74,16 @@ application:
               fillReactInput(emailInput, TARGET_EMAIL);
               ctx.persist.set("multica.login_email", TARGET_EMAIL);
             }
-            // Auto-submit the login form after email is filled
+            // Lock immediately so no subsequent DOM mutation re-triggers this
+            emailSubmitted = true;
             setTimeout(function () {
-              if (emailSubmitted) return;
               const form = document.getElementById("login-form");
               const submitBtn = document.querySelector(
                 'button[type="submit"][form="login-form"], button[type="submit"]'
               );
               if (form) {
-                emailSubmitted = true;
                 try { form.requestSubmit(); } catch (e) { form.submit(); }
               } else if (submitBtn && !submitBtn.disabled) {
-                emailSubmitted = true;
                 submitBtn.click();
               }
             }, 600);

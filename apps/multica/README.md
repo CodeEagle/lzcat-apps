@@ -22,23 +22,31 @@
 
 ## AIPod
 
+## 测试账户
+
+| 字段 | 值 |
+|------|-----|
+| 邮箱 | 任意邮箱（如 `admin@lazycat.local`） |
+| 验证码 | `888888` |
+
+> 验证码 `888888` 是 master code，在未配置 `RESEND_API_KEY` 时对**任意邮箱**均有效（不发送真实邮件）。
+
 ## 首次登录（免密）
 
 **配置了 `login_email` 部署参数时（推荐）：**
 - 打开应用，Inject 自动填充邮箱 → 自动点击「Continue」→ 自动填充验证码 `888888` → 自动登录，全程无需手动操作。
 
 **未配置 `login_email` 时（手动）：**
-1. 在邮箱字段输入任意邮箱
+1. 在邮箱字段输入任意邮箱（如 `admin@lazycat.local`）
 2. 点击「Continue」发送验证码
-3. 验证码字段输入 `888888`（开发模式下的万能验证码）
-
-> 验证码 `888888` 在未配置 `RESEND_API_KEY` 的情况下始终有效（非生产模式）。
+3. 验证码字段输入 `888888`
 
 ## 免密登录（LazyCat）
 
 应用通过 LazyCat Inject 实现免密登录：
-- `/auth/` 请求由 ingress 直接路由到后端（修复了旧版 404 问题）
+- `/auth/` 请求由 ingress 直接路由到后端
 - 安装时设置 `login_email` deploy param，Inject 全自动完成邮箱填写、表单提交、OTP 填写
+- Inject 设有 `window.__multicaLoginInjected` 防重入守卫，避免 DOM 变动触发重复提交导致「please wait」错误
 
 ## 数据持久化
 
