@@ -70,16 +70,20 @@ application:
           }
 
           // Directly bind to "Back" button when it appears in the OTP step.
-          // Using a direct click listener (fired after React's own onClick via setTimeout)
-          // is more reliable than DOM-transition detection with MutationObserver.
+          // When the Back button is found, we also call setLastSent() so that
+          // even a manually-sent code is tracked — preventing re-submission
+          // if the user returns to /login after clicking Back.
           function attachBackListener() {
             var buttons = document.querySelectorAll("button");
             for (var i = 0; i < buttons.length; i++) {
               var btn = buttons[i];
               if (btn.textContent.trim() === "Back" && !btn.__lzcBackPatched) {
                 btn.__lzcBackPatched = true;
+                // OTP step is now visible — record cooldown even if user sent manually
+                setLastSent();
                 btn.addEventListener("click", function () {
-                  // Let React process setStep("email") first, then navigate home
+                  // Ensure cooldown is recorded, then navigate home after React
+                  setLastSent();
                   setTimeout(function () { window.location.href = "/"; }, 50);
                 }, { once: true });
               }
