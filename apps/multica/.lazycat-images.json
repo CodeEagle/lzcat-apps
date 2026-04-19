@@ -3,13 +3,13 @@
   "app": "multica",
   "source_version": "v0.2.5",
   "build_version": "0.2.5",
-  "head_sha": "b23ac81ad323",
-  "build_recipe_hash": "70afe99081da629efba12f0e75d75dc9edba4b2cf11062dbc068e28229764546",
-  "updated_at": "2026-04-25T07:43:50.048338+00:00",
+  "head_sha": "69eb1c3086bf",
+  "build_recipe_hash": "3c4fa507f1965b4611c9bc092346afb8c6f1900b6151787335f67f7466a8f791",
+  "updated_at": "2026-04-17T10:27:57.267557+00:00",
   "images": {
-    "backend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:0a0c182a07881526",
-    "frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:cc6a32e48a3c5549",
-    "postgres": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c"
+    "multica-backend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:1392321de60dbad1",
+    "multica-frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:53287aa3a3a6d15a",
+    "multica-postgres": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c"
   },
   "source_images": {
     "backend": "ghcr.io/codeeagle/lazycatimages:multicaBackend_b23ac81ad323",

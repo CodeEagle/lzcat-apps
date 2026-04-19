@@ -3,7 +3,7 @@
   "check_strategy": "github_release",
   "dependencies": [
     {
-      "target_service": "postgres",
+      "target_service": "multica-postgres",
       "source_image": "pgvector/pgvector:pg17"
     }
   ],

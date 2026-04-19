@@ -11,11 +11,11 @@ application:
   public_path:
     - /
   upstreams:
-    -
+    - backend: http://multica-backend:8080/api/
       location: /api/
-    - backend: http://multica-backend:8080/
+    - backend: http://multica-backend:8080/auth/
       location: /auth/
-    - backend: http://multica-backend:8080/
+    - backend: http://multica-backend:8080/ws
       location: /ws/
     - backend: http://multica-frontend:3000/
       location: /
@@ -110,8 +110,8 @@ deploy_params:
     default: ""
 
 services:
-  postgres:
-    image: registry.lazycat.cloud/placeholder/multica:postgres
+  multica-postgres:
+    image: registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c
     environment:
       - POSTGRES_DB=multica
       - POSTGRES_USER=multica
@@ -128,35 +128,28 @@ services:
   backend:
     image: registry.lazycat.cloud/placeholder/multica:backend
     depends_on:
-      - postgres
-    environment:
-      - DATABASE_URL=postgres://${POSTGRES_USER:-multica}:${POSTGRES_PASSWORD:-multica}@postgres:5432/${POSTGRES_DB:-multica}?sslmode=disable
-      - PORT=8080
-      - JWT_SECRET=change-me-in-production
-      - FRONTEND_ORIGIN=https://multica.${LAZYCAT_BOX_DOMAIN}
-      - CORS_ALLOWED_ORIGINS=https://multica.${LAZYCAT_BOX_DOMAIN}
-      - RESEND_API_KEY=
-      - RESEND_FROM_EMAIL=noreply@multica.ai
-      - GOOGLE_CLIENT_ID=
-      - GOOGLE_CLIENT_SECRET=
-      - GOOGLE_REDIRECT_URI=https://multica.${LAZYCAT_BOX_DOMAIN}/auth/callback
-      - S3_BUCKET=
-      - S3_REGION=us-west-2
-      - CLOUDFRONT_DOMAIN=
-      - CLOUDFRONT_KEY_PAIR_ID=
-      - CLOUDFRONT_PRIVATE_KEY=
-      - COOKIE_DOMAIN=
-      - MULTICA_APP_URL=https://multica.${LAZYCAT_BOX_DOMAIN}
-  frontend:
-    image: registry.lazycat.cloud/placeholder/multica:frontend
-    depends_on:
-      - backend
+      - multica-postgres
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget --spider -q http://localhost:8080/health || exit 1
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+
+  multica-frontend:
+    image: registry.lazycat.cloud/placeholder/multica-multica-frontend:bootstrap
     environment:
       - HOSTNAME=0.0.0.0
-locales:
-  en:
-    name: Multica
-    description: multica on LazyCat
-  zh:
-    name: Multica
-    description: （迁移初稿）Multica 的懒猫微服版本
+      - PORT=3000
+    depends_on:
+      - multica-backend
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q http://127.0.0.1:3000/ -O /dev/null || exit 1
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
