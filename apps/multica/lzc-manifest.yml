@@ -27,22 +27,26 @@ application:
         - /login
       do: |
         (function () {
-          // Guard against re-injection within the same page session
           if (window.__multicaLoginInjected) return;
           window.__multicaLoginInjected = true;
 
-          const TARGET_EMAIL = ctx.deploy_params && ctx.deploy_params.login_email
-            ? ctx.deploy_params.login_email
-            : (ctx.persist.get("multica.login_email") || "");
+          // ctx.params (not ctx.deploy_params) is the correct LazyCat inject API
+          const TARGET_EMAIL = (ctx.params && ctx.params.login_email) || "";
 
-          // Cooldown guard: don't auto-submit if we sent a code within the last 60s.
-          // This prevents "please wait" errors when the page reloads (browser Back,
-          // unauth redirect, etc.) while the backend rate-limit is still active.
+          // Use sessionStorage for synchronous cooldown tracking.
+          // ctx.persist.get() is ASYNC (returns Promise) - cannot be used synchronously.
+          // sessionStorage persists across page navigations within the same browser tab.
           const COOLDOWN_MS = 62000;
-          const lastSent = parseInt(ctx.persist.get("multica.last_code_sent_at") || "0", 10);
-          const inCooldown = (Date.now() - lastSent) < COOLDOWN_MS;
+          function getLastSent() {
+            return parseInt(sessionStorage.getItem("multica.last_code_sent_at") || "0", 10);
+          }
+          function setLastSent() {
+            sessionStorage.setItem("multica.last_code_sent_at", String(Date.now()));
+          }
+          function inCooldown() {
+            return (Date.now() - getLastSent()) < COOLDOWN_MS;
+          }
 
-          // Use React's native value setter to trigger React onChange properly
           const nativeSetter = Object.getOwnPropertyDescriptor(
             window.HTMLInputElement.prototype, "value"
           ).set;
@@ -53,7 +57,6 @@ application:
             el.dispatchEvent(new Event("change", { bubbles: true }));
           }
 
-          // Fill the OTP hidden input rendered by input-otp (maxlength=6)
           function tryFillOtp() {
             const otpInput = document.querySelector(
               'input[data-input-otp], input[autocomplete="one-time-code"], ' +
@@ -66,34 +69,31 @@ application:
             return false;
           }
 
-          // Intercept the "Back" button on the OTP code step so it navigates
-          // to homepage instead of reverting to the email step.
-          function patchBackButton() {
-            const btns = document.querySelectorAll('button[type="button"]');
-            btns.forEach(function (btn) {
-              if (btn.textContent.trim() === "Back" && !btn.__lzcPatched) {
-                btn.__lzcPatched = true;
-                btn.addEventListener("click", function (e) {
-                  e.stopImmediatePropagation();
-                  window.location.href = "/";
-                }, true);
-              }
-            });
+          // Watch for OTP→email step transition: user clicked the "Back" button.
+          // Navigate to homepage instead of staying on the email step.
+          // This avoids fighting with React's event system (capture vs bubble).
+          let seenOtpStep = false;
+          function checkStepTransition() {
+            const hasOtp = !!document.querySelector('input[data-input-otp]');
+            const hasEmail = !!document.querySelector('#login-email, input[type="email"]');
+            if (hasOtp) {
+              seenOtpStep = true;
+            } else if (seenOtpStep && hasEmail) {
+              window.location.href = "/";
+            }
           }
 
           let emailSubmitted = false;
 
           function tryFillAndSubmitEmail() {
-            if (emailSubmitted || inCooldown) return false;
+            if (emailSubmitted || inCooldown()) return false;
             const emailInput = document.querySelector(
               'input[type="email"], input[id="login-email"]'
             );
             if (!emailInput || !TARGET_EMAIL) return false;
             if (!emailInput.value) {
               fillReactInput(emailInput, TARGET_EMAIL);
-              ctx.persist.set("multica.login_email", TARGET_EMAIL);
             }
-            // Lock immediately so no subsequent DOM mutation re-triggers this
             emailSubmitted = true;
             setTimeout(function () {
               const form = document.getElementById("login-form");
@@ -101,10 +101,10 @@ application:
                 'button[type="submit"][form="login-form"], button[type="submit"]'
               );
               if (form) {
-                ctx.persist.set("multica.last_code_sent_at", String(Date.now()));
+                setLastSent();
                 try { form.requestSubmit(); } catch (e) { form.submit(); }
               } else if (submitBtn && !submitBtn.disabled) {
-                ctx.persist.set("multica.last_code_sent_at", String(Date.now()));
+                setLastSent();
                 submitBtn.click();
               }
             }, 600);
@@ -113,13 +113,12 @@ application:
 
           let otpFilled = false;
           const observer = new MutationObserver(function () {
-            if (!emailSubmitted && !inCooldown) tryFillAndSubmitEmail();
+            checkStepTransition();
+            if (!emailSubmitted && !inCooldown()) tryFillAndSubmitEmail();
             if (!otpFilled) otpFilled = tryFillOtp();
-            patchBackButton();
           });
           observer.observe(document.body, { childList: true, subtree: true });
           tryFillAndSubmitEmail();
-          patchBackButton();
           setTimeout(tryFillOtp, 2000);
         })();
 
