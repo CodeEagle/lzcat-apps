@@ -69,17 +69,20 @@ application:
             return false;
           }
 
-          // Watch for OTP→email step transition: user clicked the "Back" button.
-          // Navigate to homepage instead of staying on the email step.
-          // This avoids fighting with React's event system (capture vs bubble).
-          let seenOtpStep = false;
-          function checkStepTransition() {
-            const hasOtp = !!document.querySelector('input[data-input-otp]');
-            const hasEmail = !!document.querySelector('#login-email, input[type="email"]');
-            if (hasOtp) {
-              seenOtpStep = true;
-            } else if (seenOtpStep && hasEmail) {
-              window.location.href = "/";
+          // Directly bind to "Back" button when it appears in the OTP step.
+          // Using a direct click listener (fired after React's own onClick via setTimeout)
+          // is more reliable than DOM-transition detection with MutationObserver.
+          function attachBackListener() {
+            var buttons = document.querySelectorAll("button");
+            for (var i = 0; i < buttons.length; i++) {
+              var btn = buttons[i];
+              if (btn.textContent.trim() === "Back" && !btn.__lzcBackPatched) {
+                btn.__lzcBackPatched = true;
+                btn.addEventListener("click", function () {
+                  // Let React process setStep("email") first, then navigate home
+                  setTimeout(function () { window.location.href = "/"; }, 50);
+                }, { once: true });
+              }
             }
           }
 
@@ -113,11 +116,12 @@ application:
 
           let otpFilled = false;
           const observer = new MutationObserver(function () {
-            checkStepTransition();
+            attachBackListener();
             if (!emailSubmitted && !inCooldown()) tryFillAndSubmitEmail();
             if (!otpFilled) otpFilled = tryFillOtp();
           });
           observer.observe(document.body, { childList: true, subtree: true });
+          attachBackListener();
           tryFillAndSubmitEmail();
           setTimeout(tryFillOtp, 2000);
         })();
