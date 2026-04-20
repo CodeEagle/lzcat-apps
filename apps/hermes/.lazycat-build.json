@@ -1,7 +1,7 @@
 {
   "upstream_repo": "CodeEagle/hermes",
-  "source_version": "ce250df",
-  "build_version": "0.1.1",
-  "build_label": "ce250df@20260417T085546Z",
-  "last_checked_at": "2026-04-17T08:55:46.192442+00:00"
+  "source_version": "04dbaf2",
+  "build_version": "0.1.2",
+  "build_label": "04dbaf2@20260420T135946Z",
+  "last_checked_at": "2026-04-20T13:59:46.885618+00:00"
 }
