@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
   "app": "hermes",
-  "source_version": "b43850e22bb6",
-  "build_version": "0.1.1",
-  "head_sha": "b43850e22bb6",
+  "source_version": "06cc83e7338d",
+  "build_version": "0.1.2",
+  "head_sha": "06cc83e7338d",
   "build_recipe_hash": "317af551772a191abe6e83c9420d1d29f6f18e6f953cba97f0491f0b314a5784",
-  "updated_at": "2026-04-17T07:11:00.000000+00:00",
+  "updated_at": "2026-04-20T10:44:44.000000+00:00",
   "images": {
-    "hermes": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:0e702abc6cc69f67"
+    "hermes": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:b1517e606c514e39"
   },
   "source_images": {
-    "hermes": "ghcr.io/codeeagle/lazycatimages:hermesHermes_b43850e22bb6"
+    "hermes": "ghcr.io/codeeagle/lazycatimages:hermesHermes_06cc83e7338d"
   }
 }
