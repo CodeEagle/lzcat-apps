@@ -29,5 +29,6 @@ services:
       - WATCHED_REPOS=NousResearch/hermes-agent,nesquena/hermes-webui
       - BROWSER_INACTIVITY_TIMEOUT=120
       - BROWSER_SESSION_TIMEOUT=300
+      - HERMES_WEBUI_STATE_DIR=/data/webui
     image: registry.lazycat.cloud/placeholder/hermes:hermes
 version: 0.1.0
