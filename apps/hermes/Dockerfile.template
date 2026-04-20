@@ -37,8 +37,11 @@ COPY .env.example /app/.env.example
 # Patch upstream bugs:
 # 1. browser_tool.py: handle BROWSER_INACTIVITY_TIMEOUT="" (empty env var injected by LazyCat)
 # 2. .env.example: set sensible defaults so seeded /data/.env has valid values
+# 3. Mark patched files with --skip-worktree so the manager's hot-update git_pull()
+#    does not see them as dirty and can still fast-forward hermes-agent.
 RUN sed -i 's/int(os\.environ\.get("BROWSER_INACTIVITY_TIMEOUT", "300"))/int(os.environ.get("BROWSER_INACTIVITY_TIMEOUT") or "300")/g' \
         /opt/hermes-agent/tools/browser_tool.py && \
+    git -C /opt/hermes-agent update-index --skip-worktree tools/browser_tool.py && \
     sed -i 's/^BROWSER_INACTIVITY_TIMEOUT=$/BROWSER_INACTIVITY_TIMEOUT=120/' /app/.env.example && \
     sed -i 's/^BROWSER_SESSION_TIMEOUT=$/BROWSER_SESSION_TIMEOUT=300/' /app/.env.example
 
