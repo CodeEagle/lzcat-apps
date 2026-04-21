@@ -30,5 +30,6 @@ services:
       - BROWSER_INACTIVITY_TIMEOUT=120
       - BROWSER_SESSION_TIMEOUT=300
       - HERMES_WEBUI_STATE_DIR=/data/webui
+      - HERMES_AGENT_GIT_IGNORE=tools/browser_tool.py
     image: registry.lazycat.cloud/placeholder/hermes:hermes
 version: 0.1.3
