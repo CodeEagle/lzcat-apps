@@ -24,5 +24,9 @@
   ],
   "service_cmd": [],
   "service_port": 80,
+  "overlay_paths": [
+    "hermes-hot-update-compat.sh",
+    "hermes-auto-update.sh"
+  ],
   "upstream_repo": "CodeEagle/hermes"
 }
