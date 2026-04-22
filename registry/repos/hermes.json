@@ -19,7 +19,11 @@
       "dockerfile_path": "Dockerfile.template",
       "image_name": "hermes-hermes",
       "source_dockerfile_path": "Dockerfile",
-      "target_service": "hermes"
+      "target_service": "hermes",
+      "overlay_paths": [
+        "hermes-hot-update-compat.sh",
+        "hermes-auto-update.sh"
+      ]
     }
   ],
   "service_cmd": [],
