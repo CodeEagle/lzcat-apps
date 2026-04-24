@@ -28,19 +28,39 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN git clone --depth 1 https://github.com/NousResearch/hermes-agent.git /opt/hermes-agent
 RUN git clone --depth 1 https://github.com/nesquena/hermes-webui.git /app/webui
 
-# hermes-manager — FastAPI app
-COPY manager /app/manager
+# hermes-manager — clone full CodeEagle/hermes repo as a git working tree
+# at /opt/hermes so the manager's own code (including the terminal UI under
+# manager/widget/ and manager/api/explorer.py) can be hot-updated at runtime
+# via WATCHED_REPOS=CodeEagle/hermes. /app/manager is kept as a symlink for
+# the supervisord command path.
+RUN git clone --depth 1 https://github.com/CodeEagle/hermes.git /opt/hermes && \
+    ln -s /opt/hermes/manager /app/manager
 
 # Canonical .env.example (seeded into /data/.env on first run by entrypoint)
 COPY .env.example /app/.env.example
 
-# Patch upstream bugs:
+# Patch upstream bugs, then mark patched files --skip-worktree so git_pull's
+# dirty-tree guard still fast-forwards at hot-update time:
 # 1. browser_tool.py: handle BROWSER_INACTIVITY_TIMEOUT="" (empty env var injected by LazyCat)
 # 2. .env.example: set sensible defaults so seeded /data/.env has valid values
+# 3. float-ball.js switchUI: unregister webui service worker + clear caches
+#    before reload, otherwise webui SW intercepts "/" and serves stale webui
+#    HTML, making the webui->terminal switch silently fail (upstream bug
+#    after 95bf7f1 collapsed terminal onto manager port 9090).
+# 4. process_manager.py SERVICE_MAP: register "hermes" -> "manager" so
+#    hot-updating CodeEagle/hermes triggers a manager restart.
 RUN sed -i 's/int(os\.environ\.get("BROWSER_INACTIVITY_TIMEOUT", "300"))/int(os.environ.get("BROWSER_INACTIVITY_TIMEOUT") or "300")/g' \
         /opt/hermes-agent/tools/browser_tool.py && \
+    git -C /opt/hermes-agent update-index --skip-worktree tools/browser_tool.py && \
     sed -i 's/^BROWSER_INACTIVITY_TIMEOUT=$/BROWSER_INACTIVITY_TIMEOUT=120/' /app/.env.example && \
-    sed -i 's/^BROWSER_SESSION_TIMEOUT=$/BROWSER_SESSION_TIMEOUT=300/' /app/.env.example
+    sed -i 's/^BROWSER_SESSION_TIMEOUT=$/BROWSER_SESSION_TIMEOUT=300/' /app/.env.example && \
+    sed -i 's|setTimeout(function () { location.reload(); }, 500);|setTimeout(async function () { if (navigator.serviceWorker) { var r = await navigator.serviceWorker.getRegistrations(); await Promise.all(r.map(function(x){return x.unregister();})); if (window.caches) { var k = await caches.keys(); await Promise.all(k.map(function(x){return caches.delete(x);})); } } location.reload(); }, 500);|' \
+        /opt/hermes/manager/widget/float-ball.js && \
+    sed -i 's|    "hermes-webui": "webui",|&\n    "hermes": "manager",|' \
+        /opt/hermes/manager/services/process_manager.py && \
+    git -C /opt/hermes update-index --skip-worktree \
+        manager/widget/float-ball.js \
+        manager/services/process_manager.py
 
 # -----------------------------------------------------------------------------
 # Python dependencies (single venv via system pip)
