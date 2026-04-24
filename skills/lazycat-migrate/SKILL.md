@@ -27,6 +27,8 @@ description: 将 Docker 镜像、GitHub 开源项目或 docker-compose 服务移
 9. 修复过程中只要发现跨项目可复用的推断、生成、预检、构建、打包或验收改进，必须优先沉淀回 `scripts/full_migrate.py`（以及它直接调用的共享脚本），让下次可以直接运行 `full_migrate.py` 完成同类移植；不要只把通用修复写成一次性手工步骤。
 10. 只有跨项目可复用的流程约束或判断口径，才允许回写到这个 skill；具体自动化能力优先回写到 `full_migrate.py`。
 11. 所有移植应用统一管理在 `CodeEagle/lzcat-apps` monorepo；新建 app 时必须同步：在 `apps/<appname>/`（全小写）放置应用文件，在 `registry/repos/<appname>.json` 创建构建配置，并追加到 `registry/repos/index.json`。这一步本身就足以完成大多数新项目接入，不得顺手再创建一个未被链路使用的空仓库。
+12. 安装启动成功不是最终验收；必须使用 Browser Use 打开真实 LazyCat 访问地址，按功能矩阵逐项点击、提交、刷新、查看控制台/网络错误，并把验收结论写入迁移状态或最终汇报。
+13. 用户要求上架或提交懒猫商店时，必须在 Browser Use 验收通过后生成真实运行截图，再执行商店创建/提交流程；截图必须来自已安装的真实实例，不得使用未运行的设计稿或静态占位图。
 
 ## 必收集信息
 
@@ -136,6 +138,15 @@ description: 将 Docker 镜像、GitHub 开源项目或 docker-compose 服务移
 9. `[9/10]` 下载并核对 `.lpk`：由 `full_migrate.py` 自动完成产物下载与校验。确认拿到的不是旧包、空包、错版本包。
 10. `[10/10]` 安装验收并复盘：由 `full_migrate.py` 或独立执行 `scripts/install-and-verify.sh`；确认入口可达、状态健康，然后只把通用经验回写到 skill 或 reference。
 
+## 上架扩展阶段
+
+只有 `[10/10]` 通过后，才允许进入懒猫商店上架阶段。用户没有明确要求上架时，不默认提交商店。
+
+1. `[S1]` 准备商店资料：核对 `icon.png`、`name`、`description`、`locales`、README、使用说明、隐私/许可证/上游链接；应用名称、描述和使用须知需要支持多语言。
+2. `[S2]` Browser Use 功能验收与截图：用 Browser Use 打开已安装实例，覆盖主要导航、表单、列表、设置、导入/导出、API 或后台任务等核心路径；同时保存商店截图到 `apps/<app>/store/screenshots/`，文件名使用 `01-<scene>.png` 这类稳定顺序。
+3. `[S3]` 预发布/内测：需要内测时执行 `lzc-cli appstore pre-publish dist/<app>.lpk [-G <group-id>] -c "<changelog>"`，并记录返回结果。
+4. `[S4]` 创建/提交商店审核：优先执行 `lzc-cli appstore publish dist/<app>.lpk --clang <locale> -c "<changelog>"`；首次提交按 CLI / 开发者中心当前行为创建或更新商店记录。若 CLI 能力不足，再使用懒猫开发者中心页面创建/补全应用资料。提交审核属于对第三方的公开/半公开提交，必须在点击最终提交或执行 `publish` 前向用户确认。
+
 ## 每一步的退出条件
 
 - `[1/10]` 结束前，关键信息缺口不超过 2 项，且必须已有一份覆盖入口、环境变量、真实写路径、初始化命令、数据库与 auth 配置的“上游部署清单”
@@ -145,6 +156,7 @@ description: 将 Docker 镜像、GitHub 开源项目或 docker-compose 服务移
 - `[8/10]` 失败不得进入 `[9/10]`
 - `[9/10]` 没拿到 `.lpk` 不得进入 `[10/10]`
 - 只有 `[10/10]` 完成且 workflow 成功、`.lpk` 安装成功、应用启动成功、入口可访问，才算移植完成
+- 若用户要求“上架”“提交商店”“生成商店截图”，还必须完成上架扩展阶段；否则不能把任务汇报为已上架完成
 
 ## 标准输出模板
 
@@ -190,6 +202,10 @@ description: 将 Docker 镜像、GitHub 开源项目或 docker-compose 服务移
 - 如果运行逻辑引用 `/lzcapp/pkg/content/...`，`lzc-build.yml` 必须声明 `contentdir: ./content`。
 - 任何具备通用性的临时 shell，最终都应沉淀到 `scripts/` 或 reference。
 - 安装验收时，`lzc-cli app status = Installed` 不是通过标准；必须继续核对 `lzc-docker-compose ps -a`、真实入口响应，以及需要时容器内接口调用。
+- Browser Use 验收是 `[10/10]` 的默认组成部分：必须打开真实 `https://<subdomain>.<box>.heiyu.space` 或等价 LazyCat URL，逐项验证主要功能，检查 console error、network failure、页面空白/遮挡/跳转异常；仅有 Tailwind CDN 之类非阻断 warning 时可记录为非阻断风险。
+- Browser Use 验收不得只看首页。必须先根据应用类型列出功能矩阵：导航/标签页、增删改查、登录/免密、文件上传下载、后台任务、API endpoint、设置保存、移动端或窄屏布局；不适用项写明原因。
+- 生成商店截图时，必须使用真实安装实例和 Browser Use 截图；截图应覆盖首屏价值、核心工作流、设置/管理页、移动或窄屏适配（如适用），并避免暴露 token、邮箱、手机号、真实用户数据等敏感信息。
+- 商店提交前必须确认 `.lpk` 内最终 `manifest.yml` 镜像均为 `registry.lazycat.cloud/...`，并已按懒猫官方上架指南补齐 logo、名称、描述、截图、安装加载、免密登录等审核重点。
 - 对任何会写文件的应用，必须在 `[1/10]` 明确列出“谁在什么用户下写哪些目录”，并在 `[5/10]` 把这些真实写路径全部映射到可写挂载或显式兼容层；不能把目录权限问题留到安装后再碰运气。
 - 扫描到的真实目录，只要启动链路、初始化逻辑或应用运行时会访问，就默认在启动前或初始化阶段先创建；不要把“目录不存在”留给应用自己首次失败后再补。
 - 如果上游镜像默认以非 root 用户运行，禁止只靠 `mkdir -p` 侥幸修权限；必须同步确认目录 owner / group / chmod、挂载目标路径、初始化创建时机，以及是否需要在启动命令前补 `install -d`、`chown`、软链或路径迁移。
@@ -254,6 +270,8 @@ description: 将 Docker 镜像、GitHub 开源项目或 docker-compose 服务移
 - 数据目录已正确持久化
 - 若有自动发布需求，workflow 与仓库既有模式一致
 - workflow 成功、`.lpk` 安装成功、应用启动成功
+- Browser Use 功能矩阵验收通过，且关键页面无阻断 console error / network failure
+- 如用户要求上架，已生成 `apps/<app>/store/screenshots/` 截图、准备 changelog，并完成 `lzc-cli appstore pre-publish` 或 `publish` / 开发者中心创建提交
 - 本轮通用自动化改进已回写到 `scripts/full_migrate.py` 或其共享脚本；只有流程性约束才回写到 skill 或 reference
 - 当前完成移植的项目已追加到 [references/examples-and-docs.md](references/examples-and-docs.md) 的“历史移植先例”
 

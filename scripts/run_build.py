@@ -1408,6 +1408,7 @@ def build_target_image(
                 platform=docker_platform,
                 dry_run=dry_run,
             )
+        copy_overlay_paths(repo_dir, source_root, overlay_paths)
         dockerfile_path = source_root / "Dockerfile"
         if not dockerfile_path.exists():
             candidates = list(source_root.rglob("Dockerfile"))

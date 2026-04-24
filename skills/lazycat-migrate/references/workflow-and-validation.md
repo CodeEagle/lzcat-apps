@@ -68,6 +68,85 @@ echo "$LZC_TOKEN" | gh secret set LZC_CLI_TOKEN --repo CodeEagle/<repo>
 - 需要时直接做容器内接口调用，区分“路由正常”与“业务接口正常”
 - 健康检查、环境变量、挂载目录、镜像来源是否符合预期
 
+### 4.1 Browser Use 功能完整性验收
+
+安装启动后必须使用 Browser Use 做真实浏览器验收；`curl 200`、`app status = Installed`、首页能打开都不能单独算通过。
+
+验收流程：
+
+1. 打开 `lzc-cli project info --release` 输出的 `Target URL`。
+2. 根据应用实际 UI/API 列出功能矩阵，至少覆盖：主导航/标签页、核心列表或看板、创建/编辑/删除或等价业务动作、设置保存、文件上传下载、API endpoint、登录/免密、移动或窄屏布局；不适用项写明原因。
+3. 对每个功能点执行真实点击、输入、提交、刷新或接口调用；如果功能会产生外部副作用、删除数据、发送消息、提交表单或上传文件，先停下向用户确认。
+4. 检查 Browser Use 的 console 与 network 记录：阻断性的 `error`、接口 4xx/5xx、资源加载失败、空白页、点击无响应、明显布局重叠都必须修复后重测。
+5. 将验收摘要写入最终汇报，必要时保存到 `apps/<app>/.migration-state.json` 或 `apps/<app>/qa/browser-use-report.json`。
+
+建议报告字段：
+
+```json
+{
+  "target_url": "https://<app>.<box>.heiyu.space",
+  "checked_at": "ISO-8601",
+  "browser_use": {
+    "passed": true,
+    "console_errors": [],
+    "network_failures": [],
+    "functional_matrix": [
+      {"name": "overview", "status": "pass", "evidence": "quota card rendered"}
+    ]
+  }
+}
+```
+
+如果本机存在用户指定的 `bb-browser`，可用它作为 Browser Use 的执行前端；如果不存在，使用 Codex Browser Use 插件完成同等真实浏览器验收，并在汇报中说明。
+
+### 4.2 商店截图生成
+
+当用户要求上架或提交商店时，必须在 Browser Use 验收通过后生成商店截图。
+
+截图要求：
+
+- 截图来自真实安装实例，不能来自未运行的 mock、静态设计稿或旧版本页面。
+- 默认保存到 `apps/<app>/store/screenshots/`，命名为 `01-overview.png`、`02-core-flow.png`、`03-settings.png` 等稳定顺序。
+- 至少覆盖：首屏/概览、核心工作流、设置或管理页、移动/窄屏视图（如应用支持或商店需要）。
+- 截图里不得暴露 token、授权码、邮箱、手机号、真实姓名、真实文件名、精确地址、密钥、付款信息等敏感数据；必要时先用测试账号/测试数据或打码后再生成。
+- 截图应展示真实产品状态，避免只截登录页、空状态、错误页或纯说明页。
+
+Browser Use 截图建议：
+
+```js
+await tab.goto(targetUrl);
+await tab.playwright.waitForLoadState({ state: "networkidle", timeoutMs: 20000 }).catch(() => {});
+await tab.playwright.screenshot({ path: "apps/<app>/store/screenshots/01-overview.png", fullPage: true });
+```
+
+如果 Browser Use 当前工具不支持直接写 `path`，先用工具返回的截图结果，再落盘到上述目录；最终汇报必须列出截图路径。
+
+### 4.3 懒猫商店创建与提交
+
+商店提交入口以当前 `lzc-cli` 为准；提交规则以官方文档为准：[发布自己的第一个应用](https://developer.lazycat.cloud/publish-app.html)、[应用上架审核指南](https://developer.lazycat.cloud/store-submission-guide.html)。
+
+```bash
+lzc-cli appstore login
+lzc-cli appstore pre-publish dist/<app>.lpk -c "Initial LazyCat package"
+lzc-cli appstore publish dist/<app>.lpk --clang zh-CN -c "Initial LazyCat package"
+```
+
+操作口径：
+
+- `pre-publish` 用于内测；需要指定测试组时加 `-G <group-id>`。
+- `publish` 用于提交商店审核；首次提交按 CLI / 开发者中心当前行为创建或更新商店侧应用记录。
+- 多语言 changelog 使用 `--clangs <locale>:<file>`，例如 `--clangs zh-CN:CHANGELOG.zh-CN.md --clangs en:CHANGELOG.en.md`。
+- 当前 `lzc-cli appstore publish --help` 只暴露包路径与 changelog 参数；如果 CLI 无法补齐截图、分类、详细说明等商店资料，改用懒猫开发者中心页面创建/补全；页面操作必须仍以 Browser Use 验收产物为依据。
+- 执行 `publish` 或在网页点击最终提交前，必须向用户确认，因为这会把应用包、元数据和截图提交给懒猫商店审核。
+
+提交前检查：
+
+- `.lpk` 是最新构建产物，sha256 已记录。
+- `lzc-cli project info --release` 显示当前版本已部署且运行健康。
+- Browser Use 功能矩阵通过。
+- `apps/<app>/store/screenshots/` 截图齐全。
+- `manifest.yml` 的 logo、名称、描述、locales、免密登录、数据持久化、镜像地址符合官方上架审核指南。
+
 建议轮询口径：
 - 连续轮询 `app status` + `app log`，直到进入可观测容器状态或超过超时阈值再进入失败分流
 - 仅当长时间无进展、出现明确错误日志或超时，才按安装/启动故障处理
