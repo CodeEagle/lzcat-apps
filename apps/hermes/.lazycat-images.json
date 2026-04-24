@@ -3,23 +3,23 @@
   "app": "hermes",
   "source_version": "04dbaf2",
   "build_version": "0.1.2",
-  "head_sha": "45fc6de19857",
+  "head_sha": "f2c9c9e2a0c6",
   "build_recipe_hash": "317af551772a191abe6e83c9420d1d29f6f18e6f953cba97f0491f0b314a5784",
-  "updated_at": "2026-04-24T07:23:05.220538+00:00",
+  "updated_at": "2026-04-24T08:26:20.014013+00:00",
   "images": {
-    "hermes": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:264cccbb4bfbed50"
+    "hermes": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:62e29091f1071c70"
   },
   "source_images": {
-    "hermes": "ghcr.io/codeeagle/lazycatimages:hermesHermes_45fc6de19857"
+    "hermes": "ghcr.io/codeeagle/lazycatimages:hermesHermes_f2c9c9e2a0c6"
   },
   "source_digests": {
-    "hermes": "sha256:f45586c30e76509a77d8d53f5e11f2125ea5804ee9656805049b8e45fc370b5e"
+    "hermes": "sha256:43efe5f3f4ec071d4f378ed8b5614a308bb89a560275df6db28fb126e90b689d"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:hermesHermes_45fc6de19857",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:264cccbb4bfbed50",
-      "elapsed_seconds": 79.393,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:hermesHermes_f2c9c9e2a0c6",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:62e29091f1071c70",
+      "elapsed_seconds": 91.421,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
