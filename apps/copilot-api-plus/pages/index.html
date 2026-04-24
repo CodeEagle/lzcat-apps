@@ -1298,6 +1298,10 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                   <span id="modal-gh-link-text"></span>
                 </a>
+                <button type="button" id="modal-copy-link-btn" class="btn btn-secondary w-full" style="display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span id="modal-copy-link-text"></span>
+                </button>
                 <div style="display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.75rem 0;" id="modal-waiting-indicator">
                   <span class="loading-spinner"></span>
                   <span class="text-sm text-[var(--muted)]" id="modal-waiting-text"></span>
@@ -1576,6 +1580,8 @@
             modalDeviceCodeInstr3: "3. 粘贴授权码并确认授权",
             modalDeviceCodeCopy: "复制授权码",
             modalDeviceCodeCopied: "已复制!",
+            modalDeviceCodeCopyLink: "复制授权链接",
+            modalDeviceCodeLinkCopied: "链接已复制!",
             modalDeviceCodeOpenGH: "打开 GitHub 授权页面",
             modalDeviceCodeWaiting: "等待授权中...",
             modalDeviceCodeSuccess: "授权成功!",
@@ -1798,6 +1804,8 @@
             modalDeviceCodeInstr3: "3. Paste the code and authorize",
             modalDeviceCodeCopy: "Copy Code",
             modalDeviceCodeCopied: "Copied!",
+            modalDeviceCodeCopyLink: "Copy Link",
+            modalDeviceCodeLinkCopied: "Link Copied!",
             modalDeviceCodeOpenGH: "Open GitHub Authorization",
             modalDeviceCodeWaiting: "Waiting for authorization...",
             modalDeviceCodeSuccess: "Authorization successful!",
@@ -2376,7 +2384,7 @@
           refs.modeChip.textContent = state.data ? getModeLabel(getMode(state.data)) : text("modeChipLabel");
           refs.connectionChips.innerHTML = [
             `<span class="pill pill-neutral">${icon("link")}${escapeHtml(text("endpointCurrent"))}</span>`,
-            `<a class="pill pill-brand" href="${escapeHtml(state.endpoint)}" target="_blank" rel="noopener noreferrer">${icon("terminal")}${escapeHtml("/usage")}</a>`,
+            `<a class="pill pill-brand" href="#content-area">${icon("terminal")}${escapeHtml("/usage")}</a>`,
           ].join("");
           refs.endpointCurrent.textContent = text("currentTargetLabel", { endpoint: state.endpoint });
 
@@ -2458,6 +2466,8 @@
           if (modalInstr3) modalInstr3.textContent = text("modalDeviceCodeInstr3");
           const modalCopyCodeText = document.getElementById("modal-copy-code-text");
           if (modalCopyCodeText) modalCopyCodeText.textContent = text("modalDeviceCodeCopy");
+          const modalCopyLinkText = document.getElementById("modal-copy-link-text");
+          if (modalCopyLinkText) modalCopyLinkText.textContent = text("modalDeviceCodeCopyLink");
           const modalGhLinkText = document.getElementById("modal-gh-link-text");
           if (modalGhLinkText) modalGhLinkText.textContent = text("modalDeviceCodeOpenGH");
           const modalWaitingText = document.getElementById("modal-waiting-text");
@@ -3112,6 +3122,7 @@
 
         function switchMainTab(tabKey) {
           state.activeMainTab = tabKey;
+          location.hash = tabKey;
           renderTabBar();
           // Load data for tab on switch
           if (tabKey === "accounts") loadAccounts();
@@ -3274,12 +3285,21 @@
             const copyText = document.getElementById("modal-copy-code-text");
             if (copyText) {
               copyText.textContent = text("modalDeviceCodeCopied");
-              setTimeout(() => {
-                copyText.textContent = text("modalDeviceCodeCopy");
-              }, 2000);
+              setTimeout(() => { copyText.textContent = text("modalDeviceCodeCopy"); }, 2000);
             }
           } else {
             showToast(text("exportManualCopy"), "error");
+          }
+        }
+
+        async function handleCopyLink() {
+          const ghLink = document.getElementById("modal-gh-link");
+          if (!ghLink) return;
+          const copied = await copyTextToClipboard(ghLink.href);
+          const linkText = document.getElementById("modal-copy-link-text");
+          if (linkText) {
+            linkText.textContent = copied ? text("modalDeviceCodeLinkCopied") : text("modalDeviceCodeCopyLink");
+            if (copied) setTimeout(() => { linkText.textContent = text("modalDeviceCodeCopyLink"); }, 2000);
           }
         }
 
@@ -3771,6 +3791,11 @@
           }
         }
 
+        async function clearStats() {
+          await adminFetch("/api/stats", { method: "DELETE" });
+          loadStats();
+        }
+
         async function loadStats() {
           const uptimeCard = document.getElementById("stats-uptime-card");
           const reqContent = document.getElementById("stats-requests-content");
@@ -3807,13 +3832,13 @@
             if (modelEntries.length === 0) {
               reqContent.innerHTML = `<p class="text-sm text-[var(--muted)]">${escapeHtml(text("statsNoData"))}</p>`;
             } else {
-              const maxVal = Math.max(1, ...modelEntries.map(([, v]) => (v.active || 0) + (v.queued || 0)));
+              const maxVal = Math.max(1, ...modelEntries.map(([, v]) => v.totalRequests || (v.active || 0) + (v.queued || 0)));
               reqContent.innerHTML = `
                 <div class="stat-bar-group">
                   ${modelEntries.map(([model, v]) => {
+                    const total = v.totalRequests || 0;
                     const active = v.active || 0;
                     const queued = v.queued || 0;
-                    const total = active + queued;
                     const pct = Math.min((total / maxVal) * 100, 100);
                     return `
                       <div class="stat-bar-row">
@@ -3821,14 +3846,16 @@
                         <div class="stat-bar-track">
                           <div class="stat-bar-fill progress-fill-brand" style="width:${pct}%"></div>
                         </div>
-                        <span class="stat-bar-value">${active}<span class="text-[var(--muted)] text-xs">/${queued}q</span></span>
+                        <span class="stat-bar-value">${total}<span class="text-[var(--muted)] text-xs"> (${active}活跃/${queued}排队)</span></span>
                       </div>
                     `;
                   }).join("")}
                 </div>
-                <div class="mt-3 flex gap-4 text-xs text-[var(--muted)]">
-                  <span>${icon("activity")} ${escapeHtml(text("statsActiveRequests"))}</span>
-                  <span>${icon("clock")} ${escapeHtml(text("statsQueuedRequests"))} (q)</span>
+                <div class="mt-3 flex items-center justify-between">
+                  <div class="flex gap-4 text-xs text-[var(--muted)]">
+                    <span>${icon("activity")} 累计请求数 (活跃/排队)</span>
+                  </div>
+                  <button type="button" class="btn btn-secondary btn-sm" data-action="clear-stats">${icon("trash")} 清空统计</button>
                 </div>
               `;
             }
@@ -3914,6 +3941,23 @@
             });
           });
 
+          // Delegate clicks on data-switch-tab buttons (rendered inside cards)
+          document.addEventListener("click", (e) => {
+            const btn = e.target.closest("[data-switch-tab]");
+            if (btn) switchMainTab(btn.getAttribute("data-switch-tab"));
+            const actionBtn = e.target.closest("[data-action]");
+            if (actionBtn?.getAttribute("data-action") === "clear-stats") clearStats();
+          });
+
+          // ── Restore tab from URL hash on load / back-forward ──
+          const validTabs = ["overview", "accounts", "models", "statistics"];
+          const hashTab = location.hash.replace("#", "");
+          if (validTabs.includes(hashTab)) switchMainTab(hashTab);
+          window.addEventListener("hashchange", () => {
+            const t = location.hash.replace("#", "");
+            if (validTabs.includes(t)) switchMainTab(t);
+          });
+
           // ── Add Account modal (Device Code flow) ──
           const addAccountBtn = document.getElementById("add-account-btn");
           if (addAccountBtn) addAccountBtn.addEventListener("click", openModal);
@@ -3925,6 +3969,8 @@
           if (modalStartAuthBtn) modalStartAuthBtn.addEventListener("click", startDeviceCodeAuth);
           const modalCopyCodeBtn = document.getElementById("modal-copy-code-btn");
           if (modalCopyCodeBtn) modalCopyCodeBtn.addEventListener("click", handleCopyCode);
+          const modalCopyLinkBtn = document.getElementById("modal-copy-link-btn");
+          if (modalCopyLinkBtn) modalCopyLinkBtn.addEventListener("click", handleCopyLink);
           const modalCancelAuthBtn = document.getElementById("modal-cancel-auth-btn");
           if (modalCancelAuthBtn) modalCancelAuthBtn.addEventListener("click", closeModal);
           const modalDoneBtn = document.getElementById("modal-done-btn");
