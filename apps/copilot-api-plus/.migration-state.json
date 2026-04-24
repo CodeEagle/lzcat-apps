@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "https://github.com/CodeEagle/copilot-api-plus",
   "created_at": "2026-04-10T23:09:14.931342+00:00",
-  "updated_at": "2026-04-24T03:42:06.894397+00:00",
+  "updated_at": "2026-04-24T03:44:06.386124+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -110,12 +110,12 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-24T03:42:01.310200+00:00",
+      "completed_at": "2026-04-24T03:44:03.097903+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-24T03:42:06.894300+00:00",
+      "completed_at": "2026-04-24T03:44:06.386028+00:00",
       "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
     },
     "3": {
@@ -148,26 +148,26 @@
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-04-24T03:31:02.704089+00:00",
+      "completed_at": "2026-04-24T03:42:07.111350+00:00",
       "conclusion": "预检通过",
       "all_passed": true
     },
     "8": {
       "completed": true,
-      "completed_at": "2026-04-24T03:37:44.623376+00:00",
+      "completed_at": "2026-04-24T03:43:03.543919+00:00",
       "conclusion": "构建成功",
       "build_mode": "reinstall"
     },
     "9": {
       "completed": true,
-      "completed_at": "2026-04-24T03:37:44.625311+00:00",
+      "completed_at": "2026-04-24T03:43:03.546285+00:00",
       "conclusion": "lpk 已验证",
       "lpk_sha256": "91b782c1dffb0248e5d3a489c5b0fd4fc2c7d44821ea8b7bd4e7038d2817bb93",
       "lpk_size_bytes": 197329
     },
     "10": {
       "completed": true,
-      "completed_at": "2026-04-24T03:37:47.801540+00:00",
+      "completed_at": "2026-04-24T03:43:07.067724+00:00",
       "conclusion": "验收完成",
       "pending_backports": []
     }
