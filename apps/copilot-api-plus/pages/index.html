@@ -2410,7 +2410,10 @@
           const mAvailIcon = document.getElementById("models-avail-icon");
           if (mAvailIcon) mAvailIcon.innerHTML = ICONS.layers;
           const mAvailTitle = document.getElementById("models-avail-title");
-          if (mAvailTitle) mAvailTitle.textContent = text("modelsAvailableTitle");
+          if (mAvailTitle) {
+            const modelCount = Array.isArray(window._availableModels) ? window._availableModels.length : null;
+            mAvailTitle.textContent = text("modelsAvailableTitle") + (modelCount !== null ? ` (${modelCount})` : "");
+          }
           const mMapIcon = document.getElementById("models-map-icon");
           if (mMapIcon) mMapIcon.innerHTML = ICONS.arrowRight;
           const mMapTitle = document.getElementById("models-map-title");
@@ -3563,6 +3566,10 @@
               body.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-sm text-[var(--muted)]">${escapeHtml(text("modelNoModels"))}</td></tr>`;
               return;
             }
+            const content = document.getElementById("models-avail-content");
+            const arrow = document.getElementById("models-avail-arrow");
+            if (content) content.style.display = "";
+            if (arrow) arrow.textContent = "▼";
             body.innerHTML = models.map((m) => `
               <tr>
                 <td class="font-semibold mono text-sm">${escapeHtml(m.name || m.id || text("noValue"))}</td>
