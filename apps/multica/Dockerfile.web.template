@@ -32,7 +32,7 @@ COPY --from=deps /app/packages/eslint-config/node_modules ./packages/eslint-conf
 COPY package.json turbo.json pnpm-workspace.yaml ./
 COPY apps/web/ apps/web/
 COPY packages/ packages/
-COPY apps/multica/patch-login-build.js ./patch-login-build.js
+COPY patch-login-build.js ./patch-login-build.js
 
 ARG REMOTE_API_URL=http://backend:8080
 ENV REMOTE_API_URL=$REMOTE_API_URL

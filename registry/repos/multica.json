@@ -27,10 +27,10 @@
       },
       "build_context": ".",
       "build_strategy": "upstream_with_target_template",
-      "dockerfile_path": "apps/multica/Dockerfile.web.template",
+      "dockerfile_path": "Dockerfile.web.template",
       "source_dockerfile_path": "Dockerfile.web",
       "overlay_paths": [
-        "apps/multica/patch-login-build.js"
+        "patch-login-build.js"
       ],
       "image_name": "multica-frontend",
       "target_service": "frontend"
