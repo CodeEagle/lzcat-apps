@@ -36,4 +36,4 @@ services:
         - wget --spider -q http://localhost:4141/ || exit 1
       timeout: 10s
     image: registry.lazycat.cloud/placeholder/copilot-api-plus:bootstrap
-version: 1.2.26
+version: 1.2.27
