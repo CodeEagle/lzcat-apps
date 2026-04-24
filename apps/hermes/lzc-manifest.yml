@@ -24,6 +24,7 @@ services:
   hermes:
     binds:
       - /lzcapp/var/data/hermes:/data
+      - /lzcapp/var/data/hermes/workspace:/root/workspace
     environment:
       - CHECK_INTERVAL=1800
       - WATCHED_REPOS=NousResearch/hermes-agent,nesquena/hermes-webui
