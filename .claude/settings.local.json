@@ -73,7 +73,8 @@
       "Bash(pytest tests/ -x -q)",
       "Bash(git:*)",
       "Read(//Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/=== content/**)",
-      "Bash(true echo:*)"
+      "Bash(true echo:*)",
+      "Bash(./scripts/local_build.sh hermes *)"
     ]
   }
 }

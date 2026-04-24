@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "source_input": "https://github.com/imbuxiangnan-cyber/copilot-api-plus",
-  "created_at": "2026-04-17T09:40:00.221814+00:00",
-  "updated_at": "2026-04-17T09:44:06.462623+00:00",
+  "source_input": "CodeEagle/copilot-api-plus",
+  "created_at": "2026-04-24T03:56:19.125396+00:00",
+  "updated_at": "2026-04-24T03:57:26.679246+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
-      "url": "https://github.com/imbuxiangnan-cyber/copilot-api-plus",
-      "upstream_repo": "imbuxiangnan-cyber/copilot-api-plus",
-      "homepage": "https://github.com/imbuxiangnan-cyber/copilot-api-plus"
+      "url": "CodeEagle/copilot-api-plus",
+      "upstream_repo": "CodeEagle/copilot-api-plus",
+      "homepage": "https://github.com/CodeEagle/copilot-api-plus"
     },
     "environment": {
       "gh_token_source": "GH_PAT",
@@ -19,7 +19,7 @@
     "route_decision": {
       "route": "upstream_dockerfile",
       "build_strategy": "upstream_dockerfile",
-      "check_strategy": "github_release",
+      "check_strategy": "commit_sha",
       "risks": []
     },
     "version": {
@@ -31,14 +31,14 @@
       "project_name": "copilot-api-plus",
       "description": "Turn GitHub Copilot into OpenAI/Anthropic API compatible server",
       "description_zh": "（迁移初稿）Copilot Api Plus 的懒猫微服版本",
-      "upstream_repo": "imbuxiangnan-cyber/copilot-api-plus",
-      "homepage": "https://github.com/imbuxiangnan-cyber/copilot-api-plus",
+      "upstream_repo": "CodeEagle/copilot-api-plus",
+      "homepage": "https://github.com/CodeEagle/copilot-api-plus",
       "license": "MIT",
-      "author": "imbuxiangnan-cyber",
+      "author": "CodeEagle",
       "version": "1.2.24",
       "package": "fun.selfstudio.app.migration.copilot-api-plus",
       "min_os_version": "1.3.8",
-      "check_strategy": "github_release",
+      "check_strategy": "commit_sha",
       "build_strategy": "upstream_dockerfile",
       "official_image_registry": "",
       "precompiled_binary_url": "",
@@ -109,7 +109,8 @@
       "usage": "",
       "icon_path": "",
       "source_version": "",
-      "default_branch": ""
+      "default_branch": "",
+      "include_lzc_sdk_version": true
     },
     "registration": {
       "slug": "copilot-api-plus",
@@ -120,22 +121,22 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-17T09:44:00.671682+00:00",
+      "completed_at": "2026-04-24T03:56:21.618774+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-17T09:44:06.314486+00:00",
+      "completed_at": "2026-04-24T03:56:24.894925+00:00",
       "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
     },
     "3": {
       "completed": true,
-      "completed_at": "2026-04-17T09:40:04.675254+00:00",
+      "completed_at": "2026-04-24T03:56:24.898063+00:00",
       "conclusion": "已完成 monorepo 注册"
     },
     "4": {
       "completed": true,
-      "completed_at": "2026-04-17T09:40:04.723348+00:00",
+      "completed_at": "2026-04-24T03:56:24.955021+00:00",
       "conclusion": "骨架文件已生成",
       "files_written": [
         "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/copilot-api-plus/lzc-manifest.yml",
@@ -148,30 +149,40 @@
     },
     "5": {
       "completed": true,
-      "completed_at": "2026-04-17T09:40:04.723840+00:00",
+      "completed_at": "2026-04-24T03:56:24.955438+00:00",
       "conclusion": "manifest 初稿已生成"
     },
     "6": {
       "completed": true,
-      "completed_at": "2026-04-17T09:40:04.724086+00:00",
+      "completed_at": "2026-04-24T03:56:24.955637+00:00",
       "conclusion": "剩余文件已补齐"
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-04-17T09:40:04.979924+00:00",
+      "completed_at": "2026-04-24T03:56:25.219451+00:00",
       "conclusion": "预检通过",
       "all_passed": true
+    },
+    "8": {
+      "completed": true,
+      "completed_at": "2026-04-24T03:57:23.163525+00:00",
+      "conclusion": "构建成功",
+      "build_mode": "reinstall"
+    },
+    "9": {
+      "completed": true,
+      "completed_at": "2026-04-24T03:57:23.165341+00:00",
+      "conclusion": "lpk 已验证",
+      "lpk_sha256": "04a4e0c25f08db32274408948bc6b0a2950be3fabcefcce5023f2868466b15b5",
+      "lpk_size_bytes": 873
+    },
+    "10": {
+      "completed": true,
+      "completed_at": "2026-04-24T03:57:26.679183+00:00",
+      "conclusion": "验收完成",
+      "pending_backports": []
     }
   },
-  "problems": [
-    {
-      "id": "p1",
-      "step": 7,
-      "description": "trigger-build workflow options are out of sync and auto-fix failed: Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f6e9b080 (most recent call first):\n  <no Python frame>",
-      "category": "preflight",
-      "status": "open",
-      "created_at": "2026-04-17T09:44:06.462611+00:00"
-    }
-  ],
+  "problems": [],
   "verification": {}
 }

@@ -983,23 +983,23 @@
 
         <!-- ── Main Tab Navigation ── -->
         <nav class="main-tab-bar" id="main-tab-bar">
-          <button type="button" class="main-tab-btn is-active" data-main-tab="overview" onclick="switchMainTab('overview')">
+          <button type="button" class="main-tab-btn is-active" data-main-tab="overview">
             <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-overview"></span>
             <span id="tab-label-overview"></span>
           </button>
-          <button type="button" class="main-tab-btn" data-main-tab="accounts" onclick="switchMainTab('accounts')">
+          <button type="button" class="main-tab-btn" data-main-tab="accounts">
             <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-accounts"></span>
             <span id="tab-label-accounts"></span>
           </button>
-          <button type="button" class="main-tab-btn" data-main-tab="models" onclick="switchMainTab('models')">
+          <button type="button" class="main-tab-btn" data-main-tab="models">
             <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-models"></span>
             <span id="tab-label-models"></span>
           </button>
-          <button type="button" class="main-tab-btn" data-main-tab="stats" onclick="switchMainTab('stats')">
-            <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-stats"></span>
-            <span id="tab-label-stats"></span>
+          <button type="button" class="main-tab-btn" data-main-tab="statistics">
+            <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-statistics"></span>
+            <span id="tab-label-statistics"></span>
           </button>
-          <button type="button" class="main-tab-btn" data-main-tab="tutorial" onclick="switchMainTab('tutorial')">
+          <button type="button" class="main-tab-btn" data-main-tab="tutorial">
             <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-tutorial"></span>
             <span id="tab-label-tutorial"></span>
           </button>
@@ -1140,7 +1140,7 @@
         </section>
 
         <!-- ══════ Tab 4: Statistics ══════ -->
-        <section id="tab-stats" class="main-tab-section space-y-5">
+        <section id="tab-statistics" class="main-tab-section space-y-5">
           <div id="stats-uptime-card" class="dashboard-card-strong p-6 sm:p-7"></div>
           <div class="grid gap-4 lg:grid-cols-2">
             <section class="dashboard-card p-5 sm:p-6 space-y-4" id="stats-requests-section">
@@ -1525,6 +1525,7 @@
             currentTargetLabel: "当前目标：{endpoint}",
             invalidEndpoint: "请输入有效的接口地址。",
             networkErrorFallback: "无法请求接口，请检查本地服务与地址是否正确。",
+            nonJsonResponse: "当前地址返回的是 {type}，不是 /usage JSON。请确认当前目标以 /usage 结尾，并且没有被登录页或首页重定向。",
             noValue: "--",
             viewMode: "查看模式",
             // ── Tab Navigation ──
@@ -1747,6 +1748,7 @@
             currentTargetLabel: "Current target: {endpoint}",
             invalidEndpoint: "Please enter a valid endpoint URL.",
             networkErrorFallback: "Unable to reach the endpoint. Check the local server and the URL.",
+            nonJsonResponse: "The endpoint returned {type}, not /usage JSON. Make sure the target ends with /usage and was not redirected to a login or home page.",
             noValue: "--",
             viewMode: "View mode",
             // ── Tab Navigation ──
@@ -2316,6 +2318,22 @@
           }, getRefreshIntervalSeconds() * 1000);
         }
 
+        async function readJsonResponse(response) {
+          const contentType = response.headers.get("content-type") || "";
+          const body = await response.text();
+          if (!contentType.toLowerCase().includes("application/json")) {
+            const bodyType = body.trimStart().startsWith("<!DOCTYPE") || body.trimStart().startsWith("<html")
+              ? "HTML"
+              : contentType || "non-JSON response";
+            throw new Error(text("nonJsonResponse", { type: bodyType }));
+          }
+          try {
+            return JSON.parse(body);
+          } catch (error) {
+            throw new Error(error instanceof Error && error.message ? error.message : text("networkErrorFallback"));
+          }
+        }
+
         function setEndpoint(endpoint) {
           state.endpoint = endpoint;
           refs.endpointInput.value = endpoint;
@@ -2358,13 +2376,13 @@
           refs.modeChip.textContent = state.data ? getModeLabel(getMode(state.data)) : text("modeChipLabel");
           refs.connectionChips.innerHTML = [
             `<span class="pill pill-neutral">${icon("link")}${escapeHtml(text("endpointCurrent"))}</span>`,
-            `<span class="pill pill-brand">${icon("terminal")}${escapeHtml("/usage")}</span>`,
+            `<a class="pill pill-brand" href="${escapeHtml(state.endpoint)}" target="_blank" rel="noopener noreferrer">${icon("terminal")}${escapeHtml("/usage")}</a>`,
           ].join("");
           refs.endpointCurrent.textContent = text("currentTargetLabel", { endpoint: state.endpoint });
 
           // ── Tab labels and icons ──
-          const tabIconMap = { overview: "chart", accounts: "users", models: "cpu", stats: "activity", tutorial: "book" };
-          const tabLabelMap = { overview: "tabOverview", accounts: "tabAccounts", models: "tabModels", stats: "tabStatistics", tutorial: "tabTutorial" };
+          const tabIconMap = { overview: "chart", accounts: "users", models: "cpu", statistics: "activity", tutorial: "book" };
+          const tabLabelMap = { overview: "tabOverview", accounts: "tabAccounts", models: "tabModels", statistics: "tabStatistics", tutorial: "tabTutorial" };
           for (const [key, iconName] of Object.entries(tabIconMap)) {
             const iconEl = document.getElementById(`tab-icon-${key}`);
             const labelEl = document.getElementById(`tab-label-${key}`);
@@ -2618,18 +2636,17 @@
             });
           }
 
-          // 使用事件委托处理刷新间隔按钮点击（修复刷新间隔设置不生效问题）
-refs.overviewGrid.addEventListener("click", (event) => {
-const presetButton = event.target.closest("[data-refresh-preset]");
-if (presetButton && refs.overviewGrid.contains(presetButton)) {
-state.refreshIntervalPreset = getValidRefreshPreset(
-presetButton.getAttribute("data-refresh-preset") || DEFAULT_REFRESH_PRESET,
-);
-persistPreferences();
-syncAutoRefresh();
-renderAll();
-}
-});
+          document.querySelectorAll("[data-refresh-preset]").forEach((presetButton) => {
+            presetButton.addEventListener("click", () => {
+              state.refreshIntervalPreset = getValidRefreshPreset(
+                presetButton.getAttribute("data-refresh-preset") || DEFAULT_REFRESH_PRESET,
+              );
+              persistPreferences();
+              syncAutoRefresh();
+              renderOverview();
+              renderStatusBanner();
+            });
+          });
 
           const customInput = document.getElementById("custom-refresh-seconds");
           if (customInput) {
@@ -2637,7 +2654,8 @@ renderAll();
               state.customRefreshSeconds = clampCustomRefreshSeconds(customInput.value);
               persistPreferences();
               syncAutoRefresh();
-              renderAll();
+              renderOverview();
+              renderStatusBanner();
             };
             customInput.addEventListener("change", commitCustomRefresh);
             customInput.addEventListener("blur", commitCustomRefresh);
@@ -2989,7 +3007,7 @@ renderAll();
             if (!response.ok) {
               throw new Error(`HTTP ${response.status} ${response.statusText}`);
             }
-            const data = await response.json();
+            const data = await readJsonResponse(response);
             if (requestId !== latestRequestId) {
               return;
             }
@@ -3098,8 +3116,8 @@ renderAll();
           // Load data for tab on switch
           if (tabKey === "accounts") loadAccounts();
           if (tabKey === "models") { loadAvailableModels(); loadModelMapping(); loadModelConcurrency(); }
-          if (tabKey === "stats") { loadStats(); startStatsAutoRefresh(); }
-          if (tabKey !== "stats") stopStatsAutoRefresh();
+          if (tabKey === "statistics") { loadStats(); startStatsAutoRefresh(); }
+          if (tabKey !== "statistics") stopStatsAutoRefresh();
         }
 
         // ═══════════════════════════════════════
