@@ -1,6 +1,6 @@
 lzc-sdk-version: '0.1'
 package: fun.selfstudio.app.migration.copilot-api-plus
-version: 1.2.5
+version: 1.2.14
 min_os_version: 1.3.8
 name: copilot-api-plus
 description: Turn GitHub Copilot into OpenAI/Anthropic API compatible server
@@ -18,8 +18,11 @@ application:
 services:
   copilot-api-plus:
     image: registry.lazycat.cloud/placeholder/copilot-api-plus:bootstrap
+    environment:
+      - PORT=4141
+      - COPILOT_API_DATA_DIR=/lzcapp/var/data/copilot-api-plus
     binds:
-      - /lzcapp/var/data/copilot-api-plus:/root/.local/share/copilot-api-plus
+      - /lzcapp/var/data/copilot-api-plus:/lzcapp/var/data/copilot-api-plus
     healthcheck:
       test:
         - CMD-SHELL
@@ -33,4 +36,4 @@ locales:
     description: Turn GitHub Copilot into OpenAI/Anthropic API compatible server
   zh:
     name: copilot-api-plus
-    description: （迁移初稿）Copilot Api Plus 的懒猫微服版本
+    description: 将 GitHub Copilot 转换为 OpenAI/Anthropic 兼容 API 的代理服务
