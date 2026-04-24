@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "https://github.com/CodeEagle/copilot-api-plus",
   "created_at": "2026-04-10T23:09:14.931342+00:00",
-  "updated_at": "2026-04-24T03:30:37.678822+00:00",
+  "updated_at": "2026-04-24T03:31:02.466714+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -110,12 +110,12 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-24T03:30:34.435702+00:00",
+      "completed_at": "2026-04-24T03:30:59.507720+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-24T03:30:37.678639+00:00",
+      "completed_at": "2026-04-24T03:31:02.466572+00:00",
       "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
     },
     "3": {
@@ -148,15 +148,14 @@
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-04-10T23:09:18.724876+00:00",
+      "completed_at": "2026-04-24T03:30:37.960081+00:00",
       "conclusion": "预检通过",
       "all_passed": true
     },
     "8": {
       "completed": true,
-      "completed_at": "2026-04-10T23:14:00.388477+00:00",
-      "conclusion": "构建成功",
-      "build_mode": "reinstall"
+      "completed_at": "2026-04-24T03:30:37.960395+00:00",
+      "conclusion": "validate-only 模式停止"
     },
     "9": {
       "completed": true,
