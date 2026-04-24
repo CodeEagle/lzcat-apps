@@ -18,6 +18,9 @@
       "container": "/lzcapp/var/data/copilot-api-plus"
     }
   ],
+  "overlay_paths": [
+    "pages/index.html"
+  ],
   "image_targets": [
     "copilot-api-plus"
   ],

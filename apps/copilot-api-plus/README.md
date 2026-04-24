@@ -18,6 +18,10 @@
 ### Services
 - `copilot-api-plus` -> 构建时由 `.lazycat-images.json` 渲染为 LazyCat 加速镜像
 
+## Overlay
+
+- `pages/index.html`：覆盖上游 Web UI，修复 `/usage` 成功返回后 `mode is not defined` 导致概览区停留在 loading 状态的问题。
+
 ## AIPod
 
 当前未启用 AIPod / AI 服务。
