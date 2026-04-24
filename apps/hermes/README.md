@@ -28,6 +28,7 @@
 | --- | --- | --- | --- |
 | CHECK_INTERVAL | No | 1800 | From compose service hermes |
 | WATCHED_REPOS | No | NousResearch/hermes-agent,nesquena/hermes-webui | From compose service hermes |
+| HERMES_WEBUI_AGENT_DIR | No | /opt/hermes-agent | Bundled Hermes agent source path for hermes-webui |
 | OPENAI_API_KEY | No | - | From .env.example |
 | OPENAI_BASE_URL | No | - | From .env.example |
 | OPENAI_MODEL | No | - | From .env.example |

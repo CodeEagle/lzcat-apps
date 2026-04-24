@@ -29,6 +29,7 @@ services:
       - CHECK_INTERVAL=1800
       - WATCHED_REPOS=NousResearch/hermes-agent,nesquena/hermes-webui,CodeEagle/hermes
       - REPO_PATHS=hermes=/opt/hermes
+      - HERMES_WEBUI_AGENT_DIR=/opt/hermes-agent
       - BROWSER_INACTIVITY_TIMEOUT=120
       - BROWSER_SESSION_TIMEOUT=300
     image: registry.lazycat.cloud/placeholder/hermes:hermes

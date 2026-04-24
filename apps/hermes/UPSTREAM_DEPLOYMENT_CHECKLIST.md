@@ -20,6 +20,7 @@
 ## 预填环境变量
 - `CHECK_INTERVAL`: From compose service hermes (required=False)
 - `WATCHED_REPOS`: From compose service hermes (required=False)
+- `HERMES_WEBUI_AGENT_DIR`: Bundled Hermes agent source path for hermes-webui (required=False)
 - `OPENAI_API_KEY`: From .env.example (required=False)
 - `OPENAI_BASE_URL`: From .env.example (required=False)
 - `OPENAI_MODEL`: From .env.example (required=False)
