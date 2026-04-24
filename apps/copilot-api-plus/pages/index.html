@@ -995,9 +995,9 @@
             <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-models"></span>
             <span id="tab-label-models"></span>
           </button>
-          <button type="button" class="main-tab-btn" data-main-tab="statistics">
-            <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-statistics"></span>
-            <span id="tab-label-statistics"></span>
+          <button type="button" class="main-tab-btn" data-main-tab="stats">
+            <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-stats"></span>
+            <span id="tab-label-stats"></span>
           </button>
           <button type="button" class="main-tab-btn" data-main-tab="tutorial">
             <span class="inline-icon h-4 w-4" aria-hidden="true" id="tab-icon-tutorial"></span>
@@ -1140,7 +1140,7 @@
         </section>
 
         <!-- ══════ Tab 4: Statistics ══════ -->
-        <section id="tab-statistics" class="main-tab-section space-y-5">
+        <section id="tab-stats" class="main-tab-section space-y-5">
           <div id="stats-uptime-card" class="dashboard-card-strong p-6 sm:p-7"></div>
           <div class="grid gap-4 lg:grid-cols-2">
             <section class="dashboard-card p-5 sm:p-6 space-y-4" id="stats-requests-section">
@@ -2363,8 +2363,8 @@
           refs.endpointCurrent.textContent = text("currentTargetLabel", { endpoint: state.endpoint });
 
           // ── Tab labels and icons ──
-          const tabIconMap = { overview: "chart", accounts: "users", models: "cpu", statistics: "activity", tutorial: "book" };
-          const tabLabelMap = { overview: "tabOverview", accounts: "tabAccounts", models: "tabModels", statistics: "tabStatistics", tutorial: "tabTutorial" };
+          const tabIconMap = { overview: "chart", accounts: "users", models: "cpu", stats: "activity", tutorial: "book" };
+          const tabLabelMap = { overview: "tabOverview", accounts: "tabAccounts", models: "tabModels", stats: "tabStatistics", tutorial: "tabTutorial" };
           for (const [key, iconName] of Object.entries(tabIconMap)) {
             const iconEl = document.getElementById(`tab-icon-${key}`);
             const labelEl = document.getElementById(`tab-label-${key}`);
@@ -3098,8 +3098,8 @@ renderAll();
           // Load data for tab on switch
           if (tabKey === "accounts") loadAccounts();
           if (tabKey === "models") { loadAvailableModels(); loadModelMapping(); loadModelConcurrency(); }
-          if (tabKey === "statistics") { loadStats(); startStatsAutoRefresh(); }
-          if (tabKey !== "statistics") stopStatsAutoRefresh();
+          if (tabKey === "stats") { loadStats(); startStatsAutoRefresh(); }
+          if (tabKey !== "stats") stopStatsAutoRefresh();
         }
 
         // ═══════════════════════════════════════

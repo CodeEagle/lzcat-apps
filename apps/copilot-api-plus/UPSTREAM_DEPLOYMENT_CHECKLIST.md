@@ -22,7 +22,7 @@
 
 ### 启动入口
 - 上游 Dockerfile 使用多阶段 Bun 构建：`bun install --frozen-lockfile`、`bun run build`，最终运行镜像为 `oven/bun:1.2.19-alpine`。
-- 当前移植使用 `overlay_paths` 覆盖 `pages/index.html`，修复用量页 `renderContent()` 中 `mode` 未定义导致的浏览器运行时错误。
+- 当前移植使用 `overlay_paths` 覆盖 `pages/index.html`，修复用量页 `renderContent()` 中 `mode` 未定义导致的浏览器运行时错误，以及「运行统计」标签无法切换的问题。
 - 容器入口：`ENTRYPOINT ["/entrypoint.sh"]`。
 - 上游 `entrypoint.sh` 默认执行 `bun run dist/main.js start "$@"`；传入 `--auth` 时才进入 CLI 认证流程。
 - 服务真实监听端口：`4141`，LazyCat `application.upstreams[].backend` 指向 `http://copilot-api-plus:4141/`。
