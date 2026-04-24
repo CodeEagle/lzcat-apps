@@ -1,7 +1,7 @@
 {
   "upstream_repo": "CodeEagle/copilot-api-plus",
-  "source_version": "e4ba6a1",
-  "build_version": "1.2.14",
-  "build_label": "e4ba6a1@20260414T033914Z",
-  "last_checked_at": "2026-04-14T03:39:14.806030+00:00"
+  "source_version": "54c525f",
+  "build_version": "1.2.15",
+  "build_label": "54c525f@20260424T033730Z",
+  "last_checked_at": "2026-04-24T03:37:30.956601+00:00"
 }
