@@ -1,13 +1,13 @@
 # copilot-api-plus
 
-本目录用于把上游 `CodeEagle/copilot-api-plus` 移植为懒猫微服应用。
+本目录由 `scripts/bootstrap_migration.py` 生成，用于把上游 `CodeEagle/copilot-api-plus` 初始化为懒猫微服迁移项目。
 
 ## 上游项目
 - Upstream Repo: CodeEagle/copilot-api-plus
 - Homepage: https://github.com/CodeEagle/copilot-api-plus
 - License: MIT
 - Author: CodeEagle
-- Version Strategy: `commit_sha` -> 当前基线版本 `1.2.14`
+- Version Strategy: `commit_sha` -> 当前初稿版本 `1.2.24`
 
 ## 当前迁移骨架
 - Build Strategy: `upstream_dockerfile`
@@ -16,11 +16,7 @@
 - Service Port: `4141`
 
 ### Services
-- `copilot-api-plus` -> 构建时由 `.lazycat-images.json` 渲染为 LazyCat 加速镜像
-
-## Overlay
-
-- `pages/index.html`：覆盖上游 Web UI，修复 `/usage` 成功返回后 `mode is not defined` 导致概览区停留在 loading 状态的问题，并修复「运行统计」标签无法切换的问题。
+- `copilot-api-plus` -> `registry.lazycat.cloud/placeholder/copilot-api-plus:bootstrap`
 
 ## AIPod
 
@@ -28,26 +24,24 @@
 
 ## 环境变量
 
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `PORT` | `4141` | Web/API 服务监听端口 |
-| `COPILOT_API_DATA_DIR` | `/lzcapp/var/data/copilot-api-plus` | LazyCat 持久化数据目录 |
-| `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` | 空 | 可选代理配置 |
-| `VERBOSE` | 空 | 可选详细日志 |
+当前未预填环境变量，待补充。
 
 ## 数据目录
 
-| 宿主路径 | 容器路径 | 内容 |
+| 宿主路径 | 容器路径 | 说明 |
 | --- | --- | --- |
-| `/lzcapp/var/data/copilot-api-plus` | `/lzcapp/var/data/copilot-api-plus` | `github_token`、`accounts.json`、`config.json` |
+| /lzcapp/var/data/copilot-api-plus | /root/.local/share/copilot-api-plus | From source code pattern in paths.ts |
 
 ## 首次启动/验收提醒
 
-- 上游 Dockerfile 构建后运行 `/entrypoint.sh`，默认执行 `bun run dist/main.js start`。
-- 应用自身没有本地账号密码登录；GitHub Copilot 账号在 Web UI 中通过 Device Code 流程添加。
-- 未添加账号前，首页和管理接口可访问，需要 Copilot 账号的模型/API 调用会按上游逻辑返回未认证状态。
+- 自动扫描到 Dockerfile：Dockerfile
+- 当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。
+- 扫描到 env 示例文件：.env.example
+- 扫描到 README：README.en.md, README.md
 
 ## 下一步
 
-1. 执行 `python3 scripts/full_migrate.py https://github.com/CodeEagle/copilot-api-plus --repo-root . --resume-from 7 --build-mode reinstall`。
-2. 安装生成的 `.lpk` 并确认首页、管理接口和 OpenAI/Anthropic 兼容端点可达。
+1. 补完 `UPSTREAM_DEPLOYMENT_CHECKLIST.md`，把真实入口、环境变量、写路径和初始化动作全部核实清楚。
+2. 按真实部署拓扑修正 `lzc-manifest.yml`，不要直接沿用占位镜像、端口或命令。
+3. 如果是源码构建，补齐 `Dockerfile` / `Dockerfile.template`、`content/`、`overlay_paths` 等资产。
+4. 初稿补全后执行 `./scripts/local_build.sh copilot-api-plus --check-only`，再进入实际构建与验收。

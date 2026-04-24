@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "source_input": "https://github.com/CodeEagle/copilot-api-plus",
-  "created_at": "2026-04-10T23:09:14.931342+00:00",
-  "updated_at": "2026-04-24T03:49:46.282979+00:00",
+  "source_input": "CodeEagle/copilot-api-plus",
+  "created_at": "2026-04-24T03:56:19.125396+00:00",
+  "updated_at": "2026-04-24T03:56:24.955639+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
-      "url": "https://github.com/CodeEagle/copilot-api-plus",
+      "url": "CodeEagle/copilot-api-plus",
       "upstream_repo": "CodeEagle/copilot-api-plus",
       "homepage": "https://github.com/CodeEagle/copilot-api-plus"
     },
@@ -35,10 +35,10 @@
       "homepage": "https://github.com/CodeEagle/copilot-api-plus",
       "license": "MIT",
       "author": "CodeEagle",
-      "version": "1.2.5",
+      "version": "1.2.24",
       "package": "fun.selfstudio.app.migration.copilot-api-plus",
       "min_os_version": "1.3.8",
-      "check_strategy": "github_release",
+      "check_strategy": "commit_sha",
       "build_strategy": "upstream_dockerfile",
       "official_image_registry": "",
       "precompiled_binary_url": "",
@@ -48,6 +48,7 @@
       "docker_platform": "linux/amd64",
       "image_owner": "",
       "overlay_paths": [],
+      "upstream_submodules": [],
       "image_targets": [
         "copilot-api-plus"
       ],
@@ -62,12 +63,15 @@
           "healthcheck": {
             "test": [
               "CMD-SHELL",
-              "wget --spider -q http://localhost:4141/ || exit 1 COPY entrypoint.sh /entrypoint.sh RUN chmod +x /entrypoint.sh ENTRYPOINT [\"/entrypoint.sh\"]"
+              "wget --spider -q http://localhost:4141/ || exit 1"
             ],
             "interval": "30s",
             "timeout": "10s",
             "retries": 5
-          }
+          },
+          "binds": [
+            "/lzcapp/var/data/copilot-api-plus:/root/.local/share/copilot-api-plus"
+          ]
         }
       },
       "application": {
@@ -83,7 +87,13 @@
         ]
       },
       "env_vars": [],
-      "data_paths": [],
+      "data_paths": [
+        {
+          "host": "/lzcapp/var/data/copilot-api-plus",
+          "container": "/root/.local/share/copilot-api-plus",
+          "description": "From source code pattern in paths.ts"
+        }
+      ],
       "startup_notes": [
         "自动扫描到 Dockerfile：Dockerfile",
         "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
@@ -99,7 +109,8 @@
       "usage": "",
       "icon_path": "",
       "source_version": "",
-      "default_branch": ""
+      "default_branch": "",
+      "include_lzc_sdk_version": true
     },
     "registration": {
       "slug": "copilot-api-plus",
@@ -110,77 +121,43 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-24T03:49:43.299942+00:00",
+      "completed_at": "2026-04-24T03:56:21.618774+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-24T03:49:46.282870+00:00",
+      "completed_at": "2026-04-24T03:56:24.894925+00:00",
       "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
     },
     "3": {
       "completed": true,
-      "completed_at": "2026-04-10T23:09:18.415729+00:00",
+      "completed_at": "2026-04-24T03:56:24.898063+00:00",
       "conclusion": "已完成 monorepo 注册"
     },
     "4": {
       "completed": true,
-      "completed_at": "2026-04-10T23:09:18.478078+00:00",
+      "completed_at": "2026-04-24T03:56:24.955021+00:00",
       "conclusion": "骨架文件已生成",
       "files_written": [
-        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/copilot-api-plus/lzc-manifest.yml",
-        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/copilot-api-plus/lzc-build.yml",
-        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/copilot-api-plus/README.md",
-        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/copilot-api-plus/UPSTREAM_DEPLOYMENT_CHECKLIST.md",
-        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/copilot-api-plus/icon.png",
-        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/registry/repos/copilot-api-plus.json"
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/copilot-api-plus/lzc-manifest.yml",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/copilot-api-plus/lzc-build.yml",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/copilot-api-plus/README.md",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/copilot-api-plus/UPSTREAM_DEPLOYMENT_CHECKLIST.md",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/copilot-api-plus/icon.png",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/registry/repos/copilot-api-plus.json"
       ]
     },
     "5": {
       "completed": true,
-      "completed_at": "2026-04-10T23:09:18.478588+00:00",
+      "completed_at": "2026-04-24T03:56:24.955438+00:00",
       "conclusion": "manifest 初稿已生成"
     },
     "6": {
       "completed": true,
-      "completed_at": "2026-04-10T23:09:18.478877+00:00",
+      "completed_at": "2026-04-24T03:56:24.955637+00:00",
       "conclusion": "剩余文件已补齐"
-    },
-    "7": {
-      "completed": true,
-      "completed_at": "2026-04-24T03:44:06.631342+00:00",
-      "conclusion": "预检通过",
-      "all_passed": true
-    },
-    "8": {
-      "completed": true,
-      "completed_at": "2026-04-24T03:45:24.441923+00:00",
-      "conclusion": "构建成功",
-      "build_mode": "reinstall"
-    },
-    "9": {
-      "completed": true,
-      "completed_at": "2026-04-24T03:45:24.443269+00:00",
-      "conclusion": "lpk 已验证",
-      "lpk_sha256": "9c154385229664910c8435773f4a95bb33728a2e7d4d1a809a54c26827bf5224",
-      "lpk_size_bytes": 197331
-    },
-    "10": {
-      "completed": true,
-      "completed_at": "2026-04-24T03:45:28.085933+00:00",
-      "conclusion": "验收完成",
-      "pending_backports": []
     }
   },
-  "problems": [
-    {
-      "id": "p1",
-      "step": 7,
-      "description": "write path /root/.local/share (from HOME-relative data dir (.local/share)) has no matching bind mount; data written here will be lost on container restart.",
-      "category": "preflight",
-      "status": "open",
-      "created_at": "2026-04-24T03:28:45.249244+00:00"
-    }
-  ],
+  "problems": [],
   "verification": {}
 }
