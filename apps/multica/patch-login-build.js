@@ -1,4 +1,4 @@
-const fs = require("fs");
+import fs from "node:fs";
 
 const sourceRoot = process.env.MULTICA_SOURCE_ROOT || "/app";
 const path = `${sourceRoot}/packages/views/auth/login-page.tsx`;
