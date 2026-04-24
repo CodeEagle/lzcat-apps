@@ -1,13 +1,13 @@
 # copilot-api-plus
 
-本目录由 `scripts/bootstrap_migration.py` 生成，用于把上游 `CodeEagle/copilot-api-plus` 初始化为懒猫微服迁移项目。
+本目录由 `scripts/bootstrap_migration.py` 生成，用于把上游 `imbuxiangnan-cyber/copilot-api-plus` 初始化为懒猫微服迁移项目。
 
 ## 上游项目
-- Upstream Repo: CodeEagle/copilot-api-plus
-- Homepage: https://github.com/CodeEagle/copilot-api-plus
+- Upstream Repo: imbuxiangnan-cyber/copilot-api-plus
+- Homepage: https://github.com/imbuxiangnan-cyber/copilot-api-plus
 - License: MIT
-- Author: CodeEagle
-- Version Strategy: `commit_sha` -> 当前初稿版本 `1.2.24`
+- Author: imbuxiangnan-cyber
+- Version Strategy: `github_release` -> 当前初稿版本 `1.2.24`
 
 ## 当前迁移骨架
 - Build Strategy: `upstream_dockerfile`

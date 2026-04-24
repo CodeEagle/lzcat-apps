@@ -3,18 +3,18 @@
 ## 已确认字段
 - PROJECT_NAME: copilot-api-plus
 - PROJECT_SLUG: copilot-api-plus
-- UPSTREAM_REPO: CodeEagle/copilot-api-plus
-- UPSTREAM_URL: https://github.com/CodeEagle/copilot-api-plus
-- HOMEPAGE: https://github.com/CodeEagle/copilot-api-plus
+- UPSTREAM_REPO: imbuxiangnan-cyber/copilot-api-plus
+- UPSTREAM_URL: https://github.com/imbuxiangnan-cyber/copilot-api-plus
+- HOMEPAGE: https://github.com/imbuxiangnan-cyber/copilot-api-plus
 - LICENSE: MIT
-- AUTHOR: CodeEagle
+- AUTHOR: imbuxiangnan-cyber
 - VERSION: 1.2.24
 - IMAGE: TODO
 - PORT: 4141
 - AI_POD_SERVICE: 无
 - AI_POD_SERVICE_NAME: 无
 - AI_POD_SERVICE_PORT: 无
-- CHECK_STRATEGY: commit_sha
+- CHECK_STRATEGY: github_release
 - BUILD_STRATEGY: upstream_dockerfile
 
 ## 预填环境变量
