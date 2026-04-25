@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 from pathlib import Path
+from typing import Any
 
 
 BUILD_MODES = ("auto", "build", "install", "reinstall", "validate-only")
+DEFAULT_CANDIDATE_SNAPSHOT = "registry/candidates/latest.json"
+DEFAULT_CANDIDATE_STATUSES = ("portable",)
 GITHUB_SOURCE_RE = re.compile(
     r"^(?:https?://github\.com/)?(?P<owner>[^/\s]+)/(?P<repo>[^/\s#?]+?)(?:\.git)?/?$",
     re.IGNORECASE,
@@ -69,11 +73,85 @@ def next_stage_after_functional_check(status: str) -> str:
     return "functional_pending"
 
 
+def load_candidate_snapshot(repo_root: Path, snapshot_path: str) -> dict[str, Any]:
+    path = Path(snapshot_path)
+    if not path.is_absolute():
+        path = repo_root / path
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Candidate snapshot must be a JSON object: {path}")
+    return payload
+
+
+def select_next_candidate(
+    snapshot: dict[str, Any],
+    *,
+    allowed_statuses: tuple[str, ...] = DEFAULT_CANDIDATE_STATUSES,
+) -> dict[str, Any] | None:
+    candidates = snapshot.get("candidates")
+    if not isinstance(candidates, list):
+        return None
+
+    allowed = {status.lower() for status in allowed_statuses}
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        status = str(candidate.get("status", "")).strip().lower()
+        if status in allowed:
+            return candidate
+    return None
+
+
+def candidate_source(candidate: dict[str, Any]) -> str:
+    full_name = str(candidate.get("full_name", "")).strip()
+    if full_name:
+        return full_name
+    repo_url = str(candidate.get("repo_url", "")).strip()
+    if repo_url:
+        return repo_url
+    raise ValueError("Selected candidate has no full_name or repo_url")
+
+
+def resolve_migration_source(
+    repo_root: Path,
+    source: str | None,
+    *,
+    candidates_path: str | None = None,
+    candidate_statuses: tuple[str, ...] = DEFAULT_CANDIDATE_STATUSES,
+) -> str:
+    if not candidates_path:
+        if not source:
+            raise ValueError("source is required unless --from-candidates is used")
+        return source
+
+    if source:
+        raise ValueError("--from-candidates cannot be used with an explicit source")
+
+    snapshot = load_candidate_snapshot(repo_root, candidates_path)
+    candidate = select_next_candidate(snapshot, allowed_statuses=candidate_statuses)
+    if not candidate:
+        statuses = ", ".join(candidate_statuses)
+        raise ValueError(f"No candidate found with status: {statuses}")
+    return candidate_source(candidate)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run AI-assisted LazyCat migration flow.")
-    parser.add_argument("source")
+    parser.add_argument("source", nargs="?")
     parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[1]))
     parser.add_argument("--build-mode", choices=BUILD_MODES, default="reinstall")
+    parser.add_argument(
+        "--from-candidates",
+        nargs="?",
+        const=DEFAULT_CANDIDATE_SNAPSHOT,
+        help="Select the next migration source from a scout candidate snapshot.",
+    )
+    parser.add_argument(
+        "--candidate-status",
+        action="append",
+        dest="candidate_statuses",
+        help="Candidate status allowed when selecting from a snapshot. Defaults to portable.",
+    )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument(
         "--allow-existing",
@@ -94,9 +172,20 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
+    try:
+        source = resolve_migration_source(
+            repo_root,
+            args.source,
+            candidates_path=args.from_candidates,
+            candidate_statuses=tuple(args.candidate_statuses or DEFAULT_CANDIDATE_STATUSES),
+        )
+    except ValueError as exc:
+        print(exc)
+        return 2
+
     guard_reason = existing_app_guard_reason(
         repo_root,
-        args.source,
+        source,
         resume=args.resume,
         allow_existing=args.allow_existing,
     )
@@ -106,7 +195,7 @@ def main() -> int:
 
     migrate_result = subprocess.run(
         build_full_migrate_command(
-            args.source,
+            source,
             build_mode=args.build_mode,
             resume=args.resume,
             commit_scaffold=args.commit_scaffold,
