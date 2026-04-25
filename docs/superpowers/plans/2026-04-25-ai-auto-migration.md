@@ -776,7 +776,7 @@ git commit -m "feat: generate Browser Use acceptance plans"
 - Create: `docs/browser-acceptance.md`
 - Test: `tests/test_functional_checker.py`
 
-- [ ] **Step 1: Write acceptance-result validator tests**
+- [x] **Step 1: Write acceptance-result validator tests**
 
 Create `tests/test_functional_checker.py`:
 
@@ -811,7 +811,7 @@ class FunctionalCheckerTest(unittest.TestCase):
         self.assertEqual(classify_acceptance(None), "browser_pending")
 ```
 
-- [ ] **Step 2: Implement functional checker core**
+- [x] **Step 2: Implement functional checker core**
 
 Create `scripts/functional_checker.py` with:
 
@@ -893,7 +893,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 3: Implement acceptance recorder**
+- [x] **Step 3: Implement acceptance recorder**
 
 Create `scripts/record_browser_acceptance.py`:
 
@@ -952,7 +952,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 4: Document Codex Browser Use protocol**
+- [x] **Step 4: Document Codex Browser Use protocol**
 
 Create `docs/browser-acceptance.md`:
 
@@ -989,7 +989,7 @@ python3 scripts/record_browser_acceptance.py <slug> \
 10. Publishing is allowed only when the functional checker exits with code `0`.
 ```
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 Run:
 
