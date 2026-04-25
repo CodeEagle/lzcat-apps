@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "source_input": "microsoft/markitdown",
+  "created_at": "2026-04-25T16:45:48.345184+00:00",
+  "updated_at": "2026-04-25T16:45:55.248803+00:00",
+  "context": {
+    "source": {
+      "kind": "github_repo",
+      "url": "microsoft/markitdown",
+      "upstream_repo": "microsoft/markitdown",
+      "homepage": "https://github.com/microsoft/markitdown"
+    },
+    "environment": {
+      "gh_token_source": "GH_PAT",
+      "lzc_cli_token_source": "lzc-cli config get token",
+      "container_runtime": "docker",
+      "image_owner": ""
+    },
+    "route_decision": {
+      "route": "upstream_dockerfile",
+      "build_strategy": "upstream_dockerfile",
+      "check_strategy": "github_release",
+      "risks": []
+    },
+    "version": {
+      "upstream": "",
+      "normalized": "0.1.5"
+    },
+    "finalized": {
+      "slug": "markitdown",
+      "project_name": "MarkItDown Web & MCP",
+      "description": "(LazyCat Auto-build) Web and MCP service for converting files and URLs to Markdown",
+      "description_zh": "（懒猫微服自动构建）同时提供 Web 与 MCP 的 Markdown 转换服务",
+      "upstream_repo": "microsoft/markitdown",
+      "homepage": "https://github.com/microsoft/markitdown",
+      "license": "MIT",
+      "author": "Adam Fourney, Microsoft",
+      "version": "0.1.5",
+      "package": "fun.selfstudio.app.migration.microsoft.markitdown-mcp",
+      "min_os_version": "1.3.8",
+      "check_strategy": "github_release",
+      "build_strategy": "upstream_with_target_template",
+      "official_image_registry": "",
+      "precompiled_binary_url": "",
+      "dockerfile_type": "custom",
+      "dockerfile_path": "Dockerfile.template",
+      "build_context": ".",
+      "docker_platform": "",
+      "image_owner": "",
+      "overlay_paths": [],
+      "upstream_submodules": [],
+      "image_targets": [
+        "markitdown"
+      ],
+      "dependencies": [],
+      "service_builds": [],
+      "build_args": {},
+      "service_cmd": [],
+      "service_port": 3000,
+      "services": {
+        "markitdown": {
+          "image": "registry.lazycat.cloud/invokerlaw/codeeagle/markitdown:e2e1ab9581a4fb75",
+          "command": "all",
+          "environment": [
+            "MARKITDOWN_ENABLE_PLUGINS=true",
+            "MARKITDOWN_MAX_UPLOAD_BYTES=26214400"
+          ],
+          "binds": [
+            "/lzcapp/var/data:/workdir"
+          ]
+        }
+      },
+      "application": {
+        "subdomain": "markitdown",
+        "routes": [
+          "/=file:///lzcapp/pkg/content/home"
+        ],
+        "public_path": [
+          "/",
+          "/api/",
+          "/mcp",
+          "/sse",
+          "/sse/",
+          "/messages/"
+        ],
+        "upstreams": [
+          {
+            "location": "/api/",
+            "backend": "http://markitdown:3000/api/"
+          },
+          {
+            "location": "/mcp",
+            "backend": "http://markitdown:3001/mcp"
+          },
+          {
+            "location": "/sse",
+            "backend": "http://markitdown:3001/sse"
+          },
+          {
+            "location": "/sse/",
+            "backend": "http://markitdown:3001/sse/"
+          },
+          {
+            "location": "/messages/",
+            "backend": "http://markitdown:3001/messages/"
+          },
+          {
+            "location": "/_lzc_probe",
+            "backend": "http://markitdown:3000/healthz"
+          }
+        ]
+      },
+      "env_vars": [],
+      "data_paths": [],
+      "startup_notes": [
+        "自动扫描到 Dockerfile：Dockerfile",
+        "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
+        "未扫描到 env 示例文件",
+        "扫描到 README：README.md, README.md, README.md"
+      ],
+      "include_content": true,
+      "ai_pod_service": "",
+      "ai_pod_service_name": "markitdown",
+      "ai_pod_service_port": 3000,
+      "ai_pod_image": "registry.lazycat.cloud/placeholder/markitdown-ai:bootstrap",
+      "aipod": {},
+      "usage": "",
+      "icon_path": "",
+      "source_version": "",
+      "default_branch": "",
+      "migration_status": "migrated",
+      "_risks": [
+        "目标 app 已存在，自动覆盖当前托管文件后继续"
+      ]
+    },
+    "registration": {
+      "slug": "markitdown",
+      "monorepo_path": "apps/markitdown",
+      "config_path": "registry/repos/markitdown.json"
+    }
+  },
+  "steps": {
+    "1": {
+      "completed": true,
+      "completed_at": "2026-04-25T16:45:51.645944+00:00",
+      "conclusion": "已识别输入类型为 `github_repo`"
+    },
+    "2": {
+      "completed": true,
+      "completed_at": "2026-04-25T16:45:55.186889+00:00",
+      "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
+    },
+    "3": {
+      "completed": true,
+      "completed_at": "2026-04-25T16:45:55.188209+00:00",
+      "conclusion": "已完成 monorepo 注册"
+    },
+    "4": {
+      "completed": true,
+      "completed_at": "2026-04-25T16:45:55.247694+00:00",
+      "conclusion": "骨架文件已生成",
+      "files_written": [
+        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/markitdown/lzc-manifest.yml",
+        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/markitdown/lzc-build.yml",
+        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/markitdown/README.md",
+        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/markitdown/UPSTREAM_DEPLOYMENT_CHECKLIST.md",
+        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/markitdown/icon.png",
+        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/registry/repos/markitdown.json"
+      ]
+    },
+    "5": {
+      "completed": true,
+      "completed_at": "2026-04-25T16:45:55.248399+00:00",
+      "conclusion": "manifest 初稿已生成"
+    },
+    "6": {
+      "completed": true,
+      "completed_at": "2026-04-25T16:45:55.248797+00:00",
+      "conclusion": "剩余文件已补齐"
+    }
+  },
+  "problems": [],
+  "verification": {}
+}

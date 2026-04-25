@@ -1,16 +1,4 @@
-lzc-sdk-version: '0.1'
-package: fun.selfstudio.app.migration.microsoft.markitdown-mcp
-version: 0.1.5
-min_os_version: 1.3.8
-name: MarkItDown Web & MCP
-description: (LazyCat Auto-build) Web and MCP service for converting files and URLs to Markdown
-license: MIT
-homepage: https://github.com/microsoft/markitdown
-author: Adam Fourney, Microsoft
 application:
-  subdomain: markitdown
-  routes:
-    - /=file:///lzcapp/pkg/content/home
   public_path:
     - /
     - /api/
@@ -18,32 +6,50 @@ application:
     - /sse
     - /sse/
     - /messages/
+  routes:
+    - /=file:///lzcapp/pkg/content/home
+  subdomain: markitdown
   upstreams:
-    - location: /api/
+    -
       backend: http://markitdown:3000/api/
-    - location: /mcp
+      location: /api/
+    -
       backend: http://markitdown:3001/mcp
-    - location: /sse
+      location: /mcp
+    -
       backend: http://markitdown:3001/sse
-    - location: /sse/
+      location: /sse
+    -
       backend: http://markitdown:3001/sse/
-    - location: /messages/
+      location: /sse/
+    -
       backend: http://markitdown:3001/messages/
-    - location: /_lzc_probe
+      location: /messages/
+    -
       backend: http://markitdown:3000/healthz
+      location: /_lzc_probe
+author: Adam Fourney, Microsoft
+description: (LazyCat Auto-build) Web and MCP service for converting files and URLs to Markdown
+homepage: https://github.com/microsoft/markitdown
+license: MIT
+locales:
+  en:
+    description: (LazyCat Auto-build) Web and MCP service for converting files and URLs to Markdown
+    name: MarkItDown Web & MCP
+  zh:
+    description: （懒猫微服自动构建）同时提供 Web 与 MCP 的 Markdown 转换服务
+    name: MarkItDown Web & MCP
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+name: MarkItDown Web & MCP
+package: fun.selfstudio.app.migration.microsoft.markitdown-mcp
 services:
   markitdown:
-    image: registry.lazycat.cloud/invokerlaw/codeeagle/markitdown:e2e1ab9581a4fb75
+    binds:
+      - /lzcapp/var/data:/workdir
     command: all
     environment:
       - MARKITDOWN_ENABLE_PLUGINS=true
       - MARKITDOWN_MAX_UPLOAD_BYTES=26214400
-    binds:
-      - /lzcapp/var/data:/workdir
-locales:
-  en:
-    name: MarkItDown Web & MCP
-    description: (LazyCat Auto-build) Web and MCP service for converting files and URLs to Markdown
-  zh:
-    name: MarkItDown Web & MCP
-    description: （懒猫微服自动构建）同时提供 Web 与 MCP 的 Markdown 转换服务
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/markitdown:e2e1ab9581a4fb75
+version: 0.1.5
