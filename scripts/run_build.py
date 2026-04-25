@@ -31,6 +31,37 @@ def log(msg: str) -> None:
     print(f"[{ts}] {msg}", flush=True)
 
 
+def browser_acceptance_allows_publish(app_root: Path) -> tuple[bool, str]:
+    acceptance_paths = [
+        app_root / "acceptance" / "browser-use-result.json",
+        app_root / ".browser-acceptance.json",
+    ]
+    acceptance_path = next((path for path in acceptance_paths if path.exists()), None)
+    if acceptance_path is None:
+        return False, f"missing Browser Use acceptance: {acceptance_paths[0]}"
+
+    try:
+        payload = json.loads(acceptance_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return False, f"invalid Browser Use acceptance JSON: {exc}"
+
+    if payload.get("status") != "pass":
+        return False, "Browser Use acceptance status is not pass"
+    if payload.get("blocking_issues"):
+        return False, "Browser Use acceptance has blocking issues"
+
+    browser_use = payload.get("browser_use")
+    if not isinstance(browser_use, dict):
+        return False, "Browser Use acceptance is missing browser_use evidence"
+    if browser_use.get("dom_rendered") is not True:
+        return False, "Browser Use acceptance did not confirm DOM rendering"
+    if browser_use.get("console_errors"):
+        return False, "Browser Use acceptance has console errors"
+    if browser_use.get("network_failures"):
+        return False, "Browser Use acceptance has network failures"
+    return True, ""
+
+
 def sh(
     cmd: list[str] | str,
     *,
@@ -1997,6 +2028,9 @@ def main() -> int:
             log(f"[{app_name}] lpk saved to: {dest}")
 
         if publish_to_store and not args.dry_run:
+            allowed, gate_reason = browser_acceptance_allows_publish(repo_dir)
+            if not allowed:
+                raise RuntimeError(f"publish_to_store blocked: {gate_reason}")
             report["phase"] = "publish_store"
             write_report(report, report_path)
             sh(
