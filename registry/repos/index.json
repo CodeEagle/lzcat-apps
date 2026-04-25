@@ -45,6 +45,7 @@
     "paseo.json",
     "hermes.json",
     "copilot-api-plus.json",
-    "multica.json"
+    "multica.json",
+    "mercury-agent.json"
   ]
 }
