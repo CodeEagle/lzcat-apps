@@ -3,28 +3,28 @@
   "app": "multica",
   "source_version": "v0.2.5",
   "build_version": "0.2.5",
-  "head_sha": "dba7bc83bd7c",
+  "head_sha": "5116cb2998fd",
   "build_recipe_hash": "8cc49e40698c788d3d3186d4afbad39b3b8838e6ed29e1190ec66251e91f38e9",
-  "updated_at": "2026-04-25T09:51:53.782653+00:00",
+  "updated_at": "2026-04-25T10:44:37.253536+00:00",
   "images": {
-    "multica-backend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:c2118ca7978cddba",
-    "multica-frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:123a51d1f0732540",
+    "multica-backend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:fd26c7946846ebce",
+    "multica-frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:59ac4424ffdfc763",
     "multica-postgres": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c"
   },
   "source_images": {
-    "multica-backend": "ghcr.io/codeeagle/lazycatimages:multicaBackend_dba7bc83bd7c",
-    "multica-frontend": "ghcr.io/codeeagle/lazycatimages:multicaFrontend_dba7bc83bd7c",
+    "multica-backend": "ghcr.io/codeeagle/lazycatimages:multicaBackend_5116cb2998fd",
+    "multica-frontend": "ghcr.io/codeeagle/lazycatimages:multicaFrontend_5116cb2998fd",
     "multica-postgres": "pgvector/pgvector:pg17"
   },
   "source_digests": {
-    "multica-backend": "sha256:0e0feb30283f4472fea0ef430725c6ec4b6a5dfabc117e7d007c513b4a5327b4",
-    "multica-frontend": "sha256:cd7eca3abf4676e25872c943ba2deefbc0e231c08e3e8dd12ca13cb4dfcbbe65"
+    "multica-backend": "sha256:eb830c552633c63ee739cd79046f147b8473533c499503e651c4b369f7a31e3f",
+    "multica-frontend": "sha256:1a69c885a30316c4325214644d9311fa45a2064767efd1cbb84892829882c609"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaBackend_dba7bc83bd7c",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:c2118ca7978cddba",
-      "elapsed_seconds": 48.859,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaBackend_5116cb2998fd",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:fd26c7946846ebce",
+      "elapsed_seconds": 64.252,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
@@ -32,9 +32,9 @@
       "kind": "service"
     },
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaFrontend_dba7bc83bd7c",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:123a51d1f0732540",
-      "elapsed_seconds": 36.075,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaFrontend_5116cb2998fd",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:59ac4424ffdfc763",
+      "elapsed_seconds": 42.082,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
