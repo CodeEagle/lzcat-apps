@@ -54,9 +54,26 @@ class AutoMigrateTest(unittest.TestCase):
         self.assertIn("already exists", reason)
 
     def test_existing_app_guard_allows_resume(self) -> None:
-        reason = existing_app_guard_reason(Path("/repo"), "owner/demo", app_exists=True, resume=True)
+        reason = existing_app_guard_reason(
+            Path("/repo"),
+            "owner/demo",
+            app_exists=True,
+            migration_state_exists=True,
+            resume=True,
+        )
 
         self.assertEqual(reason, "")
+
+    def test_existing_app_guard_blocks_resume_without_state(self) -> None:
+        reason = existing_app_guard_reason(
+            Path("/repo"),
+            "owner/demo",
+            app_exists=True,
+            migration_state_exists=False,
+            resume=True,
+        )
+
+        self.assertIn("no .migration-state.json", reason)
 
     def test_select_next_candidate_picks_first_portable_candidate(self) -> None:
         payload = {
