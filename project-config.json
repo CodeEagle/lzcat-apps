@@ -1,0 +1,11 @@
+{
+  "lazycat": {
+    "developer_apps_url": "https://lazycat.cloud/appstore/more/developers/178",
+    "developer_id": "178",
+    "status_sync": {
+      "enabled": true,
+      "source": "developer_apps_page",
+      "purpose": "Track apps already published by this developer and update migration status."
+    }
+  }
+}
