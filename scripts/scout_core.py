@@ -258,6 +258,40 @@ def classify_search_hits(repo: dict[str, Any], hits: list[dict[str, str]]) -> tu
     return ("needs_review", "App-store search returned possible matches that need manual review.")
 
 
+def find_publication_match(
+    repo: dict[str, Any], publication_index: dict[str, dict[str, Any]] | None
+) -> dict[str, Any] | None:
+    if not publication_index:
+        return None
+    by_upstream_repo = publication_index.get("by_upstream_repo", {})
+    if not isinstance(by_upstream_repo, dict):
+        return None
+    record = by_upstream_repo.get(compact_whitespace(repo.get("full_name", "")).strip("/").lower())
+    return record if isinstance(record, dict) else None
+
+
+def classify_publication_match(record: dict[str, Any]) -> tuple[str, str]:
+    publication_status = compact_whitespace(record.get("publication_status", "")).lower()
+    migration_status = compact_whitespace(record.get("migration_status", "")).lower()
+    if publication_status == "published":
+        return ("already_migrated", "Published app found on configured LazyCat developer page.")
+    if migration_status == "migrated" or publication_status == "migrated":
+        return ("already_migrated", "Local app is already marked migrated in registry.")
+    return ("in_progress", "Local app is already registered and not published yet.")
+
+
+def summarize_publication_match(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "slug": record.get("slug", ""),
+        "package": record.get("package", ""),
+        "name": record.get("name", ""),
+        "upstream_repo": record.get("upstream_repo", ""),
+        "migration_status": record.get("migration_status", ""),
+        "publication_status": record.get("publication_status", ""),
+        "store_label": record.get("store_label", ""),
+    }
+
+
 def merge_repositories(repos: list[dict[str, Any]]) -> list[dict[str, Any]]:
     merged: OrderedDict[str, dict[str, Any]] = OrderedDict()
     for repo in repos:
@@ -666,7 +700,12 @@ def scan_remote_candidates(*, include_github_search: bool = True, include_awesom
     return merge_repositories(raw_candidates)
 
 
-def check_candidate(repo: dict[str, Any], *, checked_at: str) -> dict[str, Any]:
+def check_candidate(
+    repo: dict[str, Any],
+    *,
+    checked_at: str,
+    publication_index: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     candidate = {
         "full_name": repo["full_name"],
         "owner": repo["owner"],
@@ -684,6 +723,18 @@ def check_candidate(repo: dict[str, Any], *, checked_at: str) -> dict[str, Any]:
         "searches": [],
         "lazycat_hits": [],
     }
+
+    publication_match = find_publication_match(repo, publication_index)
+    if publication_match:
+        status, reason = classify_publication_match(publication_match)
+        candidate.update(
+            {
+                "status": status,
+                "status_reason": reason,
+                "local_app": summarize_publication_match(publication_match),
+            }
+        )
+        return candidate
 
     exclusion = find_exclusion(repo) or find_non_deployable_reason(repo)
     if exclusion:

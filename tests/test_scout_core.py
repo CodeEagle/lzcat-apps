@@ -121,6 +121,39 @@ Python[1,234](http://github.com/owner/demo/stargazers) 5 stars today
         self.assertEqual(candidate["status_reason"], "Likely not a deployable self-hosted app/service")
         self.assertEqual(candidate["exclusion"]["matched_keyword"], "sdk")
 
+    @patch("scripts.scout_core.search_lazycat")
+    def test_check_candidate_uses_publication_index_before_store_search(self, search_mock) -> None:
+        repo = {
+            "source_name": "manual_check",
+            "source_label": "Manual Check",
+            "owner": "owner",
+            "repo": "demo",
+            "full_name": "owner/demo",
+            "repo_url": "https://github.com/owner/demo",
+            "description": "Self-hosted demo app",
+            "language": "Python",
+            "total_stars": 1000,
+            "stars_today": 0,
+        }
+        publication_index = {
+            "by_upstream_repo": {
+                "owner/demo": {
+                    "slug": "demo",
+                    "package": "fun.selfstudio.app.migration.owner.demo",
+                    "publication_status": "published",
+                    "store_label": "Demo",
+                    "migration_status": "migrated",
+                }
+            }
+        }
+
+        candidate = check_candidate(repo, checked_at="2026-04-25T00:00:00Z", publication_index=publication_index)
+
+        search_mock.assert_not_called()
+        self.assertEqual(candidate["status"], "already_migrated")
+        self.assertIn("developer page", candidate["status_reason"])
+        self.assertEqual(candidate["local_app"]["slug"], "demo")
+
 
 if __name__ == "__main__":
     unittest.main()

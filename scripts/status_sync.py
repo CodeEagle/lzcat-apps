@@ -9,9 +9,11 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from .publication_status import write_status_snapshot
     from .project_config import load_project_config
     from .web_probe import fetch_page
 except ImportError:  # pragma: no cover - script execution path
+    from publication_status import write_status_snapshot
     from project_config import load_project_config
     from web_probe import fetch_page
 
@@ -118,7 +120,9 @@ def main() -> int:
         apps = fetch_developer_apps_api(config.lazycat.developer_apps_url)
 
     output_path = write_status(repo_root, apps)
+    publication_output_path = write_status_snapshot(repo_root)
     print(output_path)
+    print(publication_output_path)
     return 0
 
 

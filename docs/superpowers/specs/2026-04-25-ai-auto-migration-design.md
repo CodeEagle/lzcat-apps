@@ -18,8 +18,9 @@ Build an AI-assisted LazyCat migration pipeline inside `lzcat-apps` that can dis
 
 ```text
 project-config.json
-  -> status_sync.py fetches developer app page and updates publication status
-  -> scout_core.py finds and filters candidate repositories
+  -> status_sync.py fetches developer app page
+  -> publication_status.py joins developer page results with local apps and registry state
+  -> scout_core.py finds and filters candidate repositories, skipping published or already-registered apps
   -> web_probe.py wraps Obscura for upstream docs and store pages
   -> full_migrate.py generates app package assets
   -> run_build.py / local_build.sh builds and installs .lpk

@@ -15,6 +15,7 @@
 - Create `scripts/project_config.py`: load and validate `project-config.json`.
 - Create `scripts/web_probe.py`: wrapper around Obscura with deterministic JSON output and safe fallbacks.
 - Create `scripts/status_sync.py`: read the developer app page and update local publication status.
+- Create `scripts/publication_status.py`: join developer app status with local manifests/registry and expose a scout index.
 - Create `scripts/scout_core.py`: reusable candidate discovery module ported from `LocalAgent/lazycat_candidate_scanner.py`.
 - Create `scripts/scout.py`: CLI entry for candidate scan and candidate JSON output.
 - Create `scripts/browser_acceptance_plan.py`: generate `.browser-acceptance-plan.json` from manifest and app profile.
