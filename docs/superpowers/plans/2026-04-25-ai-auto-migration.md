@@ -1065,7 +1065,7 @@ git commit -m "feat: add functional check hook to local build"
 - Create: `scripts/auto_migrate.py`
 - Test: `tests/test_auto_migrate.py`
 
-- [ ] **Step 1: Write tests for command planning**
+- [x] **Step 1: Write tests for command planning**
 
 Create `tests/test_auto_migrate.py`:
 
@@ -1091,7 +1091,7 @@ class AutoMigrateTest(unittest.TestCase):
         self.assertEqual(next_stage_after_functional_check("browser_pass"), "functional_passed")
 ```
 
-- [ ] **Step 2: Implement orchestration helpers and CLI**
+- [x] **Step 2: Implement orchestration helpers and CLI**
 
 Create `scripts/auto_migrate.py`:
 
@@ -1132,7 +1132,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 3: Run tests and commit**
+- [x] **Step 3: Run tests and commit**
 
 Run:
 
