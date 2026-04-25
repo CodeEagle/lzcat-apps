@@ -8,6 +8,9 @@
   "image_targets": [
     "pibox"
   ],
+  "overlay_paths": [
+    "scripts/docker/install-agent-runtime.sh"
+  ],
   "official_image_registry": "",
   "precompiled_binary_url": "",
   "publish_to_store": false,
