@@ -1,0 +1,62 @@
+{
+  "browser_acceptance": {
+    "accepted_at": "2026-04-25T16:43:51Z",
+    "blocking_issues": [],
+    "browser_use": {
+      "console_errors": [],
+      "dom_rendered": true,
+      "network_failures": [],
+      "screenshots": [
+        "apps/markitdown/acceptance/browser-use-home.png",
+        "apps/markitdown/acceptance/browser-use-full.png"
+      ]
+    },
+    "checks": [
+      {
+        "evidence": "Codex Browser Use rendered the MarkItDown UI, converted https://example.com successfully, and reported no console errors.",
+        "name": "open_home",
+        "status": "pass"
+      }
+    ],
+    "entry_url": "https://markitdown.rx79.heiyu.space",
+    "schema_version": 1,
+    "slug": "markitdown",
+    "status": "pass"
+  },
+  "browser_acceptance_plan": {
+    "box_domain": "rx79.heiyu.space",
+    "checks": [
+      {
+        "instruction": "Open the entry URL and verify that real app content renders, not a platform error, blank page, redirect loop, or server error.",
+        "kind": "browser_use",
+        "name": "open_home",
+        "url": "https://markitdown.rx79.heiyu.space"
+      },
+      {
+        "instruction": "Inspect visible UI, console logs, and network failures for blocking errors that would cause LazyCat review rejection.",
+        "kind": "browser_use",
+        "name": "console_and_network"
+      },
+      {
+        "instruction": "Exercise the app's obvious first workflow enough to confirm routing, static assets, and backend connectivity are functional.",
+        "kind": "browser_use",
+        "name": "primary_workflow_smoke"
+      }
+    ],
+    "entry_url": "https://markitdown.rx79.heiyu.space",
+    "evidence_dir": "apps/markitdown/acceptance",
+    "manifest_path": "apps/markitdown/lzc-manifest.yml",
+    "package": "fun.selfstudio.app.migration.microsoft.markitdown-mcp",
+    "result_path": "apps/markitdown/acceptance/browser-use-result.json",
+    "schema_version": 1,
+    "slug": "markitdown"
+  },
+  "browser_acceptance_plan_path": "apps/markitdown/.browser-acceptance-plan.json",
+  "browser_acceptance_result_path": "apps/markitdown/acceptance/browser-use-result.json",
+  "browser_acceptance_status": "browser_pass",
+  "entry_url": "https://markitdown.rx79.heiyu.space",
+  "package": "fun.selfstudio.app.migration.microsoft.markitdown-mcp",
+  "schema_version": 1,
+  "slug": "markitdown",
+  "status": "pass"
+}
