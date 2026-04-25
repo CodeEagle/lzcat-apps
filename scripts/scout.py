@@ -9,8 +9,10 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from .publication_status import load_publication_index
     from .scout_core import check_candidate, parse_repo_input, scan_remote_candidates
 except ImportError:  # pragma: no cover - direct script execution
+    from publication_status import load_publication_index
     from scout_core import check_candidate, parse_repo_input, scan_remote_candidates
 
 
@@ -52,7 +54,12 @@ def write_candidate_files(repo_root: Path, payload: dict[str, Any]) -> dict[str,
     return {"latest": latest_path, "dated": dated_path}
 
 
-def check_repository(repo_ref: str, *, checked_at: str) -> dict[str, Any]:
+def check_repository(
+    repo_ref: str,
+    *,
+    checked_at: str,
+    publication_index: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     parsed = parse_repo_input(repo_ref)
     if not parsed:
         raise ValueError(f"Invalid GitHub repository reference: {repo_ref}")
@@ -74,6 +81,7 @@ def check_repository(repo_ref: str, *, checked_at: str) -> dict[str, Any]:
             "sources": ["manual_check"],
         },
         checked_at=checked_at,
+        publication_index=publication_index,
     )
 
 
@@ -83,11 +91,12 @@ def scan_candidates(
     checked_at: str,
     include_github_search: bool,
     include_awesome: bool,
+    publication_index: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     repos = scan_remote_candidates(include_github_search=include_github_search, include_awesome=include_awesome)
     candidates: list[dict[str, Any]] = []
     for repo in repos[:limit]:
-        candidates.append(check_candidate(repo, checked_at=checked_at))
+        candidates.append(check_candidate(repo, checked_at=checked_at, publication_index=publication_index))
     return candidates
 
 
@@ -110,9 +119,10 @@ def main() -> int:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
     checked_at = utc_now_iso()
+    publication_index = load_publication_index(repo_root)
 
     if args.command == "check":
-        candidate = check_repository(args.repo, checked_at=checked_at)
+        candidate = check_repository(args.repo, checked_at=checked_at, publication_index=publication_index)
         print(json.dumps(candidate, ensure_ascii=False, indent=2, sort_keys=True))
         return 0
 
@@ -124,6 +134,7 @@ def main() -> int:
         checked_at=checked_at,
         include_github_search=not args.skip_github_search,
         include_awesome=not args.skip_awesome_selfhosted,
+        publication_index=publication_index,
     )
     payload = build_payload(candidates, generated_at=checked_at)
     paths = write_candidate_files(repo_root, payload)
