@@ -6,7 +6,6 @@ permissions:
 
 on:
   workflow_dispatch:
-
     inputs:
       target_repo:
         description: "Target app to build"
@@ -55,7 +54,6 @@ on:
           - "htmly"
           - "memoh"
           - "goclaw"
-          - "hermes-webui-aio"
           - "cultivation-world-simulator"
           - "localai"
           - "paseo"
