@@ -1155,7 +1155,7 @@ git commit -m "feat: add AI migration orchestrator entrypoint"
 - Modify: `scripts/run_build.py`
 - Test: `tests/test_publish_gate.py`
 
-- [ ] **Step 1: Add a pure gate function**
+- [x] **Step 1: Add a pure gate function**
 
 Add to `scripts/run_build.py` near report helpers:
 
@@ -1175,7 +1175,7 @@ def browser_acceptance_allows_publish(app_root: Path) -> tuple[bool, str]:
     return True, ""
 ```
 
-- [ ] **Step 2: Call the gate before appstore publish**
+- [x] **Step 2: Call the gate before appstore publish**
 
 In `scripts/run_build.py`, before:
 
@@ -1192,7 +1192,7 @@ insert:
                 raise RuntimeError(f"publish_to_store blocked: {gate_reason}")
 ```
 
-- [ ] **Step 3: Add tests**
+- [x] **Step 3: Add tests**
 
 Create `tests/test_publish_gate.py`:
 
@@ -1225,7 +1225,7 @@ class PublishGateTest(unittest.TestCase):
         self.assertEqual(reason, "")
 ```
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 Run:
 
