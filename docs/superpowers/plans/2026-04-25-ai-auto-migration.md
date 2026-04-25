@@ -1012,7 +1012,7 @@ git commit -m "feat: require Browser Use functional acceptance"
 - Modify: `scripts/local_build.sh`
 - Test: manual shell invocation
 
-- [ ] **Step 1: Add option parsing**
+- [x] **Step 1: Add option parsing**
 
 In `scripts/local_build.sh`, add variables near existing option variables:
 
@@ -1028,7 +1028,7 @@ Add cases in the argument loop:
 --box-domain=*) BOX_DOMAIN="${arg#--box-domain=}" ;;
 ```
 
-- [ ] **Step 2: Run functional checker after install**
+- [x] **Step 2: Run functional checker after install**
 
 At the end of `scripts/local_build.sh`, after the install block, add:
 
@@ -1042,7 +1042,7 @@ if $FUNCTIONAL_CHECK; then
 fi
 ```
 
-- [ ] **Step 3: Run shell syntax check**
+- [x] **Step 3: Run shell syntax check**
 
 Run:
 
@@ -1052,7 +1052,7 @@ bash -n scripts/local_build.sh
 
 Expected: no output, exit code `0`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add scripts/local_build.sh
