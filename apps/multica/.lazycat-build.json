@@ -1,7 +1,7 @@
 {
-  "upstream_repo": "multica-ai/multica",
-  "source_version": "v0.1.26",
-  "build_version": "0.1.26",
-  "build_label": "v0.1.26@20260412T010627Z",
-  "last_checked_at": "2026-04-12T01:06:27.407118+00:00"
+  "upstream_repo": "CodeEagle/multica",
+  "source_version": "v0.2.5",
+  "build_version": "0.2.5",
+  "build_label": "v0.2.5@20260425T074350Z",
+  "last_checked_at": "2026-04-25T07:43:50.048674+00:00"
 }
