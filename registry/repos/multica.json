@@ -21,9 +21,13 @@
     {
       "build_args": {},
       "build_context": ".",
-      "build_strategy": "upstream_dockerfile",
-      "dockerfile_path": "Dockerfile",
+      "build_strategy": "upstream_with_target_template",
+      "dockerfile_path": "Dockerfile.backend.template",
       "image_name": "multica-backend",
+      "overlay_paths": [
+        "patch-backend-build.go"
+      ],
+      "source_dockerfile_path": "Dockerfile",
       "target_service": "multica-backend"
     },
     {
