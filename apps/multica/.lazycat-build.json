@@ -2,7 +2,6 @@
   "upstream_repo": "CodeEagle/multica",
   "source_version": "v0.2.5",
   "build_version": "0.2.5",
-  "build_label": "v0.2.5@20260417T102757Z",
-  "last_checked_at": "2026-04-17T10:27:57.267887+00:00",
-  "build_recipe_hash": "3c4fa507f1965b4611c9bc092346afb8c6f1900b6151787335f67f7466a8f791"
+  "build_label": "v0.2.5@20260425T093935Z",
+  "last_checked_at": "2026-04-25T09:39:35.175651+00:00"
 }

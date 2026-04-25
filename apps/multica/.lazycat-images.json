@@ -3,42 +3,42 @@
   "app": "multica",
   "source_version": "v0.2.5",
   "build_version": "0.2.5",
-  "head_sha": "69eb1c3086bf",
-  "build_recipe_hash": "3c4fa507f1965b4611c9bc092346afb8c6f1900b6151787335f67f7466a8f791",
-  "updated_at": "2026-04-17T10:27:57.267557+00:00",
+  "head_sha": "01b39e32810f",
+  "build_recipe_hash": "8cc49e40698c788d3d3186d4afbad39b3b8838e6ed29e1190ec66251e91f38e9",
+  "updated_at": "2026-04-25T09:39:35.175292+00:00",
   "images": {
-    "multica-backend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:1392321de60dbad1",
-    "multica-frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:53287aa3a3a6d15a",
+    "multica-backend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:f6f0417e0df0c92a",
+    "multica-frontend": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:4195f2ddeaeec215",
     "multica-postgres": "registry.lazycat.cloud/invokerlaw/pgvector/pgvector:9cd4ca43bcc7bd9c"
   },
   "source_images": {
-    "backend": "ghcr.io/codeeagle/lazycatimages:multicaBackend_b23ac81ad323",
-    "frontend": "ghcr.io/codeeagle/lazycatimages:multicaFrontend_b23ac81ad323",
-    "postgres": "pgvector/pgvector:pg17"
+    "multica-backend": "ghcr.io/codeeagle/lazycatimages:multicaBackend_01b39e32810f",
+    "multica-frontend": "ghcr.io/codeeagle/lazycatimages:multicaFrontend_01b39e32810f",
+    "multica-postgres": "pgvector/pgvector:pg17"
   },
   "source_digests": {
-    "backend": "sha256:816650f9be86c649a6671bf5aa451708a7d5a05d22610fa32fa328fd57802990",
-    "frontend": "sha256:746dad7332feddc95f8b7d7b1620a5146d5f666850296cb0804bf1fc04cd9edd"
+    "multica-backend": "sha256:1f92ea6c4e957b93c4b2e374501da784a9f32854b6171d4281f9840b37825d39",
+    "multica-frontend": "sha256:78ba15a29322bad90edf18e5a36ed612b92621c124b081797de504d6a85971d9"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaBackend_b23ac81ad323",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:0a0c182a07881526",
-      "elapsed_seconds": 57.805,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaBackend_01b39e32810f",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:f6f0417e0df0c92a",
+      "elapsed_seconds": 80.863,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
-      "service": "backend",
+      "service": "multica-backend",
       "kind": "service"
     },
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaFrontend_b23ac81ad323",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:cc6a32e48a3c5549",
-      "elapsed_seconds": 40.509,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:multicaFrontend_01b39e32810f",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:4195f2ddeaeec215",
+      "elapsed_seconds": 40.712,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
-      "service": "frontend",
+      "service": "multica-frontend",
       "kind": "service"
     },
     {
@@ -48,7 +48,7 @@
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": true,
-      "service": "postgres",
+      "service": "multica-postgres",
       "kind": "dependency"
     }
   ]
