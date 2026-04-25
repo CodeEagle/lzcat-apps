@@ -627,7 +627,7 @@ git commit -m "feat: reuse LocalAgent candidate discovery"
 - Create: `scripts/browser_acceptance_plan.py`
 - Test: `tests/test_browser_acceptance_plan.py`
 
-- [ ] **Step 1: Write tests for manifest-derived entry URL**
+- [x] **Step 1: Write tests for manifest-derived entry URL**
 
 Create `tests/test_browser_acceptance_plan.py`:
 
@@ -669,7 +669,7 @@ class BrowserAcceptancePlanTest(unittest.TestCase):
         self.assertEqual(plan["checks"][0]["name"], "open_home")
 ```
 
-- [ ] **Step 2: Implement plan generator**
+- [x] **Step 2: Implement plan generator**
 
 Create `scripts/browser_acceptance_plan.py`:
 
@@ -751,7 +751,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 3: Run tests and commit**
+- [x] **Step 3: Run tests and commit**
 
 Run:
 
