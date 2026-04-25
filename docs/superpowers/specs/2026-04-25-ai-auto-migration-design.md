@@ -27,6 +27,7 @@ project-config.json
   -> run_build.py / local_build.sh builds and installs .lpk
   -> functional_checker.py records install/runtime status and browser acceptance plan
   -> Codex Browser Use opens the real LazyCat app URL and records .browser-acceptance.json
+  -> copywriter.py generates store copy and tutorial drafts only after Browser Use passes
   -> auto_migrate.py advances only when each gate passes
 ```
 

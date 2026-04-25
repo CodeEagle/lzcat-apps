@@ -22,6 +22,7 @@
 - Create `scripts/functional_checker.py`: install/runtime checks and Browser Use gate orchestration.
 - Create `scripts/record_browser_acceptance.py`: validate and write `.browser-acceptance.json`.
 - Create `scripts/auto_migrate.py`: top-level orchestrator for discovered candidates or explicit repos.
+- Create `scripts/copywriter.py`: generate post-acceptance app store copy and tutorial drafts.
 - Create `docs/browser-acceptance.md`: operator protocol for Codex Browser Use.
 - Modify `scripts/local_build.sh`: add `--functional-check` option.
 - Test with `tests/test_project_config.py`, `tests/test_web_probe.py`, `tests/test_status_sync.py`, `tests/test_browser_acceptance_plan.py`, `tests/test_functional_checker.py`, and `tests/test_auto_migrate.py`.
