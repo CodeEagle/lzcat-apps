@@ -7,12 +7,14 @@
 #   ./scripts/local_build.sh paperclip --force-build      # 强制 build（含 Docker）
 #   ./scripts/local_build.sh paperclip --install          # 只重打包 content/，安装到设备（秒级）
 #   ./scripts/local_build.sh paperclip --install --with-docker  # 重建 Docker image 再安装
+#   ./scripts/local_build.sh paperclip --install --functional-check --box-domain=box.example.com
 #   ./scripts/local_build.sh paperclip --target-version 0.3.2
 #   ./scripts/local_build.sh paperclip --no-dry-run       # 完整流程（需要 LZC_CLI_TOKEN）
 #
 # 环境变量（可在 scripts/.env.local 中配置，不要提交）:
 #   GH_PAT / GH_TOKEN — 主凭据；用于 GitHub API，且默认同时用于 GHCR push
 #   LZC_CLI_TOKEN   — LazyCat CLI token（非 dry-run 时必须）
+#   LAZYCAT_BOX_DOMAIN — Browser Use 功能验收域名，如 box.example.com
 
 set -euo pipefail
 
@@ -73,12 +75,16 @@ fi
 DRY_RUN=true
 INSTALL=false
 WITH_DOCKER=false
+FUNCTIONAL_CHECK=false
+BOX_DOMAIN="${LAZYCAT_BOX_DOMAIN:-}"
 EXTRA_ARGS=()
 for arg in "$@"; do
   case "$arg" in
     --no-dry-run) DRY_RUN=false ;;
     --install) INSTALL=true ;;
     --with-docker) WITH_DOCKER=true ;;
+    --functional-check) FUNCTIONAL_CHECK=true ;;
+    --box-domain=*) BOX_DOMAIN="${arg#--box-domain=}" ;;
     *) EXTRA_ARGS+=("$arg") ;;
   esac
 done
@@ -175,4 +181,14 @@ if $INSTALL && [ -f "$LPK_OUTPUT" ]; then
   fi
   lzc-cli app install "$LPK_OUTPUT"
   echo "==> Done."
+fi
+
+if $FUNCTIONAL_CHECK; then
+  if [ -z "$BOX_DOMAIN" ]; then
+    echo "--functional-check requires --box-domain=<domain> or LAZYCAT_BOX_DOMAIN" >&2
+    exit 1
+  fi
+  echo ""
+  echo "==> Running Browser Use functional gate for $APP..."
+  python3 "$REPO_ROOT/scripts/functional_checker.py" "$APP" --box-domain "$BOX_DOMAIN"
 fi
