@@ -4739,6 +4739,8 @@ def parse_args() -> argparse.Namespace:
                         help="Resume from step N (1-10), keeping context from prior steps")
     parser.add_argument("--verify", action="store_true",
                         help="Run from scratch and compare against existing state for reproducibility")
+    parser.add_argument("--no-commit", action="store_true",
+                        help="Do not create the automatic scaffold git commit after preflight")
     parser.add_argument("--fork", nargs="?", const=True, default=None, metavar="REPO_NAME",
                         help="Fork the upstream repo to CodeEagle/ before building. "
                              "Optionally specify a custom repo name (e.g. --fork my-app). "
@@ -5144,7 +5146,10 @@ def main() -> int:
             ms.save_state(app_dir, state)
             return 1
 
-        auto_git_commit(repo_root, finalized["slug"])
+        if args.no_commit:
+            print("[git] auto commit disabled (--no-commit)")
+        else:
+            auto_git_commit(repo_root, finalized["slug"])
         step_report(
             7,
             "运行预检",

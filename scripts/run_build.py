@@ -648,6 +648,27 @@ def load_image_overrides(path: Path) -> dict[str, str]:
     return overrides
 
 
+def extract_lazycat_image_overrides_from_manifest(manifest_text: str) -> dict[str, str]:
+    services_match = re.search(r"^services:\s*$", manifest_text, re.MULTILINE)
+    if not services_match:
+        return {}
+
+    tail = manifest_text[services_match.end():]
+    service_pattern = re.compile(
+        r"^\s{2}(?P<service>[A-Za-z0-9_.-]+):\s*\n(?P<body>(?:^\s{4,}.+\n?)*)",
+        re.MULTILINE,
+    )
+    overrides: dict[str, str] = {}
+    for match in service_pattern.finditer(tail):
+        image_match = re.search(r"^\s{4}image:\s*(?P<image>\S+)\s*$", match.group("body"), re.MULTILINE)
+        if not image_match:
+            continue
+        image = image_match.group("image").strip().strip("'\"")
+        if image.startswith("registry.lazycat.cloud/"):
+            overrides[match.group("service")] = image
+    return overrides
+
+
 def list_manifest_services(manifest_text: str) -> set[str]:
     match = re.search(r"^services:\s*$", manifest_text, re.MULTILINE)
     if not match:
@@ -1741,11 +1762,20 @@ def main() -> int:
         prev_build_recipe_hash = str(prev_image_state.get("build_recipe_hash", "")).strip() if isinstance(prev_image_state, dict) else ""
         if args.skip_docker:
             assert image_state_path is not None
-            resolved_service_images = load_image_overrides(image_state_path)
+            using_manifest_image_fallback = not image_state_path.exists()
+            if using_manifest_image_fallback:
+                resolved_service_images = extract_lazycat_image_overrides_from_manifest(manifest_text)
+                if resolved_service_images:
+                    log(
+                        f"[{app_name}] [SKIP DOCKER] Reusing materialized LazyCat image URLs "
+                        "already present in lzc-manifest.yml"
+                    )
+            else:
+                resolved_service_images = load_image_overrides(image_state_path)
             if not resolved_service_images:
                 raise RuntimeError(
                     f"{IMAGE_STATE_FILENAME} is required for --skip-docker packaging; "
-                    "run a full build first so service images are materialized outside lzc-manifest.yml"
+                    "run a full build first or ensure lzc-manifest.yml already uses registry.lazycat.cloud images"
                 )
             resolved_service_images, stale_services = filter_image_overrides_for_manifest(
                 manifest_text,
@@ -1761,7 +1791,11 @@ def main() -> int:
                     f"{IMAGE_STATE_FILENAME} does not contain any services present in the current manifest; "
                     "run a non-skip build or refresh the cached image state first"
                 )
-            if prev_build_recipe_hash != current_build_recipe_hash and auto_skip_docker_enabled:
+            if (
+                not using_manifest_image_fallback
+                and prev_build_recipe_hash != current_build_recipe_hash
+                and auto_skip_docker_enabled
+            ):
                 args.skip_docker = False
                 resolved_service_images = {}
                 reason = "missing" if not prev_build_recipe_hash else "changed"
@@ -1769,7 +1803,7 @@ def main() -> int:
                     f"[{app_name}] Cached image state build recipe hash is {reason}; "
                     "falling back to Docker build."
                 )
-            elif prev_build_recipe_hash != current_build_recipe_hash:
+            elif not using_manifest_image_fallback and prev_build_recipe_hash != current_build_recipe_hash:
                 raise RuntimeError(
                     f"{IMAGE_STATE_FILENAME} build recipe hash does not match current config; "
                     "run a non-skip build first"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from dataclasses import asdict, dataclass
 from typing import Literal
@@ -22,7 +23,7 @@ class WebProbeResult:
 
 def build_obscura_fetch_command(url: str, *, dump: DumpKind = "text") -> list[str]:
     return [
-        "obscura",
+        os.environ.get("OBSCURA_BIN", "obscura"),
         "fetch",
         url,
         "--dump",

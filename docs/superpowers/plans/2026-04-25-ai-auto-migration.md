@@ -1248,7 +1248,7 @@ git commit -m "feat: block publishing without Browser Use acceptance"
 - Runtime outputs under `apps/<slug>/`
 - No code changes unless the pilot exposes bugs
 
-- [ ] **Step 1: Sync developer page status**
+- [x] **Step 1: Sync developer page status**
 
 Run:
 
@@ -1262,7 +1262,7 @@ Expected:
 /Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/registry/status/developer-apps.json
 ```
 
-- [ ] **Step 2: Scan candidates**
+- [x] **Step 2: Scan candidates**
 
 Run:
 
@@ -1290,7 +1290,7 @@ Expected:
 - `dist/markitdown.lpk` exists
 - install step either succeeds or reports missing local LazyCat credentials
 
-- [ ] **Step 4: Create Browser Use acceptance plan**
+- [x] **Step 4: Create Browser Use acceptance plan**
 
 Run:
 
@@ -1300,7 +1300,7 @@ python3 scripts/functional_checker.py markitdown --box-domain "$LAZYCAT_BOX_DOMA
 
 Expected before Browser Use is recorded: exit code `2`, `.browser-acceptance-plan.json` exists, `.functional-check.json.status == "browser_pending"`.
 
-- [ ] **Step 5: Use Codex Browser Use**
+- [x] **Step 5: Use Codex Browser Use**
 
 Open `apps/markitdown/.browser-acceptance-plan.json`, then use Browser Use to open the `entry_url`.
 
@@ -1312,7 +1312,7 @@ Acceptance evidence must include:
 - console/network errors are not blocking
 - at least one primary workflow is exercised
 
-- [ ] **Step 6: Record pass or fail**
+- [x] **Step 6: Record pass or fail**
 
 If pass:
 
@@ -1332,7 +1332,7 @@ python3 scripts/record_browser_acceptance.py markitdown \
   --blocking-issue "Describe the blocking functional issue found in Browser Use."
 ```
 
-- [ ] **Step 7: Re-run functional checker**
+- [x] **Step 7: Re-run functional checker**
 
 Run:
 
@@ -1342,7 +1342,7 @@ python3 scripts/functional_checker.py markitdown --box-domain "$LAZYCAT_BOX_DOMA
 
 Expected after pass: exit code `0`, `.functional-check.json.status == "pass"`.
 
-- [ ] **Step 8: Verify publish gate**
+- [x] **Step 8: Verify publish gate**
 
 Run dry-run package flow:
 
