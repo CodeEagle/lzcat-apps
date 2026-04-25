@@ -12,6 +12,7 @@ Build an AI-assisted LazyCat migration pipeline inside `lzcat-apps` that can dis
 - Codex Browser Use is the release gate for real app functionality. HTTP checks alone are not accepted as functional validation.
 - The developer page in `project-config.json` is the canonical source for "apps already published by this developer":
   `https://lazycat.cloud/appstore/more/developers/178`.
+- `auto_migrate.py --from-candidates` consumes `registry/candidates/latest.json` and starts the next `portable` candidate by default.
 - Publishing remains gated by human confirmation because it submits data to a third-party store.
 
 ## Architecture
