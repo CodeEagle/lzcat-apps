@@ -6,6 +6,11 @@ scripts/.env.local
 **/.lzc-cli-build*/
 artifacts/
 dist/
+registry/candidates/
+registry/status/
+apps/*/.browser-acceptance-plan.json
+apps/*/.functional-check.json
+apps/*/acceptance/
 .acc/sessions/
 .acc/bundles/
 .acc/archive/
