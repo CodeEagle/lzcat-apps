@@ -7,19 +7,19 @@ application:
       backend: http://pibox:8080/
       location: /
 author: rcarmo
-description: I'm going to build my own OpenClaw, with blackjack
+description: Self-hosted Pi Coding Agent workspace with browser chat, session management, and persistent project storage.
 homepage: https://github.com/rcarmo/piclaw
 license: MIT
 locales:
   en:
-    description: I'm going to build my own OpenClaw, with blackjack
-    name: piclaw
+    description: Self-hosted Pi Coding Agent workspace with browser chat, session management, and persistent project storage.
+    name: PiClaw
   zh:
-    description: （迁移初稿）Piclaw 的懒猫微服版本
-    name: piclaw
+    description: 在懒猫微服中运行的自托管 Pi Coding Agent 工作台，支持浏览器聊天、会话管理和持久化项目工作区。
+    name: PiClaw
 lzc-sdk-version: '0.1'
 min_os_version: 1.3.8
-name: piclaw
+name: PiClaw
 package: fun.selfstudio.app.migration.piclaw
 services:
   pibox:

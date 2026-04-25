@@ -2,9 +2,9 @@
   "managed_by": "full_migrate",
   "generated_from_upstream": "rcarmo/piclaw",
   "fixes": {
-    "project_name": "piclaw",
-    "description": "I'm going to build my own OpenClaw, with blackjack",
-    "description_zh": "（迁移初稿）Piclaw 的懒猫微服版本",
+    "project_name": "PiClaw",
+    "description": "Self-hosted Pi Coding Agent workspace with browser chat, session management, and persistent project storage.",
+    "description_zh": "在懒猫微服中运行的自托管 Pi Coding Agent 工作台，支持浏览器聊天、会话管理和持久化项目工作区。",
     "homepage": "https://github.com/rcarmo/piclaw",
     "license": "MIT",
     "author": "rcarmo",
