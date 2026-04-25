@@ -9,7 +9,8 @@
     "pibox"
   ],
   "overlay_paths": [
-    "scripts/docker/install-agent-runtime.sh"
+    "scripts/docker/install-agent-runtime.sh",
+    "supervisor/conf.d/piclaw.conf"
   ],
   "official_image_registry": "",
   "precompiled_binary_url": "",
