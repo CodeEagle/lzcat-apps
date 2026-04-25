@@ -28,6 +28,12 @@ class WebProbeTest(unittest.TestCase):
             ],
         )
 
+    @patch.dict("scripts.web_probe.os.environ", {"OBSCURA_BIN": "/tmp/obscura"})
+    def test_build_obscura_fetch_command_uses_env_binary(self) -> None:
+        command = build_obscura_fetch_command("https://example.com/docs", dump="links")
+
+        self.assertEqual(command[0], "/tmp/obscura")
+
     @patch("scripts.web_probe.subprocess.run")
     def test_fetch_page_returns_structured_result(self, run_mock) -> None:
         run_mock.return_value.returncode = 0
