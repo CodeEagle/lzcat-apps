@@ -34,7 +34,7 @@ COPY apps/web/ apps/web/
 COPY packages/ packages/
 COPY patch-login-build.js ./patch-login-build.js
 
-ARG REMOTE_API_URL=http://backend:8080
+ARG REMOTE_API_URL=http://multica-backend:8080
 ENV REMOTE_API_URL=$REMOTE_API_URL
 ENV STANDALONE=true
 
