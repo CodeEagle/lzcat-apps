@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "app": "mercury-agent",
+  "source_version": "v1.0.0",
+  "build_version": "1.0.0",
+  "head_sha": "0a9717cc8047",
+  "build_recipe_hash": "13f83b0ce73d2a4959ff0e1d2ab4a2be21ad9937fdaca5cdd70f7319c6f2a005",
+  "updated_at": "2026-04-25T13:21:16.599726+00:00",
+  "images": {
+    "mercury-agent": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:b66fe2765cec24a7"
+  },
+  "source_images": {
+    "mercury-agent": "ghcr.io/codeeagle/lazycatimages:mercuryAgentLzcat_0a9717cc8047"
+  },
+  "source_digests": {
+    "_primary": "sha256:3147f4bc680e5199428ce022faf0166c0b300e17ff0f86e5b8c5ed055f18ae31"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:mercuryAgentLzcat_0a9717cc8047",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:b66fe2765cec24a7",
+      "elapsed_seconds": 90.688,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}
