@@ -29,6 +29,9 @@ description: 将 Docker 镜像、GitHub 开源项目或 docker-compose 服务移
 11. 所有移植应用统一管理在 `CodeEagle/lzcat-apps` monorepo；新建 app 时必须同步：在 `apps/<appname>/`（全小写）放置应用文件，在 `registry/repos/<appname>.json` 创建构建配置，并追加到 `registry/repos/index.json`。这一步本身就足以完成大多数新项目接入，不得顺手再创建一个未被链路使用的空仓库。
 12. 安装启动成功不是最终验收；必须使用 Browser Use 打开真实 LazyCat 访问地址，按功能矩阵逐项点击、提交、刷新、查看控制台/网络错误，并把验收结论写入迁移状态或最终汇报。
 13. 用户要求上架或提交懒猫商店时，必须在 Browser Use 验收通过后生成真实运行截图，再执行商店创建/提交流程；截图必须来自已安装的真实实例，不得使用未运行的设计稿或静态占位图。
+14. 所有新移植必须在独立分支上推进，分支名建议 `migrate/<slug>` 或 `feat/<slug>`；只有商店上架完成（或用户明确同意提前合并）后才能合并回 `main`。`main` 不接受未上架的半成品移植。
+15. 所有构建（Docker build、镜像推送、`.lpk` 打包、安装验证准备）必须通过 GitHub Workflow 完成，不允许在本地执行 `./scripts/local_build.sh` 或等价命令进行正式构建。开发期触发方式：`gh workflow run trigger-build.yml -f target_repo=<slug> -f force_build=true -r <branch>`。
+16. 触发构建后必须实时监听运行结果（`gh run watch <run-id>` 或轮询 `gh run view`）；失败时获取日志、定位错误、提交修复 commit、再次触发，循环直至成功。不允许把失败 run 交给后续步骤承担，也不允许靠"本地能 build"绕开 workflow 失败。
 
 ## 必收集信息
 
@@ -79,7 +82,7 @@ description: 将 Docker 镜像、GitHub 开源项目或 docker-compose 服务移
 - `python3 scripts/bootstrap_migration.py --slug <name> --project-name "Name" --upstream-repo owner/repo --build-strategy official_image --service-port 8080`
   骨架生成器，也是 `full_migrate.py` 的内部依赖（`import bootstrap_migration as bm`）。
 - `./scripts/local_build.sh <app-name> [--install] [--force-build] [--no-dry-run]`
-  本地开发包装（调用 `run_build.py`，默认 dry-run）。
+  仅用于本地排错快速验证 Dockerfile 语法或 manifest 渲染；**不得用作正式构建链路**。正式构建一律走 `gh workflow run trigger-build.yml`。
 
 ### 辅助脚本（skill `scripts/` 目录，独立使用）
 
@@ -129,12 +132,12 @@ description: 将 Docker 镜像、GitHub 开源项目或 docker-compose 服务移
 
 1. `[1/10]` 收集上游信息：先一次性扫清 Dockerfile、DOCKER 文档、环境变量、数据目录、初始化命令、数据库与 auth 配置，再确认入口服务、端口、镜像来源、挂载目录、健康检查与最小可运行路径。
 2. `[2/10]` 选择移植路线：判断单容器、compose 拆分、带数据库依赖还是源码构建，并明确保留哪些服务。
-3. `[3/10]` 注册目标 app 到 monorepo；只有在正式链路明确依赖时才创建独立仓库：先判断当前项目是否必须存在 `CodeEagle/<app>` 目标仓库；若不需要，则只在 `CodeEagle/lzcat-apps` 的 `registry/repos/<appname>.json` 创建构建配置并追加到 `registry/repos/index.json`。只有确认正式链路依赖独立仓库，才执行 `scripts/ensure-github-repo.sh --upstream-repo <owner/name> --repo-owner CodeEagle`。除非用户明确要求，否则不要额外创建独立配置仓、辅助 registry 分支或临时触发分支。
+3. `[3/10]` 注册目标 app 到 monorepo：先从 `origin/main` 切独立分支（建议 `migrate/<slug>`），后续所有改动只提交到该分支，待 `[S4]` 上架成功后再合并回 main。然后判断当前项目是否必须存在 `CodeEagle/<app>` 目标仓库；若不需要，则只在 `CodeEagle/lzcat-apps` 的 `registry/repos/<appname>.json` 创建构建配置并追加到 `registry/repos/index.json`。只有确认正式链路依赖独立仓库，才执行 `scripts/ensure-github-repo.sh --upstream-repo <owner/name> --repo-owner CodeEagle`。除非用户明确要求，否则不要额外创建独立配置仓、辅助 registry 分支或临时触发分支。
 4. `[4/10]` 建立项目骨架：基于 `lzcat-template/` 在 monorepo 的 `lzcat-apps/apps/<appname>/`（全小写）创建目录，至少落 `README.md`、`lzc-manifest.yml`、`lzc-build.yml`、`icon.png`。只有当当前正式链路明确要求目标仓库也持有同一套文件时，才同步镜像到独立仓库。
 5. `[5/10]` 编写 `lzc-manifest.yml`：一次性填完元信息、入口、服务、挂载、环境变量、本地化；服务镜像只保留占位或当前基线，不在后续 build 成功后把加速镜像回写进该文件。如果应用需要登录，必须同步配置免密登录（OIDC `oidc_redirect_path` + 环境变量 / `application.injects` + `builtin://simple-inject-password` / 三阶段 inject），并在需要时创建 `lzc-deploy-params.yml`。
 6. `[6/10]` 补齐剩余文件：完成 README、`lzc-build.yml`、必要的 `content/` 和构建工作流；优先沿用当前 monorepo / 目标仓库已经集成的 workflow 结构，不要为了兼容旧链路额外复制一套过时流程。
 7. `[7/10]` 运行预检：由 `full_migrate.py` 内置预检逻辑自动执行；不通过就继续修到通过。
-8. `[8/10]` 触发并监听构建：由 `full_migrate.py` 调用 `run_build.py` 执行构建（Docker build、镜像推送、打包）；也可通过 monorepo 的 `local_build.sh` 单独触发。失败时先看日志，再修复重跑。
+8. `[8/10]` 触发并监听构建：通过 `gh workflow run trigger-build.yml -f target_repo=<slug> -f force_build=true -r <feature-branch>` 触发 GitHub Workflow 构建；用 `gh run watch <run-id>` 实时监听。失败时拉取日志（`gh run view <run-id> --log-failed`），定位错误，提交修复 commit 推送到同一分支，再次触发，循环到成功。**禁止以本地 `local_build.sh` 替代正式构建**。
 9. `[9/10]` 下载并核对 `.lpk`：由 `full_migrate.py` 自动完成产物下载与校验。确认拿到的不是旧包、空包、错版本包。
 10. `[10/10]` 安装验收并复盘：由 `full_migrate.py` 或独立执行 `scripts/install-and-verify.sh`；确认入口可达、状态健康，然后只把通用经验回写到 skill 或 reference。
 
@@ -274,6 +277,7 @@ description: 将 Docker 镜像、GitHub 开源项目或 docker-compose 服务移
 - 如用户要求上架，已生成 `apps/<app>/store/screenshots/` 截图、准备 changelog，并完成 `lzc-cli appstore pre-publish` 或 `publish` / 开发者中心创建提交
 - 本轮通用自动化改进已回写到 `scripts/full_migrate.py` 或其共享脚本；只有流程性约束才回写到 skill 或 reference
 - 当前完成移植的项目已追加到 [references/examples-and-docs.md](references/examples-and-docs.md) 的“历史移植先例”
+- 移植工作分支已合并回 `main`（合并仅在商店上架完成后执行；上架前分支独立维护，不污染 main）
 
 ## 复盘回写规则
 
