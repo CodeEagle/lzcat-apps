@@ -11,6 +11,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import textwrap
@@ -1872,6 +1873,22 @@ def detect_required_upstream_submodules(source_root: Path, dockerfile_path: Path
     return required
 
 
+def _warn_inconsistent_service_naming(slug: str, service_names: list[str]) -> None:
+    if len(service_names) < 2:
+        return
+    prefix = f"{slug}-"
+    prefixed = [n for n in service_names if n.startswith(prefix)]
+    bare = [n for n in service_names if not n.startswith(prefix)]
+    if prefixed and bare:
+        print(
+            f"[migrate] WARNING: compose services mix slug-prefixed and bare names: "
+            f"prefixed={prefixed}, bare={bare}. "
+            f"Recommend manually renaming bare services to '{slug}-<name>' for consistency, "
+            "and keep upstreams.backend / depends_on references in lock-step.",
+            file=sys.stderr,
+        )
+
+
 def choose_route_for_compose(
     slug: str,
     meta: dict[str, Any],
@@ -1886,6 +1903,7 @@ def choose_route_for_compose(
         raise ValueError(f"compose file has no services: {compose_file}")
 
     primary_name, primary_service = choose_primary_service(services)
+    _warn_inconsistent_service_naming(slug, list(services.keys()))
     primary_ports = parse_compose_ports(primary_service)
     primary_port = primary_ports[0] if primary_ports else 3000
     primary_image = str(primary_service.get("image", "")).strip()
@@ -4214,6 +4232,34 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
         service_name = match.group(1)
         if service_name not in services:
             issues.append(f"backend references missing service: {service_name}")
+
+    for entry in bm.ensure_list(config.get("service_builds")):
+        if not isinstance(entry, dict):
+            continue
+        target = str(entry.get("target_service", "")).strip()
+        if target and target not in services:
+            issues.append(
+                f"registry service_builds.target_service={target!r} not found in lzc-manifest.yml services "
+                f"({sorted(services.keys())})"
+            )
+    for entry in bm.ensure_list(config.get("dependencies")):
+        if not isinstance(entry, dict):
+            continue
+        target = str(entry.get("target_service", "")).strip()
+        if target and target not in services:
+            issues.append(
+                f"registry dependencies.target_service={target!r} not found in lzc-manifest.yml services "
+                f"({sorted(services.keys())})"
+            )
+    for service_name, payload in services.items():
+        if not isinstance(payload, dict):
+            continue
+        for dep in bm.ensure_list(payload.get("depends_on")):
+            dep_name = str(dep).strip()
+            if dep_name and dep_name not in services:
+                issues.append(
+                    f"service {service_name}.depends_on references missing service: {dep_name}"
+                )
 
     if config.get("build_strategy") == "official_image" and not str(config.get("official_image_registry", "")).strip():
         issues.append("official_image strategy requires official_image_registry")

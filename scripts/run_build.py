@@ -656,6 +656,33 @@ def apply_image_overrides(
     return updated
 
 
+def validate_service_target_alignment(
+    manifest_text: str,
+    config: dict[str, Any],
+    *,
+    context: str,
+) -> None:
+    manifest_services = list_manifest_services(manifest_text)
+    if not manifest_services:
+        return
+    missing: list[tuple[str, str]] = []
+    for entry in config.get("service_builds", []) or []:
+        target = str(entry.get("target_service", "")).strip()
+        if target and target not in manifest_services:
+            missing.append(("service_builds", target))
+    for entry in config.get("dependencies", []) or []:
+        target = str(entry.get("target_service", "")).strip()
+        if target and target not in manifest_services:
+            missing.append(("dependencies", target))
+    if missing:
+        details = ", ".join(f"{section}.{name}" for section, name in missing)
+        available = ", ".join(sorted(manifest_services))
+        raise RuntimeError(
+            f"{context}: target_service not found in lzc-manifest.yml services "
+            f"({details}); manifest services: {available}"
+        )
+
+
 def render_packaging_manifest(
     manifest_text: str,
     *,
@@ -1603,6 +1630,11 @@ def main() -> int:
         write_report(report, report_path)
         manifest_path = repo_dir / "lzc-manifest.yml"
         manifest_text = manifest_path.read_text()
+        validate_service_target_alignment(
+            manifest_text,
+            config,
+            context=f"[{app_name}] registry/manifest pre-build check",
+        )
         meta_path = repo_dir / ".lazycat-build.json"
         image_state_path = repo_dir / IMAGE_STATE_FILENAME
         original_meta_text = meta_path.read_text() if meta_path.exists() else None
