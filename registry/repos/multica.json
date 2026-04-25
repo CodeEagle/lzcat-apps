@@ -24,11 +24,11 @@
       "build_strategy": "upstream_dockerfile",
       "dockerfile_path": "Dockerfile",
       "image_name": "multica-backend",
-      "target_service": "backend"
+      "target_service": "multica-backend"
     },
     {
       "build_args": {
-        "REMOTE_API_URL": "http://backend:8080"
+        "REMOTE_API_URL": "http://multica-backend:8080"
       },
       "build_context": ".",
       "build_strategy": "upstream_with_target_template",
@@ -38,7 +38,7 @@
         "patch-login-build.js"
       ],
       "image_name": "multica-frontend",
-      "target_service": "frontend"
+      "target_service": "multica-frontend"
     }
   ],
   "service_cmd": [],

@@ -160,7 +160,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-  backend:
+  multica-backend:
     image: registry.lazycat.cloud/placeholder/multica:backend
     depends_on:
       - multica-postgres
