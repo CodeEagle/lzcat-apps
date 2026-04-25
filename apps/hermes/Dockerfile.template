@@ -47,21 +47,25 @@ COPY .env.example /app/.env.example
 # 2. .env.example: set sensible defaults so seeded /data/.env has valid values
 # 3. float-ball.js switchUI: unregister webui service workers + clear caches
 #    before and after switching, then navigate to "/" with a cache-buster.
-#    Otherwise stale webui HTML/JS can survive the nginx upstream switch and
-#    keep requesting webui-only endpoints like /settings and /models while the
-#    manager/terminal UI is active.
-# 4. process_manager.py SERVICE_MAP: register "hermes" -> "manager" so
-#    hot-updating CodeEagle/hermes triggers a manager restart.
+#    Also drop the "Check Updates" menu entry — hermes-agent and hermes-webui
+#    have their own self-update mechanisms; the manager-driven git-pull flow
+#    is redundant.
+# 4. explorer.py: replace TERM=wterm (unknown to terminfo) with xterm-256color.
+# 5. main.py + updates.py: disable the manager-side updates router entirely.
 RUN sed -i 's/int(os\.environ\.get("BROWSER_INACTIVITY_TIMEOUT", "300"))/int(os.environ.get("BROWSER_INACTIVITY_TIMEOUT") or "300")/g' \
         /opt/hermes-agent/tools/browser_tool.py && \
     git -C /opt/hermes-agent update-index --skip-worktree tools/browser_tool.py && \
     sed -i 's/^BROWSER_INACTIVITY_TIMEOUT=$/BROWSER_INACTIVITY_TIMEOUT=120/' /app/.env.example && \
     sed -i 's/^BROWSER_SESSION_TIMEOUT=$/BROWSER_SESSION_TIMEOUT=300/' /app/.env.example && \
+    sed -i 's|"TERM": "wterm"|"TERM": "xterm-256color"|' \
+        /opt/hermes/manager/api/explorer.py && \
     python3 - <<'PY' && \
 from pathlib import Path
 
+# float-ball.js: rewrite switchUI with cache clearing + drop "Check Updates" menu item
 path = Path("/opt/hermes/manager/widget/float-ball.js")
 text = path.read_text()
+
 start = text.index("  async function switchUI() {")
 end = text.index("  async function resetConfig()", start)
 replacement = r'''  async function clearWebUICaches() {
@@ -102,13 +106,35 @@ replacement = r'''  async function clearWebUICaches() {
   }
 
 '''
-path.write_text(text[:start] + replacement + text[end:])
+text = text[:start] + replacement + text[end:]
+
+menu_old = (
+    "      '<button class=\"hm-menu-item\" data-action=\"updates\">',\n"
+    "      '  <span class=\"hm-icon\">&#128260;</span> Check Updates',\n"
+    "      '</button>',\n"
+)
+if menu_old not in text:
+    raise SystemExit("float-ball.js updates menu anchor not found")
+text = text.replace(menu_old, "")
+
+path.write_text(text)
+
+# main.py: drop updates_router import + include
+main_path = Path("/opt/hermes/manager/main.py")
+main_text = main_path.read_text()
+for snippet in (
+    "from api.updates import router as updates_router\n",
+    "app.include_router(updates_router, prefix=\"/api/manager\")\n",
+):
+    if snippet not in main_text:
+        raise SystemExit(f"main.py anchor not found: {snippet!r}")
+    main_text = main_text.replace(snippet, "")
+main_path.write_text(main_text)
 PY
-    sed -i 's|    "hermes-webui": "webui",|&\n    "hermes": "manager",|' \
-        /opt/hermes/manager/services/process_manager.py && \
     git -C /opt/hermes update-index --skip-worktree \
         manager/widget/float-ball.js \
-        manager/services/process_manager.py
+        manager/api/explorer.py \
+        manager/main.py
 
 # -----------------------------------------------------------------------------
 # Python dependencies (single venv via system pip)
