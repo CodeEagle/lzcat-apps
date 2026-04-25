@@ -33,7 +33,7 @@
 - Test: `tests/test_project_config.py`
 - Existing input: `project-config.json`
 
-- [ ] **Step 1: Write failing tests for config loading**
+- [x] **Step 1: Write failing tests for config loading**
 
 Create `tests/test_project_config.py`:
 
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run test and verify failure**
+- [x] **Step 2: Run test and verify failure**
 
 Run:
 
@@ -101,7 +101,7 @@ pytest tests/test_project_config.py -v
 
 Expected: import error for `scripts.project_config`.
 
-- [ ] **Step 3: Implement config loader**
+- [x] **Step 3: Implement config loader**
 
 Create `scripts/project_config.py`:
 
@@ -154,7 +154,7 @@ def load_project_config(repo_root: Path) -> ProjectConfig:
     )
 ```
 
-- [ ] **Step 4: Run test and commit**
+- [x] **Step 4: Run test and commit**
 
 Run:
 
@@ -177,7 +177,7 @@ git commit -m "feat: add LazyCat project config loader"
 - Create: `scripts/web_probe.py`
 - Test: `tests/test_web_probe.py`
 
-- [ ] **Step 1: Write failing tests for command construction and fallback**
+- [x] **Step 1: Write failing tests for command construction and fallback**
 
 Create `tests/test_web_probe.py`:
 
@@ -235,7 +235,7 @@ class WebProbeTest(unittest.TestCase):
         self.assertEqual(payload["dump"], "links")
 ```
 
-- [ ] **Step 2: Run test and verify failure**
+- [x] **Step 2: Run test and verify failure**
 
 Run:
 
@@ -245,7 +245,7 @@ pytest tests/test_web_probe.py -v
 
 Expected: import error for `scripts.web_probe`.
 
-- [ ] **Step 3: Implement web probe**
+- [x] **Step 3: Implement web probe**
 
 Create `scripts/web_probe.py` with:
 
@@ -322,7 +322,7 @@ def fetch_page(url: str, *, dump: DumpKind = "text", timeout_seconds: int = 90) 
     )
 ```
 
-- [ ] **Step 4: Run test and commit**
+- [x] **Step 4: Run test and commit**
 
 Run:
 
@@ -346,7 +346,7 @@ git commit -m "feat: add Obscura web probe wrapper"
 - Test: `tests/test_status_sync.py`
 - Read: `project-config.json`
 
-- [ ] **Step 1: Write tests for developer page parsing**
+- [x] **Step 1: Write tests for developer page parsing**
 
 Create `tests/test_status_sync.py`:
 
@@ -386,7 +386,7 @@ class StatusSyncTest(unittest.TestCase):
         self.assertEqual(len(apps), 1)
 ```
 
-- [ ] **Step 2: Implement parser and CLI**
+- [x] **Step 2: Implement parser and CLI**
 
 Create `scripts/status_sync.py`:
 
@@ -463,7 +463,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 3: Run tests and commit**
+- [x] **Step 3: Run tests and commit**
 
 Run:
 
@@ -1277,7 +1277,7 @@ Expected:
 registry/candidates/latest.json
 ```
 
-- [ ] **Step 3: Run one explicit migration**
+- [x] **Step 3: Run one explicit migration**
 
 Use a known existing app first:
 
@@ -1290,6 +1290,11 @@ Expected:
 - `apps/markitdown/` exists
 - `dist/markitdown.lpk` exists
 - install step either succeeds or reports missing local LazyCat credentials
+
+Completion note:
+
+- MarkItDown was built and installed through `./scripts/local_build.sh markitdown --install --functional-check --box-domain=...`; `dist/markitdown.lpk` exists and Browser Use acceptance passed.
+- `auto_migrate.py microsoft/markitdown` now intentionally blocks existing apps unless `--allow-existing` is used, and `--resume` only bypasses the guard when `apps/<slug>/.migration-state.json` exists. This prevents the pilot command from overwriting an already hand-hardened app.
 
 - [x] **Step 4: Create Browser Use acceptance plan**
 

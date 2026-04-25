@@ -33,13 +33,23 @@ def existing_app_guard_reason(
     source: str,
     *,
     app_exists: bool | None = None,
+    migration_state_exists: bool | None = None,
     resume: bool = False,
     allow_existing: bool = False,
 ) -> str:
     slug = infer_slug_from_source(source)
-    exists = (repo_root / "apps" / slug).exists() if app_exists is None else app_exists
-    if not exists or resume or allow_existing:
+    app_dir = repo_root / "apps" / slug
+    exists = app_dir.exists() if app_exists is None else app_exists
+    if not exists or allow_existing:
         return ""
+    if resume:
+        has_state = (app_dir / ".migration-state.json").exists() if migration_state_exists is None else migration_state_exists
+        if has_state:
+            return ""
+        return (
+            f"apps/{slug} already exists but has no .migration-state.json; "
+            "use --allow-existing to intentionally rewrite it, or local_build.sh for build-only validation"
+        )
     return (
         f"apps/{slug} already exists; use --resume to continue it, "
         "--allow-existing to intentionally rewrite it, or local_build.sh for build-only validation"

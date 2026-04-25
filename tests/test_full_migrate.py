@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import io
 import re
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -304,6 +306,30 @@ services:
         ok, issues = fm.preflight_check(repo_root, "bad-app")
         self.assertFalse(ok)
         self.assertTrue(any("heredoc syntax" in issue for issue in issues), issues)
+
+    def test_archive_extract_filter_skips_absolute_symlinks(self) -> None:
+        archive_path = Path(tempfile.mkdtemp(prefix="lzcat-archive-test-")) / "repo.tar.gz"
+        dest_root = Path(tempfile.mkdtemp(prefix="lzcat-archive-dest-"))
+        with tarfile.open(archive_path, "w:gz") as archive:
+            root = tarfile.TarInfo("repo-main")
+            root.type = tarfile.DIRTYPE
+            archive.addfile(root)
+
+            readme_bytes = b"# Demo\n"
+            readme = tarfile.TarInfo("repo-main/README.md")
+            readme.size = len(readme_bytes)
+            archive.addfile(readme, fileobj=io.BytesIO(readme_bytes))
+
+            unsafe_link = tarfile.TarInfo("repo-main/runtime/extensions/node_modules")
+            unsafe_link.type = tarfile.SYMTYPE
+            unsafe_link.linkname = "/tmp/node_modules"
+            archive.addfile(unsafe_link)
+
+        with tarfile.open(archive_path, "r:gz") as archive:
+            archive.extractall(dest_root, filter=fm.safe_tar_data_filter)
+
+        self.assertTrue((dest_root / "repo-main" / "README.md").exists())
+        self.assertFalse((dest_root / "repo-main" / "runtime" / "extensions" / "node_modules").exists())
 
 
 class StateRoundTripTest(unittest.TestCase):

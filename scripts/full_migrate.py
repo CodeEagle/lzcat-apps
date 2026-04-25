@@ -390,6 +390,14 @@ def fetch_text(url: str) -> str:
     raise RuntimeError(f"Failed to fetch {url}: {last_error}") from last_error
 
 
+def safe_tar_data_filter(member: tarfile.TarInfo, dest_path: str) -> tarfile.TarInfo | None:
+    try:
+        return tarfile.data_filter(member, dest_path)
+    except tarfile.FilterError as exc:
+        print(f"[archive] skipping unsafe member {member.name}: {exc}")
+        return None
+
+
 def download_github_archive(repo: str, dest_root: Path) -> Path:
     repo_meta = bm.github_api_json(f"repos/{repo}")
     default_branch = "main"
@@ -429,7 +437,7 @@ def download_github_archive(repo: str, dest_root: Path) -> Path:
         raise RuntimeError(f"GitHub archive 下载失败：{repo}: {last_error}") from last_error
 
     with tarfile.open(archive_path, "r:gz") as tar:
-        tar.extractall(dest_root, filter="data")
+        tar.extractall(dest_root, filter=safe_tar_data_filter)
 
     extracted_dirs = sorted(path for path in dest_root.iterdir() if path.is_dir())
     if not extracted_dirs:
