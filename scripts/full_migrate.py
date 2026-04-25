@@ -4221,6 +4221,38 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
         issues.append("manifest.services is missing")
         return False, issues
 
+    profile = load_app_profile(repo_root, slug)
+    profile_services = (profile or {}).get("fixes", {}).get("services", {}) if isinstance(profile, dict) else {}
+    if isinstance(profile_services, dict) and profile_services:
+        expected_keys: set[str] = set()
+        for _, payload in profile_services.items():
+            if not isinstance(payload, dict):
+                continue
+            for entry in bm.ensure_list(payload.get("environment")):
+                text = str(entry).strip()
+                if "=" not in text:
+                    continue
+                key, value = text.split("=", 1)
+                key = key.strip()
+                if not key or not value.strip():
+                    continue
+                expected_keys.add(key)
+        manifest_keys: set[str] = set()
+        for _, payload in services.items():
+            if not isinstance(payload, dict):
+                continue
+            for entry in bm.ensure_list(payload.get("environment")):
+                text = str(entry).strip()
+                key = text.split("=", 1)[0].strip()
+                if key:
+                    manifest_keys.add(key)
+        missing_keys = sorted(k for k in expected_keys if k not in manifest_keys)
+        if missing_keys:
+            issues.append(
+                f"manifest is missing environment keys present in .app-profile.json: {missing_keys}; "
+                "these may have been accidentally dropped during a rename or refactor"
+            )
+
     for upstream in bm.ensure_list(application.get("upstreams")):
         if not isinstance(upstream, dict):
             continue
