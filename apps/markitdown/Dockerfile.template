@@ -1,8 +1,35 @@
-FROM alpine:3.20
+FROM python:3.13-slim-bullseye
 
-# TODO: replace this placeholder with the real build steps for the upstream project.
-RUN apk add --no-cache bash curl
+ENV DEBIAN_FRONTEND=noninteractive
+ENV EXIFTOOL_PATH=/usr/bin/exiftool
+ENV FFMPEG_PATH=/usr/bin/ffmpeg
+ENV MARKITDOWN_ENABLE_PLUGINS=true
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ffmpeg \
+    exiftool \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
-COPY . /app
-EXPOSE {{SERVICE_PORT}}
-CMD ["sh", "-c", "echo \"Replace this placeholder Dockerfile before running a real build.\" >&2; sleep infinity"]
+
+COPY packages/markitdown /app/packages/markitdown
+COPY packages/markitdown-mcp /app/packages/markitdown-mcp
+COPY packages/lazycat-markitdown-web /app/packages/lazycat-markitdown-web
+
+RUN pip --no-cache-dir install \
+    /app/packages/markitdown[all] \
+    /app/packages/markitdown-mcp \
+    python-multipart
+
+RUN chmod +x /app/packages/lazycat-markitdown-web/launcher.sh \
+    && ln -sf /app/packages/lazycat-markitdown-web/launcher.sh /usr/local/bin/lazycat-markitdown
+
+WORKDIR /workdir
+
+ARG USERID=nobody
+ARG GROUPID=nogroup
+
+USER $USERID:$GROUPID
+
+ENTRYPOINT ["lazycat-markitdown"]
