@@ -64,7 +64,7 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertIsNone(parse_control_command("<@999> 继续处理", bot_user_id="123"))
         self.assertIsNone(parse_control_command("随便聊一句"))
 
-    def test_parse_empty_role_mention_as_help(self) -> None:
+    def test_parse_empty_role_mention_as_content_unavailable(self) -> None:
         repo_root = self.make_repo_root()
         config = self.make_config(repo_root)
         message = {"content": "", "mention_roles": ["role-1"], "author": {"id": "u1"}}
@@ -72,7 +72,7 @@ class DiscordCodexControlTest(unittest.TestCase):
         parsed = parse_control_message(message, config)
 
         self.assertIsNotNone(parsed)
-        self.assertEqual(parsed.kind, "help")
+        self.assertEqual(parsed.kind, "content_unavailable")
 
     def test_process_migration_channel_runs_codex_with_worktree_context(self) -> None:
         repo_root = self.make_repo_root()

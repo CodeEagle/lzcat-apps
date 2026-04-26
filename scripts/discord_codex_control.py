@@ -360,7 +360,7 @@ def parse_control_message(message: dict[str, Any], config: CodexControlConfig) -
     if not content and (
         message_mentions_bot(message, config.bot_user_id) or message_mentions_role(message, config.mention_role_ids)
     ):
-        return ParsedCommand("help")
+        return ParsedCommand("content_unavailable")
     return None
 
 
@@ -373,6 +373,18 @@ def build_help_reply() -> str:
             "`!fix <问题>` 针对当前迁移项目排查修复",
             "`!retry` 让 Codex 接着当前失败继续处理",
             "`@Bot <需求>` 也可以直接唤起 Codex",
+        ]
+    )
+
+
+def build_content_unavailable_reply() -> str:
+    return "\n".join(
+        [
+            "**我收到了 @，但 Discord 没把正文传给我。**",
+            "这通常是 bot 没开启 Message Content Intent，或者你 @ 到的是 role 但正文被 API 隐藏了。",
+            "现在我只能确认你唤起了我，不能知道要交给 Codex 的具体任务。",
+            "",
+            "处理方式：到 Discord Developer Portal 给 `Codex-Agent-Cat` 开启 `Message Content Intent`，然后重新发 `!fix <问题>` 或 `@Codex-Agent-Cat <需求>`。",
         ]
     )
 
@@ -642,6 +654,8 @@ def handle_command(
     now = now or utc_now_iso()
     if parsed.kind == "help":
         return CommandResult("help", build_help_reply())
+    if parsed.kind == "content_unavailable":
+        return CommandResult("content_unavailable", build_content_unavailable_reply())
     if parsed.kind == "status":
         return CommandResult("status", build_status_reply(context, config))
     if parsed.kind != "codex":
