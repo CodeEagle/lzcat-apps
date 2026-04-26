@@ -15,10 +15,13 @@ from scripts.discord_codex_control import (
     CodexControlConfig,
     CodexControlRunResult,
     CodexControlTask,
+    ParsedCommand,
     build_gateway_identify_payload,
     codex_command_catalog,
+    ensure_context_workdir,
     format_codex_result_reply,
     gateway_intents,
+    handle_command,
     handle_gateway_interaction_create,
     handle_gateway_message_create,
     mark_existing_messages_seen,
@@ -424,6 +427,102 @@ class DiscordCodexControlTest(unittest.TestCase):
         state = json.loads(config.state_path.read_text(encoding="utf-8"))
         self.assertEqual(state["channels"]["piclaw-1"]["last_message_id"], "100")
 
+    def test_process_migration_channel_falls_back_when_workspace_path_is_stale(self) -> None:
+        repo_root = self.make_repo_root()
+        self.init_git_repo(repo_root)
+        stale_workspace_path = repo_root / "migration-workspaces" / "migration-piclaw"
+        self.write_queue(repo_root, workspace_path=stale_workspace_path)
+        config = self.make_config(repo_root)
+        tasks: list[CodexControlTask] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "GET" and route == "/guilds/guild-1/channels":
+                return [
+                    {"id": "control-1", "name": "migration-control", "type": 0, "parent_id": "category-1"},
+                    {"id": "piclaw-1", "name": "migration-piclaw", "type": 0, "parent_id": "category-1"},
+                ]
+            if method == "GET" and route == "/channels/control-1/messages?limit=20":
+                return []
+            if method == "GET" and route == "/channels/piclaw-1/messages?limit=20":
+                return [{"id": "100", "content": "!fix 继续处理", "author": {"id": "u1"}}]
+            if method == "PUT" and route == "/channels/piclaw-1/messages/100/reactions/%E2%9C%85/@me":
+                return {}
+            if method == "PUT" and route == "/channels/piclaw-1/messages/100/reactions/%F0%9F%9A%80/@me":
+                return {}
+            if method == "POST" and route == "/channels/piclaw-1/messages":
+                return {"id": "reply-1"}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        def runner(task: CodexControlTask) -> CodexControlRunResult:
+            tasks.append(task)
+            return CodexControlRunResult("completed", 0, "已处理。", task.task_dir)
+
+        results = process_codex_control_commands(
+            config,
+            DiscordClient("token", transport=transport),
+            runner=runner,
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(results, [{"channel_id": "piclaw-1", "message_id": "100", "status": "completed"}])
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0].context.workdir, stale_workspace_path)
+        self.assertTrue(stale_workspace_path.exists())
+        self.assertIn(str(stale_workspace_path), tasks[0].command)
+        self.assertNotIn(str(repo_root), tasks[0].command)
+        branch = subprocess.run(
+            ["git", "-C", str(repo_root), "branch", "--list", "migration/piclaw"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        self.assertIn("migration/piclaw", branch)
+
+    def test_ensure_context_workdir_reuses_existing_branch_when_workspace_is_missing(self) -> None:
+        repo_root = self.make_repo_root()
+        self.init_git_repo(repo_root)
+        subprocess.run(
+            ["git", "-C", str(repo_root), "checkout", "-b", "migration/piclaw"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(repo_root), "checkout", "template"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        workspace_path = repo_root / "migration-workspaces" / "migration-piclaw"
+        queue_path = self.write_queue(repo_root, workspace_path=workspace_path)
+        payload = json.loads(queue_path.read_text(encoding="utf-8"))
+        payload["items"][0]["branch"] = "migration/piclaw"
+        queue_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+        item = payload["items"][0]
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="piclaw-1",
+            channel_name="migration-piclaw",
+            scope="migration",
+            slug="piclaw",
+            item=item,
+            workdir=repo_root,
+        )
+
+        ensured = ensure_context_workdir(context, config)
+
+        self.assertEqual(ensured.workdir, workspace_path)
+        self.assertTrue(workspace_path.exists())
+        self.assertEqual(
+            subprocess.run(
+                ["git", "-C", str(workspace_path), "branch", "--show-current"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip(),
+            "migration/piclaw",
+        )
+
     def test_status_command_does_not_run_codex(self) -> None:
         repo_root = self.make_repo_root()
         workspace_path = repo_root / "migration-workspaces" / "migration-piclaw"
@@ -566,6 +665,109 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertEqual(tasks[0].context.workdir, repo_root)
         self.assertIn("Latest dashboard summary", tasks[0].prompt)
         self.assertIn("piclaw", tasks[0].prompt)
+
+    def test_dashboard_operator_decision_records_human_response_without_runner(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "github:glomatico/gamdl",
+                            "source": "glomatico/gamdl",
+                            "slug": "gamdl",
+                            "state": "waiting_for_human",
+                            "human_request": {
+                                "kind": "migration_decision",
+                                "question": "skip or wrap?",
+                                "options": ["skip_candidate", "build_custom_wrapper"],
+                                "created_at": "2026-04-26T16:25:00Z",
+                            },
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="dashboard-1",
+            channel_name="dashboard",
+            scope="dashboard",
+            slug="dashboard",
+            workdir=repo_root,
+        )
+
+        def runner(_: CodexControlTask) -> CodexControlRunResult:
+            raise AssertionError("dashboard decision should not invoke Codex")
+
+        result = handle_command(
+            ParsedCommand("codex", "build_custom_wrapper"),
+            context,
+            config,
+            runner=runner,
+            now="2026-04-26T16:30:00Z",
+        )
+
+        self.assertEqual(result.status, "human_decision_recorded")
+        payload = json.loads(queue_path.read_text(encoding="utf-8"))
+        item = payload["items"][0]
+        self.assertEqual(item["human_response"]["content"], "build_custom_wrapper")
+        self.assertEqual(item["human_response"]["source"], "dashboard_operator")
+        self.assertEqual(item["human_response"]["channel_id"], "dashboard-1")
+
+    def test_dashboard_operator_decision_reports_ambiguity(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "github:owner/one",
+                            "source": "owner/one",
+                            "slug": "one",
+                            "state": "waiting_for_human",
+                            "human_request": {"options": ["build_custom_wrapper"]},
+                        },
+                        {
+                            "id": "github:owner/two",
+                            "source": "owner/two",
+                            "slug": "two",
+                            "state": "waiting_for_human",
+                            "human_request": {"options": ["build_custom_wrapper"]},
+                        },
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="dashboard-1",
+            channel_name="dashboard",
+            scope="dashboard",
+            slug="dashboard",
+            workdir=repo_root,
+        )
+
+        result = handle_command(
+            ParsedCommand("codex", "build_custom_wrapper"),
+            context,
+            config,
+            now="2026-04-26T16:30:00Z",
+        )
+
+        self.assertEqual(result.status, "human_decision_ambiguous")
+        self.assertIn("one", result.reply)
+        self.assertIn("two", result.reply)
 
     def test_missing_queue_item_is_reported_without_runner(self) -> None:
         repo_root = self.make_repo_root()

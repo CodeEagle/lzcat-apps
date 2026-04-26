@@ -28,7 +28,7 @@ try:
         MAX_DISCORD_MESSAGE_LENGTH,
         DiscordClient,
     )
-    from .migration_workspace import migration_workspace_path, normalize_slug
+    from .migration_workspace import build_worktree_command, migration_branch_name, migration_workspace_path, normalize_slug
     from .project_config import load_project_config
 except ImportError:  # pragma: no cover - direct script execution
     from discord_migration_notifier import (
@@ -36,7 +36,7 @@ except ImportError:  # pragma: no cover - direct script execution
         MAX_DISCORD_MESSAGE_LENGTH,
         DiscordClient,
     )
-    from migration_workspace import migration_workspace_path, normalize_slug
+    from migration_workspace import build_worktree_command, migration_branch_name, migration_workspace_path, normalize_slug
     from project_config import load_project_config
 
 
@@ -307,13 +307,116 @@ def build_workdir(config: CodexControlConfig, slug: str, item: dict[str, Any] | 
     if item:
         workspace_path = str(item.get("workspace_path", "")).strip()
         if workspace_path:
-            return resolve_path(config.repo_root, workspace_path)
+            candidate = resolve_path(config.repo_root, workspace_path)
+            if candidate.exists():
+                return candidate
     workspace_root = resolve_path(config.repo_root, config.workspace_root) if has_path(config.workspace_root) else Path("")
     if has_path(workspace_root):
         candidate = migration_workspace_path(workspace_root, slug)
         if candidate.exists():
             return candidate
     return config.repo_root
+
+
+def _migration_branch_for_context(context: ChannelContext) -> str:
+    item = context.item if isinstance(context.item, dict) else {}
+    branch = str(item.get("branch", "")).strip()
+    if branch:
+        return branch
+    return migration_branch_name(context.slug)
+
+
+def _migration_workspace_for_context(context: ChannelContext, config: CodexControlConfig) -> Path:
+    item = context.item if isinstance(context.item, dict) else {}
+    workspace_path = str(item.get("workspace_path", "")).strip()
+    if workspace_path:
+        return resolve_path(config.repo_root, workspace_path)
+    workspace_root = resolve_path(config.repo_root, config.workspace_root) if has_path(config.workspace_root) else Path("")
+    if has_path(workspace_root):
+        return migration_workspace_path(workspace_root, context.slug)
+    return context.workdir or config.repo_root
+
+
+def _git_branch_exists(repo_root: Path, branch: str) -> bool:
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def _update_queue_workspace_binding(config: CodexControlConfig, item_id: str, *, branch: str, workspace_path: Path) -> None:
+    if not item_id:
+        return
+    queue_path = resolve_path(config.repo_root, config.queue_path)
+    payload = read_json(queue_path, {"schema_version": 1, "items": []})
+    items = payload.get("items")
+    if not isinstance(items, list):
+        return
+    for item in items:
+        if not isinstance(item, dict) or str(item.get("id", "")).strip() != item_id:
+            continue
+        item["branch"] = branch
+        item["workspace_path"] = str(workspace_path)
+        break
+    write_json(queue_path, payload)
+
+
+def ensure_context_workdir(context: ChannelContext, config: CodexControlConfig) -> ChannelContext:
+    if context.scope != "migration" or not context.slug:
+        return context
+    if context.workdir.exists() and context.workdir != config.repo_root:
+        return context
+    if not has_path(config.workspace_root):
+        return context
+
+    branch = _migration_branch_for_context(context)
+    workspace_path = _migration_workspace_for_context(context, config)
+    if workspace_path.exists():
+        return ChannelContext(
+            channel_id=context.channel_id,
+            channel_name=context.channel_name,
+            scope=context.scope,
+            slug=context.slug,
+            item=context.item,
+            workdir=workspace_path,
+        )
+
+    workspace_path.parent.mkdir(parents=True, exist_ok=True)
+    if _git_branch_exists(config.repo_root, branch):
+        command = ["git", "-C", str(config.repo_root), "worktree", "add", str(workspace_path), branch]
+    else:
+        command = build_worktree_command(
+            repo_root=config.repo_root,
+            workspace_root=resolve_path(config.repo_root, config.workspace_root),
+            slug=context.slug,
+            template_ref="template",
+        )
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip() or f"git worktree add failed: {' '.join(command)}"
+        raise RuntimeError(detail)
+
+    item = dict(context.item) if isinstance(context.item, dict) else None
+    if item is not None:
+        item["branch"] = branch
+        item["workspace_path"] = str(workspace_path)
+        _update_queue_workspace_binding(
+            config,
+            str(item.get("id", "")).strip(),
+            branch=branch,
+            workspace_path=workspace_path,
+        )
+    return ChannelContext(
+        channel_id=context.channel_id,
+        channel_name=context.channel_name,
+        scope=context.scope,
+        slug=context.slug,
+        item=item,
+        workdir=workspace_path,
+    )
 
 
 def channel_context(channel: dict[str, Any], config: CodexControlConfig, items: list[dict[str, Any]]) -> ChannelContext | None:
@@ -692,6 +795,93 @@ def update_queue_item_for_cleanup(config: CodexControlConfig, context: ChannelCo
         item.pop("discord", None)
         break
     write_json(queue_path, payload)
+
+
+def _waiting_human_request_options(item: dict[str, Any]) -> list[str]:
+    human_request = item.get("human_request") if isinstance(item.get("human_request"), dict) else {}
+    options = human_request.get("options")
+    if not isinstance(options, list):
+        return []
+    return [str(option).strip() for option in options if str(option).strip()]
+
+
+def find_waiting_item_for_dashboard_instruction(
+    config: CodexControlConfig,
+    instruction: str,
+) -> list[dict[str, Any]]:
+    decision = instruction.strip()
+    if not decision:
+        return []
+    matches: list[dict[str, Any]] = []
+    for item in queue_items(config):
+        if item.get("state") != "waiting_for_human":
+            continue
+        if isinstance(item.get("human_response"), dict):
+            continue
+        if decision not in _waiting_human_request_options(item):
+            continue
+        matches.append(item)
+    return matches
+
+
+def apply_dashboard_operator_decision(
+    config: CodexControlConfig,
+    context: ChannelContext,
+    instruction: str,
+    *,
+    now: str,
+) -> CommandResult | None:
+    if context.scope != "dashboard":
+        return None
+    decision = instruction.strip()
+    if not decision:
+        return None
+    matches = find_waiting_item_for_dashboard_instruction(config, decision)
+    if not matches:
+        return None
+    if len(matches) > 1:
+        slugs = ", ".join(sorted({str(item.get("slug") or item.get("id") or "").strip() for item in matches if item}))
+        return CommandResult(
+            "human_decision_ambiguous",
+            f"仪表盘里有多个等待人工决策的项目同时支持 `{decision}`：{slugs or '(unknown)'}。请改为在对应 migration 频道执行，或先缩小目标。",
+        )
+
+    target = matches[0]
+    queue_path = resolve_path(config.repo_root, config.queue_path)
+    payload = read_json(queue_path, {"schema_version": 1, "items": []})
+    items = payload.get("items")
+    if not isinstance(items, list):
+        return CommandResult("human_decision_failed", "queue.json 结构无效，无法写入人工决策。")
+
+    target_id = str(target.get("id", "")).strip()
+    target_slug = str(target.get("slug") or target.get("source") or target_id).strip()
+    updated = False
+    for item in items:
+        if not isinstance(item, dict) or str(item.get("id", "")).strip() != target_id:
+            continue
+        item["human_response"] = {
+            "content": decision,
+            "channel_id": context.channel_id,
+            "received_at": now,
+            "source": "dashboard_operator",
+        }
+        item["updated_at"] = now
+        item["ops_note"] = f"dashboard_operator_decision:{decision}:{now}"
+        updated = True
+        break
+    if not updated:
+        return CommandResult("human_decision_failed", f"没有在 queue.json 找到待更新项目 `{target_slug}`。")
+
+    meta = payload.get("meta")
+    if not isinstance(meta, dict):
+        meta = {}
+    meta["updated_at"] = now
+    payload["meta"] = meta
+    write_json(queue_path, payload)
+    return CommandResult(
+        "human_decision_recorded",
+        f"已记录人工决策 `{decision}` 到 `{target_slug}`，下一轮 codex worker 会按该选择继续处理。",
+    )
 
 
 def cleanup_workspace_and_branch(config: CodexControlConfig, context: ChannelContext) -> list[str]:
@@ -1124,19 +1314,25 @@ def handle_command(
         return run_filter_cleanup(context, config, client, now=now)
     if parsed.kind != "codex":
         return CommandResult("ignored", "")
+    if dashboard_decision := apply_dashboard_operator_decision(config, context, parsed.instruction, now=now):
+        return dashboard_decision
     if context.scope == "migration" and not context.item:
         return CommandResult(
             "missing_queue_item",
             f"当前频道看起来是 `{context.slug}`，但 queue.json 里没有对应项目。先确认这个频道是否已经上架/过滤，或者用 `!codex <明确任务>` 在 control 频道执行全局排查。",
         )
-    task = build_task(parsed.instruction, context, config, now=now, task_id=task_id)
+    try:
+        ensured_context = ensure_context_workdir(context, config)
+    except RuntimeError as exc:
+        return CommandResult("worktree_failed", f"恢复 `{context.slug}` worktree 失败：{exc}")
+    task = build_task(parsed.instruction, ensured_context, config, now=now, task_id=task_id)
     result = run_runner_with_progress(
         task,
         runner,
         progress_callback=progress_callback,
         progress_interval_seconds=progress_interval_seconds,
     )
-    return CommandResult(result.status, format_codex_result_reply(result, context))
+    return CommandResult(result.status, format_codex_result_reply(result, ensured_context))
 
 
 def gateway_intents() -> int:
