@@ -119,13 +119,13 @@ def build_codex_command(config: CodexWorkerConfig) -> list[str]:
     last_message_path = config.task_dir / "last-message.md"
     return [
         "codex",
+        "--ask-for-approval",
+        "never",
         "exec",
         "-C",
         str(config.repo_root),
         "--sandbox",
         "danger-full-access",
-        "--ask-for-approval",
-        "never",
         "--output-last-message",
         str(last_message_path),
         "-",

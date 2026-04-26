@@ -54,11 +54,9 @@ class CodexMigrationWorkerTest(unittest.TestCase):
 
         command = build_codex_command(config)
 
-        self.assertEqual(command[:4], ["codex", "exec", "-C", str(repo_root)])
+        self.assertEqual(command[:4], ["codex", "--ask-for-approval", "never", "exec"])
         self.assertIn("--sandbox", command)
         self.assertIn("danger-full-access", command)
-        self.assertIn("--ask-for-approval", command)
-        self.assertIn("never", command)
         self.assertEqual(command[-1], "-")
 
     def test_write_task_bundle_writes_prompt_and_metadata(self) -> None:

@@ -515,6 +515,8 @@ def run_cycle(config: ServiceConfig, *, runner: CommandRunner | None = None, now
     summary["browser_recheck"] = refresh_browser_pending(config, queue, runner=runner, now=now)
     summary["codex_worker"] = advance_codex_worker(config, queue, runner=runner, now=now)
     summary["post_acceptance"] = advance_post_acceptance(config, queue, runner=runner, now=now)
+    if summary["browser_recheck"] or summary["codex_worker"] or summary["post_acceptance"]:
+        write_json(config.queue_path, queue)
 
     if not config.skip_status_sync:
         command = build_status_sync_command(config)
