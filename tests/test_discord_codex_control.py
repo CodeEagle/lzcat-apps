@@ -201,7 +201,7 @@ class DiscordCodexControlTest(unittest.TestCase):
             if method == "GET" and route == "/guilds/guild-1/channels":
                 return [
                     {"id": "control-1", "name": "migration-control", "type": 0, "parent_id": "category-1"},
-                    {"id": "dashboard-1", "name": "migration-dashboard", "type": 0, "parent_id": "category-1"},
+                    {"id": "dashboard-1", "name": "dashboard", "type": 0, "parent_id": "category-1"},
                 ]
             if method == "GET" and route == "/channels/control-1/messages?limit=20":
                 return []
@@ -244,7 +244,7 @@ class DiscordCodexControlTest(unittest.TestCase):
             if method == "GET" and route == "/guilds/guild-1/channels":
                 return [
                     {"id": "control-1", "name": "migration-control", "type": 0, "parent_id": "category-1"},
-                    {"id": "dashboard-1", "name": "migration-dashboard", "type": 0, "parent_id": "category-1"},
+                    {"id": "dashboard-1", "name": "dashboard", "type": 0, "parent_id": "category-1"},
                 ]
             if method == "GET" and route == "/channels/control-1/messages?limit=20":
                 return []

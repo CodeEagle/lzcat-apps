@@ -42,7 +42,7 @@ ACK_REACTION = "%F0%9F%91%80"
 WORKER_REACTION = "%F0%9F%94%A7"
 CONTROL_CHANNEL_NAME = "migration-control"
 CONTROL_ONLY_SUFFIXES = {"control", "dashboard", "local-agent", "codex-control"}
-SPECIAL_DASHBOARD_SUFFIX = "dashboard"
+DASHBOARD_CHANNEL_NAME = "dashboard"
 
 CodexRunner = Callable[["CodexControlTask"], "CodexControlRunResult"]
 
@@ -217,9 +217,8 @@ def slug_from_channel_name(channel_name: str, config: CodexControlConfig) -> str
     return suffix
 
 
-def dashboard_channel_name(config: CodexControlConfig) -> str:
-    prefix = normalize_slug(config.channel_prefix) or "migration"
-    return f"{prefix}-{SPECIAL_DASHBOARD_SUFFIX}"
+def dashboard_channel_name() -> str:
+    return DASHBOARD_CHANNEL_NAME
 
 
 def build_workdir(config: CodexControlConfig, slug: str, item: dict[str, Any] | None) -> Path:
@@ -248,12 +247,12 @@ def channel_context(channel: dict[str, Any], config: CodexControlConfig, items: 
         return None
     if normalize_slug(channel_name) == normalize_slug(config.control_channel):
         return ChannelContext(channel_id=channel_id, channel_name=channel_name, scope="control", workdir=config.repo_root)
-    if normalize_slug(channel_name) == normalize_slug(dashboard_channel_name(config)):
+    if normalize_slug(channel_name) == normalize_slug(dashboard_channel_name()):
         return ChannelContext(
             channel_id=channel_id,
             channel_name=channel_name,
             scope="dashboard",
-            slug=SPECIAL_DASHBOARD_SUFFIX,
+            slug=DASHBOARD_CHANNEL_NAME,
             workdir=config.repo_root,
         )
     slug = slug_from_channel_name(channel_name, config)

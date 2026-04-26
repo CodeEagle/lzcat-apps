@@ -218,7 +218,7 @@ def main() -> int:
                 token=token,
                 guild_id=config.discord.guild_id,
                 category_id=config.discord.category_id,
-                channel_name="migration-dashboard",
+                channel_name="dashboard",
             )
     print(json.dumps({key: str(value) for key, value in paths.items()}, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
