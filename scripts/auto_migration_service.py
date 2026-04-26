@@ -376,11 +376,18 @@ def build_prepare_submission_command(config: ServiceConfig, item: dict[str, Any]
 
 
 def build_codex_worker_command(config: ServiceConfig, item: dict[str, Any]) -> list[str]:
+    repo_root = item_repo_root(config, item)
     command = [
         "python3",
         "scripts/codex_migration_worker.py",
         "--repo-root",
-        str(config.repo_root),
+        str(repo_root),
+        "--queue-path",
+        str(config.queue_path),
+        "--task-root",
+        str(config.repo_root / "registry" / "auto-migration" / "codex-tasks"),
+        "--outbox-dir",
+        str(config.repo_root / "registry" / "auto-migration" / "notifications"),
         "--item-json",
         json.dumps(item, ensure_ascii=False, sort_keys=True),
     ]
@@ -796,6 +803,10 @@ def publish_discord_update(
     item = find_queue_item(queue, item_id)
     if item is None:
         return
+    if status == "filtered_out":
+        discord_state = item.get("discord") if isinstance(item.get("discord"), dict) else {}
+        if not str(discord_state.get("message_id", "")).strip():
+            return
     try:
         notifier.publish_update(item, status=status, now=now)
     except Exception as exc:  # pragma: no cover - exact Discord/network exception varies.
@@ -863,6 +874,17 @@ def advance_codex_worker(
     item = select_next_codex_item(queue, max_attempts=max(1, config.max_codex_attempts))
     if not item:
         return []
+
+    workspace_result = prepare_migration_workspace(config, item, runner=runner)
+    if workspace_result.returncode != 0:
+        update_item_state(
+            queue,
+            str(item.get("id", "")),
+            state="build_failed",
+            now=now,
+            last_error=f"git worktree exited {workspace_result.returncode}",
+        )
+        return [{"id": item.get("id", ""), "status": "worktree_failed", "returncode": workspace_result.returncode}]
 
     command = build_codex_worker_command(config, item)
     result = runner(command)
