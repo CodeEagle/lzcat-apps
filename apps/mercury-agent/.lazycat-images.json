@@ -1,25 +1,25 @@
 {
   "schema_version": 1,
   "app": "mercury-agent",
-  "source_version": "v1.0.0",
-  "build_version": "1.0.0",
-  "head_sha": "0660509e4d1b",
+  "source_version": "v1.1.0",
+  "build_version": "1.1.0",
+  "head_sha": "f8b96bfccc73",
   "build_recipe_hash": "13f83b0ce73d2a4959ff0e1d2ab4a2be21ad9937fdaca5cdd70f7319c6f2a005",
-  "updated_at": "2026-04-25T14:54:30.823228+00:00",
+  "updated_at": "2026-04-26T12:51:47.051661+00:00",
   "images": {
-    "mercury-agent": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:5e4c8c0f2c97225d"
+    "mercury-agent": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:945c514a7b4e7bb2"
   },
   "source_images": {
-    "mercury-agent": "ghcr.io/codeeagle/lazycatimages:mercuryAgentLzcat_0660509e4d1b"
+    "mercury-agent": "ghcr.io/codeeagle/lazycatimages:mercuryAgentLzcat_f8b96bfccc73"
   },
   "source_digests": {
-    "_primary": "sha256:4d23135ad587ada8d589ef46c5da3276b26759e4474a5cddccae8a705e7f6b6c"
+    "_primary": "sha256:2270c985faeffa030a2b80a497a48a07e6c1d8b2df5b58d4a37689e65422b498"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:mercuryAgentLzcat_0660509e4d1b",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:5e4c8c0f2c97225d",
-      "elapsed_seconds": 75.036,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:mercuryAgentLzcat_f8b96bfccc73",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:945c514a7b4e7bb2",
+      "elapsed_seconds": 84.721,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
