@@ -471,6 +471,7 @@ def channel_context(channel: dict[str, Any], config: CodexControlConfig, items: 
         slug=slug,
         item=item,
         workdir=build_workdir(config, slug, item),
+        implicit_codex=True,
     )
 
 
@@ -861,19 +862,35 @@ def find_waiting_item_for_dashboard_instruction(
     return matches
 
 
-def apply_dashboard_operator_decision(
+def apply_operator_decision(
     config: CodexControlConfig,
     context: ChannelContext,
     instruction: str,
     *,
     now: str,
 ) -> CommandResult | None:
-    if context.scope != "dashboard":
-        return None
     decision = instruction.strip()
     if not decision:
         return None
-    matches = find_waiting_item_for_dashboard_instruction(config, decision)
+    queue_path = resolve_path(config.repo_root, config.queue_path)
+    payload = read_json(queue_path, {"schema_version": 1, "items": []})
+    items = payload.get("items")
+    if not isinstance(items, list):
+        return CommandResult("human_decision_failed", "queue.json 结构无效，无法写入人工决策。")
+
+    matches: list[dict[str, Any]] = []
+    if context.scope == "dashboard":
+        matches = find_waiting_item_for_dashboard_instruction(config, decision)
+    elif context.scope == "migration" and isinstance(context.item, dict):
+        item = context.item
+        if (
+            item.get("state") == "waiting_for_human"
+            and not isinstance(item.get("human_response"), dict)
+            and decision in _waiting_human_request_options(item)
+        ):
+            matches = [item]
+    else:
+        return None
     if not matches:
         return None
     if len(matches) > 1:
@@ -884,12 +901,6 @@ def apply_dashboard_operator_decision(
         )
 
     target = matches[0]
-    queue_path = resolve_path(config.repo_root, config.queue_path)
-    payload = read_json(queue_path, {"schema_version": 1, "items": []})
-    items = payload.get("items")
-    if not isinstance(items, list):
-        return CommandResult("human_decision_failed", "queue.json 结构无效，无法写入人工决策。")
-
     target_id = str(target.get("id", "")).strip()
     target_slug = str(target.get("slug") or target.get("source") or target_id).strip()
     updated = False
@@ -900,10 +911,10 @@ def apply_dashboard_operator_decision(
             "content": decision,
             "channel_id": context.channel_id,
             "received_at": now,
-            "source": "dashboard_operator",
+            "source": "dashboard_operator" if context.scope == "dashboard" else "migration_operator",
         }
         item["updated_at"] = now
-        item["ops_note"] = f"dashboard_operator_decision:{decision}:{now}"
+        item["ops_note"] = f"{context.scope}_operator_decision:{decision}:{now}"
         updated = True
         break
     if not updated:
@@ -1452,8 +1463,8 @@ def handle_command(
         return run_filter_cleanup(context, config, client, now=now)
     if parsed.kind != "codex":
         return CommandResult("ignored", "")
-    if dashboard_decision := apply_dashboard_operator_decision(config, context, parsed.instruction, now=now):
-        return dashboard_decision
+    if operator_decision := apply_operator_decision(config, context, parsed.instruction, now=now):
+        return operator_decision
     if context.scope == "migration" and not context.item:
         return CommandResult(
             "missing_queue_item",

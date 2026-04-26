@@ -147,7 +147,7 @@ class DiscordCodexControlTest(unittest.TestCase):
 
         self.assertEqual(parsed, ParsedCommand("codex", "继续处理等待人工决策的项目"))
 
-    def test_migration_channel_keeps_plain_text_ignored_without_command_prefix(self) -> None:
+    def test_migration_channel_treats_plain_text_as_codex_instruction(self) -> None:
         repo_root = self.make_repo_root()
         config = self.make_config(repo_root)
         context = ChannelContext(
@@ -156,11 +156,12 @@ class DiscordCodexControlTest(unittest.TestCase):
             scope="migration",
             slug="piclaw",
             workdir=repo_root,
+            implicit_codex=True,
         )
 
         parsed = parse_channel_message({"content": "选择官方作者信息，继续上架", "author": {"id": "u1"}}, config, context)
 
-        self.assertIsNone(parsed)
+        self.assertEqual(parsed, ParsedCommand("codex", "选择官方作者信息，继续上架"))
 
     def test_gateway_identify_payload_requests_message_events_and_content(self) -> None:
         payload = build_gateway_identify_payload("token-1")
@@ -310,6 +311,101 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertIn("Codex worker 已启动", replies[0])
         self.assertIn("Codex 任务完成", replies[-1])
         self.assertFalse(any("收到" in reply for reply in replies))
+
+    def test_gateway_message_create_runs_plain_text_from_migration_channel(self) -> None:
+        repo_root = self.make_repo_root()
+        workspace_path = repo_root.parent / f"{repo_root.name}-migration-workspaces" / "migration-piclaw"
+        workspace_path.mkdir(parents=True)
+        self.write_queue(repo_root, workspace_path=workspace_path)
+        config = self.make_config(repo_root)
+        item = json.loads((repo_root / "registry" / "auto-migration" / "queue.json").read_text())["items"][0]
+        context = ChannelContext(
+            channel_id="piclaw-1",
+            channel_name="migration-piclaw",
+            scope="migration",
+            slug="piclaw",
+            item=item,
+            workdir=workspace_path,
+            implicit_codex=True,
+        )
+        tasks: list[CodexControlTask] = []
+        replies: list[str] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "PUT" and route == "/channels/piclaw-1/messages/903/reactions/%E2%9C%85/@me":
+                return {}
+            if method == "PUT" and route == "/channels/piclaw-1/messages/903/reactions/%F0%9F%9A%80/@me":
+                return {}
+            if method == "POST" and route == "/channels/piclaw-1/messages":
+                assert payload is not None
+                replies.append(str(payload.get("content", "")))
+                return {"id": "reply-1"}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        def runner(task: CodexControlTask) -> CodexControlRunResult:
+            tasks.append(task)
+            return CodexControlRunResult("completed", 0, "已处理。", task.task_dir)
+
+        result = handle_gateway_message_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"piclaw-1": context},
+            {"id": "903", "channel_id": "piclaw-1", "content": "继续修复截图流程", "author": {"id": "u1"}},
+            runner=runner,
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(result, {"channel_id": "piclaw-1", "message_id": "903", "status": "completed"})
+        self.assertEqual(len(tasks), 1)
+        self.assertIn("继续修复截图流程", tasks[0].prompt)
+        self.assertEqual(len(replies), 2)
+        self.assertIn("Codex worker 已启动", replies[0])
+        self.assertIn("Codex 任务完成", replies[-1])
+
+    def test_migration_operator_decision_records_human_response_without_runner(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True, exist_ok=True)
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "item-1",
+                            "slug": "piclaw",
+                            "state": "waiting_for_human",
+                            "human_request": {"options": ["choose_official_author"]},
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="piclaw-1",
+            channel_name="migration-piclaw",
+            scope="migration",
+            slug="piclaw",
+            item=json.loads(queue_path.read_text(encoding="utf-8"))["items"][0],
+            workdir=repo_root,
+            implicit_codex=True,
+        )
+
+        result = handle_command(
+            ParsedCommand("codex", "choose_official_author"),
+            context,
+            config,
+            now="2026-04-26T16:30:00Z",
+        )
+
+        self.assertEqual(result.status, "human_decision_recorded")
+        item = json.loads(queue_path.read_text(encoding="utf-8"))["items"][0]
+        self.assertEqual(item["human_response"]["content"], "choose_official_author")
+        self.assertEqual(item["human_response"]["source"], "migration_operator")
+        self.assertEqual(item["human_response"]["channel_id"], "piclaw-1")
 
     def test_running_progress_message_only_reports_summary_delta(self) -> None:
         repo_root = self.make_repo_root()
