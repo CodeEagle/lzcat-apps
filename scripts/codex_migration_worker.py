@@ -17,6 +17,9 @@ DEFAULT_TASK_ROOT = "registry/auto-migration/codex-tasks"
 DEFAULT_OUTBOX = "registry/auto-migration/notifications"
 DEFAULT_CODEX_WORKER_MODEL = "gpt-5.5"
 DEFAULT_CODEX_FALLBACK_MODEL = "gpt-5.4"
+SESSION_ID_PATTERN = re.compile(
+    r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
+)
 
 
 @dataclass(frozen=True)
@@ -26,7 +29,14 @@ class CodexWorkerConfig:
     outbox_dir: Path | None = None
     box_domain: str = ""
     model: str = DEFAULT_CODEX_WORKER_MODEL
+    session_id: str = ""
     execute: bool = True
+
+
+@dataclass(frozen=True)
+class CodexRunResult:
+    returncode: int
+    session_id: str = ""
 
 
 def utc_now_iso() -> str:
@@ -125,6 +135,26 @@ Recent daemon logs:
 
 def build_codex_command(config: CodexWorkerConfig) -> list[str]:
     last_message_path = config.task_dir / "last-message.md"
+    session_id = config.session_id.strip()
+    if session_id:
+        return [
+            "codex",
+            "--ask-for-approval",
+            "never",
+            "-C",
+            str(config.repo_root),
+            "--sandbox",
+            "danger-full-access",
+            "exec",
+            "resume",
+            "--model",
+            config.model,
+            "--json",
+            "--output-last-message",
+            str(last_message_path),
+            session_id,
+            "-",
+        ]
     return [
         "codex",
         "--ask-for-approval",
@@ -136,6 +166,7 @@ def build_codex_command(config: CodexWorkerConfig) -> list[str]:
         config.model,
         "--sandbox",
         "danger-full-access",
+        "--json",
         "--output-last-message",
         str(last_message_path),
         "-",
@@ -159,6 +190,46 @@ def command_with_model(command: list[str], model: str) -> list[str]:
     return updated
 
 
+def _session_id_from_value(value: Any) -> str:
+    if isinstance(value, str) and SESSION_ID_PATTERN.fullmatch(value.strip()):
+        return value.strip()
+    return ""
+
+
+def _walk_session_id(payload: Any) -> str:
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            key_text = str(key).lower()
+            if ("session" in key_text or "conversation" in key_text) and (session_id := _session_id_from_value(value)):
+                return session_id
+        for value in payload.values():
+            if session_id := _walk_session_id(value):
+                return session_id
+    elif isinstance(payload, list):
+        for value in payload:
+            if session_id := _walk_session_id(value):
+                return session_id
+    return ""
+
+
+def extract_session_id_from_jsonl(output: str) -> str:
+    session_id = ""
+    for line in output.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if found := _walk_session_id(payload):
+            session_id = found
+    if session_id:
+        return session_id
+    matches = SESSION_ID_PATTERN.findall(output)
+    return matches[-1] if matches else ""
+
+
 def write_task_bundle(
     config: CodexWorkerConfig,
     item: dict[str, Any],
@@ -179,6 +250,8 @@ def write_task_bundle(
                 "item": item,
                 "command": command,
                 "prompt_path": str(prompt_path),
+                "resumed": bool(config.session_id.strip()),
+                "session_id": config.session_id.strip(),
             },
             ensure_ascii=False,
             indent=2,
@@ -226,7 +299,7 @@ def write_notification(
     return path
 
 
-def run_codex(config: CodexWorkerConfig, prompt: str, command: list[str]) -> int:
+def run_codex(config: CodexWorkerConfig, prompt: str, command: list[str]) -> CodexRunResult:
     stdout_path = config.task_dir / "codex.stdout.log"
     stderr_path = config.task_dir / "codex.stderr.log"
     result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=False)
@@ -254,7 +327,8 @@ def run_codex(config: CodexWorkerConfig, prompt: str, command: list[str]) -> int
             json.dumps(fallback_used, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
-    return result.returncode
+    session_id = extract_session_id_from_jsonl("".join(stdout_chunks)) or config.session_id.strip()
+    return CodexRunResult(returncode=result.returncode, session_id=session_id)
 
 
 def parse_item_json(value: str) -> dict[str, Any]:
@@ -262,6 +336,11 @@ def parse_item_json(value: str) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("--item-json must decode to an object")
     return payload
+
+
+def item_codex_session_id(item: dict[str, Any]) -> str:
+    codex = item.get("codex") if isinstance(item.get("codex"), dict) else {}
+    return str(codex.get("session_id", "")).strip()
 
 
 def parse_args() -> argparse.Namespace:
@@ -298,6 +377,7 @@ def main() -> int:
         outbox_dir=outbox_dir,
         box_domain=args.box_domain,
         model=args.model,
+        session_id=item_codex_session_id(item),
         execute=not args.no_execute,
     )
     prompt = build_codex_prompt(
@@ -312,14 +392,19 @@ def main() -> int:
 
     status = "prepared"
     returncode = 0
+    session_id = config.session_id.strip()
     if config.execute:
-        returncode = run_codex(config, prompt, command)
-        status = "completed" if returncode == 0 else "failed"
+        codex_result = run_codex(config, prompt, command)
+        returncode = codex_result.returncode
+        session_id = codex_result.session_id or session_id
+        status = "completed" if codex_result.returncode == 0 else "failed"
 
     notification_path = write_notification(outbox_dir, item, status=status, task_dir=task_dir, now=now)
     result = {
         "status": status,
         "returncode": returncode,
+        "resumed": bool(config.session_id.strip()),
+        "session_id": session_id,
         "task_dir": bundle["task_dir"],
         "notification_path": str(notification_path),
     }

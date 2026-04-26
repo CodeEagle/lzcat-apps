@@ -1073,6 +1073,18 @@ class AutoMigrationServiceTest(unittest.TestCase):
 
         def runner(command: list[str]) -> CommandResult:
             calls.append(command)
+            if command[:2] == ["python3", "scripts/codex_migration_worker.py"]:
+                return CommandResult(
+                    returncode=0,
+                    stdout=json.dumps(
+                        {
+                            "status": "completed",
+                            "returncode": 0,
+                            "session_id": "11111111-2222-3333-4444-555555555555",
+                            "task_dir": str(repo_root / "registry" / "auto-migration" / "codex-tasks" / "demo"),
+                        }
+                    ),
+                )
             return CommandResult(returncode=0)
 
         summary = run_cycle(
@@ -1095,6 +1107,24 @@ class AutoMigrationServiceTest(unittest.TestCase):
         queue = json.loads(queue_path.read_text(encoding="utf-8"))
         self.assertEqual(queue["items"][0]["state"], "ready")
         self.assertEqual(queue["items"][0]["codex"]["attempts"], 1)
+        self.assertEqual(queue["items"][0]["codex"]["session_id"], "11111111-2222-3333-4444-555555555555")
+
+    def test_codex_worker_command_passes_existing_session_id_in_item_json(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        item = {
+            "id": "github:owner/demo",
+            "source": "owner/demo",
+            "slug": "demo",
+            "state": "build_failed",
+            "codex": {"session_id": "11111111-2222-3333-4444-555555555555"},
+        }
+        config = ServiceConfig(repo_root=repo_root, queue_path=queue_path)
+
+        command = build_codex_worker_command(config, item)
+        payload = json.loads(command[command.index("--item-json") + 1])
+
+        self.assertEqual(payload["codex"]["session_id"], "11111111-2222-3333-4444-555555555555")
 
     def test_run_cycle_reconciles_excluded_item_before_codex_worker(self) -> None:
         repo_root = self.make_repo_root()
