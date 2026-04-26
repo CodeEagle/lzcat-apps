@@ -99,6 +99,23 @@ LOW_PRIORITY_DOCKERFILE_DIRS = {
     "tests",
     "tools",
 }
+LOW_PRIORITY_COMPOSE_DIRS = {
+    ".github",
+    "ci",
+    "contrib",
+    "demo",
+    "demos",
+    "dev",
+    "docs",
+    "example",
+    "examples",
+    "hack",
+    "packaging",
+    "scripts",
+    "test",
+    "tests",
+    "tools",
+}
 NATIVE_PLATFORM_HINTS = {
     "android",
     "desktop",
@@ -126,6 +143,12 @@ NATIVE_ROOT_BUILD_FILES = {
     "SConstruct",
     "xmake.lua",
 }
+CLI_PACKAGE_ROOT_FILES = {
+    "Cargo.toml",
+    "pyproject.toml",
+    "setup.cfg",
+    "setup.py",
+}
 NATIVE_README_HINTS = (
     "cargo add",
     "embedded",
@@ -144,6 +167,7 @@ NATIVE_README_HINTS = (
     "open gl",
     "opengl",
     "pc client",
+    "pip install ",
     "ps4",
     "psvita",
     "runs locally on your machine",
@@ -520,7 +544,11 @@ def select_compose_file(source_dir: Path) -> Path | None:
         candidates.extend(source_dir.rglob(name))
     if not candidates:
         return None
-    return sorted(candidates, key=lambda p: (-compose_file_score(source_dir, p), str(p)))[0]
+    ranked = sorted(candidates, key=lambda p: (-compose_file_score(source_dir, p), str(p)))
+    best = ranked[0]
+    if compose_file_score(source_dir, best) < -100:
+        return None
+    return best
 
 
 def compose_file_score(source_dir: Path, path: Path) -> int:
@@ -537,6 +565,8 @@ def compose_file_score(source_dir: Path, path: Path) -> int:
     score -= len(parts) * 10
     if len(parts) == 1:
         score += 40
+    elif parts[0] in LOW_PRIORITY_COMPOSE_DIRS:
+        score -= 140
 
     joined = "/".join(parts)
     for hint in DEPLOY_COMPOSE_NAME_HINTS:
@@ -864,6 +894,11 @@ def detect_non_service_native_project(
     if native_root_files:
         native_score += 3
         reasons.append(f"根目录存在原生构建文件：{', '.join(native_root_files)}")
+
+    cli_package_files = sorted(root_file_names & CLI_PACKAGE_ROOT_FILES)
+    if cli_package_files:
+        native_score += 5
+        reasons.append(f"根目录存在 CLI/SDK 打包文件：{', '.join(cli_package_files)}")
 
     native_matches = sorted({hint for hint in NATIVE_README_HINTS if hint in readme_text})
     if native_matches:
@@ -1865,6 +1900,7 @@ def choose_route_for_official_image(slug: str, meta: dict[str, Any], image_ref: 
         "check_strategy": str(meta.get("check_strategy", "github_release")),
         "build_strategy": "official_image",
         "official_image_registry": image_repository(image_ref),
+        "official_image_fallback_tag": tag if tag and not is_version_like_tag(tag) else "",
         "service_port": service_port,
         "image_targets": [slug],
         "services": {

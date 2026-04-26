@@ -222,6 +222,45 @@ msb --help
         )
         return temp_dir
 
+    def make_cli_repo_with_test_only_compose(self) -> Path:
+        temp_dir = Path(tempfile.mkdtemp(prefix="lzcat-cli-test-compose-"))
+        (temp_dir / "pyproject.toml").write_text(
+            "\n".join(
+                [
+                    "[project]",
+                    'name = "dvc-like"',
+                    'version = "0.1.0"',
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        (temp_dir / "README.rst").write_text(
+            """
+DVC-like
+========
+
+Data Versioning and ML Experiments.
+
+Install the CLI with ``pip install dvc-like`` and run it locally.
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+        (temp_dir / "tests").mkdir(parents=True, exist_ok=True)
+        (temp_dir / "tests" / "docker-compose.yml").write_text(
+            """
+services:
+  git-server:
+    image: ghcr.io/linuxserver/openssh-server:latest
+    ports:
+      - "2222:2222"
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+        return temp_dir
+
     def run_script(self, repo_root: Path, source: Path) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [
@@ -328,6 +367,16 @@ msb --help
         slug = normalize_slug(source_repo.name)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("CLI/SDK", result.stdout)
+        self.assertFalse((repo_root / "apps" / slug).exists())
+        self.assertFalse((repo_root / "registry" / "repos" / f"{slug}.json").exists())
+
+    def test_cli_repo_with_test_only_compose_is_rejected(self) -> None:
+        repo_root = self.make_repo_root()
+        source_repo = self.make_cli_repo_with_test_only_compose()
+        result = self.run_script(repo_root, source_repo)
+        slug = normalize_slug(source_repo.name)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("原生客户端/CLI/SDK", result.stdout)
         self.assertFalse((repo_root / "apps" / slug).exists())
         self.assertFalse((repo_root / "registry" / "repos" / f"{slug}.json").exists())
 
@@ -498,6 +547,26 @@ msb --help
         ruby_loader = sh_mock.call_args.args[0][3]
         self.assertIn("Psych.safe_load(text, aliases: true)", ruby_loader)
         self.assertIn("Psych.safe_load(text, [], [], true)", ruby_loader)
+
+    def test_choose_route_for_official_image_preserves_non_semver_tag_as_fallback(self) -> None:
+        spec = fm.choose_route_for_official_image(
+            "demo",
+            {
+                "project_name": "Demo",
+                "description": "Demo app",
+                "upstream_repo": "acme/demo",
+                "homepage": "https://example.com/demo",
+                "license": "MIT",
+                "author": "Acme",
+                "check_strategy": "github_release",
+            },
+            "ghcr.io/acme/demo:latest",
+            8080,
+            "README docker run",
+        )
+
+        self.assertEqual(spec["official_image_registry"], "ghcr.io/acme/demo")
+        self.assertEqual(spec["official_image_fallback_tag"], "latest")
 
     def test_refresh_icon_path_recovers_from_stale_temp_path(self) -> None:
         source_repo = Path(tempfile.mkdtemp(prefix="lzcat-stale-icon-"))
