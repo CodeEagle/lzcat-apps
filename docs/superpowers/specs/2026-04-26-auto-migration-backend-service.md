@@ -93,6 +93,25 @@ python3 scripts/auto_migration_service.py \
   --box-domain <box-domain>
 ```
 
+Codex repair is opt-in on top of build/install:
+
+```bash
+python3 scripts/auto_migration_service.py \
+  --daemon \
+  --enable-build-install \
+  --functional-check \
+  --box-domain <box-domain> \
+  --enable-codex-worker \
+  --max-codex-attempts 1
+```
+
+When a queue item reaches `build_failed` or `browser_failed`, the service can run
+`scripts/codex_migration_worker.py`. The worker writes a task bundle under
+`registry/auto-migration/codex-tasks/`, runs `codex exec` non-interactively, stores stdout/stderr and the
+last Codex message, then writes an IM-friendly Markdown notification under
+`registry/auto-migration/notifications/`. A successful Codex run resets the item to `ready`, allowing the
+same daemon cycle to retry migration. Failed Codex runs stay capped by `--max-codex-attempts`.
+
 With build/install enabled, the service can move apps to `browser_pending`, `browser_failed`, or `browser_passed`
 based on `.functional-check.json`. On later cycles it rechecks `browser_pending` apps, so a Codex Browser Use
 acceptance file can be recorded asynchronously and the daemon will continue from there.
@@ -105,5 +124,7 @@ Runtime files are intentionally ignored by git:
 
 - `registry/auto-migration/queue.json`
 - `registry/auto-migration/service logs`
+- `registry/auto-migration/codex-tasks`
+- `registry/auto-migration/notifications`
 - `registry/candidates/*.json`
 - `registry/status/*.json`

@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.auto_migration_service import (
     CommandResult,
     ServiceConfig,
+    build_codex_worker_command,
     build_copywriter_command,
     build_functional_check_command,
     build_prepare_submission_command,
@@ -339,6 +340,123 @@ class AutoMigrationServiceTest(unittest.TestCase):
         self.assertIn(build_functional_check_command(config, {"slug": "demo"}), calls)
         queue = json.loads(queue_path.read_text(encoding="utf-8"))
         self.assertEqual(queue["items"][0]["state"], "publish_ready")
+
+    def test_build_codex_worker_command_passes_queue_item_json(self) -> None:
+        repo_root = self.make_repo_root()
+        config = ServiceConfig(
+            repo_root=repo_root,
+            queue_path=repo_root / "registry" / "auto-migration" / "queue.json",
+            box_domain="box.example.test",
+        )
+        item = {"id": "github:owner/demo", "source": "owner/demo", "slug": "demo", "state": "build_failed"}
+
+        command = build_codex_worker_command(config, item)
+
+        self.assertEqual(command[:2], ["python3", "scripts/codex_migration_worker.py"])
+        self.assertIn("--item-json", command)
+        payload = json.loads(command[command.index("--item-json") + 1])
+        self.assertEqual(payload["id"], "github:owner/demo")
+        self.assertIn("--box-domain", command)
+        self.assertIn("box.example.test", command)
+
+    def test_run_cycle_invokes_codex_worker_for_failed_item(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "github:owner/demo",
+                            "source": "owner/demo",
+                            "slug": "demo",
+                            "state": "build_failed",
+                            "last_error": "compose parser failed",
+                            "created_at": "2026-04-25T00:00:00Z",
+                            "updated_at": "2026-04-25T00:00:00Z",
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        calls: list[list[str]] = []
+
+        def runner(command: list[str]) -> CommandResult:
+            calls.append(command)
+            return CommandResult(returncode=0)
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=queue_path,
+                skip_status_sync=True,
+                skip_scout=True,
+                dry_run=True,
+                enable_codex_worker=True,
+                box_domain="box.example.test",
+            ),
+            runner=runner,
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertEqual(summary["codex_worker"][0]["status"], "ready")
+        self.assertEqual(summary["migration"]["status"], "dry_run")
+        self.assertTrue(any(call[:2] == ["python3", "scripts/codex_migration_worker.py"] for call in calls))
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["state"], "ready")
+        self.assertEqual(queue["items"][0]["codex"]["attempts"], 1)
+
+    def test_run_cycle_respects_codex_attempt_limit(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "github:owner/demo",
+                            "source": "owner/demo",
+                            "slug": "demo",
+                            "state": "build_failed",
+                            "codex": {"attempts": 1},
+                            "created_at": "2026-04-25T00:00:00Z",
+                            "updated_at": "2026-04-25T00:00:00Z",
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        calls: list[list[str]] = []
+
+        def runner(command: list[str]) -> CommandResult:
+            calls.append(command)
+            return CommandResult(returncode=0)
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=queue_path,
+                skip_status_sync=True,
+                skip_scout=True,
+                enable_codex_worker=True,
+                max_codex_attempts=1,
+            ),
+            runner=runner,
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertEqual(summary["codex_worker"], [])
+        self.assertEqual(calls, [])
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["state"], "build_failed")
 
 
 if __name__ == "__main__":
