@@ -170,6 +170,32 @@ class AutoMigrationServiceTest(unittest.TestCase):
         self.assertEqual(updated["items"][0]["state"], "waiting_for_human")
         self.assertEqual(updated["items"][0]["human_request"]["question"], "Need credentials?")
 
+    def test_upsert_candidates_preserves_filtered_out_state(self) -> None:
+        queue = {
+            "schema_version": 1,
+            "items": [
+                {
+                    "id": "github:owner/list",
+                    "source": "owner/list",
+                    "slug": "list",
+                    "state": "filtered_out",
+                    "filtered_reason": "ai_discovery_skip",
+                    "discovery_review": {"status": "skip"},
+                    "created_at": "2026-04-25T00:00:00Z",
+                    "updated_at": "2026-04-25T00:00:00Z",
+                }
+            ],
+        }
+
+        updated = upsert_candidates(
+            queue,
+            [{"full_name": "owner/list", "repo": "list", "status": "needs_review"}],
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertEqual(updated["items"][0]["state"], "filtered_out")
+        self.assertEqual(updated["items"][0]["filtered_reason"], "ai_discovery_skip")
+
     def test_select_next_ready_item_skips_filtered_and_pending_items(self) -> None:
         queue = {
             "schema_version": 1,

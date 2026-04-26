@@ -47,6 +47,7 @@ PROTECTED_STATES = {
     "published",
     "waiting_for_human",
     "discovery_review",
+    "filtered_out",
 }
 
 

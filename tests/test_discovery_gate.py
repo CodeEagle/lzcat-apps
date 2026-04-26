@@ -90,6 +90,28 @@ class DiscoveryGateTest(unittest.TestCase):
         self.assertIn("判断是否值得迁移", item["discovery_review"]["prompt"])
         self.assertEqual(item["discovery_review"]["created_at"], "2026-04-26T10:00:00Z")
 
+    def test_keeps_ai_skipped_item_filtered_when_candidate_still_needs_review(self) -> None:
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/list",
+                    "source": "owner/list",
+                    "slug": "list",
+                    "state": "filtered_out",
+                    "candidate_status": "needs_review",
+                    "filtered_reason": "ai_discovery_skip",
+                    "discovery_review": {"status": "skip", "reason": "Curated list, not app"},
+                    "candidate": {"full_name": "owner/list", "repo_url": "https://github.com/owner/list"},
+                }
+            ]
+        }
+
+        changes = reconcile_queue_items(queue, publication_index={}, now="2026-04-26T10:00:00Z")
+
+        self.assertEqual(changes, [])
+        self.assertEqual(queue["items"][0]["state"], "filtered_out")
+        self.assertEqual(queue["items"][0]["discovery_review"]["status"], "skip")
+
     def test_ensures_existing_discovery_review_item_has_prompt(self) -> None:
         queue = {
             "items": [
