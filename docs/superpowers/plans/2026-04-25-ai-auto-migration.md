@@ -1359,6 +1359,47 @@ Run dry-run package flow:
 
 Expected: no publish occurs; functional check gate reports pass when Browser Use acceptance is present.
 
+## Task 13: 7x24 Auto Migration Service
+
+**Files:**
+- Create: `scripts/auto_migration_service.py`
+- Test: `tests/test_auto_migration_service.py`
+- Update: `.gitignore`
+- Update: `docs/superpowers/specs/2026-04-26-auto-migration-backend-service.md`
+
+- [x] **Step 1: Add queue and command orchestration tests**
+
+Cover candidate upsert, filtered candidates, protected in-progress states, dry-run behavior, validate-only migration,
+build/install functional-check handoff, Browser Use recheck, and post-acceptance submission preparation.
+
+- [x] **Step 2: Implement the durable service loop**
+
+Add `scripts/auto_migration_service.py` with:
+
+- `status_sync.py` and `scout.py scan` orchestration
+- durable queue state under `registry/auto-migration/queue.json`
+- one migration worker per cycle by default
+- safe default `validate-only` migration
+- opt-in `--enable-build-install --functional-check --box-domain ...`
+- async `browser_pending` recheck
+- copywriting and store-submission preparation after Browser Use pass
+- daemon mode via `--daemon --interval-seconds ...`
+
+- [x] **Step 3: Preserve publish safety**
+
+The service advances apps to `publish_ready`, not an unconfirmed developer-console submission. Final `提交审核`
+remains a human confirmation action.
+
+- [x] **Step 4: Verify**
+
+Run:
+
+```bash
+python3 -m unittest tests.test_auto_migration_service -v
+```
+
+Expected: service tests pass.
+
 ## Rollout Order
 
 1. Implement Tasks 1-3 to get project config, Obscura probe, and developer status sync.
@@ -1366,7 +1407,8 @@ Expected: no publish occurs; functional check gate reports pass when Browser Use
 3. Implement Tasks 5-7 to make Browser Use acceptance a first-class local gate.
 4. Implement Tasks 8-9 to wire orchestration and publishing protection.
 5. Run Task 10 with one known app.
-6. Only after the pilot passes, add copywriting and publisher convenience scripts.
+6. Add copywriting and publisher convenience scripts after the pilot passes.
+7. Run Task 13 as the 7x24 supervisor that keeps discovery, migration, Browser Use recheck, copywriting, and `publish_ready` preparation moving.
 
 ## Self-Review
 

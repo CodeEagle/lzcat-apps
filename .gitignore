@@ -8,6 +8,7 @@ artifacts/
 dist/
 registry/candidates/
 registry/status/
+registry/auto-migration/
 apps/*/upstream/
 apps/*/.browser-acceptance-plan.json
 apps/*/.functional-check.json
