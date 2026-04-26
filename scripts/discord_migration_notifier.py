@@ -164,6 +164,9 @@ class DiscordClient:
             raise ValueError("Discord send message response is not an object")
         return response
 
+    def add_reaction(self, channel_id: str, message_id: str, emoji: str) -> None:
+        self.request_json("PUT", f"/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me")
+
     def edit_message(self, channel_id: str, message_id: str, content: str) -> dict[str, Any]:
         response = self.request_json(
             "PATCH",

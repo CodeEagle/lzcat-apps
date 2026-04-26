@@ -37,6 +37,7 @@ DEFAULT_STATE_PATH = "registry/auto-migration/discord-codex-control.json"
 DEFAULT_TASK_ROOT = "registry/auto-migration/codex-control-tasks"
 DEFAULT_CODEX_MODEL = "gpt-5.5"
 DEFAULT_CODEX_FALLBACK_MODEL = "gpt-5.4"
+ACK_REACTION = "%F0%9F%91%80"
 CONTROL_CHANNEL_NAME = "migration-control"
 CONTROL_ONLY_SUFFIXES = {"control", "dashboard", "local-agent", "codex-control"}
 
@@ -722,6 +723,11 @@ def process_codex_control_commands(
             parsed = parse_control_message(message, config)
             if not parsed:
                 continue
+            reaction_error = ""
+            try:
+                client.add_reaction(context.channel_id, message_id, ACK_REACTION)
+            except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+                reaction_error = str(exc)
             will_run = parsed.kind == "codex" and not (context.scope == "migration" and not context.item)
             send_error = ""
             if will_run:
@@ -742,6 +748,9 @@ def process_codex_control_commands(
                 entry["status"] = status
                 entry["reply_error"] = send_error
                 channel_state["last_error"] = send_error
+            if reaction_error:
+                entry["reaction_error"] = reaction_error
+                channel_state["last_error"] = reaction_error
             results.append(entry)
 
         if last_seen != last_message_id:

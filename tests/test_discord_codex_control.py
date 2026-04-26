@@ -94,6 +94,8 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return []
             if method == "GET" and route == "/channels/piclaw-1/messages?limit=20":
                 return [{"id": "100", "content": "!fix 修复网页截图流程", "author": {"id": "u1"}}]
+            if method == "PUT" and route == "/channels/piclaw-1/messages/100/reactions/%F0%9F%91%80/@me":
+                return {}
             if method == "POST" and route == "/channels/piclaw-1/messages":
                 return {"id": f"reply-{len(events)}"}
             raise AssertionError(f"unexpected Discord call {method} {route}")
@@ -116,6 +118,10 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertIn("修复网页截图流程", tasks[0].prompt)
         self.assertIn("rcarmo/piclaw", tasks[0].prompt)
         self.assertIn(str(workspace_path), tasks[0].command)
+        self.assertLess(
+            events.index(("PUT", "/channels/piclaw-1/messages/100/reactions/%F0%9F%91%80/@me", None)),
+            next(index for index, event in enumerate(events) if event[0:2] == ("POST", "/channels/piclaw-1/messages")),
+        )
         self.assertEqual(sum(1 for event in events if event[0:2] == ("POST", "/channels/piclaw-1/messages")), 2)
         state = json.loads(config.state_path.read_text(encoding="utf-8"))
         self.assertEqual(state["channels"]["piclaw-1"]["last_message_id"], "100")
@@ -138,6 +144,8 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return []
             if method == "GET" and route == "/channels/piclaw-1/messages?limit=20":
                 return [{"id": "101", "content": "!status", "author": {"id": "u1"}}]
+            if method == "PUT" and route == "/channels/piclaw-1/messages/101/reactions/%F0%9F%91%80/@me":
+                return {}
             if method == "POST" and route == "/channels/piclaw-1/messages":
                 assert payload is not None
                 replies.append(str(payload.get("content", "")))
@@ -159,7 +167,7 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertIn("Codex 频道状态：piclaw", replies[0])
         self.assertIn("worktree 存在：yes", replies[0])
 
-    def test_missing_queue_item_is_reported_without_ack_or_runner(self) -> None:
+    def test_missing_queue_item_is_reported_without_runner(self) -> None:
         repo_root = self.make_repo_root()
         self.write_queue(repo_root)
         config = self.make_config(repo_root)
@@ -175,6 +183,8 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return []
             if method == "GET" and route == "/channels/demo-1/messages?limit=20":
                 return [{"id": "102", "content": "!fix 继续", "author": {"id": "u1"}}]
+            if method == "PUT" and route == "/channels/demo-1/messages/102/reactions/%F0%9F%91%80/@me":
+                return {}
             if method == "POST" and route == "/channels/demo-1/messages":
                 assert payload is not None
                 replies.append(str(payload.get("content", "")))
@@ -252,6 +262,8 @@ class DiscordCodexControlTest(unittest.TestCase):
                 raise RuntimeError("HTTP 403")
             if method == "GET" and route == "/channels/piclaw-1/messages?limit=20":
                 return [{"id": "301", "content": "!status", "author": {"id": "u1"}}]
+            if method == "PUT" and route == "/channels/piclaw-1/messages/301/reactions/%F0%9F%91%80/@me":
+                return {}
             if method == "POST" and route == "/channels/piclaw-1/messages":
                 assert payload is not None
                 replies.append(str(payload.get("content", "")))
@@ -305,6 +317,8 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return []
             if method == "GET" and route == "/channels/piclaw-1/messages?limit=20":
                 return [{"id": "401", "content": "!status", "author": {"id": "u1"}}]
+            if method == "PUT" and route == "/channels/piclaw-1/messages/401/reactions/%F0%9F%91%80/@me":
+                return {}
             if method == "POST" and route == "/channels/piclaw-1/messages":
                 raise RuntimeError("send failed")
             raise AssertionError(f"unexpected Discord call {method} {route}")
