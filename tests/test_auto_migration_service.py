@@ -1174,6 +1174,44 @@ class AutoMigrationServiceTest(unittest.TestCase):
         self.assertEqual(queue["items"][0]["state"], "ready")
         self.assertEqual(queue["items"][0]["human_response"]["content"], "填上游作者，继续。")
 
+    def test_run_cycle_processes_discord_local_agent_commands(self) -> None:
+        repo_root = self.make_repo_root()
+        local_agent_root = repo_root / "LocalAgent"
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        queue_path.write_text(json.dumps({"schema_version": 1, "items": []}) + "\n", encoding="utf-8")
+        observed = {}
+
+        def fake_process(command_config: object, client: object, *, now: str) -> list[dict[str, str]]:
+            observed["local_agent_root"] = str(command_config.local_agent_root)
+            observed["guild_id"] = command_config.guild_id
+            observed["now"] = now
+            return [{"message_id": "human-1", "status": "imported"}]
+
+        with patch("scripts.auto_migration_service.process_local_agent_commands", side_effect=fake_process):
+            summary = run_cycle(
+                ServiceConfig(
+                    repo_root=repo_root,
+                    queue_path=queue_path,
+                    skip_status_sync=True,
+                    skip_scout=True,
+                    dry_run=True,
+                    discord_enabled=True,
+                    discord_guild_id="guild-1",
+                    discord_bot_token="token-1",
+                    local_agent_enabled=True,
+                    local_agent_path=local_agent_root,
+                    local_agent_snapshot_path=repo_root / "registry" / "candidates" / "local-agent-latest.json",
+                ),
+                runner=lambda command: CommandResult(returncode=0),
+                now="2026-04-26T00:00:00Z",
+            )
+
+        self.assertEqual(summary["local_agent_commands"], [{"message_id": "human-1", "status": "imported"}])
+        self.assertEqual(observed["local_agent_root"], str(local_agent_root))
+        self.assertEqual(observed["guild_id"], "guild-1")
+        self.assertEqual(observed["now"], "2026-04-26T00:00:00Z")
+
     def test_codex_worker_success_keeps_browser_failed_state(self) -> None:
         repo_root = self.make_repo_root()
         queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
