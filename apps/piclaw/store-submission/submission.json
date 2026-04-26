@@ -7,6 +7,11 @@
   "version": "2.0.1",
   "homepage": "https://github.com/rcarmo/piclaw",
   "license": "MIT",
+  "upstream_attribution": {
+    "original_or_source_author": false,
+    "source_author": "rcarmo",
+    "source_url": "https://github.com/rcarmo/piclaw"
+  },
   "short_description": "把 Pi Coding Agent 放进懒猫微服，在浏览器里管理本地 AI 编程会话、项目工作区和长期任务记录。",
   "description_zh": "在懒猫微服中运行的自托管 Pi Coding Agent 工作台，支持浏览器聊天、会话管理和持久化项目工作区。",
   "description_en": "Self-hosted Pi Coding Agent workspace with browser chat, session management, and persistent project storage.",

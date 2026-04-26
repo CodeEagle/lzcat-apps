@@ -168,6 +168,11 @@ def build_submission(repo_root: Path, slug: str, developer_url: str, output_dir:
         "version": version,
         "homepage": str(manifest.get("homepage", "")).strip(),
         "license": str(manifest.get("license", "")).strip(),
+        "upstream_attribution": {
+            "original_or_source_author": False,
+            "source_author": str(manifest.get("author", "")).strip(),
+            "source_url": str(manifest.get("homepage", "")).strip(),
+        },
         "short_description": first_nonempty_line(section(store_copy, "一句话卖点")),
         "description_zh": str(zh_locale.get("description", manifest.get("description", ""))).strip(),
         "description_en": str(en_locale.get("description", manifest.get("description", ""))).strip(),
@@ -231,6 +236,9 @@ def write_checklist(repo_root: Path, output_dir: Path, submission: dict[str, Any
 - Homepage: {submission["homepage"]}
 - License: {submission["license"]}
 - Keywords: {keywords}
+- Original/source-author declaration: `{submission["upstream_attribution"]["original_or_source_author"]}`
+- Source Author: {submission["upstream_attribution"]["source_author"]}
+- Source URL: {submission["upstream_attribution"]["source_url"]}
 
 ## 需要上传的文件
 
@@ -256,9 +264,10 @@ def write_checklist(repo_root: Path, output_dir: Path, submission: dict[str, Any
 1. 打开开发者入口。
 2. 新建 App。
 3. 填写应用名、包名、版本、简介、详情、关键词、主页和许可证。
-4. 上传图标、截图和已验证 LPK。
-5. 停在最终创建/提交/发布按钮前，等待用户确认。
-6. 用户确认后再提交，并记录后台返回的状态或详情页链接。
+4. 若不是原创或源作者，取消原创声明，并填写原作者名称与源项目地址。
+5. 上传图标、截图和已验证 LPK。
+6. 停在最终创建/提交/发布按钮前，等待用户确认。
+7. 用户确认后再提交，并记录后台返回的状态或详情页链接。
 """
     checklist_path.write_text(checklist, encoding="utf-8")
     return checklist_path
