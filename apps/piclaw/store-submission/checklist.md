@@ -12,6 +12,9 @@
 - Homepage: https://github.com/rcarmo/piclaw
 - License: MIT
 - Keywords: PiClaw, piclaw, AI 编程, Coding Agent, 自托管, LazyCat, 懒猫微服, 开发者工具, 项目工作区
+- Original/source-author declaration: `False`
+- Source Author: rcarmo
+- Source URL: https://github.com/rcarmo/piclaw
 
 ## 需要上传的文件
 
@@ -37,6 +40,7 @@
 1. 打开开发者入口。
 2. 新建 App。
 3. 填写应用名、包名、版本、简介、详情、关键词、主页和许可证。
-4. 上传图标、截图和已验证 LPK。
-5. 停在最终创建/提交/发布按钮前，等待用户确认。
-6. 用户确认后再提交，并记录后台返回的状态或详情页链接。
+4. 若不是原创或源作者，取消原创声明，并填写原作者名称与源项目地址。
+5. 上传图标、截图和已验证 LPK。
+6. 停在最终创建/提交/发布按钮前，等待用户确认。
+7. 用户确认后再提交，并记录后台返回的状态或详情页链接。
