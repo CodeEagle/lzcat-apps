@@ -38,6 +38,7 @@ DEFAULT_TASK_ROOT = "registry/auto-migration/codex-control-tasks"
 DEFAULT_CODEX_MODEL = "gpt-5.5"
 DEFAULT_CODEX_FALLBACK_MODEL = "gpt-5.4"
 ACK_REACTION = "%F0%9F%91%80"
+WORKER_REACTION = "%F0%9F%94%A7"
 CONTROL_CHANNEL_NAME = "migration-control"
 CONTROL_ONLY_SUFFIXES = {"control", "dashboard", "local-agent", "codex-control"}
 
@@ -731,6 +732,10 @@ def process_codex_control_commands(
             will_run = parsed.kind == "codex" and not (context.scope == "migration" and not context.item)
             send_error = ""
             if will_run:
+                try:
+                    client.add_reaction(context.channel_id, message_id, WORKER_REACTION)
+                except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+                    reaction_error = str(exc)
                 try:
                     client.send_message(context.channel_id, truncate_reply(f"收到，正在交给 Codex 处理：{parsed.instruction}"))
                 except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
