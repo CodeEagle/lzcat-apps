@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,6 +10,20 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "bootstrap_migration.py"
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+import bootstrap_migration as bm
+
+
+def fake_png(width: int = 256, height: int = 256) -> bytes:
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + (13).to_bytes(4, "big")
+        + b"IHDR"
+        + width.to_bytes(4, "big")
+        + height.to_bytes(4, "big")
+        + b"\x08\x06\x00\x00\x00"
+        + b"\x00\x00\x00\x00"
+    )
 
 
 class BootstrapMigrationTest(unittest.TestCase):
@@ -218,6 +233,45 @@ class BootstrapMigrationTest(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("must not use heredoc syntax", result.stderr)
+
+    def test_discovers_repo_icon_from_docs_directory(self) -> None:
+        source_repo = Path(tempfile.mkdtemp(prefix="lzcat-icon-source-"))
+        (source_repo / "docs").mkdir(parents=True, exist_ok=True)
+        icon_path = source_repo / "docs" / "icon-256.png"
+        icon_path.write_bytes(fake_png(256, 256))
+        (source_repo / "public").mkdir(parents=True, exist_ok=True)
+        (source_repo / "public" / "logo-small.png").write_bytes(fake_png(64, 64))
+
+        self.assertEqual(bm.discover_repo_icon(source_repo), icon_path)
+
+    def test_prefers_primary_icon_over_web_touch_icon(self) -> None:
+        source_repo = Path(tempfile.mkdtemp(prefix="lzcat-touch-icon-source-"))
+        (source_repo / "docs").mkdir(parents=True, exist_ok=True)
+        icon_path = source_repo / "docs" / "icon-256.png"
+        icon_path.write_bytes(fake_png(256, 256))
+        (source_repo / "runtime" / "web" / "static").mkdir(parents=True, exist_ok=True)
+        touch_icon = source_repo / "runtime" / "web" / "static" / "apple-touch-icon.png"
+        touch_icon.write_bytes(fake_png(180, 180))
+        web_icon = source_repo / "runtime" / "web" / "static" / "icon-512.png"
+        web_icon.write_bytes(fake_png(512, 512))
+
+        self.assertEqual(bm.discover_repo_icon(source_repo), icon_path)
+
+    def test_discovers_repo_logo_when_icon_name_is_absent(self) -> None:
+        source_repo = Path(tempfile.mkdtemp(prefix="lzcat-logo-source-"))
+        (source_repo / "assets").mkdir(parents=True, exist_ok=True)
+        logo_path = source_repo / "assets" / "logo.png"
+        logo_path.write_bytes(fake_png(512, 512))
+
+        self.assertEqual(bm.discover_repo_icon(source_repo), logo_path)
+
+    def test_discovers_repo_icon_from_github_assets(self) -> None:
+        source_repo = Path(tempfile.mkdtemp(prefix="lzcat-github-icon-source-"))
+        (source_repo / ".github" / "assets").mkdir(parents=True, exist_ok=True)
+        icon_path = source_repo / ".github" / "assets" / "app-icon.png"
+        icon_path.write_bytes(fake_png(256, 256))
+
+        self.assertEqual(bm.discover_repo_icon(source_repo), icon_path)
 
 
 if __name__ == "__main__":

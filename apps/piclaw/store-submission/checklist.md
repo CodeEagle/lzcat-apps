@@ -16,7 +16,7 @@
 ## 需要上传的文件
 
 - LPK: `dist/piclaw.lpk`
-- LPK sha256: `d6257986b1fd48add1b9234d52b5fb0c16a70d722f8c344e181781a67881f844`
+- LPK sha256: `cae7a1c202d987c2b624b219696bb59a28e2d4286ed65815803cdd53a77fff68`
 - Icon: `apps/piclaw/store-submission/assets/icon.png`
 - Screenshots:
 - `apps/piclaw/store-submission/assets/screenshots/piclaw-home.png`
