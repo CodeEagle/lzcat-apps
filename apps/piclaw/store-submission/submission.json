@@ -41,11 +41,13 @@
   "assets": {
     "icon": "apps/piclaw/store-submission/assets/icon.png",
     "screenshots": [
-      "apps/piclaw/store-submission/assets/screenshots/piclaw-home.png"
+      "apps/piclaw/store-submission/assets/screenshots/piclaw-desktop-1920.png",
+      "apps/piclaw/store-submission/assets/screenshots/piclaw-desktop-2560.png"
     ],
     "source_icon": "apps/piclaw/icon.png",
     "source_screenshots": [
-      "apps/piclaw/acceptance/piclaw-home.png"
+      "apps/piclaw/acceptance/piclaw-desktop-1920.png",
+      "apps/piclaw/acceptance/piclaw-desktop-2560.png"
     ],
     "web_screenshot_metadata": "apps/piclaw/acceptance/web-screenshots.json",
     "store_copy": "apps/piclaw/copywriting/store-copy.md",
