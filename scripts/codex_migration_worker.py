@@ -22,6 +22,7 @@ class CodexWorkerConfig:
     task_dir: Path
     outbox_dir: Path | None = None
     box_domain: str = ""
+    model: str = "gpt-5.4"
     execute: bool = True
 
 
@@ -124,6 +125,8 @@ def build_codex_command(config: CodexWorkerConfig) -> list[str]:
         "exec",
         "-C",
         str(config.repo_root),
+        "--model",
+        config.model,
         "--sandbox",
         "danger-full-access",
         "--output-last-message",
@@ -222,6 +225,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--outbox-dir", default=DEFAULT_OUTBOX)
     parser.add_argument("--item-json", required=True)
     parser.add_argument("--box-domain", default="")
+    parser.add_argument("--model", default="gpt-5.4")
     parser.add_argument("--no-execute", action="store_true")
     return parser.parse_args()
 
@@ -243,6 +247,7 @@ def main() -> int:
         task_dir=task_dir,
         outbox_dir=outbox_dir,
         box_domain=args.box_domain,
+        model=args.model,
         execute=not args.no_execute,
     )
     prompt = build_codex_prompt(repo_root, item, box_domain=args.box_domain, recent_logs=read_recent_logs(repo_root))

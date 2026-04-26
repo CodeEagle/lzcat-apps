@@ -57,6 +57,8 @@ class CodexMigrationWorkerTest(unittest.TestCase):
         self.assertEqual(command[:4], ["codex", "--ask-for-approval", "never", "exec"])
         self.assertIn("--sandbox", command)
         self.assertIn("danger-full-access", command)
+        self.assertIn("--model", command)
+        self.assertIn("gpt-5.4", command)
         self.assertEqual(command[-1], "-")
 
     def test_write_task_bundle_writes_prompt_and_metadata(self) -> None:
