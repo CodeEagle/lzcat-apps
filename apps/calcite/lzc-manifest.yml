@@ -1,0 +1,41 @@
+application:
+  public_path:
+    - /
+  subdomain: calcite
+  upstreams:
+    -
+      backend: http://dev:4000/
+      location: /
+author: apache
+description: Apache Calcite
+homepage: https://calcite.apache.org/
+license: Apache-2.0
+locales:
+  en:
+    description: Apache Calcite
+    name: calcite
+  zh:
+    description: （迁移初稿）Calcite 的懒猫微服版本
+    name: calcite
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+name: calcite
+package: fun.selfstudio.app.migration.calcite
+services:
+  build-site:
+    binds:
+      - /lzcapp/var/data/calcite/build-site/jekyll:/home/jekyll
+    command: sh -c "rm -rf /home/jekyll/.bundle /home/jekyll/Gemfile.lock /home/jekyll/.jekyll-cache /home/target/ && apt-get update && apt-get install -y build-essential libssl-dev zlib1g-dev ruby-dev bundler wget && wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && chmod +x /usr/bin/yq && ./download-avatars.sh && bundle install && bundle exec jekyll build && chmod 777 ./*"
+    image: registry.lazycat.cloud/placeholder/calcite:build-site
+  dev:
+    binds:
+      - /lzcapp/var/data/calcite/dev/root:/root
+    command: sh -c "apt-get update && apt-get install -y build-essential libssl-dev zlib1g-dev ruby-dev bundler wget && wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && chmod +x /usr/bin/yq && ./download-avatars.sh && bundle install && bundle exec jekyll serve --host=0.0.0.0 --watch --force_polling"
+    image: registry.lazycat.cloud/placeholder/calcite:dev
+  generate-javadoc:
+    binds:
+      - /lzcapp/var/data/calcite/generate-javadoc/calcite:/usr/src/calcite
+      - /lzcapp/var/data/calcite/generate-javadoc/m2:/root/.m2
+    command: sh -c "./gradlew javadocAggregate; rm -rf site/target/javadocAggregate; mkdir -p site/target; mv build/docs/javadocAggregate site/target"
+    image: registry.lazycat.cloud/placeholder/calcite:generate-javadoc
+version: 1.23.0
