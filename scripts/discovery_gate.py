@@ -160,6 +160,9 @@ def reconcile_queue_items(
                 changes.append({"id": str(item.get("id", "")).strip(), "status": "filtered_out", "reason": "published_upstream"})
                 continue
 
+        if state == "filtered_out" and item.get("filtered_reason") == "ai_discovery_skip":
+            continue
+
         if status == "needs_review" and (state != "discovery_review" or not isinstance(item.get("discovery_review"), dict)):
             _mark_discovery_review(item, now=now)
             changes.append({"id": str(item.get("id", "")).strip(), "status": "discovery_review", "reason": "needs_ai_review"})
