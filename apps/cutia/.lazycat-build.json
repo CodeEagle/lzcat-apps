@@ -1,7 +1,7 @@
 {
   "upstream_repo": "msgbyte/cutia",
-  "source_version": "c1a3dcf",
-  "build_version": "0.1.5",
-  "build_label": "c1a3dcf@20260402T005606Z",
-  "last_checked_at": "2026-04-02T00:56:06.632801+00:00"
+  "source_version": "d679df5",
+  "build_version": "0.1.6",
+  "build_label": "d679df5@20260426T012530Z",
+  "last_checked_at": "2026-04-26T01:25:30.769644+00:00"
 }

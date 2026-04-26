@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "app": "cutia",
+  "source_version": "d679df5",
+  "build_version": "0.1.6",
+  "head_sha": "0decb1680f14",
+  "build_recipe_hash": "e6a2ab8859e20a13eb44f4dfe6821ec3d2353f9e7d7dcfd6617d41ceb1ed8e68",
+  "updated_at": "2026-04-26T01:25:30.769334+00:00",
+  "images": {
+    "cutia": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:dadba5d29b29b61b",
+    "postgres": "registry.lazycat.cloud/invokerlaw/library/postgres:c7066f661fdb4a89",
+    "redis": "registry.lazycat.cloud/invokerlaw/library/redis:160a706bce934011"
+  },
+  "source_images": {
+    "cutia": "ghcr.io/codeeagle/lazycatimages:cutia_0decb1680f14",
+    "postgres": "postgres:16-alpine",
+    "redis": "redis:7-alpine"
+  },
+  "source_digests": {
+    "_primary": "sha256:2f460ca4c3bc195f09bf2279e04a048d254ba9b4784fcbd9ee767f224a19a0eb"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:cutia_0decb1680f14",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:dadba5d29b29b61b",
+      "elapsed_seconds": 138.533,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    },
+    {
+      "source_image": "postgres:16-alpine",
+      "target_image": "registry.lazycat.cloud/invokerlaw/library/postgres:c7066f661fdb4a89",
+      "elapsed_seconds": 0.0,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": true,
+      "service": "postgres",
+      "kind": "dependency"
+    },
+    {
+      "source_image": "redis:7-alpine",
+      "target_image": "registry.lazycat.cloud/invokerlaw/library/redis:160a706bce934011",
+      "elapsed_seconds": 0.0,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": true,
+      "service": "redis",
+      "kind": "dependency"
+    }
+  ]
+}
