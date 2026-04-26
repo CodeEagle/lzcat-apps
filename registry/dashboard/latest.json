@@ -1,0 +1,165 @@
+{
+  "date": "2026-04-26",
+  "failed_items": [
+    {
+      "last_error": "auto_migrate exited 1",
+      "slug": "helix",
+      "source": "helixml/helix",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "nodewarden",
+      "source": "shuaiplus/nodewarden",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "Browser Use acceptance failed after codex repair",
+      "slug": "microsandbox",
+      "source": "superradcompany/microsandbox",
+      "state": "browser_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "hifi",
+      "source": "sachinsenal0x64/hifi",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "airbyte",
+      "source": "airbytehq/airbyte",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "openrun",
+      "source": "openrundev/openrun",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "easylist",
+      "source": "easylist/easylist",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "auto_migrate exited 1",
+      "slug": "openclaw",
+      "source": "openclaw/openclaw",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "auto_migrate exited 1",
+      "slug": "dvc",
+      "source": "treeverse/dvc",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "auto_migrate exited 1",
+      "slug": "hallelujahim",
+      "source": "dongyuwei/hallelujahIM",
+      "state": "build_failed"
+    }
+  ],
+  "generated_at": "2026-04-26T08:59:19Z",
+  "local_agent": {
+    "status_counts": {
+      "already_migrated": 284,
+      "excluded": 180,
+      "needs_review": 140,
+      "portable": 285
+    },
+    "total": 889
+  },
+  "publication": {
+    "status_counts": {
+      "unknown": 48
+    },
+    "total": 48
+  },
+  "queue": {
+    "state_counts": {
+      "browser_failed": 1,
+      "build_failed": 11,
+      "discovery_review": 190,
+      "filtered_out": 503,
+      "publish_ready": 1,
+      "ready": 310
+    },
+    "total": 1016
+  },
+  "reward_opportunities": [
+    "完成可上架应用的开发者后台提交",
+    "为每个上架应用补齐 Playground 图文攻略",
+    "补齐桌面 2 张、手机 3 张网页内截图",
+    "把成功经验回写 template 分支提高下一次移植收益"
+  ],
+  "top_candidates": [
+    {
+      "description": "A complete AI agency at your fingertips - From frontend wizards to Reddit community ninjas, from whimsy injectors to reality checkers. Each agent is a specialized expert with personality, processes, and proven deliverables.",
+      "full_name": "msitarzewski/agency-agents",
+      "repo_url": "https://github.com/msitarzewski/agency-agents",
+      "stars_today": 4297,
+      "status": "needs_review",
+      "total_stars": 15597
+    },
+    {
+      "description": "A Simple and Universal Swarm Intelligence Engine, Predicting Anything. 简洁通用的群体智能引擎，预测万物",
+      "full_name": "666ghj/MiroFish",
+      "repo_url": "https://github.com/666ghj/MiroFish",
+      "stars_today": 2222,
+      "status": "portable",
+      "total_stars": 9766
+    },
+    {
+      "description": "The design language that makes your AI harness better at design.",
+      "full_name": "pbakaus/impeccable",
+      "repo_url": "https://github.com/pbakaus/impeccable",
+      "stars_today": 1291,
+      "status": "portable",
+      "total_stars": 2494
+    },
+    {
+      "description": "Unofficial Python API for Google NotebookLM",
+      "full_name": "teng-lin/notebooklm-py",
+      "repo_url": "https://github.com/teng-lin/notebooklm-py",
+      "stars_today": 457,
+      "status": "needs_review",
+      "total_stars": 3969
+    },
+    {
+      "description": "The agent that grows with you",
+      "full_name": "NousResearch/hermes-agent",
+      "repo_url": "https://github.com/NousResearch/hermes-agent",
+      "stars_today": 358,
+      "status": "needs_review",
+      "total_stars": 2547
+    },
+    {
+      "description": "The best ChatGPT that $100 can buy.",
+      "full_name": "karpathy/nanochat",
+      "repo_url": "https://github.com/karpathy/nanochat",
+      "stars_today": 332,
+      "status": "portable",
+      "total_stars": 45195
+    },
+    {
+      "description": "An AI Hedge Fund Team",
+      "full_name": "virattt/ai-hedge-fund",
+      "repo_url": "https://github.com/virattt/ai-hedge-fund",
+      "stars_today": 275,
+      "status": "needs_review",
+      "total_stars": 46966
+    },
+    {
+      "description": "A simple, lightweight PowerShell script that allows you to remove pre-installed apps, disable telemetry, as well as perform various other changes to declutter and customize your Windows experience. Win11Debloat works for both Windows 10 and Windows 11.",
+      "full_name": "Raphire/Win11Debloat",
+      "repo_url": "https://github.com/Raphire/Win11Debloat",
+      "stars_today": 104,
+      "status": "portable",
+      "total_stars": 40924
+    }
+  ],
+  "waiting_for_human": []
+}

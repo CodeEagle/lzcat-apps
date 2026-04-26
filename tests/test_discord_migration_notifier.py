@@ -55,6 +55,7 @@ class DiscordMigrationNotifierTest(unittest.TestCase):
         client = DiscordClient("token", transport=transport)
         channel = client.ensure_text_channel("guild-1", "category-1", "migration-piclaw", topic="Migrating piclaw")
         message = client.send_message(channel["id"], "hello")
+        client.add_reaction(channel["id"], message["id"], "%F0%9F%91%80")
         client.edit_message(channel["id"], message["id"], "updated")
 
         self.assertEqual(
@@ -71,6 +72,7 @@ class DiscordMigrationNotifierTest(unittest.TestCase):
                     "/channels/channel-1/messages",
                     {"content": "hello", "allowed_mentions": {"parse": []}},
                 ),
+                ("PUT", "/channels/channel-1/messages/message-1/reactions/%F0%9F%91%80/@me", None),
                 (
                     "PATCH",
                     "/channels/channel-1/messages/message-1",

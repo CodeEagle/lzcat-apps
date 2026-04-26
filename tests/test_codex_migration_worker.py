@@ -13,6 +13,7 @@ from scripts.codex_migration_worker import (
     CodexWorkerConfig,
     build_codex_command,
     build_codex_prompt,
+    extract_session_id_from_jsonl,
     run_codex,
     safe_task_name,
     write_notification,
@@ -72,18 +73,55 @@ class CodexMigrationWorkerTest(unittest.TestCase):
         self.assertIn("danger-full-access", command)
         self.assertIn("--model", command)
         self.assertIn("gpt-5.5", command)
+        self.assertIn("--json", command)
         self.assertEqual(command[-1], "-")
+
+    def test_build_codex_command_resumes_existing_session(self) -> None:
+        repo_root = self.make_repo_root()
+        session_id = "11111111-2222-3333-4444-555555555555"
+        config = CodexWorkerConfig(repo_root=repo_root, task_dir=repo_root / "tasks" / "demo", session_id=session_id)
+
+        command = build_codex_command(config)
+
+        self.assertIn("exec", command)
+        self.assertIn("resume", command)
+        self.assertLess(command.index("exec"), command.index("resume"))
+        self.assertIn(session_id, command)
+        self.assertEqual(command[-1], "-")
+        self.assertIn("--json", command)
+
+    def test_extract_session_id_from_jsonl_reads_nested_codex_event(self) -> None:
+        output = "\n".join(
+            [
+                json.dumps({"type": "task.started", "payload": {"session_id": "11111111-2222-3333-4444-555555555555"}}),
+                json.dumps({"type": "message", "id": "not-a-session-id"}),
+            ]
+        )
+
+        self.assertEqual(extract_session_id_from_jsonl(output), "11111111-2222-3333-4444-555555555555")
 
     def test_write_task_bundle_writes_prompt_and_metadata(self) -> None:
         repo_root = self.make_repo_root()
-        item = {"id": "github:owner/demo", "source": "owner/demo", "slug": "demo", "state": "build_failed"}
-        config = CodexWorkerConfig(repo_root=repo_root, task_dir=repo_root / "tasks" / "demo")
+        item = {
+            "id": "github:owner/demo",
+            "source": "owner/demo",
+            "slug": "demo",
+            "state": "build_failed",
+            "codex": {"session_id": "11111111-2222-3333-4444-555555555555"},
+        }
+        config = CodexWorkerConfig(
+            repo_root=repo_root,
+            task_dir=repo_root / "tasks" / "demo",
+            session_id="11111111-2222-3333-4444-555555555555",
+        )
 
         bundle = write_task_bundle(config, item, prompt="Fix this", command=["codex", "exec"], now="2026-04-26T00:00:00Z")
 
         self.assertEqual((config.task_dir / "prompt.md").read_text(encoding="utf-8"), "Fix this")
         metadata = json.loads((config.task_dir / "task.json").read_text(encoding="utf-8"))
         self.assertEqual(metadata["item"]["id"], "github:owner/demo")
+        self.assertEqual(metadata["session_id"], "11111111-2222-3333-4444-555555555555")
+        self.assertTrue(metadata["resumed"])
         self.assertEqual(bundle["prompt_path"], str(config.task_dir / "prompt.md"))
 
     def test_write_notification_creates_outbox_markdown(self) -> None:
@@ -125,13 +163,30 @@ class CodexMigrationWorkerTest(unittest.TestCase):
             return Result(0, stdout="fallback ok")
 
         with patch("scripts.codex_migration_worker.subprocess.run", side_effect=fake_run):
-            returncode = run_codex(config, "prompt", command)
+            result = run_codex(config, "prompt", command)
 
-        self.assertEqual(returncode, 0)
+        self.assertEqual(result.returncode, 0)
         self.assertEqual(calls[0][calls[0].index("--model") + 1], "gpt-5.5")
         self.assertEqual(calls[1][calls[1].index("--model") + 1], "gpt-5.4")
         self.assertIn("fallback ok", (config.task_dir / "codex.stdout.log").read_text(encoding="utf-8"))
         self.assertTrue((config.task_dir / "model-fallback.json").exists())
+
+    def test_run_codex_returns_session_id_from_json_output(self) -> None:
+        repo_root = self.make_repo_root()
+        config = CodexWorkerConfig(repo_root=repo_root, task_dir=repo_root / "tasks" / "demo")
+        config.task_dir.mkdir(parents=True)
+        command = build_codex_command(config)
+
+        class Result:
+            returncode = 0
+            stdout = json.dumps({"type": "task.started", "session_id": "11111111-2222-3333-4444-555555555555"})
+            stderr = ""
+
+        with patch("scripts.codex_migration_worker.subprocess.run", return_value=Result()):
+            result = run_codex(config, "prompt", command)
+
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.session_id, "11111111-2222-3333-4444-555555555555")
 
 
 if __name__ == "__main__":
