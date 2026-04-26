@@ -499,6 +499,51 @@ class AutoMigrationServiceTest(unittest.TestCase):
         queue = json.loads((repo_root / "registry" / "auto-migration" / "queue.json").read_text(encoding="utf-8"))
         self.assertIn("Discord HTTP 403", queue["items"][0]["discord"]["last_error"])
 
+    def test_run_cycle_does_not_create_discord_channel_for_filtered_item(self) -> None:
+        repo_root = self.make_repo_root()
+        snapshot_path = repo_root / "registry" / "candidates" / "latest.json"
+        snapshot_path.parent.mkdir(parents=True)
+        snapshot_path.write_text(
+            json.dumps({"candidates": [{"full_name": "owner/demo", "repo": "demo", "status": "portable"}]}) + "\n",
+            encoding="utf-8",
+        )
+        status_path = repo_root / "registry" / "status" / "local-publication-status.json"
+        status_path.parent.mkdir(parents=True)
+        status_path.write_text(
+            json.dumps({"apps": {"demo": {"slug": "demo", "upstream_repo": "owner/demo", "publication_status": "published"}}})
+            + "\n",
+            encoding="utf-8",
+        )
+
+        class FakeDiscordNotifier:
+            def __init__(self) -> None:
+                self.updates: list[tuple[str, str]] = []
+
+            def publish_update(self, item: dict[str, object], *, status: str, now: str) -> dict[str, str]:
+                self.updates.append((str(item["id"]), status))
+                return {}
+
+        notifier = FakeDiscordNotifier()
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=repo_root / "registry" / "auto-migration" / "queue.json",
+                skip_status_sync=True,
+                skip_scout=True,
+                discord_enabled=True,
+                discord_guild_id="guild-1",
+                discord_bot_token="token-1",
+            ),
+            runner=lambda command: CommandResult(returncode=0),
+            now="2026-04-26T00:00:00Z",
+            discord_notifier=notifier,
+        )
+
+        self.assertEqual(summary["migration"]["status"], "idle")
+        self.assertEqual(summary["discovery_gate"][0]["reason"], "published_upstream")
+        self.assertEqual(notifier.updates, [])
+
     def test_run_cycle_creates_migration_worktree_before_migrating(self) -> None:
         repo_root = self.make_repo_root()
         workspace_root = repo_root / "migration-workspaces"
@@ -539,6 +584,71 @@ class AutoMigrationServiceTest(unittest.TestCase):
         self.assertEqual(auto_migrate_call[:2], ["python3", "scripts/auto_migrate.py"])
         self.assertEqual(auto_migrate_call[auto_migrate_call.index("--repo-root") + 1], str(workspace_path))
         queue = json.loads((repo_root / "registry" / "auto-migration" / "queue.json").read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["branch"], "migration/piclaw")
+        self.assertEqual(queue["items"][0]["workspace_path"], str(workspace_path))
+
+    def test_codex_worker_uses_migration_worktree_for_failed_item(self) -> None:
+        repo_root = self.make_repo_root()
+        workspace_root = repo_root / "migration-workspaces"
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "github:owner/piclaw",
+                            "source": "owner/piclaw",
+                            "slug": "piclaw",
+                            "state": "build_failed",
+                            "created_at": "2026-04-25T00:00:00Z",
+                            "updated_at": "2026-04-25T00:00:00Z",
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        calls: list[list[str]] = []
+
+        def runner(command: list[str]) -> CommandResult:
+            calls.append(command)
+            if command[:3] == ["git", "-C", str(repo_root)]:
+                (workspace_root / "migration-piclaw").mkdir(parents=True)
+            return CommandResult(returncode=0)
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=queue_path,
+                skip_status_sync=True,
+                skip_scout=True,
+                dry_run=True,
+                enable_codex_worker=True,
+                template_branch="template",
+                workspace_root=workspace_root,
+            ),
+            runner=runner,
+            now="2026-04-26T00:00:00Z",
+        )
+
+        workspace_path = workspace_root / "migration-piclaw"
+        self.assertEqual(summary["codex_worker"][0]["status"], "ready")
+        self.assertEqual(
+            calls[0],
+            ["git", "-C", str(repo_root), "worktree", "add", "-b", "migration/piclaw", str(workspace_path), "template"],
+        )
+        codex_call = calls[1]
+        self.assertEqual(codex_call[:2], ["python3", "scripts/codex_migration_worker.py"])
+        self.assertEqual(codex_call[codex_call.index("--repo-root") + 1], str(workspace_path))
+        self.assertEqual(codex_call[codex_call.index("--queue-path") + 1], str(queue_path))
+        self.assertEqual(
+            codex_call[codex_call.index("--task-root") + 1],
+            str(repo_root / "registry" / "auto-migration" / "codex-tasks"),
+        )
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
         self.assertEqual(queue["items"][0]["branch"], "migration/piclaw")
         self.assertEqual(queue["items"][0]["workspace_path"], str(workspace_path))
 
