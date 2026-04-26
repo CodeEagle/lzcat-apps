@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "source_input": "treeverse/dvc",
+  "created_at": "2026-04-26T08:11:10.649618+00:00",
+  "updated_at": "2026-04-26T09:31:05.181675+00:00",
+  "context": {
+    "source": {
+      "kind": "github_repo",
+      "url": "treeverse/dvc",
+      "upstream_repo": "treeverse/dvc",
+      "homepage": "https://github.com/treeverse/dvc"
+    },
+    "environment": {
+      "gh_token_source": "GH_TOKEN",
+      "lzc_cli_token_source": "lzc-cli config get token",
+      "container_runtime": "docker",
+      "image_owner": ""
+    },
+    "route_decision": {
+      "route": "official_image",
+      "build_strategy": "official_image",
+      "check_strategy": "github_release",
+      "risks": [
+        "主服务镜像 tag 不是 semver，后续自动更新可能需要人工介入"
+      ]
+    },
+    "version": {
+      "upstream": "",
+      "normalized": "3.67.1"
+    },
+    "finalized": {
+      "slug": "dvc",
+      "project_name": "dvc",
+      "description": "Data Versioning and ML Experiments",
+      "description_zh": "（迁移初稿）Dvc 的懒猫微服版本",
+      "upstream_repo": "treeverse/dvc",
+      "homepage": "https://dvc.org",
+      "license": "Apache-2.0",
+      "author": "treeverse",
+      "version": "3.67.1",
+      "package": "fun.selfstudio.app.migration.dvc",
+      "min_os_version": "1.3.8",
+      "check_strategy": "github_release",
+      "build_strategy": "official_image",
+      "official_image_registry": "ghcr.io/linuxserver/openssh-server",
+      "precompiled_binary_url": "",
+      "dockerfile_type": "custom",
+      "dockerfile_path": "",
+      "build_context": ".",
+      "docker_platform": "",
+      "image_owner": "",
+      "overlay_paths": [],
+      "upstream_submodules": [],
+      "image_targets": [
+        "git-server"
+      ],
+      "dependencies": [],
+      "service_builds": [],
+      "build_args": {},
+      "service_cmd": [],
+      "service_port": 2222,
+      "services": {
+        "git-server": {
+          "image": "registry.lazycat.cloud/placeholder/dvc:git-server",
+          "environment": [
+            "USER_NAME=user",
+            "PUBLIC_KEY_FILE=/tmp/key"
+          ],
+          "binds": [
+            "/lzcapp/var/data/dvc/git-server/key:/tmp/key",
+            "/lzcapp/var/data/dvc/git-server/custom-cont-init-d:/custom-cont-init.d"
+          ]
+        }
+      },
+      "application": {
+        "subdomain": "dvc",
+        "public_path": [
+          "/"
+        ],
+        "upstreams": [
+          {
+            "location": "/",
+            "backend": "http://git-server:2222/"
+          }
+        ]
+      },
+      "env_vars": [
+        {
+          "name": "USER_NAME",
+          "description": "From compose service git-server",
+          "required": false,
+          "value": "user"
+        },
+        {
+          "name": "PUBLIC_KEY_FILE",
+          "description": "From compose service git-server",
+          "required": false,
+          "value": "/tmp/key"
+        }
+      ],
+      "data_paths": [
+        {
+          "host": "/lzcapp/var/data/dvc/git-server/key",
+          "container": "/tmp/key",
+          "description": "From compose service git-server"
+        },
+        {
+          "host": "/lzcapp/var/data/dvc/git-server/custom-cont-init-d",
+          "container": "/custom-cont-init.d",
+          "description": "From compose service git-server"
+        }
+      ],
+      "startup_notes": [
+        "自动扫描到 compose 文件：tests/docker-compose.yml",
+        "主服务推断为 `git-server`，入口端口 `2222`。",
+        "未扫描到 env 示例文件",
+        "扫描到 README：README.rst, README.rst"
+      ],
+      "include_content": false,
+      "ai_pod_service": "",
+      "ai_pod_service_name": "dvc",
+      "ai_pod_service_port": 2222,
+      "ai_pod_image": "registry.lazycat.cloud/placeholder/dvc-ai:bootstrap",
+      "aipod": {},
+      "usage": "",
+      "icon_path": "",
+      "source_version": "",
+      "default_branch": ""
+    },
+    "registration": {
+      "slug": "dvc",
+      "monorepo_path": "apps/dvc",
+      "config_path": "registry/repos/dvc.json"
+    }
+  },
+  "steps": {
+    "1": {
+      "completed": true,
+      "completed_at": "2026-04-26T09:30:42.852302+00:00",
+      "conclusion": "已识别输入类型为 `github_repo`"
+    },
+    "2": {
+      "completed": true,
+      "completed_at": "2026-04-26T09:30:45.601398+00:00",
+      "conclusion": "已自动推断构建路线为 `official_image`"
+    },
+    "3": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:11:16.183781+00:00",
+      "conclusion": "已完成 monorepo 注册"
+    },
+    "4": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:11:16.269467+00:00",
+      "conclusion": "骨架文件已生成",
+      "files_written": [
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-dvc/apps/dvc/lzc-manifest.yml",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-dvc/apps/dvc/lzc-build.yml",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-dvc/apps/dvc/README.md",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-dvc/apps/dvc/UPSTREAM_DEPLOYMENT_CHECKLIST.md",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-dvc/apps/dvc/icon.png",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-dvc/registry/repos/dvc.json"
+      ]
+    },
+    "5": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:11:16.270177+00:00",
+      "conclusion": "manifest 初稿已生成"
+    },
+    "6": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:11:16.270669+00:00",
+      "conclusion": "剩余文件已补齐"
+    },
+    "7": {
+      "completed": true,
+      "completed_at": "2026-04-26T09:30:45.690789+00:00",
+      "conclusion": "预检通过",
+      "all_passed": true
+    }
+  },
+  "problems": [
+    {
+      "id": "p1",
+      "step": 8,
+      "description": "Updating files:  72% (426/591)\nUpdating files:  73% (432/591)\nUpdating files:  74% (438/591)\nUpdating files:  75% (444/591)\nUpdating files:  76% (450/591)\nUpdating files:  77% (456/591)\nUpdating files:  78% (461/591)\nUpdating files:  79% (467/591)\nUpdating files:  80% (473/591)\nUpdating files:  81% (479/591)\nUpdating files:  82% (485/591)\nUpdating files:  83% (491/591)\nUpdating files:  84% (497/591)\nUpdating files:  85% (503/591)\nUpdating files:  86% (509/591)\nUpdating files:  87% (515/591)\nUpdating files:  88% (521/591)\nUpdating files:  89% (526/591)\nUpdating files:  90% (532/591)\nUpdating files:  91% (538/591)\nUpdating files:  92% (544/591)\nUpdating files:  93% (550/591)\nUpdating files:  94% (556/591)\nUpdating files:  95% (562/591)\nUpdating files:  96% (568/591)\nUpdating files:  97% (574/591)\nUpdating files:  98% (580/591)\nUpdating files:  99% (586/591)\nUpdating files: 100% (591/591)\nUpdating files: 100% (591/591), done.\n[08:11:38] [dvc] Failure artifacts preserved at: /var/folders/5n/bml6r36s2pdgxhd9cncpbhg40000gn/T/lzcat-artifacts-dnedmg2o\nTraceback (most recent call last):\n  File \"/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-dvc/scripts/run_build.py\", line 2350, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-dvc/scripts/run_build.py\", line 2054, in main\n    target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name, dry_run=args.dry_run)\n  File \"/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-dvc/scripts/run_build.py\", line 1662, in build_target_image\n    raise RuntimeError(\"No Dockerfile found in upstream repository\")\nRuntimeError: No Dockerfile found in upstream repository",
+      "category": "build",
+      "status": "open",
+      "created_at": "2026-04-26T08:11:38.453269+00:00"
+    },
+    {
+      "id": "p2",
+      "step": 8,
+      "description": "Updating files:  72% (426/591)\nUpdating files:  73% (432/591)\nUpdating files:  74% (438/591)\nUpdating files:  75% (444/591)\nUpdating files:  76% (450/591)\nUpdating files:  77% (456/591)\nUpdating files:  78% (461/591)\nUpdating files:  79% (467/591)\nUpdating files:  80% (473/591)\nUpdating files:  81% (479/591)\nUpdating files:  82% (485/591)\nUpdating files:  83% (491/591)\nUpdating files:  84% (497/591)\nUpdating files:  85% (503/591)\nUpdating files:  86% (509/591)\nUpdating files:  87% (515/591)\nUpdating files:  88% (521/591)\nUpdating files:  89% (526/591)\nUpdating files:  90% (532/591)\nUpdating files:  91% (538/591)\nUpdating files:  92% (544/591)\nUpdating files:  93% (550/591)\nUpdating files:  94% (556/591)\nUpdating files:  95% (562/591)\nUpdating files:  96% (568/591)\nUpdating files:  97% (574/591)\nUpdating files:  98% (580/591)\nUpdating files:  99% (586/591)\nUpdating files: 100% (591/591)\nUpdating files: 100% (591/591), done.\n[09:31:05] [dvc] Failure artifacts preserved at: /var/folders/5n/bml6r36s2pdgxhd9cncpbhg40000gn/T/lzcat-artifacts-s9ea5f1l\nTraceback (most recent call last):\n  File \"/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-dvc/scripts/run_build.py\", line 2350, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-dvc/scripts/run_build.py\", line 2054, in main\n    target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name, dry_run=args.dry_run)\n  File \"/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-dvc/scripts/run_build.py\", line 1662, in build_target_image\n    raise RuntimeError(\"No Dockerfile found in upstream repository\")\nRuntimeError: No Dockerfile found in upstream repository",
+      "category": "build",
+      "status": "open",
+      "created_at": "2026-04-26T09:31:05.181627+00:00"
+    }
+  ],
+  "verification": {}
+}
