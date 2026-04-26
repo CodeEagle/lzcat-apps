@@ -1,0 +1,46 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "sachinsenal0x64/hifi",
+  "fixes": {
+    "project_name": "hifi",
+    "description": "Tidal music integration for Subsonic/Jellyfin/Plexamp",
+    "description_zh": "（迁移初稿）Hifi 的懒猫微服版本",
+    "homepage": "https://github.com/sachinsenal0x64/hifi",
+    "license": "GPL-2.0",
+    "author": "sachinsenal0x64",
+    "package": "fun.selfstudio.app.migration.hifi",
+    "check_strategy": "commit_sha",
+    "build_strategy": "upstream_dockerfile",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "docker_platform": "linux/amd64",
+    "image_targets": [
+      "hifi"
+    ],
+    "service_port": 3000,
+    "services": {
+      "hifi": {
+        "image": "registry.lazycat.cloud/placeholder/hifi:bootstrap"
+      }
+    },
+    "application": {
+      "subdomain": "hifi",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://hifi:3000/"
+        }
+      ]
+    },
+    "startup_notes": [
+      "自动扫描到 Dockerfile：Dockerfile",
+      "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
+      "未扫描到 env 示例文件",
+      "扫描到 README：README.md, README.md, README.md"
+    ],
+    "include_content": false
+  }
+}
