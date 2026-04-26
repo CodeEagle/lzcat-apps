@@ -1,0 +1,48 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "openrundev/openrun",
+  "fixes": {
+    "project_name": "openrun",
+    "description": "Internal tools deployment made easy",
+    "description_zh": "（迁移初稿）Openrun 的懒猫微服版本",
+    "homepage": "https://openrun.dev",
+    "license": "Apache-2.0",
+    "author": "openrundev",
+    "package": "fun.selfstudio.app.migration.openrun",
+    "check_strategy": "github_release",
+    "build_strategy": "upstream_with_target_template",
+    "dockerfile_type": "custom",
+    "dockerfile_path": "Dockerfile.template",
+    "build_context": ".",
+    "docker_platform": "linux/amd64",
+    "image_targets": [
+      "openrun"
+    ],
+    "service_port": 25222,
+    "services": {
+      "openrun": {
+        "image": "registry.lazycat.cloud/placeholder/openrun:bootstrap"
+      }
+    },
+    "application": {
+      "subdomain": "openrun",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://openrun:25222/"
+        }
+      ]
+    },
+    "startup_notes": [
+      "自动扫描到 Dockerfile：Dockerfile",
+      "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
+      "未扫描到 env 示例文件",
+      "扫描到 README：README.md, README.md, README.md",
+      "扫描到上游图标：docs/static/apple-touch-icon.png"
+    ],
+    "include_content": false
+  }
+}

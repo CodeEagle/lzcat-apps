@@ -1,0 +1,27 @@
+application:
+  public_path:
+    - /
+  subdomain: openrun
+  upstreams:
+    -
+      backend: http://openrun:25222/
+      location: /
+author: openrundev
+description: Internal tools deployment made easy
+homepage: https://openrun.dev
+license: Apache-2.0
+locales:
+  en:
+    description: Internal tools deployment made easy
+    name: openrun
+  zh:
+    description: （迁移初稿）Openrun 的懒猫微服版本
+    name: openrun
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+name: openrun
+package: fun.selfstudio.app.migration.openrun
+services:
+  openrun:
+    image: registry.lazycat.cloud/placeholder/openrun:bootstrap
+version: 0.17.0
