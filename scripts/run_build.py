@@ -302,7 +302,20 @@ def bump_patch(value: str) -> str:
 def gh_api_json(path: str) -> Any:
     try:
         return json.loads(sh(["gh", "api", path]))
-    except RuntimeError:
+    except (RuntimeError, FileNotFoundError):
+        pass
+
+    url = f"https://api.github.com/{path.lstrip('/')}"
+    headers = {"Accept": "application/vnd.github+json"}
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GH_PAT") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    request = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
         return None
 
 
@@ -311,6 +324,57 @@ def gh_api_text(path: str) -> str:
     if not data or "content" not in data:
         return ""
     return base64.b64decode(data["content"]).decode("utf-8")
+
+
+def github_api_request(
+    path_or_url: str,
+    *,
+    method: str = "GET",
+    env: dict[str, str] | None = None,
+    headers: dict[str, str] | None = None,
+    data: bytes | None = None,
+    allow_not_found: bool = False,
+) -> tuple[Any, dict[str, str]]:
+    url = path_or_url if path_or_url.startswith("http") else f"https://api.github.com/{path_or_url.lstrip('/')}"
+    request_headers = {"Accept": "application/vnd.github+json"}
+    if headers:
+        request_headers.update(headers)
+
+    token = ""
+    if env is not None:
+        token = env.get("GH_TOKEN") or env.get("GH_PAT") or env.get("GITHUB_TOKEN") or ""
+    if not token:
+        token = os.environ.get("GH_TOKEN") or os.environ.get("GH_PAT") or os.environ.get("GITHUB_TOKEN") or ""
+    if token:
+        request_headers["Authorization"] = f"Bearer {token}"
+
+    request = urllib.request.Request(url, data=data, headers=request_headers, method=method)
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            body = response.read()
+            response_headers = dict(response.headers.items())
+    except urllib.error.HTTPError as exc:
+        if allow_not_found and exc.code == 404:
+            return None, dict(exc.headers.items())
+        error_body = ""
+        if exc.fp is not None:
+            try:
+                error_body = exc.fp.read().decode("utf-8", errors="replace").strip()
+            except Exception:
+                error_body = ""
+        detail = f"GitHub API {method} {url} failed: HTTP {exc.code}"
+        if error_body:
+            detail = f"{detail} - {error_body}"
+        raise RuntimeError(detail) from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"GitHub API {method} {url} failed: {exc}") from exc
+
+    if not body:
+        return None, response_headers
+    try:
+        return json.loads(body.decode("utf-8")), response_headers
+    except json.JSONDecodeError:
+        return body, response_headers
 
 
 def resolve_gh_token(env: dict[str, str]) -> str:
@@ -1056,28 +1120,115 @@ def publish_release_asset(
     assets: list[Path],
     env: dict[str, str],
 ) -> str:
-    sh(["gh", "release", "delete", tag, "--repo", repo, "--yes"], env=env, check=False)
-    cmd = [
-        "gh",
-        "release",
-        "create",
-        tag,
-        "--repo",
-        repo,
-        "--title",
-        title,
-        "--notes",
-        notes,
-    ] + [str(asset) for asset in assets]
-    sh(cmd, env=env)
-    return f"https://github.com/{repo}/releases/tag/{tag}"
+    try:
+        sh(["gh", "release", "delete", tag, "--repo", repo, "--yes"], env=env, check=False)
+        cmd = [
+            "gh",
+            "release",
+            "create",
+            tag,
+            "--repo",
+            repo,
+            "--title",
+            title,
+            "--notes",
+            notes,
+        ] + [str(asset) for asset in assets]
+        sh(cmd, env=env)
+        return f"https://github.com/{repo}/releases/tag/{tag}"
+    except (RuntimeError, FileNotFoundError):
+        pass
 
-
-def upload_release_asset(repo: str, tag: str, asset: Path, env: dict[str, str]) -> None:
-    sh(
-        ["gh", "release", "upload", tag, str(asset), "--repo", repo, "--clobber"],
+    existing_release, _ = github_api_request(
+        f"repos/{repo}/releases/tags/{tag}",
         env=env,
+        allow_not_found=True,
     )
+    if isinstance(existing_release, dict) and existing_release.get("id"):
+        github_api_request(
+            f"repos/{repo}/releases/{existing_release['id']}",
+            method="DELETE",
+            env=env,
+        )
+
+    created_release, _ = github_api_request(
+        f"repos/{repo}/releases",
+        method="POST",
+        env=env,
+        headers={"Content-Type": "application/json"},
+        data=json.dumps(
+            {
+                "tag_name": tag,
+                "name": title,
+                "body": notes,
+            }
+        ).encode("utf-8"),
+    )
+    if not isinstance(created_release, dict):
+        raise RuntimeError(f"Failed to create release for {repo}:{tag}")
+
+    for asset in assets:
+        upload_release_asset(repo, tag, asset, env, release=created_release)
+    return str(created_release.get("html_url") or f"https://github.com/{repo}/releases/tag/{tag}")
+
+
+def upload_release_asset(
+    repo: str,
+    tag: str,
+    asset: Path,
+    env: dict[str, str],
+    *,
+    release: dict[str, Any] | None = None,
+) -> None:
+    try:
+        sh(
+            ["gh", "release", "upload", tag, str(asset), "--repo", repo, "--clobber"],
+            env=env,
+        )
+        return
+    except (RuntimeError, FileNotFoundError):
+        pass
+
+    release_payload = release
+    if release_payload is None:
+        release_payload, _ = github_api_request(
+            f"repos/{repo}/releases/tags/{tag}",
+            env=env,
+        )
+    if not isinstance(release_payload, dict):
+        raise RuntimeError(f"Failed to resolve release for {repo}:{tag}")
+
+    upload_url = str(release_payload.get("upload_url", "")).split("{", 1)[0]
+    if not upload_url:
+        raise RuntimeError(f"Release {repo}:{tag} did not include an upload URL")
+
+    upload_target = f"{upload_url}?{urllib.parse.urlencode({'name': asset.name})}"
+    request_kwargs = {
+        "method": "POST",
+        "env": env,
+        "headers": {"Content-Type": "application/octet-stream"},
+        "data": asset.read_bytes(),
+    }
+    try:
+        github_api_request(upload_target, **request_kwargs)
+    except RuntimeError as exc:
+        if "HTTP 422" not in str(exc):
+            raise
+        assets = release_payload.get("assets")
+        if not isinstance(assets, list):
+            assets, _ = github_api_request(f"repos/{repo}/releases/{release_payload['id']}/assets", env=env)
+        if isinstance(assets, list):
+            for existing_asset in assets:
+                if str(existing_asset.get("name", "")) != asset.name:
+                    continue
+                asset_id = existing_asset.get("id")
+                if asset_id:
+                    github_api_request(
+                        f"repos/{repo}/releases/assets/{asset_id}",
+                        method="DELETE",
+                        env=env,
+                    )
+        github_api_request(upload_target, **request_kwargs)
 
 
 def build_report_base(

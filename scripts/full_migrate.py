@@ -909,7 +909,11 @@ def load_yaml(path: Path) -> Any:
           begin
             data = Psych.safe_load(text, aliases: true)
           rescue ArgumentError
-            data = Psych.safe_load(text)
+            begin
+              data = Psych.safe_load(text, [], [], true)
+            rescue ArgumentError
+              data = Psych.safe_load(text)
+            end
           end
         end
 
