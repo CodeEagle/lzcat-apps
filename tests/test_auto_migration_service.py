@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.auto_migration_service import (
     CommandResult,
     ServiceConfig,
+    build_codex_discovery_review_command,
     build_codex_worker_command,
     build_config,
     build_copywriter_command,
@@ -678,6 +679,235 @@ class AutoMigrationServiceTest(unittest.TestCase):
         self.assertIn("box.example.test", command)
         self.assertIn("--model", command)
         self.assertIn("gpt-5.5", command)
+
+    def test_build_codex_discovery_review_command_passes_queue_context(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        config = ServiceConfig(repo_root=repo_root, queue_path=queue_path, box_domain="box.example.test")
+        item = {"id": "github:owner/demo", "source": "owner/demo", "slug": "demo", "state": "discovery_review"}
+
+        command = build_codex_discovery_review_command(config, item)
+
+        self.assertEqual(command[:2], ["python3", "scripts/codex_discovery_reviewer.py"])
+        self.assertIn("--queue-path", command)
+        self.assertEqual(command[command.index("--queue-path") + 1], str(queue_path))
+        self.assertIn("--item-id", command)
+        self.assertEqual(command[command.index("--item-id") + 1], "github:owner/demo")
+        payload = json.loads(command[command.index("--item-json") + 1])
+        self.assertEqual(payload["state"], "discovery_review")
+        self.assertIn("--model", command)
+        self.assertIn("gpt-5.5", command)
+
+    def test_run_cycle_invokes_discovery_reviewer_before_migration(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "github:owner/demo",
+                            "source": "owner/demo",
+                            "slug": "demo",
+                            "state": "discovery_review",
+                            "discovery_review": {"prompt": "Judge migrate or skip"},
+                            "created_at": "2026-04-25T00:00:00Z",
+                            "updated_at": "2026-04-25T00:00:00Z",
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        calls: list[list[str]] = []
+
+        def runner(command: list[str]) -> CommandResult:
+            calls.append(command)
+            if command[:2] == ["python3", "scripts/codex_discovery_reviewer.py"]:
+                queue_path.write_text(
+                    json.dumps(
+                        {
+                            "schema_version": 1,
+                            "items": [
+                                {
+                                    "id": "github:owner/demo",
+                                    "source": "owner/demo",
+                                    "slug": "demo",
+                                    "state": "ready",
+                                    "discovery_review": {
+                                        "status": "migrate",
+                                        "evidence": ["Has Dockerfile and web UI"],
+                                    },
+                                }
+                            ],
+                        }
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+            return CommandResult(returncode=0)
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=queue_path,
+                skip_status_sync=True,
+                skip_scout=True,
+                dry_run=True,
+                enable_codex_worker=True,
+            ),
+            runner=runner,
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertEqual(calls[0][:2], ["python3", "scripts/codex_discovery_reviewer.py"])
+        self.assertEqual(summary["discovery_reviewer"][0]["status"], "ready")
+        self.assertEqual(summary["migration"]["status"], "dry_run")
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["state"], "ready")
+        self.assertEqual(queue["items"][0]["discovery_review"]["codex_attempts"], 1)
+
+    def test_discovery_human_reply_resumes_discovery_reviewer_not_migration_worker(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "github:owner/demo",
+                            "source": "owner/demo",
+                            "slug": "demo",
+                            "state": "waiting_for_human",
+                            "human_request": {"kind": "discovery_review", "question": "Is this already listed?"},
+                            "human_response": {"content": "没有上架，可以迁移。"},
+                            "created_at": "2026-04-25T00:00:00Z",
+                            "updated_at": "2026-04-25T00:00:00Z",
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        calls: list[list[str]] = []
+
+        def runner(command: list[str]) -> CommandResult:
+            calls.append(command)
+            if command[:2] == ["python3", "scripts/codex_discovery_reviewer.py"]:
+                queue_path.write_text(
+                    json.dumps(
+                        {
+                            "schema_version": 1,
+                            "items": [
+                                {
+                                    "id": "github:owner/demo",
+                                    "source": "owner/demo",
+                                    "slug": "demo",
+                                    "state": "ready",
+                                    "human_request": {"kind": "discovery_review", "question": "Is this already listed?"},
+                                    "human_response": {"content": "没有上架，可以迁移。"},
+                                    "discovery_review": {"status": "migrate"},
+                                }
+                            ],
+                        }
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+            return CommandResult(returncode=0)
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=queue_path,
+                skip_status_sync=True,
+                skip_scout=True,
+                dry_run=True,
+                enable_codex_worker=True,
+                max_codex_attempts=2,
+            ),
+            runner=runner,
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertEqual(calls[0][:2], ["python3", "scripts/codex_discovery_reviewer.py"])
+        self.assertFalse(any(call[:2] == ["python3", "scripts/codex_migration_worker.py"] for call in calls))
+        self.assertEqual(summary["discovery_reviewer"][0]["status"], "ready")
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["state"], "ready")
+
+    def test_new_needs_review_candidate_is_reviewed_before_selection(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        candidate_path = repo_root / "registry" / "candidates" / "latest.json"
+        queue_path.parent.mkdir(parents=True)
+        candidate_path.parent.mkdir(parents=True)
+        queue_path.write_text(json.dumps({"schema_version": 1, "items": []}) + "\n", encoding="utf-8")
+        candidate_path.write_text(
+            json.dumps(
+                {
+                    "candidates": [
+                        {
+                            "full_name": "owner/demo",
+                            "repo": "demo",
+                            "repo_url": "https://github.com/owner/demo",
+                            "status": "needs_review",
+                            "status_reason": "Weak store-name match requires AI check",
+                        }
+                    ]
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        calls: list[list[str]] = []
+
+        def runner(command: list[str]) -> CommandResult:
+            calls.append(command)
+            if command[:2] == ["python3", "scripts/codex_discovery_reviewer.py"]:
+                queue_path.write_text(
+                    json.dumps(
+                        {
+                            "schema_version": 1,
+                            "items": [
+                                {
+                                    "id": "github:owner/demo",
+                                    "source": "owner/demo",
+                                    "slug": "demo",
+                                    "state": "ready",
+                                    "discovery_review": {"status": "migrate"},
+                                }
+                            ],
+                        }
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+            return CommandResult(returncode=0)
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=queue_path,
+                skip_status_sync=True,
+                skip_scout=True,
+                dry_run=True,
+                enable_codex_worker=True,
+            ),
+            runner=runner,
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertTrue(any(call[:2] == ["python3", "scripts/codex_discovery_reviewer.py"] for call in calls))
+        self.assertEqual(summary["discovery_reviewer"][0]["status"], "ready")
+        self.assertEqual(summary["selected"], "github:owner/demo")
+        self.assertEqual(summary["migration"]["status"], "dry_run")
 
     def test_run_cycle_invokes_codex_worker_for_failed_item(self) -> None:
         repo_root = self.make_repo_root()
