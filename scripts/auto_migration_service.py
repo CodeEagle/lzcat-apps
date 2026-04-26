@@ -14,23 +14,27 @@ from typing import Any, Callable
 
 try:
     from .auto_migrate import infer_slug_from_source
+    from .discovery_gate import reconcile_queue_items
     from .discord_human_replies import apply_human_replies
     from .discord_migration_notifier import DiscordClient, MigrationDiscordNotifier
     from .local_agent_bridge import write_local_agent_snapshot
     from .migration_workspace import build_worktree_command, migration_branch_name, migration_workspace_path
+    from .publication_status import load_publication_index
     from .project_config import load_project_config
 except ImportError:  # pragma: no cover - direct script execution
     from auto_migrate import infer_slug_from_source
+    from discovery_gate import reconcile_queue_items
     from discord_human_replies import apply_human_replies
     from discord_migration_notifier import DiscordClient, MigrationDiscordNotifier
     from local_agent_bridge import write_local_agent_snapshot
     from migration_workspace import build_worktree_command, migration_branch_name, migration_workspace_path
+    from publication_status import load_publication_index
     from project_config import load_project_config
 
 
 DEFAULT_CANDIDATE_SNAPSHOT = "registry/candidates/latest.json"
 DEFAULT_QUEUE_PATH = "registry/auto-migration/queue.json"
-FILTERED_CANDIDATE_STATUSES = {"already_migrated", "excluded", "in_progress", "needs_review"}
+FILTERED_CANDIDATE_STATUSES = {"already_migrated", "excluded", "in_progress"}
 PROTECTED_STATES = {
     "scaffolded",
     "build_failed",
@@ -42,6 +46,7 @@ PROTECTED_STATES = {
     "publish_ready",
     "published",
     "waiting_for_human",
+    "discovery_review",
 }
 
 
@@ -136,6 +141,8 @@ def candidate_state(candidate: dict[str, Any]) -> str:
     status = str(candidate.get("status", "")).strip().lower()
     if status == "portable":
         return "ready"
+    if status == "needs_review":
+        return "discovery_review"
     if status in FILTERED_CANDIDATE_STATUSES:
         return "filtered_out"
     return "filtered_out"
@@ -663,6 +670,26 @@ def publish_discord_update(
         item["discord"] = discord
 
 
+def run_discovery_gate(
+    config: ServiceConfig,
+    queue: dict[str, Any],
+    *,
+    now: str,
+    discord_notifier: Any | None,
+) -> list[dict[str, str]]:
+    results = reconcile_queue_items(queue, publication_index=load_publication_index(config.repo_root), now=now)
+    for result in results:
+        publish_discord_update(
+            config,
+            queue,
+            str(result.get("id", "")),
+            status=str(result.get("status", "")),
+            now=now,
+            discord_notifier=discord_notifier,
+        )
+    return results
+
+
 def advance_codex_worker(
     config: ServiceConfig,
     queue: dict[str, Any],
@@ -710,6 +737,7 @@ def run_cycle(
         "commands": [],
         "browser_recheck": [],
         "codex_worker": [],
+        "discovery_gate": [],
         "discord_replies": [],
         "local_agent": {"status": "disabled"},
         "post_acceptance": [],
@@ -725,6 +753,7 @@ def run_cycle(
                 summary["discord_replies"] = apply_human_replies(queue, client, now=now)
             except Exception as exc:  # pragma: no cover - exact Discord/network exception varies.
                 summary["discord_replies"] = [{"status": "failed", "error": str(exc)}]
+    summary["discovery_gate"] = run_discovery_gate(config, queue, now=now, discord_notifier=discord_notifier)
     summary["browser_recheck"] = refresh_browser_pending(config, queue, runner=runner, now=now)
     summary["codex_worker"] = advance_codex_worker(config, queue, runner=runner, now=now)
     summary["post_acceptance"] = advance_post_acceptance(config, queue, runner=runner, now=now)
@@ -737,7 +766,13 @@ def run_cycle(
             now=now,
             discord_notifier=discord_notifier,
         )
-    if summary["discord_replies"] or summary["browser_recheck"] or summary["codex_worker"] or summary["post_acceptance"]:
+    if (
+        summary["discord_replies"]
+        or summary["discovery_gate"]
+        or summary["browser_recheck"]
+        or summary["codex_worker"]
+        or summary["post_acceptance"]
+    ):
         write_json(config.queue_path, queue)
 
     if not config.skip_status_sync:
@@ -763,6 +798,7 @@ def run_cycle(
     )
     candidates = [*candidates, *local_agent_candidates]
     queue = upsert_candidates(queue, candidates, now=now)
+    summary["discovery_gate"].extend(run_discovery_gate(config, queue, now=now, discord_notifier=discord_notifier))
     selected = select_next_ready_item(queue)
     if not selected:
         write_json(config.queue_path, queue)

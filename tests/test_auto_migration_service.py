@@ -111,6 +111,15 @@ class AutoMigrationServiceTest(unittest.TestCase):
         self.assertEqual(updated["items"][0]["source"], "owner/demo")
         self.assertEqual(updated["items"][0]["slug"], "demo")
 
+    def test_upsert_candidates_routes_needs_review_to_discovery_review(self) -> None:
+        updated = upsert_candidates(
+            {"schema_version": 1, "items": []},
+            [{"full_name": "owner/demo", "repo": "demo", "repo_url": "https://github.com/owner/demo", "status": "needs_review"}],
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertEqual(updated["items"][0]["state"], "discovery_review")
+
     def test_upsert_candidates_preserves_in_progress_state(self) -> None:
         queue = {
             "schema_version": 1,
@@ -291,6 +300,55 @@ class AutoMigrationServiceTest(unittest.TestCase):
         states = {item["id"]: item["state"] for item in queue["items"]}
         self.assertEqual(states["github:owner/one"], "scaffolded")
         self.assertEqual(states["github:owner/two"], "ready")
+
+    def test_run_cycle_reconciles_published_candidate_before_migration(self) -> None:
+        repo_root = self.make_repo_root()
+        snapshot_path = repo_root / "registry" / "candidates" / "latest.json"
+        snapshot_path.parent.mkdir(parents=True)
+        snapshot_path.write_text(
+            json.dumps({"candidates": [{"full_name": "owner/demo", "repo": "demo", "status": "portable"}]}) + "\n",
+            encoding="utf-8",
+        )
+        status_path = repo_root / "registry" / "status" / "local-publication-status.json"
+        status_path.parent.mkdir(parents=True)
+        status_path.write_text(
+            json.dumps(
+                {
+                    "apps": {
+                        "demo": {
+                            "slug": "demo",
+                            "upstream_repo": "owner/demo",
+                            "publication_status": "published",
+                            "store_label": "Demo",
+                        }
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        calls: list[list[str]] = []
+
+        def runner(command: list[str]) -> CommandResult:
+            calls.append(command)
+            return CommandResult(returncode=0)
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=repo_root / "registry" / "auto-migration" / "queue.json",
+                skip_status_sync=True,
+                skip_scout=True,
+            ),
+            runner=runner,
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertEqual(summary["discovery_gate"][0]["reason"], "published_upstream")
+        self.assertEqual(summary["migration"]["status"], "idle")
+        self.assertFalse(any(call[:2] == ["python3", "scripts/auto_migrate.py"] for call in calls))
+        queue = json.loads((repo_root / "registry" / "auto-migration" / "queue.json").read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["state"], "filtered_out")
 
     def test_run_cycle_merges_local_agent_candidates_before_selecting(self) -> None:
         repo_root = self.make_repo_root()
@@ -671,6 +729,55 @@ class AutoMigrationServiceTest(unittest.TestCase):
         queue = json.loads(queue_path.read_text(encoding="utf-8"))
         self.assertEqual(queue["items"][0]["state"], "ready")
         self.assertEqual(queue["items"][0]["codex"]["attempts"], 1)
+
+    def test_run_cycle_reconciles_excluded_item_before_codex_worker(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "github:owner/demo",
+                            "source": "owner/demo",
+                            "slug": "demo",
+                            "state": "build_failed",
+                            "candidate_status": "excluded",
+                            "candidate": {"status_reason": "Already available in LazyCat store"},
+                            "created_at": "2026-04-25T00:00:00Z",
+                            "updated_at": "2026-04-25T00:00:00Z",
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        calls: list[list[str]] = []
+
+        def runner(command: list[str]) -> CommandResult:
+            calls.append(command)
+            return CommandResult(returncode=0)
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=queue_path,
+                skip_status_sync=True,
+                skip_scout=True,
+                dry_run=True,
+                enable_codex_worker=True,
+            ),
+            runner=runner,
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertEqual(summary["discovery_gate"][0]["reason"], "candidate_excluded")
+        self.assertFalse(any(call[:2] == ["python3", "scripts/codex_migration_worker.py"] for call in calls))
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["state"], "filtered_out")
 
     def test_codex_worker_can_leave_item_waiting_for_human(self) -> None:
         repo_root = self.make_repo_root()
