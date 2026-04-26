@@ -458,6 +458,52 @@ class AutoMigrationServiceTest(unittest.TestCase):
         queue = json.loads(queue_path.read_text(encoding="utf-8"))
         self.assertEqual(queue["items"][0]["state"], "build_failed")
 
+    def test_run_cycle_invokes_codex_worker_before_scout(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "github:owner/demo",
+                            "source": "owner/demo",
+                            "slug": "demo",
+                            "state": "build_failed",
+                            "created_at": "2026-04-25T00:00:00Z",
+                            "updated_at": "2026-04-25T00:00:00Z",
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        calls: list[list[str]] = []
+
+        def runner(command: list[str]) -> CommandResult:
+            calls.append(command)
+            if command[:2] == ["python3", "scripts/scout.py"]:
+                return CommandResult(returncode=1)
+            return CommandResult(returncode=0)
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=queue_path,
+                skip_status_sync=True,
+                enable_codex_worker=True,
+            ),
+            runner=runner,
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertEqual(calls[0][:2], ["python3", "scripts/codex_migration_worker.py"])
+        self.assertEqual(summary["codex_worker"][0]["status"], "ready")
+        self.assertEqual(summary["migration"]["status"], "scout_failed")
+
 
 if __name__ == "__main__":
     unittest.main()

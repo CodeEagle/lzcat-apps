@@ -511,6 +511,11 @@ def run_cycle(config: ServiceConfig, *, runner: CommandRunner | None = None, now
         "migration": {"status": "none"},
     }
 
+    queue = read_json(config.queue_path, empty_queue(now))
+    summary["browser_recheck"] = refresh_browser_pending(config, queue, runner=runner, now=now)
+    summary["codex_worker"] = advance_codex_worker(config, queue, runner=runner, now=now)
+    summary["post_acceptance"] = advance_post_acceptance(config, queue, runner=runner, now=now)
+
     if not config.skip_status_sync:
         command = build_status_sync_command(config)
         result = runner(command)
@@ -521,16 +526,13 @@ def run_cycle(config: ServiceConfig, *, runner: CommandRunner | None = None, now
         result = runner(command)
         summary["commands"].append({"command": command, "returncode": result.returncode})
         if result.returncode != 0:
+            write_json(config.queue_path, queue)
             summary["migration"] = {"status": "scout_failed", "returncode": result.returncode}
             return summary
 
     snapshot = load_candidate_snapshot(config.repo_root, config.candidate_snapshot)
     candidates = snapshot.get("candidates") if isinstance(snapshot.get("candidates"), list) else []
-    queue = read_json(config.queue_path, empty_queue(now))
     queue = upsert_candidates(queue, candidates, now=now)
-    summary["browser_recheck"] = refresh_browser_pending(config, queue, runner=runner, now=now)
-    summary["codex_worker"] = advance_codex_worker(config, queue, runner=runner, now=now)
-    summary["post_acceptance"] = advance_post_acceptance(config, queue, runner=runner, now=now)
     selected = select_next_ready_item(queue)
     if not selected:
         write_json(config.queue_path, queue)
