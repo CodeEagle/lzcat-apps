@@ -1,25 +1,25 @@
 {
   "schema_version": 1,
   "app": "gitnexus",
-  "source_version": "v1.6.1",
-  "build_version": "1.6.1",
-  "head_sha": "aabec0805797",
+  "source_version": "v1.6.3",
+  "build_version": "1.6.3",
+  "head_sha": "0decb1680f14",
   "build_recipe_hash": "ce7622dc707bd008c2962da125759e0143216e92b0cd0716956cc55491e73737",
-  "updated_at": "2026-04-14T01:09:52.983749+00:00",
+  "updated_at": "2026-04-26T01:36:07.877420+00:00",
   "images": {
-    "gitnexus": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:ca03def2f81296f8"
+    "gitnexus": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:a250e26b71ec5b30"
   },
   "source_images": {
-    "gitnexus": "ghcr.io/codeeagle/lazycatimages:gitnexus_aabec0805797"
+    "gitnexus": "ghcr.io/codeeagle/lazycatimages:gitnexus_0decb1680f14"
   },
   "source_digests": {
-    "_primary": "sha256:afae7c7ec9eef74b439c26f0f5f1da09fae183f74b9bc3ec7ce1b2b9f5889abb"
+    "_primary": "sha256:4f5498266b7eb2fb5acbe52d580c1d8b91fd47c0b442a0e36fba1ce82be11568"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:gitnexus_aabec0805797",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:ca03def2f81296f8",
-      "elapsed_seconds": 272.134,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:gitnexus_0decb1680f14",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:a250e26b71ec5b30",
+      "elapsed_seconds": 390.246,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
