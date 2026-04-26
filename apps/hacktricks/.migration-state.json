@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "source_input": "HackTricks-wiki/hacktricks",
+  "created_at": "2026-04-26T08:23:07.221403+00:00",
+  "updated_at": "2026-04-26T08:33:01.765260+00:00",
+  "context": {
+    "source": {
+      "kind": "github_repo",
+      "url": "HackTricks-wiki/hacktricks",
+      "upstream_repo": "HackTricks-wiki/hacktricks",
+      "homepage": "https://github.com/HackTricks-wiki/hacktricks"
+    },
+    "environment": {
+      "gh_token_source": "GH_TOKEN",
+      "lzc_cli_token_source": "lzc-cli config get token",
+      "container_runtime": "docker",
+      "image_owner": ""
+    },
+    "route_decision": {
+      "route": "upstream_dockerfile",
+      "build_strategy": "upstream_dockerfile",
+      "check_strategy": "github_release",
+      "risks": []
+    },
+    "version": {
+      "upstream": "",
+      "normalized": "0.1.0"
+    },
+    "finalized": {
+      "slug": "hacktricks",
+      "project_name": "hacktricks",
+      "description": "Welcome to the page where you will find each trick/technique/whatever I have learnt in CTFs, real life apps, and reading researches and news",
+      "description_zh": "（迁移初稿）Hacktricks 的懒猫微服版本",
+      "upstream_repo": "HackTricks-wiki/hacktricks",
+      "homepage": "http://book.hacktricks.xyz/",
+      "license": "",
+      "author": "HackTricks-wiki",
+      "version": "0.1.0",
+      "package": "fun.selfstudio.app.migration.hacktricks",
+      "min_os_version": "1.3.8",
+      "check_strategy": "github_release",
+      "build_strategy": "upstream_dockerfile",
+      "official_image_registry": "",
+      "precompiled_binary_url": "",
+      "dockerfile_type": "custom",
+      "dockerfile_path": "",
+      "build_context": ".",
+      "docker_platform": "linux/amd64",
+      "image_owner": "",
+      "overlay_paths": [],
+      "upstream_submodules": [],
+      "image_targets": [
+        "hacktricks"
+      ],
+      "dependencies": [],
+      "service_builds": [],
+      "build_args": {},
+      "service_cmd": [],
+      "service_port": 3000,
+      "services": {
+        "hacktricks": {
+          "image": "registry.lazycat.cloud/placeholder/hacktricks:bootstrap"
+        }
+      },
+      "application": {
+        "subdomain": "hacktricks",
+        "public_path": [
+          "/"
+        ],
+        "upstreams": [
+          {
+            "location": "/",
+            "backend": "http://hacktricks:3000/"
+          }
+        ]
+      },
+      "env_vars": [],
+      "data_paths": [],
+      "startup_notes": [
+        "自动扫描到 Dockerfile：Dockerfile",
+        "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
+        "未扫描到 env 示例文件",
+        "扫描到 README：README.md, README.md, README.md",
+        "扫描到上游图标：src/images/CH_logo_ads.png"
+      ],
+      "include_content": false,
+      "ai_pod_service": "",
+      "ai_pod_service_name": "hacktricks",
+      "ai_pod_service_port": 3000,
+      "ai_pod_image": "registry.lazycat.cloud/placeholder/hacktricks-ai:bootstrap",
+      "aipod": {},
+      "usage": "",
+      "icon_path": "/var/folders/5n/bml6r36s2pdgxhd9cncpbhg40000gn/T/lzcat-full-migrate-nlq5ea3k/hacktricks-master/src/images/CH_logo_ads.png",
+      "source_version": "",
+      "default_branch": ""
+    },
+    "registration": {
+      "slug": "hacktricks",
+      "monorepo_path": "apps/hacktricks",
+      "config_path": "registry/repos/hacktricks.json"
+    }
+  },
+  "steps": {
+    "1": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:23:21.037902+00:00",
+      "conclusion": "已识别输入类型为 `github_repo`"
+    },
+    "2": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:23:23.983729+00:00",
+      "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
+    },
+    "3": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:23:23.984781+00:00",
+      "conclusion": "已完成 monorepo 注册"
+    },
+    "4": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:23:24.050239+00:00",
+      "conclusion": "骨架文件已生成",
+      "files_written": [
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-hacktricks/apps/hacktricks/lzc-manifest.yml",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-hacktricks/apps/hacktricks/lzc-build.yml",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-hacktricks/apps/hacktricks/README.md",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-hacktricks/apps/hacktricks/UPSTREAM_DEPLOYMENT_CHECKLIST.md",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-hacktricks/apps/hacktricks/icon.png",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-hacktricks/registry/repos/hacktricks.json"
+      ]
+    },
+    "5": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:23:24.051016+00:00",
+      "conclusion": "manifest 初稿已生成"
+    },
+    "6": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:23:24.051640+00:00",
+      "conclusion": "剩余文件已补齐"
+    },
+    "7": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:23:24.118218+00:00",
+      "conclusion": "预检通过",
+      "all_passed": true
+    }
+  },
+  "problems": [
+    {
+      "id": "p1",
+      "step": 1,
+      "description": "GitHub archive 下载失败：HackTricks-wiki/hacktricks: IncompleteRead(114688 bytes read)",
+      "category": "unknown",
+      "status": "open",
+      "created_at": "2026-04-26T08:33:01.765233+00:00"
+    }
+  ],
+  "verification": {}
+}

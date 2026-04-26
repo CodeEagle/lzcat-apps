@@ -1,0 +1,46 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "HackTricks-wiki/hacktricks",
+  "fixes": {
+    "project_name": "hacktricks",
+    "description": "Welcome to the page where you will find each trick/technique/whatever I have learnt in CTFs, real life apps, and reading researches and news",
+    "description_zh": "（迁移初稿）Hacktricks 的懒猫微服版本",
+    "homepage": "http://book.hacktricks.xyz/",
+    "author": "HackTricks-wiki",
+    "package": "fun.selfstudio.app.migration.hacktricks",
+    "check_strategy": "github_release",
+    "build_strategy": "upstream_dockerfile",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "docker_platform": "linux/amd64",
+    "image_targets": [
+      "hacktricks"
+    ],
+    "service_port": 3000,
+    "services": {
+      "hacktricks": {
+        "image": "registry.lazycat.cloud/placeholder/hacktricks:bootstrap"
+      }
+    },
+    "application": {
+      "subdomain": "hacktricks",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://hacktricks:3000/"
+        }
+      ]
+    },
+    "startup_notes": [
+      "自动扫描到 Dockerfile：Dockerfile",
+      "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
+      "未扫描到 env 示例文件",
+      "扫描到 README：README.md, README.md, README.md",
+      "扫描到上游图标：src/images/CH_logo_ads.png"
+    ],
+    "include_content": false
+  }
+}

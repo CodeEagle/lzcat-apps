@@ -1,0 +1,26 @@
+application:
+  public_path:
+    - /
+  subdomain: hacktricks
+  upstreams:
+    -
+      backend: http://hacktricks:3000/
+      location: /
+author: HackTricks-wiki
+description: Welcome to the page where you will find each trick/technique/whatever I have learnt in CTFs, real life apps, and reading researches and news
+homepage: http://book.hacktricks.xyz/
+locales:
+  en:
+    description: Welcome to the page where you will find each trick/technique/whatever I have learnt in CTFs, real life apps, and reading researches and news
+    name: hacktricks
+  zh:
+    description: （迁移初稿）Hacktricks 的懒猫微服版本
+    name: hacktricks
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+name: hacktricks
+package: fun.selfstudio.app.migration.hacktricks
+services:
+  hacktricks:
+    image: registry.lazycat.cloud/placeholder/hacktricks:bootstrap
+version: 0.1.0
