@@ -13,6 +13,7 @@ from scripts.discord_codex_control import (
     CodexControlRunResult,
     CodexControlTask,
     mark_existing_messages_seen,
+    parse_control_message,
     parse_control_command,
     process_codex_control_commands,
 )
@@ -49,6 +50,7 @@ class DiscordCodexControlTest(unittest.TestCase):
             category_id="category-1",
             channel_prefix="migration",
             control_channel="migration-control",
+            mention_role_ids=("role-1",),
             model="gpt-5.5",
         )
 
@@ -61,6 +63,16 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertIsNone(parse_control_command("<@123> 继续处理"))
         self.assertIsNone(parse_control_command("<@999> 继续处理", bot_user_id="123"))
         self.assertIsNone(parse_control_command("随便聊一句"))
+
+    def test_parse_empty_role_mention_as_help(self) -> None:
+        repo_root = self.make_repo_root()
+        config = self.make_config(repo_root)
+        message = {"content": "", "mention_roles": ["role-1"], "author": {"id": "u1"}}
+
+        parsed = parse_control_message(message, config)
+
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed.kind, "help")
 
     def test_process_migration_channel_runs_codex_with_worktree_context(self) -> None:
         repo_root = self.make_repo_root()
@@ -218,6 +230,95 @@ class DiscordCodexControlTest(unittest.TestCase):
         state = json.loads(config.state_path.read_text(encoding="utf-8"))
         self.assertEqual(state["channels"]["control-1"]["last_message_id"], "200")
         self.assertEqual(state["channels"]["piclaw-1"]["last_message_id"], "201")
+
+    def test_unreadable_channel_does_not_block_other_channels(self) -> None:
+        repo_root = self.make_repo_root()
+        workspace_path = repo_root / "migration-workspaces" / "migration-piclaw"
+        workspace_path.mkdir(parents=True)
+        self.write_queue(repo_root, workspace_path=workspace_path)
+        config = self.make_config(repo_root)
+        replies: list[str] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "GET" and route == "/guilds/guild-1/channels":
+                return [
+                    {"id": "control-1", "name": "migration-control", "type": 0, "parent_id": "category-1"},
+                    {"id": "blocked-1", "name": "migration-blocked", "type": 0, "parent_id": "category-1"},
+                    {"id": "piclaw-1", "name": "migration-piclaw", "type": 0, "parent_id": "category-1"},
+                ]
+            if method == "GET" and route == "/channels/control-1/messages?limit=20":
+                return []
+            if method == "GET" and route == "/channels/blocked-1/messages?limit=20":
+                raise RuntimeError("HTTP 403")
+            if method == "GET" and route == "/channels/piclaw-1/messages?limit=20":
+                return [{"id": "301", "content": "!status", "author": {"id": "u1"}}]
+            if method == "POST" and route == "/channels/piclaw-1/messages":
+                assert payload is not None
+                replies.append(str(payload.get("content", "")))
+                return {"id": "reply-1"}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        results = process_codex_control_commands(
+            config,
+            DiscordClient("token", transport=transport),
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(results[-1], {"channel_id": "piclaw-1", "message_id": "301", "status": "status"})
+        self.assertEqual(len(replies), 1)
+        state = json.loads(config.state_path.read_text(encoding="utf-8"))
+        self.assertEqual(state["channels"]["blocked-1"]["last_error"], "HTTP 403")
+
+    def test_guild_channel_failure_is_recorded_without_crashing(self) -> None:
+        repo_root = self.make_repo_root()
+        config = self.make_config(repo_root)
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "GET" and route == "/guilds/guild-1/channels":
+                raise RuntimeError("HTTP 522")
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        results = process_codex_control_commands(
+            config,
+            DiscordClient("token", transport=transport),
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(results, [{"channel_id": "", "message_id": "", "status": "guild_read_failed"}])
+        state = json.loads(config.state_path.read_text(encoding="utf-8"))
+        self.assertEqual(state["last_error"], "HTTP 522")
+
+    def test_reply_failure_is_recorded_without_replaying_command(self) -> None:
+        repo_root = self.make_repo_root()
+        workspace_path = repo_root / "migration-workspaces" / "migration-piclaw"
+        workspace_path.mkdir(parents=True)
+        self.write_queue(repo_root, workspace_path=workspace_path)
+        config = self.make_config(repo_root)
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "GET" and route == "/guilds/guild-1/channels":
+                return [
+                    {"id": "control-1", "name": "migration-control", "type": 0, "parent_id": "category-1"},
+                    {"id": "piclaw-1", "name": "migration-piclaw", "type": 0, "parent_id": "category-1"},
+                ]
+            if method == "GET" and route == "/channels/control-1/messages?limit=20":
+                return []
+            if method == "GET" and route == "/channels/piclaw-1/messages?limit=20":
+                return [{"id": "401", "content": "!status", "author": {"id": "u1"}}]
+            if method == "POST" and route == "/channels/piclaw-1/messages":
+                raise RuntimeError("send failed")
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        results = process_codex_control_commands(
+            config,
+            DiscordClient("token", transport=transport),
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(results[-1]["status"], "status_reply_failed")
+        state = json.loads(config.state_path.read_text(encoding="utf-8"))
+        self.assertEqual(state["channels"]["piclaw-1"]["last_message_id"], "401")
+        self.assertEqual(state["channels"]["piclaw-1"]["last_error"], "send failed")
 
 
 if __name__ == "__main__":

@@ -55,6 +55,7 @@ class CodexControlConfig:
     channel_prefix: str = "migration"
     control_channel: str = CONTROL_CHANNEL_NAME
     bot_user_id: str = ""
+    mention_role_ids: tuple[str, ...] = ()
     model: str = DEFAULT_CODEX_MODEL
     execute: bool = True
 
@@ -309,6 +310,57 @@ def parse_control_command(content: str, *, bot_user_id: str = "") -> ParsedComma
     if prefix in {"!retry", "/retry"}:
         instruction = rest or "继续处理当前迁移，优先复现最近失败、修复问题并重跑必要验证。"
         return ParsedCommand("codex", instruction)
+    return None
+
+
+def strip_role_mention(content: str, role_ids: tuple[str, ...]) -> tuple[bool, str]:
+    text = content.strip()
+    for role_id in role_ids:
+        prefix = f"<@&{role_id}>"
+        if text.startswith(prefix):
+            return True, text.removeprefix(prefix).strip()
+    return False, text
+
+
+def message_mentions_bot(message: dict[str, Any], bot_user_id: str) -> bool:
+    if not bot_user_id:
+        return False
+    mentions = message.get("mentions") if isinstance(message.get("mentions"), list) else []
+    for mention in mentions:
+        if isinstance(mention, dict) and str(mention.get("id", "")).strip() == bot_user_id:
+            return True
+    return False
+
+
+def message_mentions_role(message: dict[str, Any], role_ids: tuple[str, ...]) -> bool:
+    if not role_ids:
+        return False
+    mention_roles = message.get("mention_roles") if isinstance(message.get("mention_roles"), list) else []
+    mentioned = {str(role_id).strip() for role_id in mention_roles}
+    return bool(mentioned.intersection(role_ids))
+
+
+def parse_mention_remainder(remainder: str) -> ParsedCommand:
+    text = remainder.strip()
+    if not text or text.lower() in {"help", "h", "?"}:
+        return ParsedCommand("help")
+    if text.lower() in {"status", "状态"}:
+        return ParsedCommand("status")
+    return ParsedCommand("codex", text)
+
+
+def parse_control_message(message: dict[str, Any], config: CodexControlConfig) -> ParsedCommand | None:
+    content = str(message.get("content", "")).strip()
+    role_mentioned, role_remainder = strip_role_mention(content, config.mention_role_ids)
+    if role_mentioned:
+        return parse_mention_remainder(role_remainder)
+    parsed = parse_control_command(content, bot_user_id=config.bot_user_id)
+    if parsed:
+        return parsed
+    if not content and (
+        message_mentions_bot(message, config.bot_user_id) or message_mentions_role(message, config.mention_role_ids)
+    ):
+        return ParsedCommand("help")
     return None
 
 
@@ -612,12 +664,18 @@ def process_codex_control_commands(
     now: str | None = None,
 ) -> list[dict[str, str]]:
     now = now or utc_now_iso()
-    contexts = discover_channels(config, client)
+    state_path = resolve_path(config.repo_root, config.state_path)
+    state = read_json(state_path, {})
+    try:
+        contexts = discover_channels(config, client)
+    except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+        state["last_error"] = str(exc)
+        state["last_checked_at"] = now
+        write_json(state_path, state)
+        return [{"channel_id": "", "message_id": "", "status": "guild_read_failed"}]
     if not contexts:
         return []
 
-    state_path = resolve_path(config.repo_root, config.state_path)
-    state = read_json(state_path, {})
     channels_state = state.get("channels")
     if not isinstance(channels_state, dict):
         channels_state = {}
@@ -628,7 +686,16 @@ def process_codex_control_commands(
         if not isinstance(channel_state, dict):
             channel_state = {}
         last_message_id = str(channel_state.get("last_message_id") or state.get("last_message_id") or "").strip()
-        messages = order_messages(client.list_messages(context.channel_id, after=last_message_id, limit=20))
+        try:
+            messages = order_messages(client.list_messages(context.channel_id, after=last_message_id, limit=20))
+        except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+            channel_state["last_error"] = str(exc)
+            channel_state["last_checked_at"] = now
+            channel_state["channel_name"] = context.channel_name
+            channel_state["slug"] = context.slug
+            channels_state[context.channel_id] = channel_state
+            results.append({"channel_id": context.channel_id, "message_id": "", "status": "channel_read_failed"})
+            continue
         last_seen = last_message_id
         for message in messages:
             message_id = str(message.get("id", "")).strip()
@@ -638,17 +705,30 @@ def process_codex_control_commands(
                 last_seen = message_id
                 continue
             last_seen = message_id
-            content = str(message.get("content", "")).strip()
-            parsed = parse_control_command(content, bot_user_id=config.bot_user_id)
+            parsed = parse_control_message(message, config)
             if not parsed:
                 continue
             will_run = parsed.kind == "codex" and not (context.scope == "migration" and not context.item)
+            send_error = ""
             if will_run:
-                client.send_message(context.channel_id, truncate_reply(f"收到，正在交给 Codex 处理：{parsed.instruction}"))
+                try:
+                    client.send_message(context.channel_id, truncate_reply(f"收到，正在交给 Codex 处理：{parsed.instruction}"))
+                except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+                    send_error = str(exc)
             result = handle_command(parsed, context, config, runner=runner, now=now, task_id=message_id)
             if result.reply:
-                client.send_message(context.channel_id, truncate_reply(result.reply))
-            results.append({"channel_id": context.channel_id, "message_id": message_id, "status": result.status})
+                try:
+                    client.send_message(context.channel_id, truncate_reply(result.reply))
+                except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+                    send_error = str(exc)
+            status = result.status
+            entry = {"channel_id": context.channel_id, "message_id": message_id, "status": status}
+            if send_error:
+                status = f"{status}_reply_failed"
+                entry["status"] = status
+                entry["reply_error"] = send_error
+                channel_state["last_error"] = send_error
+            results.append(entry)
 
         if last_seen != last_message_id:
             channel_state["last_message_id"] = last_seen
@@ -670,22 +750,37 @@ def mark_existing_messages_seen(
     now: str | None = None,
 ) -> list[dict[str, str]]:
     now = now or utc_now_iso()
-    contexts = discover_channels(config, client)
     state_path = resolve_path(config.repo_root, config.state_path)
     state = read_json(state_path, {})
+    try:
+        contexts = discover_channels(config, client)
+    except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+        state["last_error"] = str(exc)
+        state["last_checked_at"] = now
+        write_json(state_path, state)
+        return [{"channel_id": "", "message_id": "", "status": "guild_read_failed"}]
     channels_state = state.get("channels")
     if not isinstance(channels_state, dict):
         channels_state = {}
     results: list[dict[str, str]] = []
 
     for context in contexts:
-        messages = client.list_messages(context.channel_id, limit=1)
-        last_message_id = ""
-        if messages:
-            last_message_id = str(messages[0].get("id", "")).strip()
         channel_state = channels_state.get(context.channel_id)
         if not isinstance(channel_state, dict):
             channel_state = {}
+        try:
+            messages = client.list_messages(context.channel_id, limit=1)
+        except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+            channel_state["last_error"] = str(exc)
+            channel_state["last_checked_at"] = now
+            channel_state["channel_name"] = context.channel_name
+            channel_state["slug"] = context.slug
+            channels_state[context.channel_id] = channel_state
+            results.append({"channel_id": context.channel_id, "message_id": "", "status": "channel_read_failed"})
+            continue
+        last_message_id = ""
+        if messages:
+            last_message_id = str(messages[0].get("id", "")).strip()
         channel_state["last_message_id"] = last_message_id
         channel_state["last_checked_at"] = now
         channel_state["channel_name"] = context.channel_name
@@ -722,6 +817,7 @@ def config_from_project(repo_root: Path, *, execute: bool = True) -> CodexContro
         channel_prefix=project_config.discord.channel_prefix,
         control_channel=project_config.codex_control.control_channel,
         bot_user_id=project_config.codex_control.bot_user_id,
+        mention_role_ids=project_config.codex_control.mention_role_ids,
         model=project_config.codex_control.model or project_config.migration.codex_worker_model,
         execute=execute,
     )
