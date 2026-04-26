@@ -12,6 +12,7 @@ import urllib.parse
 import urllib.request
 from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -118,6 +119,8 @@ MANUAL_EXCLUSION_RULES = (
         "matched_keyword": "macos_only_repo",
     },
 )
+
+DEFAULT_MANUAL_EXCLUSIONS_PATH = Path(__file__).resolve().parents[1] / "registry" / "auto-migration" / "manual-exclusions.json"
 
 
 NON_DEPLOYABLE_RULE = {
@@ -327,6 +330,16 @@ def find_exclusion(repo: dict[str, Any]) -> dict[str, str] | None:
                 "matched_keyword": rule["matched_keyword"],
             }
 
+    for rule in load_manual_exclusion_rules():
+        full_name = compact_whitespace(str(rule.get("full_name", "")))
+        if repo["full_name"].lower() != full_name.lower():
+            continue
+        return {
+            "label": "manual_exclusion",
+            "reason": compact_whitespace(str(rule.get("reason", ""))) or "Repository manually excluded from migration.",
+            "matched_keyword": compact_whitespace(str(rule.get("matched_keyword", ""))) or "manual_exclusion",
+        }
+
     haystack = normalize(" ".join([repo["repo"], repo["full_name"], repo.get("description", "")]))
     for rule in EXCLUDED_CATEGORY_RULES:
         for keyword in rule["keywords"]:
@@ -338,6 +351,27 @@ def find_exclusion(repo: dict[str, Any]) -> dict[str, str] | None:
                     "matched_keyword": keyword,
                 }
     return None
+
+
+def manual_exclusions_path() -> Path:
+    override = compact_whitespace(os.environ.get("LZCAT_MANUAL_EXCLUSIONS_PATH", ""))
+    if override:
+        return Path(override).expanduser()
+    return DEFAULT_MANUAL_EXCLUSIONS_PATH
+
+
+def load_manual_exclusion_rules() -> list[dict[str, Any]]:
+    path = manual_exclusions_path()
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    repos = payload.get("repos")
+    if not isinstance(repos, list):
+        return []
+    return [rule for rule in repos if isinstance(rule, dict)]
 
 
 def fetch_bytes(url: str, timeout: int = 60, retries: int = 3, backoff_seconds: float = 1.5) -> bytes:

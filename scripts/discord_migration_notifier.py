@@ -187,6 +187,12 @@ class DiscordClient:
             raise ValueError("Discord list messages response is not a list")
         return [message for message in response if isinstance(message, dict)]
 
+    def delete_channel(self, channel_id: str) -> dict[str, Any]:
+        response = self.request_json("DELETE", f"/channels/{channel_id}")
+        if not isinstance(response, dict):
+            raise ValueError("Discord delete channel response is not an object")
+        return response
+
 
 @dataclass(frozen=True)
 class MigrationDiscordNotifier:

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -153,6 +156,46 @@ Python[1,234](http://github.com/owner/demo/stargazers) 5 stars today
         self.assertEqual(candidate["status"], "already_migrated")
         self.assertIn("developer page", candidate["status_reason"])
         self.assertEqual(candidate["local_app"]["slug"], "demo")
+
+    @patch("scripts.scout_core.search_lazycat")
+    def test_check_candidate_uses_persistent_manual_exclusions_file(self, search_mock) -> None:
+        exclusions_path = Path(tempfile.mkdtemp(prefix="scout-manual-exclusions-")) / "manual-exclusions.json"
+        exclusions_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "repos": [
+                        {
+                            "full_name": "superradcompany/microsandbox",
+                            "matched_keyword": "native_cli_sdk",
+                            "reason": "Native CLI/SDK microVM tool with no HTTP service entrypoint.",
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        repo = {
+            "source_name": "manual_check",
+            "source_label": "Manual Check",
+            "owner": "superradcompany",
+            "repo": "microsandbox",
+            "full_name": "superradcompany/microsandbox",
+            "repo_url": "https://github.com/superradcompany/microsandbox",
+            "description": "secure, local and programmable sandboxes for AI agents",
+            "language": "Rust",
+            "total_stars": 0,
+            "stars_today": 0,
+        }
+
+        with patch.dict(os.environ, {"LZCAT_MANUAL_EXCLUSIONS_PATH": str(exclusions_path)}, clear=False):
+            candidate = check_candidate(repo, checked_at="2026-04-26T00:00:00Z")
+
+        search_mock.assert_not_called()
+        self.assertEqual(candidate["status"], "excluded")
+        self.assertEqual(candidate["exclusion"]["matched_keyword"], "native_cli_sdk")
+        self.assertIn("no HTTP service", candidate["status_reason"])
 
 
 if __name__ == "__main__":

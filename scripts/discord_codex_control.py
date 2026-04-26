@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
 import json
 import os
 import re
+import shutil
+import socket
+import ssl
+import struct
 import subprocess
+import sys
 import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -36,8 +43,14 @@ except ImportError:  # pragma: no cover - direct script execution
 DEFAULT_QUEUE_PATH = "registry/auto-migration/queue.json"
 DEFAULT_STATE_PATH = "registry/auto-migration/discord-codex-control.json"
 DEFAULT_TASK_ROOT = "registry/auto-migration/codex-control-tasks"
+DEFAULT_MANUAL_EXCLUSIONS_PATH = "registry/auto-migration/manual-exclusions.json"
 DEFAULT_CODEX_MODEL = "gpt-5.5"
 DEFAULT_CODEX_FALLBACK_MODEL = "gpt-5.4"
+DISCORD_GATEWAY_HOST = "gateway.discord.gg"
+DISCORD_GATEWAY_PATH = "/?v=10&encoding=json"
+DISCORD_GATEWAY_GUILDS_INTENT = 1 << 0
+DISCORD_GATEWAY_GUILD_MESSAGES_INTENT = 1 << 9
+DISCORD_GATEWAY_MESSAGE_CONTENT_INTENT = 1 << 15
 ACK_REACTION = "%F0%9F%91%80"
 WORKER_REACTION = "%F0%9F%94%A7"
 CONTROL_CHANNEL_NAME = "migration-control"
@@ -84,6 +97,7 @@ class ChannelContext:
 class CommandResult:
     status: str
     reply: str = ""
+    delete_channel_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -342,6 +356,9 @@ def parse_control_command(content: str, *, bot_user_id: str = "") -> ParsedComma
     if prefix in {"!retry", "/retry"}:
         instruction = rest or "继续处理当前迁移，优先复现最近失败、修复问题并重跑必要验证。"
         return ParsedCommand("codex", instruction)
+    if prefix in {"!filter-close", "/filter-close", "!drop", "/drop"}:
+        instruction = rest or "filter_and_cleanup_current_migration"
+        return ParsedCommand("filter_cleanup", instruction)
     return None
 
 
@@ -404,6 +421,7 @@ def build_help_reply() -> str:
             "`!codex <需求>` 让 Codex 在当前频道上下文中执行任务",
             "`!fix <问题>` 针对当前迁移项目排查修复",
             "`!retry` 让 Codex 接着当前失败继续处理",
+            "`!filter-close` 把当前 repo 加入过滤名单并清理频道/worktree/branch/痕迹",
             "`@Bot <需求>` 也可以直接唤起 Codex",
         ]
     )
@@ -481,6 +499,173 @@ def _format_count_dict(value: Any) -> str:
     if not isinstance(value, dict) or not value:
         return "none"
     return ", ".join(f"{key}={value[key]}" for key in sorted(value))
+
+
+def manual_exclusions_path(config: CodexControlConfig) -> Path:
+    return config.repo_root / DEFAULT_MANUAL_EXCLUSIONS_PATH
+
+
+def build_manual_exclusion_entry(item: dict[str, Any], *, now: str) -> dict[str, str]:
+    candidate = item.get("candidate") if isinstance(item.get("candidate"), dict) else {}
+    exclusion = candidate.get("exclusion") if isinstance(candidate.get("exclusion"), dict) else {}
+    full_name = str(candidate.get("full_name") or item.get("source") or "").strip()
+    reason = (
+        str(exclusion.get("reason") or candidate.get("status_reason") or item.get("last_error") or "").strip()
+        or "Repository manually excluded from migration."
+    )
+    matched_keyword = (
+        str(exclusion.get("matched_keyword") or exclusion.get("label") or item.get("filtered_reason") or "").strip()
+        or "manual_filter_cleanup"
+    )
+    return {
+        "added_at": now,
+        "full_name": full_name,
+        "matched_keyword": matched_keyword,
+        "reason": reason,
+    }
+
+
+def append_manual_exclusion(config: CodexControlConfig, item: dict[str, Any], *, now: str) -> dict[str, str]:
+    path = manual_exclusions_path(config)
+    payload = read_json(path, {"schema_version": 1, "repos": []})
+    repos = payload.get("repos")
+    if not isinstance(repos, list):
+        repos = []
+    entry = build_manual_exclusion_entry(item, now=now)
+    full_name = entry["full_name"].lower()
+    updated = False
+    for existing in repos:
+        if not isinstance(existing, dict):
+            continue
+        if str(existing.get("full_name", "")).strip().lower() != full_name:
+            continue
+        existing.update(entry)
+        updated = True
+        break
+    if not updated:
+        repos.append(entry)
+    payload["schema_version"] = 1
+    payload["repos"] = sorted(
+        [repo for repo in repos if isinstance(repo, dict)],
+        key=lambda repo: str(repo.get("full_name", "")).lower(),
+    )
+    write_json(path, payload)
+    return entry
+
+
+def update_queue_item_for_cleanup(config: CodexControlConfig, context: ChannelContext, *, now: str, note: str) -> None:
+    queue_path = resolve_path(config.repo_root, config.queue_path)
+    payload = read_json(queue_path, {"schema_version": 1, "items": []})
+    items = payload.get("items")
+    if not isinstance(items, list):
+        items = []
+        payload["items"] = items
+    target_id = str((context.item or {}).get("id", "")).strip()
+    target_slug = normalize_slug(context.slug)
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_id = str(item.get("id", "")).strip()
+        item_slug = normalize_slug(str(item.get("slug") or item.get("source") or item.get("id") or ""))
+        if target_id and item_id != target_id and item_slug != target_slug:
+            continue
+        item["state"] = "filtered_out"
+        item["candidate_status"] = "excluded"
+        item["filtered_reason"] = "manual_filter_cleanup"
+        item["last_error"] = note
+        item["updated_at"] = now
+        item["ops_note"] = note
+        item.pop("human_request", None)
+        item.pop("human_response", None)
+        item.pop("discord", None)
+        break
+    write_json(queue_path, payload)
+
+
+def cleanup_workspace_and_branch(config: CodexControlConfig, context: ChannelContext) -> list[str]:
+    actions: list[str] = []
+    workdir = context.workdir
+    if workdir and workdir != config.repo_root and workdir.exists():
+        result = subprocess.run(
+            ["git", "-C", str(config.repo_root), "worktree", "remove", "--force", str(workdir)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise RuntimeError((result.stderr or result.stdout or "").strip() or f"git worktree remove failed: {workdir}")
+        actions.append(f"worktree_removed:{workdir}")
+    if workdir and workdir.exists():
+        shutil.rmtree(workdir, ignore_errors=True)
+        if not workdir.exists():
+            actions.append(f"workspace_deleted:{workdir}")
+
+    branch = f"migration/{normalize_slug(context.slug)}" if context.slug else ""
+    if branch:
+        result = subprocess.run(
+            ["git", "-C", str(config.repo_root), "branch", "--list", branch],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if branch in (result.stdout or ""):
+            delete_result = subprocess.run(
+                ["git", "-C", str(config.repo_root), "branch", "-D", branch],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if delete_result.returncode != 0:
+                raise RuntimeError((delete_result.stderr or delete_result.stdout or "").strip() or f"git branch -D failed: {branch}")
+            actions.append(f"branch_deleted:{branch}")
+    return actions
+
+
+def cleanup_migration_artifacts(config: CodexControlConfig, context: ChannelContext) -> list[str]:
+    removed: list[str] = []
+    slug = normalize_slug(context.slug)
+    roots = [
+        resolve_path(config.repo_root, config.task_root),
+        config.repo_root / "registry" / "auto-migration" / "codex-tasks",
+        config.repo_root / "registry" / "auto-migration" / "discovery-review-tasks",
+        config.repo_root / "registry" / "auto-migration" / "notifications",
+    ]
+    for root in roots:
+        if not root.exists():
+            continue
+        for path in root.iterdir():
+            if slug not in path.name:
+                continue
+            if path.is_dir():
+                shutil.rmtree(path, ignore_errors=True)
+            else:
+                path.unlink(missing_ok=True)
+            removed.append(str(path))
+    return removed
+
+
+def cleanup_channel_state(config: CodexControlConfig, context: ChannelContext) -> None:
+    state_path = resolve_path(config.repo_root, config.state_path)
+    state = read_json(state_path, {})
+    channels = state.get("channels")
+    if not isinstance(channels, dict):
+        channels = {}
+    channels.pop(context.channel_id, None)
+    state["channels"] = channels
+    write_json(state_path, state)
+
+
+def run_filter_cleanup(context: ChannelContext, config: CodexControlConfig, client: DiscordClient, *, now: str) -> CommandResult:
+    if context.scope != "migration" or not context.item:
+        return CommandResult("missing_queue_item", "这个命令只能在绑定了 queue 项目的 migration 频道里使用。")
+    entry = append_manual_exclusion(config, context.item, now=now)
+    note = f"manual_filter_cleanup:{entry['matched_keyword']}:{entry['reason']}"
+    update_queue_item_for_cleanup(config, context, now=now, note=note)
+    cleanup_migration_artifacts(config, context)
+    cleanup_workspace_and_branch(config, context)
+    cleanup_channel_state(config, context)
+    client.delete_channel(context.channel_id)
+    return CommandResult("filtered_cleaned", "", delete_channel_id=context.channel_id)
 
 
 def app_context_text(context: ChannelContext) -> str:
@@ -716,6 +901,7 @@ def handle_command(
     context: ChannelContext,
     config: CodexControlConfig,
     *,
+    client: DiscordClient | None = None,
     runner: CodexRunner = run_codex_control_task,
     now: str | None = None,
     task_id: str = "",
@@ -727,6 +913,10 @@ def handle_command(
         return CommandResult("content_unavailable", build_content_unavailable_reply())
     if parsed.kind == "status":
         return CommandResult("status", build_status_reply(context, config))
+    if parsed.kind == "filter_cleanup":
+        if client is None:
+            return CommandResult("failed", "Discord client is required for cleanup commands.")
+        return run_filter_cleanup(context, config, client, now=now)
     if parsed.kind != "codex":
         return CommandResult("ignored", "")
     if context.scope == "migration" and not context.item:
@@ -737,6 +927,85 @@ def handle_command(
     task = build_task(parsed.instruction, context, config, now=now, task_id=task_id)
     result = runner(task)
     return CommandResult(result.status, format_codex_result_reply(result, context))
+
+
+def gateway_intents() -> int:
+    return (
+        DISCORD_GATEWAY_GUILDS_INTENT
+        | DISCORD_GATEWAY_GUILD_MESSAGES_INTENT
+        | DISCORD_GATEWAY_MESSAGE_CONTENT_INTENT
+    )
+
+
+def build_gateway_identify_payload(token: str) -> dict[str, Any]:
+    return {
+        "op": 2,
+        "d": {
+            "token": token,
+            "intents": gateway_intents(),
+            "properties": {
+                "os": sys.platform,
+                "browser": "lzcat-codex-control",
+                "device": "lzcat-codex-control",
+            },
+        },
+    }
+
+
+def handle_gateway_message_create(
+    config: CodexControlConfig,
+    client: DiscordClient,
+    contexts_by_channel_id: dict[str, ChannelContext],
+    message: dict[str, Any],
+    *,
+    runner: CodexRunner = run_codex_control_task,
+    now: str | None = None,
+) -> dict[str, str]:
+    channel_id = str(message.get("channel_id", "")).strip()
+    message_id = str(message.get("id", "")).strip()
+    if not channel_id or not message_id:
+        return {"channel_id": channel_id, "message_id": message_id, "status": "ignored"}
+    context = contexts_by_channel_id.get(channel_id)
+    if not context:
+        return {"channel_id": channel_id, "message_id": message_id, "status": "unknown_channel"}
+    if is_bot_message(message):
+        return {"channel_id": channel_id, "message_id": message_id, "status": "bot_ignored"}
+    parsed = parse_control_message(message, config)
+    if not parsed:
+        return {"channel_id": channel_id, "message_id": message_id, "status": "ignored"}
+
+    reaction_error = ""
+    send_error = ""
+    try:
+        client.add_reaction(channel_id, message_id, ACK_REACTION)
+    except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+        reaction_error = str(exc)
+
+    will_run = parsed.kind == "codex" and not (context.scope == "migration" and not context.item)
+    if will_run:
+        try:
+            client.add_reaction(channel_id, message_id, WORKER_REACTION)
+        except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+            reaction_error = str(exc)
+        try:
+            client.send_message(channel_id, truncate_reply(f"收到，正在交给 Codex 处理：{parsed.instruction}"))
+        except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+            send_error = str(exc)
+
+    result = handle_command(parsed, context, config, runner=runner, now=now, task_id=message_id)
+    if result.reply:
+        try:
+            client.send_message(channel_id, truncate_reply(result.reply))
+        except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+            send_error = str(exc)
+
+    entry = {"channel_id": channel_id, "message_id": message_id, "status": result.status}
+    if send_error:
+        entry["status"] = f"{result.status}_reply_failed"
+        entry["reply_error"] = send_error
+    if reaction_error:
+        entry["reaction_error"] = reaction_error
+    return entry
 
 
 def fetch_channel_message_batches(
@@ -768,6 +1037,242 @@ def fetch_channel_message_batches(
         for future in as_completed(futures):
             batches.append(future.result())
     return sorted(batches, key=lambda batch: batch.index)
+
+
+def websocket_accept_value(key: str) -> str:
+    digest = hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode("ascii")).digest()
+    return base64.b64encode(digest).decode("ascii")
+
+
+def open_gateway_socket(*, timeout: float = 30.0) -> ssl.SSLSocket:
+    raw = socket.create_connection((DISCORD_GATEWAY_HOST, 443), timeout=timeout)
+    secure = ssl.create_default_context().wrap_socket(raw, server_hostname=DISCORD_GATEWAY_HOST)
+    key = base64.b64encode(os.urandom(16)).decode("ascii")
+    request = "\r\n".join(
+        [
+            f"GET {DISCORD_GATEWAY_PATH} HTTP/1.1",
+            f"Host: {DISCORD_GATEWAY_HOST}",
+            "Upgrade: websocket",
+            "Connection: Upgrade",
+            f"Sec-WebSocket-Key: {key}",
+            "Sec-WebSocket-Version: 13",
+            "User-Agent: lzcat-codex-control/1.0",
+            "",
+            "",
+        ]
+    )
+    secure.sendall(request.encode("ascii"))
+    response = b""
+    while b"\r\n\r\n" not in response:
+        chunk = secure.recv(4096)
+        if not chunk:
+            raise ConnectionError("Discord Gateway closed during WebSocket handshake")
+        response += chunk
+        if len(response) > 32768:
+            raise ConnectionError("Discord Gateway handshake response is too large")
+    header = response.split(b"\r\n\r\n", 1)[0].decode("iso-8859-1", errors="replace")
+    lines = header.split("\r\n")
+    if not lines or " 101 " not in lines[0]:
+        raise ConnectionError(f"Discord Gateway WebSocket handshake failed: {lines[0] if lines else header}")
+    headers: dict[str, str] = {}
+    for line in lines[1:]:
+        if ":" not in line:
+            continue
+        name, value = line.split(":", 1)
+        headers[name.strip().lower()] = value.strip()
+    if headers.get("sec-websocket-accept") != websocket_accept_value(key):
+        raise ConnectionError("Discord Gateway WebSocket accept header did not match")
+    secure.settimeout(1.0)
+    return secure
+
+
+def build_websocket_frame(payload: bytes, *, opcode: int = 1) -> bytes:
+    first = 0x80 | (opcode & 0x0F)
+    length = len(payload)
+    mask_key = os.urandom(4)
+    if length < 126:
+        header = struct.pack("!BB", first, 0x80 | length)
+    elif length <= 0xFFFF:
+        header = struct.pack("!BBH", first, 0x80 | 126, length)
+    else:
+        header = struct.pack("!BBQ", first, 0x80 | 127, length)
+    masked = bytes(byte ^ mask_key[index % 4] for index, byte in enumerate(payload))
+    return header + mask_key + masked
+
+
+def _recv_exact(sock: ssl.SSLSocket, length: int) -> bytes:
+    chunks: list[bytes] = []
+    remaining = length
+    while remaining:
+        chunk = sock.recv(remaining)
+        if not chunk:
+            raise ConnectionError("Discord Gateway WebSocket closed")
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def read_websocket_frame(sock: ssl.SSLSocket) -> tuple[bool, int, bytes]:
+    header = _recv_exact(sock, 2)
+    first, second = header
+    fin = bool(first & 0x80)
+    opcode = first & 0x0F
+    masked = bool(second & 0x80)
+    length = second & 0x7F
+    if length == 126:
+        length = struct.unpack("!H", _recv_exact(sock, 2))[0]
+    elif length == 127:
+        length = struct.unpack("!Q", _recv_exact(sock, 8))[0]
+    mask_key = _recv_exact(sock, 4) if masked else b""
+    payload = _recv_exact(sock, length) if length else b""
+    if masked:
+        payload = bytes(byte ^ mask_key[index % 4] for index, byte in enumerate(payload))
+    return fin, opcode, payload
+
+
+def read_gateway_payload(sock: ssl.SSLSocket) -> dict[str, Any] | None:
+    fragments: list[bytes] = []
+    message_opcode = 0
+    while True:
+        fin, opcode, payload = read_websocket_frame(sock)
+        if opcode == 8:
+            raise ConnectionError("Discord Gateway sent close frame")
+        if opcode == 9:
+            sock.sendall(build_websocket_frame(payload, opcode=10))
+            continue
+        if opcode == 10:
+            continue
+        if opcode in {1, 2}:
+            message_opcode = opcode
+            fragments = [payload]
+        elif opcode == 0:
+            fragments.append(payload)
+        else:
+            continue
+        if not fin:
+            continue
+        if message_opcode != 1:
+            return None
+        text = b"".join(fragments).decode("utf-8")
+        payload_obj = json.loads(text)
+        return payload_obj if isinstance(payload_obj, dict) else None
+
+
+def send_gateway_payload(sock: ssl.SSLSocket, payload: dict[str, Any]) -> None:
+    body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    sock.sendall(build_websocket_frame(body))
+
+
+def build_context_map(config: CodexControlConfig, client: DiscordClient) -> dict[str, ChannelContext]:
+    return {context.channel_id: context for context in discover_channels(config, client)}
+
+
+def run_gateway_control(
+    config: CodexControlConfig,
+    client: DiscordClient,
+    *,
+    token: str,
+    runner: CodexRunner = run_codex_control_task,
+    max_workers: int = 8,
+) -> None:
+    contexts_by_channel_id = build_context_map(config, client)
+    with ThreadPoolExecutor(max_workers=max(1, max_workers)) as executor:
+        while True:
+            try:
+                sock = open_gateway_socket()
+                next_heartbeat = float("inf")
+                heartbeat_interval = 30.0
+                last_sequence: int | None = None
+                last_context_refresh = time.monotonic()
+                print(
+                    json.dumps(
+                        {
+                            "checked_at": utc_now_iso(),
+                            "gateway": "connected",
+                            "contexts": len(contexts_by_channel_id),
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
+                with sock:
+                    while True:
+                        now_monotonic = time.monotonic()
+                        if now_monotonic >= next_heartbeat:
+                            send_gateway_payload(sock, {"op": 1, "d": last_sequence})
+                            next_heartbeat = now_monotonic + heartbeat_interval
+                        if now_monotonic - last_context_refresh > 300:
+                            contexts_by_channel_id = build_context_map(config, client)
+                            last_context_refresh = now_monotonic
+                        try:
+                            gateway_payload = read_gateway_payload(sock)
+                        except socket.timeout:
+                            continue
+                        if not gateway_payload:
+                            continue
+                        sequence = gateway_payload.get("s")
+                        if isinstance(sequence, int):
+                            last_sequence = sequence
+                        op = gateway_payload.get("op")
+                        data = gateway_payload.get("d") if isinstance(gateway_payload.get("d"), dict) else {}
+                        event_type = str(gateway_payload.get("t") or "")
+                        if op == 10:
+                            heartbeat_interval = max(1.0, float(data.get("heartbeat_interval", 30000)) / 1000.0)
+                            next_heartbeat = time.monotonic() + heartbeat_interval
+                            send_gateway_payload(sock, build_gateway_identify_payload(token))
+                            continue
+                        if op == 1:
+                            send_gateway_payload(sock, {"op": 1, "d": last_sequence})
+                            continue
+                        if op in {7, 9}:
+                            raise ConnectionError(f"Discord Gateway requested reconnect: op={op}")
+                        if event_type in {"READY", "GUILD_CREATE", "CHANNEL_CREATE", "CHANNEL_UPDATE", "CHANNEL_DELETE"}:
+                            contexts_by_channel_id = build_context_map(config, client)
+                            last_context_refresh = time.monotonic()
+                            continue
+                        if event_type != "MESSAGE_CREATE":
+                            continue
+                        channel_id = str(data.get("channel_id", "")).strip()
+                        if channel_id not in contexts_by_channel_id:
+                            contexts_by_channel_id = build_context_map(config, client)
+                        executor.submit(
+                            _handle_gateway_message_and_log,
+                            config,
+                            client,
+                            dict(contexts_by_channel_id),
+                            data,
+                            runner,
+                        )
+            except Exception as exc:  # pragma: no cover - live network behavior.
+                print(
+                    json.dumps(
+                        {"checked_at": utc_now_iso(), "gateway": "reconnect", "error": str(exc)},
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
+                time.sleep(5)
+
+
+def _handle_gateway_message_and_log(
+    config: CodexControlConfig,
+    client: DiscordClient,
+    contexts_by_channel_id: dict[str, ChannelContext],
+    message: dict[str, Any],
+    runner: CodexRunner,
+) -> None:
+    result = handle_gateway_message_create(
+        config,
+        client,
+        contexts_by_channel_id,
+        message,
+        runner=runner,
+        now=utc_now_iso(),
+    )
+    if result.get("status") not in {"ignored", "bot_ignored", "unknown_channel"}:
+        print(json.dumps({"checked_at": utc_now_iso(), "gateway_message": result}, ensure_ascii=False, sort_keys=True), flush=True)
 
 
 def process_codex_control_commands(
@@ -806,6 +1311,7 @@ def process_codex_control_commands(
         context = batch.context
         channel_state = batch.channel_state
         last_message_id = batch.last_message_id
+        channel_deleted = False
         if batch.error:
             channel_state["last_error"] = batch.error
             channel_state["last_checked_at"] = now
@@ -831,7 +1337,8 @@ def process_codex_control_commands(
                 client.add_reaction(context.channel_id, message_id, ACK_REACTION)
             except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
                 reaction_error = str(exc)
-            will_run = parsed.kind == "codex" and not (context.scope == "migration" and not context.item)
+            is_action_command = parsed.kind in {"codex", "filter_cleanup"}
+            will_run = is_action_command and not (context.scope == "migration" and not context.item)
             send_error = ""
             if will_run:
                 try:
@@ -839,11 +1346,14 @@ def process_codex_control_commands(
                 except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
                     reaction_error = str(exc)
                 try:
-                    client.send_message(context.channel_id, truncate_reply(f"收到，正在交给 Codex 处理：{parsed.instruction}"))
+                    if parsed.kind == "filter_cleanup":
+                        client.send_message(context.channel_id, "收到，正在把当前 repo 加入过滤名单并清理频道、worktree、branch。完成后这个频道会被关闭。")
+                    else:
+                        client.send_message(context.channel_id, truncate_reply(f"收到，正在交给 Codex 处理：{parsed.instruction}"))
                 except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
                     send_error = str(exc)
-            result = handle_command(parsed, context, config, runner=runner, now=now, task_id=message_id)
-            if result.reply:
+            result = handle_command(parsed, context, config, client=client, runner=runner, now=now, task_id=message_id)
+            if result.reply and not result.delete_channel_id:
                 try:
                     client.send_message(context.channel_id, truncate_reply(result.reply))
                 except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
@@ -859,6 +1369,13 @@ def process_codex_control_commands(
                 entry["reaction_error"] = reaction_error
                 channel_state["last_error"] = reaction_error
             results.append(entry)
+            if result.delete_channel_id == context.channel_id:
+                channels_state.pop(context.channel_id, None)
+                channel_deleted = True
+                break
+
+        if channel_deleted:
+            continue
 
         if last_seen != last_message_id:
             channel_state["last_message_id"] = last_seen
@@ -954,6 +1471,12 @@ def config_from_project(repo_root: Path, *, execute: bool = True) -> CodexContro
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Process Discord commands that spawn Codex control tasks.")
     parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[1]))
+    parser.add_argument(
+        "--transport",
+        choices=("gateway", "polling"),
+        default="gateway",
+        help="Use Discord Gateway WebSocket by default; polling is kept as a fallback.",
+    )
     parser.add_argument("--once", action="store_true", help="Process one polling batch and exit.")
     parser.add_argument("--mark-seen", action="store_true", help="Initialize state from current channel messages without running commands.")
     parser.add_argument("--interval-seconds", type=float, default=15.0, help="Polling interval when running as a daemon.")
@@ -978,6 +1501,9 @@ def main() -> int:
     if args.once:
         results = process_codex_control_commands(config, client)
         print(json.dumps({"codex_control": results}, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
+    if args.transport == "gateway":
+        run_gateway_control(config, client, token=token)
         return 0
     interval = max(5.0, float(args.interval_seconds))
     while True:
