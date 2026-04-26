@@ -14,6 +14,7 @@ from typing import Any
 
 DEFAULT_TASK_ROOT = "registry/auto-migration/codex-tasks"
 DEFAULT_OUTBOX = "registry/auto-migration/notifications"
+DEFAULT_CODEX_WORKER_MODEL = "gpt-5.5"
 
 
 @dataclass(frozen=True)
@@ -22,7 +23,7 @@ class CodexWorkerConfig:
     task_dir: Path
     outbox_dir: Path | None = None
     box_domain: str = ""
-    model: str = "gpt-5.4"
+    model: str = DEFAULT_CODEX_WORKER_MODEL
     execute: bool = True
 
 
@@ -81,6 +82,8 @@ Hard guardrails:
 - Do not delete existing app directories unless the failure investigation proves they are disposable generated output.
 - Keep lzcat-apps as the single source of truth.
 - If Browser Use is required, create/refresh the acceptance plan and explain the needed browser check; do not fake acceptance.
+- If you are blocked on credentials, upstream ambiguity, product/listing decisions, app-store ownership, legal/license uncertainty, or final publish approval, do not guess. Update the queue item to state `waiting_for_human` with a `human_request` object containing `question`, `options`, `context`, and `created_at`, then say the request should be sent to Discord.
+- If the queue item already contains `human_response`, use it as the user's answer and continue from the blocked step.
 
 Queue item:
 ```json
@@ -225,7 +228,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--outbox-dir", default=DEFAULT_OUTBOX)
     parser.add_argument("--item-json", required=True)
     parser.add_argument("--box-domain", default="")
-    parser.add_argument("--model", default="gpt-5.4")
+    parser.add_argument("--model", default=DEFAULT_CODEX_WORKER_MODEL)
     parser.add_argument("--no-execute", action="store_true")
     return parser.parse_args()
 

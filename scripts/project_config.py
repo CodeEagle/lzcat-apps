@@ -15,8 +15,36 @@ class LazyCatConfig:
 
 
 @dataclass(frozen=True)
+class MigrationConfig:
+    template_branch: str = "template"
+    workspace_root: str = ""
+    codex_worker_model: str = "gpt-5.5"
+    desktop_screenshots_required: int = 2
+    mobile_screenshots_required: int = 3
+    playground_required: bool = True
+
+
+@dataclass(frozen=True)
+class DiscordConfig:
+    enabled: bool = False
+    guild_id: str = ""
+    category_id: str = ""
+    channel_prefix: str = "migration"
+
+
+@dataclass(frozen=True)
+class LocalAgentConfig:
+    enabled: bool = False
+    path: str = ""
+    snapshot_path: str = "registry/candidates/local-agent-latest.json"
+
+
+@dataclass(frozen=True)
 class ProjectConfig:
     lazycat: LazyCatConfig
+    migration: MigrationConfig
+    discord: DiscordConfig
+    local_agent: LocalAgentConfig
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:
@@ -27,14 +55,30 @@ def _as_bool(value: Any, default: bool = False) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _as_int(value: Any, default: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed >= 0 else default
+
+
 def load_project_config(repo_root: Path) -> ProjectConfig:
     path = repo_root / "project-config.json"
     if not path.exists():
-        return ProjectConfig(lazycat=LazyCatConfig())
+        return ProjectConfig(
+            lazycat=LazyCatConfig(),
+            migration=MigrationConfig(),
+            discord=DiscordConfig(),
+            local_agent=LocalAgentConfig(),
+        )
 
     payload = json.loads(path.read_text(encoding="utf-8"))
     lazycat = payload.get("lazycat", {}) if isinstance(payload, dict) else {}
     status_sync = lazycat.get("status_sync", {}) if isinstance(lazycat, dict) else {}
+    migration = payload.get("migration", {}) if isinstance(payload, dict) else {}
+    discord = payload.get("discord", {}) if isinstance(payload, dict) else {}
+    local_agent = payload.get("local_agent", {}) if isinstance(payload, dict) else {}
 
     return ProjectConfig(
         lazycat=LazyCatConfig(
@@ -42,5 +86,25 @@ def load_project_config(repo_root: Path) -> ProjectConfig:
             developer_id=str(lazycat.get("developer_id", "")).strip(),
             status_sync_enabled=_as_bool(status_sync.get("enabled"), False),
             status_sync_source=str(status_sync.get("source", "")).strip(),
-        )
+        ),
+        migration=MigrationConfig(
+            template_branch=str(migration.get("template_branch", "template")).strip() or "template",
+            workspace_root=str(migration.get("workspace_root", "")).strip(),
+            codex_worker_model=str(migration.get("codex_worker_model", "gpt-5.5")).strip() or "gpt-5.5",
+            desktop_screenshots_required=_as_int(migration.get("desktop_screenshots_required"), 2),
+            mobile_screenshots_required=_as_int(migration.get("mobile_screenshots_required"), 3),
+            playground_required=_as_bool(migration.get("playground_required"), True),
+        ),
+        discord=DiscordConfig(
+            enabled=_as_bool(discord.get("enabled"), False),
+            guild_id=str(discord.get("guild_id", "")).strip(),
+            category_id=str(discord.get("category_id", "")).strip(),
+            channel_prefix=str(discord.get("channel_prefix", "migration")).strip() or "migration",
+        ),
+        local_agent=LocalAgentConfig(
+            enabled=_as_bool(local_agent.get("enabled"), False),
+            path=str(local_agent.get("path", "")).strip(),
+            snapshot_path=str(local_agent.get("snapshot_path", "registry/candidates/local-agent-latest.json")).strip()
+            or "registry/candidates/local-agent-latest.json",
+        ),
     )

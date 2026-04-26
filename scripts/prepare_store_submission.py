@@ -80,7 +80,90 @@ def copy_asset(source: Path, output_dir: Path, filename: str | None = None) -> P
     return dest
 
 
-def validate_web_screenshots(repo_root: Path, app_root: Path, screenshot_paths: list[Path]) -> Path:
+def screenshot_device(record: dict[str, Any]) -> str:
+    explicit = str(record.get("device") or record.get("kind") or record.get("type") or "").strip().lower()
+    if explicit in {"desktop", "mobile"}:
+        return explicit
+    if explicit in {"phone", "smartphone"}:
+        return "mobile"
+
+    viewport = record.get("viewport")
+    if not isinstance(viewport, dict):
+        return "desktop"
+    try:
+        width = int(viewport.get("width") or 0)
+        height = int(viewport.get("height") or 0)
+    except (TypeError, ValueError):
+        return "desktop"
+    if width <= 768 and height >= width:
+        return "mobile"
+    return "desktop"
+
+
+def validate_screenshot_requirements(
+    records: list[dict[str, Any]],
+    *,
+    desktop_required: int = 2,
+    mobile_required: int = 3,
+) -> dict[str, int]:
+    counts = {"desktop": 0, "mobile": 0}
+    for record in records:
+        device = screenshot_device(record)
+        if device in counts:
+            counts[device] += 1
+
+    if counts["desktop"] < desktop_required or counts["mobile"] < mobile_required:
+        raise RuntimeError(
+            "store screenshots require at least "
+            f"desktop {desktop_required} and mobile {mobile_required} web-page screenshots; "
+            f"found desktop {counts['desktop']} and mobile {counts['mobile']}"
+        )
+    return counts
+
+
+def reward_opportunities() -> list[dict[str, str]]:
+    return [
+        {
+            "key": "self_hosted_migration",
+            "title": "开源/自托管应用移植",
+            "note": "确认上游许可证、功能验收和原作者信息后申报。",
+        },
+        {
+            "key": "game_server_migration",
+            "title": "游戏服务器类移植",
+            "note": "仅当项目属于可运行游戏服务端时适用。",
+        },
+        {
+            "key": "playground_guide",
+            "title": "Playground 图文攻略",
+            "note": "每个上架应用都生成图文教程，配套真实网页截图。",
+        },
+        {
+            "key": "lazycat_account_integration",
+            "title": "懒猫账号集成",
+            "note": "若应用支持用户体系或 OAuth，可评估懒猫账号接入。",
+        },
+        {
+            "key": "cloud_drive_integration",
+            "title": "懒猫网盘/右键菜单集成",
+            "note": "若应用处理文件、图片、文档或媒体，优先评估网盘入口。",
+        },
+        {
+            "key": "original_enhancement",
+            "title": "移植后的原创增强",
+            "note": "把通用改进反哺 template 或实现 LazyCat 专属增强。",
+        },
+    ]
+
+
+def validate_web_screenshots(
+    repo_root: Path,
+    app_root: Path,
+    screenshot_paths: list[Path],
+    *,
+    desktop_required: int = 2,
+    mobile_required: int = 3,
+) -> Path:
     metadata_path = app_root / "acceptance" / "web-screenshots.json"
     if not metadata_path.exists():
         raise RuntimeError(
@@ -105,6 +188,11 @@ def validate_web_screenshots(repo_root: Path, app_root: Path, screenshot_paths: 
             "acceptance screenshots are missing web-page capture metadata: "
             + ", ".join(missing)
         )
+    validate_screenshot_requirements(
+        [item for item in records if isinstance(item, dict)],
+        desktop_required=desktop_required,
+        mobile_required=mobile_required,
+    )
     return metadata_path
 
 
@@ -137,7 +225,14 @@ def build_submission(repo_root: Path, slug: str, developer_url: str, output_dir:
     screenshot_paths = sorted((app_root / "acceptance").glob("*.png"))
     if not screenshot_paths:
         raise FileNotFoundError(f"no acceptance screenshots found under {app_root / 'acceptance'}")
-    web_screenshot_metadata_path = validate_web_screenshots(repo_root, app_root, screenshot_paths)
+    config = load_project_config(repo_root)
+    web_screenshot_metadata_path = validate_web_screenshots(
+        repo_root,
+        app_root,
+        screenshot_paths,
+        desktop_required=config.migration.desktop_screenshots_required,
+        mobile_required=config.migration.mobile_screenshots_required,
+    )
     materialized_assets_dir = output_dir / "assets"
     materialized_icon_path = copy_asset(icon_path, materialized_assets_dir, "icon.png")
     materialized_screenshot_paths = [
@@ -146,10 +241,13 @@ def build_submission(repo_root: Path, slug: str, developer_url: str, output_dir:
 
     store_copy_path = app_root / "copywriting" / "store-copy.md"
     tutorial_path = app_root / "copywriting" / "tutorial.md"
+    playground_path = app_root / "copywriting" / "playground.md"
     if not store_copy_path.exists():
         raise FileNotFoundError(f"store copy not found: {store_copy_path}")
     if not tutorial_path.exists():
         raise FileNotFoundError(f"tutorial not found: {tutorial_path}")
+    if config.migration.playground_required and not playground_path.exists():
+        raise FileNotFoundError(f"Playground guide not found: {playground_path}")
     store_copy = store_copy_path.read_text(encoding="utf-8")
 
     acceptance_path = app_root / "acceptance" / "browser-use-result.json"
@@ -197,6 +295,7 @@ def build_submission(repo_root: Path, slug: str, developer_url: str, output_dir:
             "web_screenshot_metadata": relative_to_repo(repo_root, web_screenshot_metadata_path),
             "store_copy": relative_to_repo(repo_root, store_copy_path),
             "tutorial": relative_to_repo(repo_root, tutorial_path),
+            "playground": relative_to_repo(repo_root, playground_path) if playground_path.exists() else "",
         },
         "browser_acceptance": {
             "status": str(acceptance.get("status", "")).strip(),
@@ -207,6 +306,7 @@ def build_submission(repo_root: Path, slug: str, developer_url: str, output_dir:
                 else ""
             ),
         },
+        "reward_opportunities": reward_opportunities(),
         "submission_steps": [
             "Open the configured LazyCat developer apps page.",
             "Create a new app entry.",
@@ -222,6 +322,11 @@ def write_checklist(repo_root: Path, output_dir: Path, submission: dict[str, Any
     checklist_path = output_dir / "checklist.md"
     screenshots = "\n".join(f"- `{item}`" for item in submission["assets"]["screenshots"])
     keywords = ", ".join(submission["keywords"])
+    rewards = "\n".join(
+        f"- [{item.get('key', '')}] {item.get('title', '')}: {item.get('note', '')}"
+        for item in submission.get("reward_opportunities", [])
+        if isinstance(item, dict)
+    )
     checklist = f"""# {submission["name"]} LazyCat 上架提交清单
 
 ## 开发者入口
@@ -253,11 +358,16 @@ def write_checklist(repo_root: Path, output_dir: Path, submission: dict[str, Any
 
 - Store copy: `{submission["assets"]["store_copy"]}`
 - Tutorial: `{submission["assets"]["tutorial"]}`
+- Playground guide: `{submission["assets"].get("playground", "")}`
 
 ## 验收门禁
 
 - Browser Use status: `{submission["browser_acceptance"]["status"]}`
 - Browser Use result: `{submission["browser_acceptance"]["result_path"]}`
+
+## 可申报/可扩展收益机会
+
+{rewards}
 
 ## 浏览器提交流程
 

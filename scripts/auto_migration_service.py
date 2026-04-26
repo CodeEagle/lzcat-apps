@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import time
 from dataclasses import dataclass
@@ -13,9 +14,17 @@ from typing import Any, Callable
 
 try:
     from .auto_migrate import infer_slug_from_source
+    from .discord_human_replies import apply_human_replies
+    from .discord_migration_notifier import DiscordClient, MigrationDiscordNotifier
+    from .local_agent_bridge import write_local_agent_snapshot
+    from .migration_workspace import build_worktree_command, migration_branch_name, migration_workspace_path
     from .project_config import load_project_config
 except ImportError:  # pragma: no cover - direct script execution
     from auto_migrate import infer_slug_from_source
+    from discord_human_replies import apply_human_replies
+    from discord_migration_notifier import DiscordClient, MigrationDiscordNotifier
+    from local_agent_bridge import write_local_agent_snapshot
+    from migration_workspace import build_worktree_command, migration_branch_name, migration_workspace_path
     from project_config import load_project_config
 
 
@@ -32,6 +41,7 @@ PROTECTED_STATES = {
     "copy_ready",
     "publish_ready",
     "published",
+    "waiting_for_human",
 }
 
 
@@ -62,6 +72,17 @@ class ServiceConfig:
     resume: bool = False
     enable_codex_worker: bool = False
     max_codex_attempts: int = 1
+    codex_worker_model: str = "gpt-5.5"
+    template_branch: str = "template"
+    workspace_root: Path = Path("")
+    discord_enabled: bool = False
+    discord_guild_id: str = ""
+    discord_category_id: str = ""
+    discord_channel_prefix: str = "migration"
+    discord_bot_token: str = ""
+    local_agent_enabled: bool = False
+    local_agent_path: Path = Path("")
+    local_agent_snapshot_path: Path = Path("")
 
 
 CommandRunner = Callable[[list[str]], CommandResult]
@@ -224,6 +245,16 @@ def update_item_state(
         break
 
 
+def find_queue_item(queue: dict[str, Any], item_id: str) -> dict[str, Any] | None:
+    items = queue.get("items")
+    if not isinstance(items, list):
+        return None
+    for item in items:
+        if isinstance(item, dict) and item.get("id") == item_id:
+            return item
+    return None
+
+
 def build_status_sync_command(config: ServiceConfig) -> list[str]:
     return ["python3", "scripts/status_sync.py", "--repo-root", str(config.repo_root)]
 
@@ -245,14 +276,53 @@ def build_scout_scan_command(config: ServiceConfig) -> list[str]:
     return command
 
 
+def has_workspace_root(config: ServiceConfig) -> bool:
+    return str(config.workspace_root).strip() not in {"", "."}
+
+
+def item_repo_root(config: ServiceConfig, item: dict[str, Any]) -> Path:
+    workspace_path = str(item.get("workspace_path", "")).strip()
+    if workspace_path:
+        return Path(workspace_path)
+    return config.repo_root
+
+
+def prepare_migration_workspace(
+    config: ServiceConfig,
+    item: dict[str, Any],
+    *,
+    runner: CommandRunner,
+) -> CommandResult:
+    if not has_workspace_root(config):
+        return CommandResult(returncode=0)
+
+    slug = str(item.get("slug", "")).strip() or candidate_slug(item)
+    branch = migration_branch_name(slug)
+    workspace_path = migration_workspace_path(config.workspace_root, slug)
+    item["branch"] = branch
+    item["workspace_path"] = str(workspace_path)
+
+    if workspace_path.exists():
+        return CommandResult(returncode=0)
+
+    command = build_worktree_command(
+        repo_root=config.repo_root,
+        workspace_root=config.workspace_root,
+        slug=slug,
+        template_ref=config.template_branch,
+    )
+    return runner(command)
+
+
 def build_auto_migrate_command(config: ServiceConfig, item: dict[str, Any]) -> list[str]:
     build_mode = "reinstall" if config.enable_build_install else "validate-only"
+    repo_root = item_repo_root(config, item)
     command = [
         "python3",
         "scripts/auto_migrate.py",
         str(item["source"]),
         "--repo-root",
-        str(config.repo_root),
+        str(repo_root),
         "--build-mode",
         build_mode,
     ]
@@ -266,19 +336,20 @@ def build_auto_migrate_command(config: ServiceConfig, item: dict[str, Any]) -> l
 
 
 def build_functional_check_command(config: ServiceConfig, item: dict[str, Any]) -> list[str]:
+    repo_root = item_repo_root(config, item)
     return [
         "python3",
         "scripts/functional_checker.py",
         str(item["slug"]),
         "--repo-root",
-        str(config.repo_root),
+        str(repo_root),
         "--box-domain",
         config.box_domain,
     ]
 
 
 def build_copywriter_command(config: ServiceConfig, item: dict[str, Any]) -> list[str]:
-    return ["python3", "scripts/copywriter.py", str(item["slug"]), "--repo-root", str(config.repo_root)]
+    return ["python3", "scripts/copywriter.py", str(item["slug"]), "--repo-root", str(item_repo_root(config, item))]
 
 
 def build_prepare_submission_command(config: ServiceConfig, item: dict[str, Any]) -> list[str]:
@@ -287,7 +358,7 @@ def build_prepare_submission_command(config: ServiceConfig, item: dict[str, Any]
         "scripts/prepare_store_submission.py",
         str(item["slug"]),
         "--repo-root",
-        str(config.repo_root),
+        str(item_repo_root(config, item)),
     ]
     if config.developer_url:
         command.extend(["--developer-url", config.developer_url])
@@ -305,6 +376,8 @@ def build_codex_worker_command(config: ServiceConfig, item: dict[str, Any]) -> l
     ]
     if config.box_domain:
         command.extend(["--box-domain", config.box_domain])
+    if config.codex_worker_model:
+        command.extend(["--model", config.codex_worker_model])
     return command
 
 
@@ -318,6 +391,24 @@ def load_candidate_snapshot(repo_root: Path, snapshot_path: str) -> dict[str, An
     if not path.is_absolute():
         path = repo_root / path
     return read_json(path, {"candidates": []})
+
+
+def import_local_agent_snapshot(config: ServiceConfig, *, now: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    if not config.local_agent_enabled:
+        return {"candidates": []}, {"status": "disabled"}
+    if not str(config.local_agent_path).strip():
+        return {"candidates": []}, {"status": "skipped", "reason": "local_agent_path_missing"}
+    snapshot_path = config.local_agent_snapshot_path
+    if not str(snapshot_path).strip():
+        snapshot_path = config.repo_root / "registry" / "candidates" / "local-agent-latest.json"
+    if not snapshot_path.is_absolute():
+        snapshot_path = config.repo_root / snapshot_path
+    try:
+        snapshot = write_local_agent_snapshot(config.local_agent_path, snapshot_path, now=now)
+    except Exception as exc:  # pragma: no cover - exact filesystem/JSON failure varies.
+        return {"candidates": []}, {"status": "failed", "error": str(exc)}
+    candidates = snapshot.get("candidates") if isinstance(snapshot.get("candidates"), list) else []
+    return snapshot, {"status": "imported", "candidate_count": len(candidates), "snapshot_path": str(snapshot_path)}
 
 
 def migration_success_state(config: ServiceConfig) -> str:
@@ -339,6 +430,10 @@ def functional_check_state(repo_root: Path, slug: str) -> str:
     if status == "browser_pending":
         return "browser_pending"
     return "browser_pending"
+
+
+def functional_check_state_for_item(config: ServiceConfig, item: dict[str, Any]) -> str:
+    return functional_check_state(item_repo_root(config, item), str(item.get("slug", "")))
 
 
 def advance_post_acceptance(
@@ -416,7 +511,7 @@ def refresh_browser_pending(
         item_id = str(item.get("id", ""))
         command = build_functional_check_command(config, item)
         result = runner(command)
-        state = functional_check_state(config.repo_root, str(item["slug"])) or "browser_pending"
+        state = functional_check_state_for_item(config, item) or "browser_pending"
         if state in {"browser_pending", "browser_failed", "browser_passed"}:
             update_item_state(queue, item_id, state=state, now=now)
             results.append({"id": item_id, "status": state, "returncode": result.returncode})
@@ -441,8 +536,12 @@ def select_next_codex_item(queue: dict[str, Any], *, max_attempts: int) -> dict[
     if not isinstance(items, list):
         return None
     for item in items:
-        if not isinstance(item, dict) or item.get("state") not in {"build_failed", "browser_failed"}:
+        if not isinstance(item, dict):
             continue
+        state = item.get("state")
+        if state not in {"build_failed", "browser_failed"}:
+            if state != "waiting_for_human" or not isinstance(item.get("human_response"), dict):
+                continue
         if codex_attempts(item) >= max_attempts:
             continue
         return item
@@ -483,6 +582,87 @@ def update_item_codex_result(
         break
 
 
+def merge_waiting_for_human_from_disk(
+    config: ServiceConfig,
+    queue: dict[str, Any],
+    item_id: str,
+    *,
+    returncode: int,
+    now: str,
+) -> bool:
+    if not config.queue_path.exists():
+        return False
+    try:
+        disk_queue = read_json(config.queue_path, {})
+    except (OSError, json.JSONDecodeError, ValueError):
+        return False
+    disk_item = find_queue_item(disk_queue, item_id)
+    if not disk_item or disk_item.get("state") != "waiting_for_human":
+        return False
+    item = find_queue_item(queue, item_id)
+    if item is None:
+        return False
+    if isinstance(item.get("human_response"), dict):
+        return False
+    previous_attempts = codex_attempts(item)
+    item.clear()
+    item.update(disk_item)
+    codex = item.get("codex") if isinstance(item.get("codex"), dict) else {}
+    codex["attempts"] = previous_attempts + 1
+    codex["last_status"] = "waiting_for_human"
+    codex["last_returncode"] = returncode
+    codex["last_run_at"] = now
+    item["codex"] = codex
+    item["updated_at"] = now
+    return True
+
+
+def build_discord_notifier(config: ServiceConfig) -> MigrationDiscordNotifier | None:
+    if not config.discord_enabled:
+        return None
+    if not config.discord_bot_token or not config.discord_guild_id:
+        return None
+    return MigrationDiscordNotifier(
+        client=DiscordClient(config.discord_bot_token),
+        guild_id=config.discord_guild_id,
+        category_id=config.discord_category_id,
+        channel_prefix=config.discord_channel_prefix,
+    )
+
+
+def build_discord_client(config: ServiceConfig) -> DiscordClient | None:
+    if not config.discord_enabled or not config.discord_bot_token:
+        return None
+    return DiscordClient(config.discord_bot_token)
+
+
+def publish_discord_update(
+    config: ServiceConfig,
+    queue: dict[str, Any],
+    item_id: str,
+    *,
+    status: str,
+    now: str,
+    discord_notifier: Any | None,
+) -> None:
+    if not config.discord_enabled:
+        return
+    notifier = discord_notifier or build_discord_notifier(config)
+    if not notifier:
+        return
+    item = find_queue_item(queue, item_id)
+    if item is None:
+        return
+    try:
+        notifier.publish_update(item, status=status, now=now)
+    except Exception as exc:  # pragma: no cover - exact Discord/network exception varies.
+        discord = item.get("discord") if isinstance(item.get("discord"), dict) else {}
+        discord["last_error"] = str(exc)
+        discord["last_status"] = status
+        discord["last_update_at"] = now
+        item["discord"] = discord
+
+
 def advance_codex_worker(
     config: ServiceConfig,
     queue: dict[str, Any],
@@ -498,16 +678,31 @@ def advance_codex_worker(
 
     command = build_codex_worker_command(config, item)
     result = runner(command)
+    if result.returncode == 0 and merge_waiting_for_human_from_disk(
+        config,
+        queue,
+        str(item.get("id", "")),
+        returncode=result.returncode,
+        now=now,
+    ):
+        return [{"id": item.get("id", ""), "status": "waiting_for_human", "returncode": result.returncode}]
     status = "ready" if result.returncode == 0 else "codex_failed"
     if result.returncode == 0 and config.functional_check:
-        functional_state = functional_check_state(config.repo_root, str(item.get("slug", "")))
+        functional_state = functional_check_state_for_item(config, item)
         if functional_state in {"browser_pending", "browser_failed", "browser_passed"}:
             status = functional_state
     update_item_codex_result(queue, str(item.get("id", "")), status=status, returncode=result.returncode, now=now)
     return [{"id": item.get("id", ""), "status": status, "returncode": result.returncode}]
 
 
-def run_cycle(config: ServiceConfig, *, runner: CommandRunner | None = None, now: str | None = None) -> dict[str, Any]:
+def run_cycle(
+    config: ServiceConfig,
+    *,
+    runner: CommandRunner | None = None,
+    now: str | None = None,
+    discord_notifier: Any | None = None,
+    discord_client: Any | None = None,
+) -> dict[str, Any]:
     now = now or utc_now_iso()
     runner = runner or (lambda command: run_subprocess(command, cwd=config.repo_root))
     summary: dict[str, Any] = {
@@ -515,16 +710,34 @@ def run_cycle(config: ServiceConfig, *, runner: CommandRunner | None = None, now
         "commands": [],
         "browser_recheck": [],
         "codex_worker": [],
+        "discord_replies": [],
+        "local_agent": {"status": "disabled"},
         "post_acceptance": [],
         "selected": None,
         "migration": {"status": "none"},
     }
 
     queue = read_json(config.queue_path, empty_queue(now))
+    if config.discord_enabled:
+        client = discord_client or build_discord_client(config)
+        if client:
+            try:
+                summary["discord_replies"] = apply_human_replies(queue, client, now=now)
+            except Exception as exc:  # pragma: no cover - exact Discord/network exception varies.
+                summary["discord_replies"] = [{"status": "failed", "error": str(exc)}]
     summary["browser_recheck"] = refresh_browser_pending(config, queue, runner=runner, now=now)
     summary["codex_worker"] = advance_codex_worker(config, queue, runner=runner, now=now)
     summary["post_acceptance"] = advance_post_acceptance(config, queue, runner=runner, now=now)
-    if summary["browser_recheck"] or summary["codex_worker"] or summary["post_acceptance"]:
+    for result in [*summary["browser_recheck"], *summary["codex_worker"], *summary["post_acceptance"]]:
+        publish_discord_update(
+            config,
+            queue,
+            str(result.get("id", "")),
+            status=str(result.get("status", "")),
+            now=now,
+            discord_notifier=discord_notifier,
+        )
+    if summary["discord_replies"] or summary["browser_recheck"] or summary["codex_worker"] or summary["post_acceptance"]:
         write_json(config.queue_path, queue)
 
     if not config.skip_status_sync:
@@ -541,8 +754,14 @@ def run_cycle(config: ServiceConfig, *, runner: CommandRunner | None = None, now
             summary["migration"] = {"status": "scout_failed", "returncode": result.returncode}
             return summary
 
+    local_agent_snapshot, local_agent_summary = import_local_agent_snapshot(config, now=now)
+    summary["local_agent"] = local_agent_summary
     snapshot = load_candidate_snapshot(config.repo_root, config.candidate_snapshot)
     candidates = snapshot.get("candidates") if isinstance(snapshot.get("candidates"), list) else []
+    local_agent_candidates = (
+        local_agent_snapshot.get("candidates") if isinstance(local_agent_snapshot.get("candidates"), list) else []
+    )
+    candidates = [*candidates, *local_agent_candidates]
     queue = upsert_candidates(queue, candidates, now=now)
     selected = select_next_ready_item(queue)
     if not selected:
@@ -560,20 +779,55 @@ def run_cycle(config: ServiceConfig, *, runner: CommandRunner | None = None, now
         selected = select_next_ready_item(queue)
         if not selected:
             break
+        workspace_result = prepare_migration_workspace(config, selected, runner=runner)
+        if workspace_result.returncode != 0:
+            update_item_state(
+                queue,
+                str(selected["id"]),
+                state="build_failed",
+                now=now,
+                last_error=f"git worktree exited {workspace_result.returncode}",
+            )
+            publish_discord_update(
+                config,
+                queue,
+                str(selected["id"]),
+                status="build_failed",
+                now=now,
+                discord_notifier=discord_notifier,
+            )
+            summary["migration"] = {"status": "worktree_failed", "returncode": workspace_result.returncode}
+            break
         command = build_auto_migrate_command(config, selected)
         result = runner(command)
         summary["commands"].append({"command": command, "returncode": result.returncode})
         if result.returncode == 0:
             if config.enable_build_install and config.functional_check:
-                state = functional_check_state(config.repo_root, str(selected["slug"])) or "browser_pending"
+                state = functional_check_state_for_item(config, selected) or "browser_pending"
             else:
                 state = migration_success_state(config)
             update_item_state(queue, str(selected["id"]), state=state, now=now)
+            publish_discord_update(
+                config,
+                queue,
+                str(selected["id"]),
+                status=state,
+                now=now,
+                discord_notifier=discord_notifier,
+            )
             summary["migration"] = {"status": state, "returncode": 0}
         elif config.enable_build_install and config.functional_check:
-            state = functional_check_state(config.repo_root, str(selected["slug"]))
+            state = functional_check_state_for_item(config, selected)
             if state in {"browser_pending", "browser_failed", "browser_passed"}:
                 update_item_state(queue, str(selected["id"]), state=state, now=now)
+                publish_discord_update(
+                    config,
+                    queue,
+                    str(selected["id"]),
+                    status=state,
+                    now=now,
+                    discord_notifier=discord_notifier,
+                )
                 summary["migration"] = {"status": state, "returncode": result.returncode}
             else:
                 update_item_state(
@@ -582,6 +836,14 @@ def run_cycle(config: ServiceConfig, *, runner: CommandRunner | None = None, now
                     state="build_failed",
                     now=now,
                     last_error=f"auto_migrate exited {result.returncode}",
+                )
+                publish_discord_update(
+                    config,
+                    queue,
+                    str(selected["id"]),
+                    status="build_failed",
+                    now=now,
+                    discord_notifier=discord_notifier,
                 )
                 summary["migration"] = {"status": "build_failed", "returncode": result.returncode}
                 break
@@ -592,6 +854,14 @@ def run_cycle(config: ServiceConfig, *, runner: CommandRunner | None = None, now
                 state="build_failed",
                 now=now,
                 last_error=f"auto_migrate exited {result.returncode}",
+            )
+            publish_discord_update(
+                config,
+                queue,
+                str(selected["id"]),
+                status="build_failed",
+                now=now,
+                discord_notifier=discord_notifier,
             )
             summary["migration"] = {"status": "build_failed", "returncode": result.returncode}
             break
@@ -633,7 +903,27 @@ def build_config(args: argparse.Namespace) -> ServiceConfig:
         queue_path = repo_root / queue_path
     if args.functional_check and not args.box_domain:
         raise SystemExit("--functional-check requires --box-domain")
-    developer_url = args.developer_url or load_project_config(repo_root).lazycat.developer_apps_url
+    project_config = load_project_config(repo_root)
+    developer_url = args.developer_url or project_config.lazycat.developer_apps_url
+    workspace_root_value = project_config.migration.workspace_root.strip()
+    workspace_root = Path("")
+    if workspace_root_value:
+        workspace_root = Path(workspace_root_value).expanduser()
+        if not workspace_root.is_absolute():
+            workspace_root = repo_root / workspace_root
+    discord_bot_token = os.environ.get("LZCAT_DISCORD_BOT_TOKEN", "").strip()
+    if project_config.discord.enabled and not discord_bot_token:
+        raise SystemExit("project-config.json enables Discord but LZCAT_DISCORD_BOT_TOKEN is missing")
+    if project_config.discord.enabled and not project_config.discord.guild_id:
+        raise SystemExit("project-config.json enables Discord but discord.guild_id is missing")
+    local_agent_path = Path("")
+    if project_config.local_agent.path:
+        local_agent_path = Path(project_config.local_agent.path).expanduser()
+        if not local_agent_path.is_absolute():
+            local_agent_path = repo_root / local_agent_path
+    local_agent_snapshot_path = Path(project_config.local_agent.snapshot_path).expanduser()
+    if not local_agent_snapshot_path.is_absolute():
+        local_agent_snapshot_path = repo_root / local_agent_snapshot_path
     return ServiceConfig(
         repo_root=repo_root,
         queue_path=queue_path,
@@ -653,6 +943,17 @@ def build_config(args: argparse.Namespace) -> ServiceConfig:
         resume=args.resume,
         enable_codex_worker=args.enable_codex_worker,
         max_codex_attempts=max(1, args.max_codex_attempts),
+        codex_worker_model=project_config.migration.codex_worker_model,
+        template_branch=project_config.migration.template_branch,
+        workspace_root=workspace_root,
+        discord_enabled=project_config.discord.enabled,
+        discord_guild_id=project_config.discord.guild_id,
+        discord_category_id=project_config.discord.category_id,
+        discord_channel_prefix=project_config.discord.channel_prefix,
+        discord_bot_token=discord_bot_token,
+        local_agent_enabled=project_config.local_agent.enabled,
+        local_agent_path=local_agent_path,
+        local_agent_snapshot_path=local_agent_snapshot_path,
     )
 
 
