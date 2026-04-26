@@ -96,11 +96,14 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return [{"id": "100", "content": "!fix 修复网页截图流程", "author": {"id": "u1"}}]
             if method == "PUT" and route == "/channels/piclaw-1/messages/100/reactions/%F0%9F%91%80/@me":
                 return {}
+            if method == "PUT" and route == "/channels/piclaw-1/messages/100/reactions/%F0%9F%94%A7/@me":
+                return {}
             if method == "POST" and route == "/channels/piclaw-1/messages":
                 return {"id": f"reply-{len(events)}"}
             raise AssertionError(f"unexpected Discord call {method} {route}")
 
         def runner(task: CodexControlTask) -> CodexControlRunResult:
+            events.append(("RUNNER", "codex", None))
             tasks.append(task)
             return CodexControlRunResult("completed", 0, "已修复并验证。", task.task_dir)
 
@@ -121,6 +124,10 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertLess(
             events.index(("PUT", "/channels/piclaw-1/messages/100/reactions/%F0%9F%91%80/@me", None)),
             next(index for index, event in enumerate(events) if event[0:2] == ("POST", "/channels/piclaw-1/messages")),
+        )
+        self.assertLess(
+            events.index(("PUT", "/channels/piclaw-1/messages/100/reactions/%F0%9F%94%A7/@me", None)),
+            events.index(("RUNNER", "codex", None)),
         )
         self.assertEqual(sum(1 for event in events if event[0:2] == ("POST", "/channels/piclaw-1/messages")), 2)
         state = json.loads(config.state_path.read_text(encoding="utf-8"))
