@@ -16,6 +16,7 @@ try:
     from .auto_migrate import infer_slug_from_source
     from .discovery_gate import reconcile_queue_items
     from .discord_human_replies import apply_human_replies
+    from .discord_local_agent_commands import LocalAgentCommandConfig, process_local_agent_commands
     from .discord_migration_notifier import DiscordClient, MigrationDiscordNotifier
     from .local_agent_bridge import write_local_agent_snapshot
     from .migration_workspace import build_worktree_command, migration_branch_name, migration_workspace_path
@@ -25,6 +26,7 @@ except ImportError:  # pragma: no cover - direct script execution
     from auto_migrate import infer_slug_from_source
     from discovery_gate import reconcile_queue_items
     from discord_human_replies import apply_human_replies
+    from discord_local_agent_commands import LocalAgentCommandConfig, process_local_agent_commands
     from discord_migration_notifier import DiscordClient, MigrationDiscordNotifier
     from local_agent_bridge import write_local_agent_snapshot
     from migration_workspace import build_worktree_command, migration_branch_name, migration_workspace_path
@@ -765,6 +767,18 @@ def build_discord_client(config: ServiceConfig) -> DiscordClient | None:
     return DiscordClient(config.discord_bot_token)
 
 
+def build_local_agent_command_config(config: ServiceConfig) -> LocalAgentCommandConfig:
+    return LocalAgentCommandConfig(
+        repo_root=config.repo_root,
+        local_agent_root=config.local_agent_path,
+        snapshot_path=config.local_agent_snapshot_path,
+        queue_path=config.queue_path,
+        guild_id=config.discord_guild_id,
+        category_id=config.discord_category_id,
+        channel_prefix=config.discord_channel_prefix,
+    )
+
+
 def publish_discord_update(
     config: ServiceConfig,
     queue: dict[str, Any],
@@ -887,6 +901,7 @@ def run_cycle(
         "discovery_gate": [],
         "discovery_reviewer": [],
         "discord_replies": [],
+        "local_agent_commands": [],
         "local_agent": {"status": "disabled"},
         "post_acceptance": [],
         "selected": None,
@@ -901,6 +916,15 @@ def run_cycle(
                 summary["discord_replies"] = apply_human_replies(queue, client, now=now)
             except Exception as exc:  # pragma: no cover - exact Discord/network exception varies.
                 summary["discord_replies"] = [{"status": "failed", "error": str(exc)}]
+            if config.local_agent_enabled:
+                try:
+                    summary["local_agent_commands"] = process_local_agent_commands(
+                        build_local_agent_command_config(config),
+                        client,
+                        now=now,
+                    )
+                except Exception as exc:  # pragma: no cover - exact Discord/network exception varies.
+                    summary["local_agent_commands"] = [{"status": "failed", "error": str(exc)}]
     summary["discovery_gate"] = run_discovery_gate(config, queue, now=now, discord_notifier=discord_notifier)
     summary["discovery_reviewer"] = advance_discovery_reviewer(config, queue, runner=runner, now=now)
     summary["browser_recheck"] = refresh_browser_pending(config, queue, runner=runner, now=now)
