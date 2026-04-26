@@ -25,6 +25,11 @@ from urllib import error, request
 import bootstrap_migration as bm
 import migration_state as ms
 
+try:
+    import yaml
+except ImportError:  # pragma: no cover - optional dependency fallback
+    yaml = None
+
 INFRA_KEYWORDS = {
     "db",
     "postgres",
@@ -887,17 +892,42 @@ def detect_non_service_native_project(
 
 
 def load_yaml(path: Path) -> Any:
-    output = sh(
-        [
-            "ruby",
-            "-ryaml",
-            "-rjson",
-            "-e",
-            "data = YAML.load_file(ARGV[0], aliases: true); puts JSON.generate(data)",
-            str(path),
-        ]
-    )
+    if yaml is not None:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        return data if data is not None else {}
+
+    ruby_loader = textwrap.dedent(
+        """
+        require "yaml"
+        require "json"
+
+        path = ARGV[0]
+        data =
+          begin
+            YAML.load_file(path, aliases: true)
+          rescue ArgumentError
+            YAML.load_file(path)
+          end
+        puts JSON.generate(data)
+        """
+    ).strip()
+    output = sh(["ruby", "-e", ruby_loader, str(path)])
     return json.loads(output) if output else {}
+
+
+def refresh_icon_path(spec: dict[str, Any], source_dir: Path | None) -> None:
+    icon_path = spec.get("icon_path")
+    if icon_path:
+        try:
+            if Path(icon_path).exists():
+                return
+        except (OSError, TypeError, ValueError):
+            pass
+    if source_dir:
+        discovered = bm.discover_repo_icon(source_dir)
+        spec["icon_path"] = str(discovered) if discovered else ""
+    elif not icon_path:
+        spec["icon_path"] = ""
 
 
 def sanitize_token(value: str) -> str:
@@ -5069,6 +5099,7 @@ def main() -> int:
                             finalized['include_lzc_sdk_version'] = True
                 except Exception:
                     pass
+                refresh_icon_path(finalized, source_dir)
                 written = bm.write_files(repo_root, finalized, effective_force)
             except FileExistsError:
                 if args.force:
@@ -5099,6 +5130,7 @@ def main() -> int:
                 else:
                     effective_force = True
                     finalized.setdefault("_risks", []).append("目标 app 已存在，自动覆盖当前托管文件后继续")
+                    refresh_icon_path(finalized, source_dir)
                     written = bm.write_files(repo_root, finalized, effective_force)
             post_written = apply_post_write(repo_root, finalized["slug"], analysis.spec.get("_post_write", {}))
             post_written.extend(apply_app_post_process(repo_root, finalized, analysis))

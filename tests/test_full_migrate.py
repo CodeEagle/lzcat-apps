@@ -332,6 +332,36 @@ services:
         self.assertFalse(ok)
         self.assertTrue(any("heredoc syntax" in issue for issue in issues), issues)
 
+    def test_load_yaml_supports_aliases(self) -> None:
+        temp_dir = Path(tempfile.mkdtemp(prefix="lzcat-yaml-alias-"))
+        yaml_path = temp_dir / "compose.yml"
+        yaml_path.write_text(
+            "\n".join(
+                [
+                    "base: &base",
+                    "  image: ghcr.io/example/web:1.2.3",
+                    "services:",
+                    "  web:",
+                    "    <<: *base",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        data = fm.load_yaml(yaml_path)
+        self.assertEqual(data["services"]["web"]["image"], "ghcr.io/example/web:1.2.3")
+
+    def test_refresh_icon_path_recovers_from_stale_temp_path(self) -> None:
+        source_repo = Path(tempfile.mkdtemp(prefix="lzcat-stale-icon-"))
+        (source_repo / "docs").mkdir(parents=True, exist_ok=True)
+        icon_path = source_repo / "docs" / "icon-256.png"
+        icon_path.write_bytes(fake_png(256, 256))
+        spec = {"icon_path": "/tmp/nonexistent-icon.png"}
+
+        fm.refresh_icon_path(spec, source_repo)
+        self.assertEqual(spec["icon_path"], str(icon_path))
+
     def test_archive_extract_filter_skips_absolute_symlinks(self) -> None:
         archive_path = Path(tempfile.mkdtemp(prefix="lzcat-archive-test-")) / "repo.tar.gz"
         dest_root = Path(tempfile.mkdtemp(prefix="lzcat-archive-dest-"))
