@@ -7,5 +7,24 @@
       "source": "developer_apps_page",
       "purpose": "Track apps already published by this developer and update migration status."
     }
+  },
+  "migration": {
+    "template_branch": "template",
+    "workspace_root": "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces",
+    "codex_worker_model": "gpt-5.5",
+    "desktop_screenshots_required": 2,
+    "mobile_screenshots_required": 3,
+    "playground_required": true
+  },
+  "discord": {
+    "enabled": true,
+    "guild_id": "932284643753996298",
+    "category_id": "1497851400162512896",
+    "channel_prefix": "migration"
+  },
+  "local_agent": {
+    "enabled": true,
+    "path": "/Users/lincoln/Develop/GitHub/LocalAgent",
+    "snapshot_path": "registry/candidates/local-agent-latest.json"
   }
 }

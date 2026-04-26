@@ -127,23 +127,31 @@ NATIVE_ROOT_BUILD_FILES = {
     "xmake.lua",
 }
 NATIVE_README_HINTS = (
+    "cargo add",
+    "embedded",
     "gamepad",
     "glfw",
     "handheld",
+    "install the cli",
     "keyboard",
     "macos",
     "metal",
     "mouse",
     "nanovg",
+    "no server to set up",
+    "npm i microsandbox",
     "nintendo switch",
     "open gl",
     "opengl",
     "pc client",
     "ps4",
     "psvita",
+    "runs locally on your machine",
+    "sdk",
     "steam deck",
     "sdl",
     "touch",
+    "uv add microsandbox",
     "vulkan",
     "windows",
     "xbox",
@@ -872,6 +880,7 @@ def detect_non_service_native_project(
         except ValueError:
             relative = dockerfile
         rel_parts = [part.lower() for part in relative.parts]
+        dockerfile_text = dockerfile.read_text(encoding="utf-8", errors="ignore").lower()
         if relative == Path("Dockerfile") or relative == Path("Containerfile"):
             service_score += 3
         else:
@@ -881,11 +890,19 @@ def detect_non_service_native_project(
             if any(part in NATIVE_PLATFORM_HINTS for part in rel_parts[:-1]):
                 native_score += 2
                 reasons.append(f"Dockerfile 位于平台专用目录：{relative}")
+        if "expose " not in dockerfile_text and (
+            'entrypoint ["msb"]' in dockerfile_text
+            or 'cmd ["--help"]' in dockerfile_text
+            or 'cmd ["-h"]' in dockerfile_text
+            or 'cmd ["help"]' in dockerfile_text
+        ):
+            native_score += 4
+            reasons.append("Dockerfile 更像 CLI 镜像（无 EXPOSE，入口为命令行帮助/子命令）")
 
     if native_score >= 6 and native_score >= service_score + 5:
         detail = "；".join(dict.fromkeys(reasons))
         return (
-            "检测到该仓库更像原生客户端/桌面应用，而不是提供 HTTP 入口的 LazyCat Web 微服。"
+            "检测到该仓库更像原生客户端/CLI/SDK 项目，而不是提供 HTTP 入口的 LazyCat Web 微服。"
             + (f" 依据：{detail}。" if detail else "")
         )
     return None

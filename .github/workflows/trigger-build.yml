@@ -62,6 +62,9 @@ on:
           - "multica"
           - "mercury-agent"
           - "piclaw"
+          - "nodewarden"
+          - "microsandbox"
+          - "helix"
           # END AUTO-GENERATED APP OPTIONS
       target_version:
         description: "Target upstream version to build. Leave empty for latest."
@@ -96,8 +99,6 @@ on:
   repository_dispatch:
     types:
       - lzcat-build
-  schedule:
-    - cron: "0 */12 * * *"
 
 jobs:
   prepare:

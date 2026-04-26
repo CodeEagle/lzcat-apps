@@ -48,6 +48,17 @@ class CodexMigrationWorkerTest(unittest.TestCase):
         self.assertIn("Do not submit", prompt)
         self.assertIn("scripts/full_migrate.py", prompt)
 
+    def test_build_codex_prompt_includes_human_help_contract(self) -> None:
+        repo_root = self.make_repo_root()
+        item = {"id": "github:owner/demo", "source": "owner/demo", "slug": "demo", "state": "browser_failed"}
+
+        prompt = build_codex_prompt(repo_root, item, box_domain="box.example.test")
+
+        self.assertIn("waiting_for_human", prompt)
+        self.assertIn("human_request", prompt)
+        self.assertIn("Discord", prompt)
+        self.assertIn("credentials", prompt)
+
     def test_build_codex_command_uses_noninteractive_exec(self) -> None:
         repo_root = self.make_repo_root()
         config = CodexWorkerConfig(repo_root=repo_root, task_dir=repo_root / "tasks" / "demo")
@@ -58,7 +69,7 @@ class CodexMigrationWorkerTest(unittest.TestCase):
         self.assertIn("--sandbox", command)
         self.assertIn("danger-full-access", command)
         self.assertIn("--model", command)
-        self.assertIn("gpt-5.4", command)
+        self.assertIn("gpt-5.5", command)
         self.assertEqual(command[-1], "-")
 
     def test_write_task_bundle_writes_prompt_and_metadata(self) -> None:

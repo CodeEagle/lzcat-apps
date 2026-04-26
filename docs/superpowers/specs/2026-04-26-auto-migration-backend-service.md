@@ -1,5 +1,8 @@
 # Auto Migration Backend Service Design
 
+> Superseded for future work by `docs/superpowers/specs/2026-04-26-branch-workspace-auto-migration-design.md`.
+> This older design describes the first single-checkout daemon prototype.
+
 ## Goal
 
 Run the LazyCat migration pipeline as a background service that continuously discovers suitable upstream projects, filters duplicate or unsuitable candidates, migrates one app at a time, and only proceeds to copywriting or publishing after Codex Browser Use functional acceptance.

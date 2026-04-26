@@ -153,6 +153,59 @@ def build_tutorial(slug: str, manifest: dict[str, Any], acceptance: dict[str, An
 """
 
 
+def screenshot_references(app_root: Path, slug: str) -> list[str]:
+    screenshot_dir = app_root / "acceptance"
+    screenshots = sorted(screenshot_dir.glob("*.png")) if screenshot_dir.exists() else []
+    if not screenshots:
+        return [f"![应用界面](../acceptance/{slug}-home.png)"]
+    return [f"![{path.stem}](../acceptance/{path.name})" for path in screenshots[:5]]
+
+
+def build_playground_guide(slug: str, manifest: dict[str, Any], acceptance: dict[str, Any], app_root: Path) -> str:
+    name = str(manifest.get("name", slug)).strip() or slug
+    homepage = str(manifest.get("homepage", "")).strip()
+    description = manifest_description(manifest, "zh") or manifest_description(manifest, "en")
+    evidence = acceptance_evidence(acceptance)
+    screenshots = screenshot_references(app_root, slug)
+    first_image = screenshots[0]
+    extra_images = "\n\n".join(screenshots[1:])
+
+    return f"""# 在懒猫微服上使用 {name}
+
+{first_image}
+
+## 为什么值得装
+
+{description or f"{name} 已经完成懒猫微服移植，适合在自己的设备上长期运行。"}
+
+这个版本把上游项目打包成可以直接安装的懒猫应用，适合想要本地部署、随时打开、少折腾配置的用户。
+
+## 安装后先做这件事
+
+1. 在懒猫应用商店安装 `{name}`。
+2. 打开应用入口，等待首页完成加载。
+3. 按页面主流程输入或上传内容。
+4. 看到结果区出现有效输出后，就可以把它加入日常工作流。
+
+{extra_images}
+
+## 我们验证了什么
+
+{evidence}
+
+## 适合这些场景
+
+- 想把开源工具稳定放进自己的懒猫微服。
+- 希望应用、数据和日常入口都留在本地设备。
+- 需要一个已经经过 Browser Use 验收的可用版本。
+
+## 上游信息
+
+- 项目主页：{homepage}
+- 懒猫版本会尽量保持上游能力和原作者信息，不把移植包声明为原创应用。
+"""
+
+
 def build_copywriting_package(repo_root: Path, slug: str) -> dict[str, str]:
     app_root = repo_root / "apps" / slug
     allowed, reason = browser_acceptance_allows_publish(app_root)
@@ -165,6 +218,7 @@ def build_copywriting_package(repo_root: Path, slug: str) -> dict[str, str]:
     return {
         "store_copy": build_store_copy(slug, manifest, acceptance, readme_excerpt),
         "tutorial": build_tutorial(slug, manifest, acceptance),
+        "playground": build_playground_guide(slug, manifest, acceptance, app_root),
     }
 
 
@@ -175,9 +229,11 @@ def write_copywriting_package(repo_root: Path, slug: str) -> dict[str, Path]:
     package = build_copywriting_package(repo_root, slug)
     store_copy_path = output_dir / "store-copy.md"
     tutorial_path = output_dir / "tutorial.md"
+    playground_path = output_dir / "playground.md"
     store_copy_path.write_text(package["store_copy"], encoding="utf-8")
     tutorial_path.write_text(package["tutorial"], encoding="utf-8")
-    return {"store_copy": store_copy_path, "tutorial": tutorial_path}
+    playground_path.write_text(package["playground"], encoding="utf-8")
+    return {"store_copy": store_copy_path, "tutorial": tutorial_path, "playground": playground_path}
 
 
 def parse_args() -> argparse.Namespace:

@@ -172,6 +172,56 @@ services:
         )
         return temp_dir
 
+    def make_cli_sdk_repo_with_helper_dockerfile(self) -> Path:
+        temp_dir = Path(tempfile.mkdtemp(prefix="lzcat-cli-sdk-"))
+        (temp_dir / "Cargo.toml").write_text(
+            "\n".join(
+                [
+                    "[package]",
+                    'name = "microsandbox-like"',
+                    'version = "0.1.0"',
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        (temp_dir / "README.md").write_text(
+            """
+# Microsandbox-like
+
+Runs locally on your machine. No server to set up.
+
+## Install the SDK
+
+```sh
+cargo add microsandbox
+uv add microsandbox
+npm i microsandbox
+```
+
+## Install the CLI
+
+```sh
+msb --help
+```
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+        (temp_dir / "packaging" / "docker").mkdir(parents=True, exist_ok=True)
+        (temp_dir / "packaging" / "docker" / "Dockerfile").write_text(
+            "\n".join(
+                [
+                    "FROM ubuntu:24.04",
+                    'ENTRYPOINT ["msb"]',
+                    'CMD ["--help"]',
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        return temp_dir
+
     def run_script(self, repo_root: Path, source: Path) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [
@@ -267,7 +317,17 @@ services:
         result = self.run_script(repo_root, source_repo)
         slug = normalize_slug(source_repo.name)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("原生客户端/桌面应用", result.stdout)
+        self.assertIn("原生客户端/CLI/SDK", result.stdout)
+        self.assertFalse((repo_root / "apps" / slug).exists())
+        self.assertFalse((repo_root / "registry" / "repos" / f"{slug}.json").exists())
+
+    def test_cli_sdk_repo_with_helper_dockerfile_is_rejected(self) -> None:
+        repo_root = self.make_repo_root()
+        source_repo = self.make_cli_sdk_repo_with_helper_dockerfile()
+        result = self.run_script(repo_root, source_repo)
+        slug = normalize_slug(source_repo.name)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("CLI/SDK", result.stdout)
         self.assertFalse((repo_root / "apps" / slug).exists())
         self.assertFalse((repo_root / "registry" / "repos" / f"{slug}.json").exists())
 
