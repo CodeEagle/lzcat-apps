@@ -471,8 +471,13 @@ def update_item_codex_result(
         item["codex"] = codex
         item["updated_at"] = now
         if returncode == 0:
-            item["state"] = "ready"
-            item.pop("last_error", None)
+            item["state"] = status
+            if status == "ready":
+                item.pop("last_error", None)
+            elif status == "browser_failed":
+                item["last_error"] = "Browser Use acceptance failed after codex repair"
+            elif status == "browser_pending":
+                item.pop("last_error", None)
         else:
             item["last_error"] = f"codex worker exited {returncode}"
         break
@@ -494,6 +499,10 @@ def advance_codex_worker(
     command = build_codex_worker_command(config, item)
     result = runner(command)
     status = "ready" if result.returncode == 0 else "codex_failed"
+    if result.returncode == 0 and config.functional_check:
+        functional_state = functional_check_state(config.repo_root, str(item.get("slug", "")))
+        if functional_state in {"browser_pending", "browser_failed", "browser_passed"}:
+            status = functional_state
     update_item_codex_result(queue, str(item.get("id", "")), status=status, returncode=result.returncode, now=now)
     return [{"id": item.get("id", ""), "status": status, "returncode": result.returncode}]
 

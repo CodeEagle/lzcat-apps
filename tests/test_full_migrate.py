@@ -333,6 +333,65 @@ services:
         self.assertFalse(ok)
         self.assertTrue(any("heredoc syntax" in issue for issue in issues), issues)
 
+    def test_preflight_rejects_placeholder_dockerfile_template(self) -> None:
+        repo_root = self.make_repo_root()
+        app_dir = repo_root / "apps" / "placeholder-app"
+        app_dir.mkdir(parents=True)
+        (repo_root / "registry" / "repos" / "placeholder-app.json").write_text(
+            json.dumps(
+                {
+                    "upstream_repo": "owner/placeholder-app",
+                    "build_strategy": "upstream_with_target_template",
+                    "dockerfile_path": "Dockerfile.template",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (repo_root / "registry" / "repos" / "index.json").write_text(
+            json.dumps({"repos": ["placeholder-app"]}) + "\n",
+            encoding="utf-8",
+        )
+        (app_dir / "lzc-manifest.yml").write_text(
+            "\n".join(
+                [
+                    "lzc-sdk-version: '0.1'",
+                    "package: fun.selfstudio.app.migration.placeholder-app",
+                    "version: 1.0.0",
+                    "min_os_version: 1.3.8",
+                    "name: Placeholder App",
+                    "description: placeholder app",
+                    "license: MIT",
+                    "homepage: https://example.com/placeholder-app",
+                    "author: Acme",
+                    "application:",
+                    "  subdomain: placeholder-app",
+                    "  public_path:",
+                    "    - /",
+                    "  upstreams:",
+                    "    -",
+                    "      location: /",
+                    "      backend: http://placeholder-app:3000/",
+                    "services:",
+                    "  placeholder-app:",
+                    "    image: registry.lazycat.cloud/placeholder/placeholder-app:latest",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        (app_dir / "lzc-build.yml").write_text("lzc-sdk-version: '0.1'\nmanifest: ./lzc-manifest.yml\npkgout: ./\nicon: ./icon.png\n", encoding="utf-8")
+        (app_dir / "README.md").write_text("# Placeholder App\n", encoding="utf-8")
+        (app_dir / "icon.png").write_bytes(b"png")
+        (app_dir / "Dockerfile.template").write_text(
+            'FROM alpine:3.20\nCMD ["sh", "-c", "echo \\"Replace this placeholder Dockerfile before running a real build.\\" >&2; sleep infinity"]\n',
+            encoding="utf-8",
+        )
+
+        ok, issues = fm.preflight_check(repo_root, "placeholder-app")
+        self.assertFalse(ok)
+        self.assertTrue(any("placeholder Dockerfile" in issue for issue in issues), issues)
+
     def test_load_yaml_supports_aliases(self) -> None:
         temp_dir = Path(tempfile.mkdtemp(prefix="lzcat-yaml-alias-"))
         yaml_path = temp_dir / "compose.yml"
