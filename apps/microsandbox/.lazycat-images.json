@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "app": "microsandbox",
+  "source_version": "v0.3.14",
+  "build_version": "0.3.14",
+  "head_sha": "ffe0e837bff8",
+  "build_recipe_hash": "d75918e024b2cc69c522f558dcac8134d48d0078134a454fa5b89fde01764792",
+  "updated_at": "2026-04-26T04:59:27.757295+00:00",
+  "images": {
+    "microsandbox": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:418ec76c6cf14cff"
+  },
+  "source_images": {
+    "microsandbox": "ghcr.io/codeeagle/lazycatimages:microsandbox_ffe0e837bff8"
+  },
+  "source_digests": {
+    "_primary": "sha256:8e92926ad11ad4465b483d75ceb90d3f7172871baa6661eaa37954706e80b76a"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:microsandbox_ffe0e837bff8",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:418ec76c6cf14cff",
+      "elapsed_seconds": 0.0,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": true,
+      "kind": "primary"
+    }
+  ]
+}
