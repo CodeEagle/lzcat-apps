@@ -15,6 +15,7 @@ import struct
 import subprocess
 import sys
 import time
+import threading
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, as_completed
 from dataclasses import dataclass
@@ -62,7 +63,7 @@ INTERACTION_RESPONSE_CHANNEL_MESSAGE_WITH_SOURCE = 4
 INTERACTION_RESPONSE_DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE = 5
 
 CodexRunner = Callable[["CodexControlTask"], "CodexControlRunResult"]
-ProgressCallback = Callable[["CodexControlTask", str, float], None]
+ProgressCallback = Callable[["CodexControlTask", str, float, str], None]
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,7 @@ class ChannelContext:
     slug: str = ""
     item: dict[str, Any] | None = None
     workdir: Path = Path("")
+    implicit_codex: bool = False
 
 
 @dataclass(frozen=True)
@@ -180,6 +182,17 @@ def truncate_reply(content: str) -> str:
     if len(content) <= MAX_DISCORD_MESSAGE_LENGTH:
         return content
     return content[: MAX_DISCORD_MESSAGE_LENGTH - 20].rstrip() + "\n...[truncated]"
+
+
+def _single_line(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip())
+
+
+def instruction_summary(text: str, *, max_length: int = 220) -> str:
+    summary = _single_line(text)
+    if len(summary) <= max_length:
+        return summary
+    return summary[: max_length - 3].rstrip() + "..."
 
 
 def codex_command_catalog() -> list[dict[str, Any]]:
@@ -382,6 +395,7 @@ def ensure_context_workdir(context: ChannelContext, config: CodexControlConfig) 
             slug=context.slug,
             item=context.item,
             workdir=workspace_path,
+            implicit_codex=context.implicit_codex,
         )
 
     workspace_path.parent.mkdir(parents=True, exist_ok=True)
@@ -416,6 +430,7 @@ def ensure_context_workdir(context: ChannelContext, config: CodexControlConfig) 
         slug=context.slug,
         item=item,
         workdir=workspace_path,
+        implicit_codex=context.implicit_codex,
     )
 
 
@@ -429,7 +444,13 @@ def channel_context(channel: dict[str, Any], config: CodexControlConfig, items: 
     if not channel_id or not channel_name:
         return None
     if normalize_slug(channel_name) == normalize_slug(config.control_channel):
-        return ChannelContext(channel_id=channel_id, channel_name=channel_name, scope="control", workdir=config.repo_root)
+        return ChannelContext(
+            channel_id=channel_id,
+            channel_name=channel_name,
+            scope="control",
+            workdir=config.repo_root,
+            implicit_codex=True,
+        )
     if normalize_slug(channel_name) == normalize_slug(dashboard_channel_name()):
         return ChannelContext(
             channel_id=channel_id,
@@ -437,6 +458,7 @@ def channel_context(channel: dict[str, Any], config: CodexControlConfig, items: 
             scope="dashboard",
             slug=DASHBOARD_CHANNEL_NAME,
             workdir=config.repo_root,
+            implicit_codex=True,
         )
     slug = slug_from_channel_name(channel_name, config)
     if not slug:
@@ -628,6 +650,20 @@ def parse_control_message(message: dict[str, Any], config: CodexControlConfig) -
     return None
 
 
+def parse_channel_message(
+    message: dict[str, Any],
+    config: CodexControlConfig,
+    context: ChannelContext,
+) -> ParsedCommand | None:
+    parsed = parse_control_message(message, config)
+    if parsed:
+        return parsed
+    content = str(message.get("content", "")).strip()
+    if not content or not context.implicit_codex:
+        return None
+    return ParsedCommand("codex", content)
+
+
 def build_help_reply() -> str:
     return "\n".join(
         [
@@ -638,6 +674,7 @@ def build_help_reply() -> str:
             "`/retry [focus]` 或 `!retry` 让 Codex 接着当前失败继续处理",
             "`/filter-close [reason]` 或 `!filter-close` 把当前 repo 加入过滤名单并清理频道/worktree/branch/痕迹",
             "`/help` 或 `@Bot <需求>` 也可以直接唤起 Codex",
+            "`#dashboard` / `#migration-control` 里的普通文本会默认直接交给 Codex，不需要每次 @",
         ]
     )
 
@@ -1098,6 +1135,57 @@ def write_task_bundle(task: CodexControlTask) -> None:
     )
 
 
+def progress_state_path(task: CodexControlTask) -> Path:
+    return task.task_dir / "progress.json"
+
+
+def write_progress_state(task: CodexControlTask, summary: str) -> None:
+    summary = instruction_summary(summary)
+    if not summary:
+        return
+    progress_path = progress_state_path(task)
+    progress_path.write_text(
+        json.dumps(
+            {
+                "summary": summary,
+                "updated_at": utc_now_iso(),
+            },
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def read_progress_state(task: CodexControlTask) -> str:
+    progress_path = progress_state_path(task)
+    if not progress_path.exists():
+        return ""
+    try:
+        payload = json.loads(progress_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    return instruction_summary(str(payload.get("summary", "")).strip())
+
+
+def summarize_codex_output(stdout_text: str, stderr_text: str) -> str:
+    combined = "\n".join(part for part in (stdout_text, stderr_text) if part).splitlines()
+    for raw_line in reversed(combined):
+        line = instruction_summary(raw_line)
+        if not line:
+            continue
+        if line.startswith((">", "$")):
+            continue
+        if line in {"```", "---"}:
+            continue
+        return line
+    return ""
+
+
 def run_codex_control_task(task: CodexControlTask) -> CodexControlRunResult:
     write_task_bundle(task)
     if not task.config.execute:
@@ -1105,27 +1193,63 @@ def run_codex_control_task(task: CodexControlTask) -> CodexControlRunResult:
 
     stdout_path = task.task_dir / "codex.stdout.log"
     stderr_path = task.task_dir / "codex.stderr.log"
-    result = subprocess.run(task.command, input=task.prompt, text=True, capture_output=True, check=False)
-    stdout_chunks = [result.stdout or ""]
-    stderr_chunks = [result.stderr or ""]
+    process = subprocess.Popen(
+        task.command,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )
+    assert process.stdin is not None
+    assert process.stdout is not None
+    assert process.stderr is not None
+    process.stdin.write(task.prompt)
+    process.stdin.close()
+    stdout_chunks: list[str] = []
+    stderr_chunks: list[str] = []
     fallback_used: dict[str, Any] | None = None
-    combined = f"{result.stdout or ''}\n{result.stderr or ''}"
+    output_lock = threading.Lock()
+
+    def _pump(stream: Any, destination: Path, chunks: list[str]) -> None:
+        with destination.open("w", encoding="utf-8") as handle:
+            for line in iter(stream.readline, ""):
+                with output_lock:
+                    chunks.append(line)
+                    current_stdout = "".join(stdout_chunks)
+                    current_stderr = "".join(stderr_chunks)
+                handle.write(line)
+                handle.flush()
+                if summary := summarize_codex_output(current_stdout, current_stderr):
+                    write_progress_state(task, summary)
+            stream.close()
+
+    stdout_thread = threading.Thread(target=_pump, args=(process.stdout, stdout_path, stdout_chunks), daemon=True)
+    stderr_thread = threading.Thread(target=_pump, args=(process.stderr, stderr_path, stderr_chunks), daemon=True)
+    stdout_thread.start()
+    stderr_thread.start()
+    returncode = process.wait()
+    stdout_thread.join()
+    stderr_thread.join()
+    combined = f"{''.join(stdout_chunks)}\n{''.join(stderr_chunks)}"
     fallback = fallback_model()
-    if result.returncode != 0 and fallback and fallback != task.config.model and model_requires_newer_codex(combined):
+    if returncode != 0 and fallback and fallback != task.config.model and model_requires_newer_codex(combined):
         fallback_command = command_with_model(task.command, fallback)
         fallback_result = subprocess.run(fallback_command, input=task.prompt, text=True, capture_output=True, check=False)
         stdout_chunks.append(f"\n\n--- retry with {fallback} ---\n{fallback_result.stdout or ''}")
         stderr_chunks.append(f"\n\n--- retry with {fallback} ---\n{fallback_result.stderr or ''}")
+        stdout_path.write_text("".join(stdout_chunks), encoding="utf-8")
+        stderr_path.write_text("".join(stderr_chunks), encoding="utf-8")
         fallback_used = {
             "from_model": task.config.model,
             "to_model": fallback,
-            "original_returncode": result.returncode,
+            "original_returncode": returncode,
             "returncode": fallback_result.returncode,
         }
-        result = fallback_result
+        returncode = fallback_result.returncode
+        if summary := summarize_codex_output(fallback_result.stdout or "", fallback_result.stderr or ""):
+            write_progress_state(task, summary)
 
-    stdout_path.write_text("".join(stdout_chunks), encoding="utf-8")
-    stderr_path.write_text("".join(stderr_chunks), encoding="utf-8")
     if fallback_used:
         (task.task_dir / "model-fallback.json").write_text(
             json.dumps(fallback_used, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
@@ -1137,9 +1261,9 @@ def run_codex_control_task(task: CodexControlTask) -> CodexControlRunResult:
         last_message = read_text_if_exists(stdout_path, max_chars=1000).strip()
     if not last_message:
         last_message = read_text_if_exists(stderr_path, max_chars=1000).strip()
-    status = "completed" if result.returncode == 0 else "failed"
+    status = "completed" if returncode == 0 else "failed"
     summary = last_message or "(Codex 没有输出最终消息)"
-    return CodexControlRunResult(status, result.returncode, summary, task.task_dir)
+    return CodexControlRunResult(status, returncode, summary, task.task_dir)
 
 
 def build_task(
@@ -1226,19 +1350,29 @@ def format_elapsed(seconds: float) -> str:
     return f"{remainder}s"
 
 
-def format_codex_progress_message(task: CodexControlTask, phase: str, elapsed_seconds: float) -> str:
+def current_work_summary(task: CodexControlTask) -> str:
+    return read_progress_state(task) or instruction_summary(task.instruction)
+
+
+def format_codex_progress_message(task: CodexControlTask, phase: str, elapsed_seconds: float, summary: str) -> str:
+    summary = instruction_summary(summary) or instruction_summary(task.instruction)
     if phase == "started":
         title = "**Codex worker 已启动**"
+        workdir = task.context.workdir or task.config.repo_root
+        lines = [
+            title,
+            f"- 当前工作：{summary}",
+            f"- 频道：#{task.context.channel_name}",
+            f"- 项目：{task.context.slug or task.context.scope or 'global'}",
+            f"- 分支：{git_workdir_summary(workdir)}",
+            f"- 任务目录：{task.task_dir}",
+        ]
     else:
-        title = f"**Codex worker 运行中 {format_elapsed(elapsed_seconds)}**"
-    workdir = task.context.workdir or task.config.repo_root
-    lines = [
-        title,
-        f"- 频道：#{task.context.channel_name}",
-        f"- 项目：{task.context.slug or task.context.scope or 'global'}",
-        f"- 分支：{git_workdir_summary(workdir)}",
-        f"- 任务目录：{task.task_dir}",
-    ]
+        title = f"**Codex worker 进展 {format_elapsed(elapsed_seconds)}**"
+        lines = [
+            title,
+            f"- 当前工作：{summary}",
+        ]
     return truncate_reply("\n".join(lines))
 
 
@@ -1252,7 +1386,8 @@ def run_runner_with_progress(
     if progress_callback is None:
         return runner(task)
     start = time.monotonic()
-    progress_callback(task, "started", 0.0)
+    last_summary = current_work_summary(task)
+    progress_callback(task, "started", 0.0, last_summary)
     interval = max(0.01, progress_interval_seconds)
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(runner, task)
@@ -1260,13 +1395,16 @@ def run_runner_with_progress(
             try:
                 return future.result(timeout=interval)
             except FuturesTimeoutError:
-                progress_callback(task, "running", time.monotonic() - start)
+                summary = read_progress_state(task)
+                if summary and summary != last_summary:
+                    last_summary = summary
+                    progress_callback(task, "running", time.monotonic() - start, summary)
 
 
 def make_discord_progress_callback(client: DiscordClient, channel_id: str) -> ProgressCallback:
-    def callback(task: CodexControlTask, phase: str, elapsed_seconds: float) -> None:
+    def callback(task: CodexControlTask, phase: str, elapsed_seconds: float, summary: str) -> None:
         try:
-            client.send_message(channel_id, format_codex_progress_message(task, phase, elapsed_seconds))
+            client.send_message(channel_id, format_codex_progress_message(task, phase, elapsed_seconds, summary))
         except Exception:
             pass
 
@@ -1377,7 +1515,7 @@ def handle_gateway_message_create(
         return {"channel_id": channel_id, "message_id": message_id, "status": "unknown_channel"}
     if is_bot_message(message):
         return {"channel_id": channel_id, "message_id": message_id, "status": "bot_ignored"}
-    parsed = parse_control_message(message, config)
+    parsed = parse_channel_message(message, config, context)
     if not parsed:
         return {"channel_id": channel_id, "message_id": message_id, "status": "ignored"}
 
@@ -1859,7 +1997,7 @@ def process_codex_control_commands(
                 last_seen = message_id
                 continue
             last_seen = message_id
-            parsed = parse_control_message(message, config)
+            parsed = parse_channel_message(message, config, context)
             if not parsed:
                 continue
             reaction_error = ""

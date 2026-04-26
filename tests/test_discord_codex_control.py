@@ -20,6 +20,7 @@ from scripts.discord_codex_control import (
     codex_command_catalog,
     ensure_context_workdir,
     format_codex_result_reply,
+    format_codex_progress_message,
     gateway_intents,
     handle_command,
     handle_gateway_interaction_create,
@@ -27,6 +28,7 @@ from scripts.discord_codex_control import (
     mark_existing_messages_seen,
     parse_interaction_command,
     parse_control_message,
+    parse_channel_message,
     parse_control_command,
     process_codex_control_commands,
     register_guild_slash_commands,
@@ -129,6 +131,37 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertIsNotNone(parsed)
         self.assertEqual(parsed.kind, "content_unavailable")
 
+    def test_dashboard_channel_treats_plain_text_as_codex_instruction(self) -> None:
+        repo_root = self.make_repo_root()
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="dashboard-1",
+            channel_name="dashboard",
+            scope="dashboard",
+            slug="dashboard",
+            workdir=repo_root,
+            implicit_codex=True,
+        )
+
+        parsed = parse_channel_message({"content": "继续处理等待人工决策的项目", "author": {"id": "u1"}}, config, context)
+
+        self.assertEqual(parsed, ParsedCommand("codex", "继续处理等待人工决策的项目"))
+
+    def test_migration_channel_keeps_plain_text_ignored_without_command_prefix(self) -> None:
+        repo_root = self.make_repo_root()
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="piclaw-1",
+            channel_name="migration-piclaw",
+            scope="migration",
+            slug="piclaw",
+            workdir=repo_root,
+        )
+
+        parsed = parse_channel_message({"content": "选择官方作者信息，继续上架", "author": {"id": "u1"}}, config, context)
+
+        self.assertIsNone(parsed)
+
     def test_gateway_identify_payload_requests_message_events_and_content(self) -> None:
         payload = build_gateway_identify_payload("token-1")
 
@@ -148,6 +181,7 @@ class DiscordCodexControlTest(unittest.TestCase):
             scope="dashboard",
             slug="dashboard",
             workdir=repo_root,
+            implicit_codex=True,
         )
         events: list[tuple[str, str, dict[str, object] | None]] = []
         replies: list[str] = []
@@ -178,6 +212,51 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertEqual(len(replies), 1)
         self.assertIn("Codex Dashboard 状态", replies[0])
         self.assertFalse(any("/messages?limit" in event[1] for event in events))
+
+    def test_gateway_message_create_runs_plain_text_from_dashboard_channel(self) -> None:
+        repo_root = self.make_repo_root()
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="dashboard-1",
+            channel_name="dashboard",
+            scope="dashboard",
+            slug="dashboard",
+            workdir=repo_root,
+            implicit_codex=True,
+        )
+        tasks: list[CodexControlTask] = []
+        replies: list[str] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "PUT" and route == "/channels/dashboard-1/messages/902/reactions/%E2%9C%85/@me":
+                return {}
+            if method == "PUT" and route == "/channels/dashboard-1/messages/902/reactions/%F0%9F%9A%80/@me":
+                return {}
+            if method == "POST" and route == "/channels/dashboard-1/messages":
+                assert payload is not None
+                replies.append(str(payload.get("content", "")))
+                return {"id": "reply-1"}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        def runner(task: CodexControlTask) -> CodexControlRunResult:
+            tasks.append(task)
+            return CodexControlRunResult("completed", 0, "已处理。", task.task_dir)
+
+        result = handle_gateway_message_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"dashboard-1": context},
+            {"id": "902", "channel_id": "dashboard-1", "content": "继续处理等待人工决策的项目", "author": {"id": "u1"}},
+            runner=runner,
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(result, {"channel_id": "dashboard-1", "message_id": "902", "status": "completed"})
+        self.assertEqual(len(tasks), 1)
+        self.assertIn("继续处理等待人工决策的项目", tasks[0].prompt)
+        self.assertEqual(len(replies), 2)
+        self.assertIn("Codex worker 已启动", replies[0])
+        self.assertIn("Codex 任务完成", replies[-1])
 
     def test_gateway_message_create_runs_codex_command_from_migration_channel(self) -> None:
         repo_root = self.make_repo_root()
@@ -227,11 +306,39 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertEqual(len(tasks), 1)
         self.assertEqual(tasks[0].context.workdir, workspace_path)
         self.assertIn("继续修复", tasks[0].prompt)
-        self.assertGreaterEqual(len(replies), 3)
+        self.assertEqual(len(replies), 2)
         self.assertIn("Codex worker 已启动", replies[0])
-        self.assertTrue(any("Codex worker 运行中" in reply for reply in replies[1:-1]))
         self.assertIn("Codex 任务完成", replies[-1])
         self.assertFalse(any("收到" in reply for reply in replies))
+
+    def test_running_progress_message_only_reports_summary_delta(self) -> None:
+        repo_root = self.make_repo_root()
+        task = CodexControlTask(
+            instruction="继续处理 piclaw 的迁移失败并验证",
+            context=ChannelContext(
+                channel_id="piclaw-1",
+                channel_name="migration-piclaw",
+                scope="migration",
+                slug="piclaw",
+                workdir=repo_root,
+            ),
+            config=self.make_config(repo_root),
+            task_dir=repo_root / "registry" / "auto-migration" / "codex-control-tasks" / "demo",
+            prompt="",
+            command=[],
+            now="2026-04-26T10:00:00Z",
+        )
+
+        started = format_codex_progress_message(task, "started", 0.0, "读取失败日志并定位截图流程")
+        running = format_codex_progress_message(task, "running", 65.0, "已定位到截图脚本参数不兼容，正在改修复")
+
+        self.assertIn("频道：#migration-piclaw", started)
+        self.assertIn("任务目录", started)
+        self.assertIn("当前工作：读取失败日志并定位截图流程", started)
+        self.assertIn("Codex worker 进展 1m05s", running)
+        self.assertIn("当前工作：已定位到截图脚本参数不兼容，正在改修复", running)
+        self.assertNotIn("频道：#migration-piclaw", running)
+        self.assertNotIn("任务目录", running)
 
     def test_result_reply_includes_current_branch_and_commit(self) -> None:
         repo_root = self.make_repo_root()
