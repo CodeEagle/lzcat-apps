@@ -22,7 +22,8 @@
 - LPK sha256: `cae7a1c202d987c2b624b219696bb59a28e2d4286ed65815803cdd53a77fff68`
 - Icon: `apps/piclaw/store-submission/assets/icon.png`
 - Screenshots:
-- `apps/piclaw/store-submission/assets/screenshots/piclaw-home.png`
+- `apps/piclaw/store-submission/assets/screenshots/piclaw-desktop-1920.png`
+- `apps/piclaw/store-submission/assets/screenshots/piclaw-desktop-2560.png`
 - Web screenshot metadata: `apps/piclaw/acceptance/web-screenshots.json`
 
 ## 文案来源
