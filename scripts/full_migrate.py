@@ -2921,6 +2921,16 @@ def analyze_source(normalized: NormalizedSource, source_dir: Path | None, gh_tok
         f"扫描到 env 示例文件：{', '.join(path.name for path in env_files[:3])}" if env_files else "未扫描到 env 示例文件",
         f"扫描到 README：{', '.join(path.name for path in readmes[:3])}" if readmes else "未扫描到 README",
     ]
+    discovered_icon = bm.discover_repo_icon(source_dir)
+    if discovered_icon and not str(spec.get("icon_path") or "").strip():
+        spec["icon_path"] = str(discovered_icon)
+        try:
+            icon_label = discovered_icon.relative_to(source_dir).as_posix()
+        except ValueError:
+            icon_label = str(discovered_icon)
+        spec["startup_notes"] = bm.ensure_list(spec.get("startup_notes")) + [
+            f"扫描到上游图标：{icon_label}"
+        ]
 
     return AnalysisResult(
         slug=spec["slug"],
@@ -4850,6 +4860,10 @@ def main() -> int:
             step2_outputs.append(f"compose={analysis.compose_file}")
         if analysis.dockerfile:
             step2_outputs.append(f"dockerfile={analysis.dockerfile}")
+        for note in bm.ensure_list(analysis.spec.get("startup_notes")):
+            if isinstance(note, str) and note.startswith("扫描到上游图标："):
+                step2_outputs.append(note)
+                break
         step_report(
             2,
             "选择移植路线",

@@ -17,6 +17,70 @@ from urllib import error, request
 DEFAULT_ICON_PNG = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jXWQAAAAASUVORK5CYII="
 )
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+MAX_DISCOVERED_ICON_BYTES = 200 * 1024
+
+ICON_SKIP_DIRS = {
+    ".git",
+    ".hg",
+    ".cache",
+    ".mypy_cache",
+    ".next",
+    ".nuxt",
+    ".parcel-cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".svn",
+    ".svelte-kit",
+    ".tox",
+    ".venv",
+    "__pycache__",
+    "build",
+    "coverage",
+    "dist",
+    "node_modules",
+    "target",
+    "vendor",
+}
+
+ICON_DIR_HINTS = {
+    ".",
+    "app",
+    "assets",
+    "docs",
+    "frontend",
+    "images",
+    "img",
+    "public",
+    "res",
+    "resources",
+    "src",
+    "static",
+    "web",
+}
+
+ICON_NAME_HINTS = {
+    "android-chrome",
+    "app-icon",
+    "appicon",
+    "apple-touch-icon",
+    "favicon",
+    "icon",
+    "launcher",
+    "logo",
+}
+
+ICON_NEGATIVE_HINTS = {
+    "banner",
+    "cover",
+    "hero",
+    "opengraph",
+    "preview",
+    "screenshot",
+    "screen-shot",
+    "social",
+    "thumbnail",
+}
 
 SUPPORTED_BUILD_STRATEGIES = {
     "official_image",
@@ -1045,6 +1109,118 @@ def render_placeholder_dockerfile(spec: dict[str, Any], template_mode: bool) -> 
 
 def write_placeholder_icon(path: Path) -> None:
     path.write_bytes(base64.b64decode(DEFAULT_ICON_PNG))
+
+
+def read_png_dimensions(path: Path) -> tuple[int, int] | None:
+    try:
+        with path.open("rb") as handle:
+            header = handle.read(32)
+    except OSError:
+        return None
+    if len(header) < 24 or not header.startswith(PNG_SIGNATURE) or header[12:16] != b"IHDR":
+        return None
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    if width <= 0 or height <= 0:
+        return None
+    return width, height
+
+
+def iter_repo_png_candidates(source_dir: Path) -> list[Path]:
+    candidates: list[Path] = []
+    for root, dirs, files in os.walk(source_dir):
+        dirs[:] = [
+            name for name in dirs
+            if name not in ICON_SKIP_DIRS
+        ]
+        for filename in files:
+            path = Path(root) / filename
+            if path.suffix.lower() == ".png":
+                candidates.append(path)
+    return candidates
+
+
+def score_repo_icon_candidate(source_dir: Path, path: Path) -> int | None:
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return None
+    if size <= 0 or size > MAX_DISCOVERED_ICON_BYTES:
+        return None
+
+    dimensions = read_png_dimensions(path)
+    if dimensions is None:
+        return None
+    width, height = dimensions
+    if min(width, height) < 32:
+        return None
+
+    try:
+        relative = path.relative_to(source_dir)
+    except ValueError:
+        relative = path
+    parts = [part.lower() for part in relative.parts]
+    stem = re.sub(r"[^a-z0-9]+", "-", path.stem.lower()).strip("-")
+    relative_text = re.sub(r"[^a-z0-9]+", "-", relative.as_posix().lower()).strip("-")
+
+    if any(hint in relative_text for hint in ICON_NEGATIVE_HINTS):
+        return None
+
+    score = 0
+    if stem == "icon" or stem.startswith("icon-") or stem.endswith("-icon"):
+        score += 100
+    elif stem in ICON_NAME_HINTS:
+        score += 90
+    elif any(hint in stem for hint in ICON_NAME_HINTS):
+        score += 70
+    elif "logo" in relative_text:
+        score += 45
+    else:
+        return None
+
+    parent_parts = parts[:-1]
+    if not parent_parts:
+        score += 20
+    for part in parent_parts:
+        if part in ICON_DIR_HINTS:
+            score += 10
+
+    if width == height:
+        score += 35
+    else:
+        score -= 20
+
+    largest = max(width, height)
+    if largest in (256, 512):
+        score += 30
+    elif 128 <= largest <= 1024:
+        score += 20
+    elif largest < 128:
+        score -= 10
+
+    if str(width) in stem or str(height) in stem:
+        score += 10
+
+    score -= max(0, len(parts) - 2) * 6
+    return score
+
+
+def discover_repo_icon(source_dir: Path) -> Path | None:
+    scored: list[tuple[int, int, str, Path]] = []
+    source_dir = Path(source_dir)
+    for path in iter_repo_png_candidates(source_dir):
+        score = score_repo_icon_candidate(source_dir, path)
+        if score is None:
+            continue
+        try:
+            relative = path.relative_to(source_dir)
+        except ValueError:
+            relative = path
+        scored.append((score, len(relative.parts), relative.as_posix(), path))
+    if not scored:
+        return None
+    scored.sort(key=lambda item: (-item[0], item[1], item[2]))
+    return scored[0][3]
 
 
 def update_index(index_path: Path, config_filename: str) -> None:

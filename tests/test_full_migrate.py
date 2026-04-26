@@ -22,6 +22,18 @@ def normalize_slug(value: str) -> str:
     return re.sub(r"-{2,}", "-", slug).strip("-")
 
 
+def fake_png(width: int = 256, height: int = 256) -> bytes:
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + (13).to_bytes(4, "big")
+        + b"IHDR"
+        + width.to_bytes(4, "big")
+        + height.to_bytes(4, "big")
+        + b"\x08\x06\x00\x00\x00"
+        + b"\x00\x00\x00\x00"
+    )
+
+
 class FullMigrateTest(unittest.TestCase):
     def make_repo_root(self) -> Path:
         temp_dir = Path(tempfile.mkdtemp(prefix="lzcat-full-migrate-test-"))
@@ -198,6 +210,19 @@ services:
         self.assertEqual(config["build_strategy"], "upstream_dockerfile")
         self.assertIn("backend: http://", manifest)
         self.assertIn("8088", manifest)
+
+    def test_full_migrate_uses_discovered_repo_icon(self) -> None:
+        repo_root = self.make_repo_root()
+        source_repo = self.make_source_repo_with_dockerfile()
+        expected_icon = fake_png(256, 256)
+        (source_repo / "docs").mkdir(parents=True, exist_ok=True)
+        (source_repo / "docs" / "icon-256.png").write_bytes(expected_icon)
+
+        result = self.run_script(repo_root, source_repo)
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        slug = normalize_slug(source_repo.name)
+        self.assertEqual((repo_root / "apps" / slug / "icon.png").read_bytes(), expected_icon)
+        self.assertIn("扫描到上游图标：docs/icon-256.png", result.stdout)
 
     def test_multi_build_compose_records_service_builds(self) -> None:
         repo_root = self.make_repo_root()
