@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -418,9 +419,28 @@ def build_codex_discovery_review_command(config: ServiceConfig, item: dict[str, 
     return command
 
 
+def parse_codex_worker_result(output: str) -> dict[str, Any]:
+    decoder = json.JSONDecoder()
+    result: dict[str, Any] = {}
+    for index, char in enumerate(output):
+        if char != "{":
+            continue
+        try:
+            payload, _ = decoder.raw_decode(output[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict) and ("returncode" in payload or "session_id" in payload or "task_dir" in payload):
+            result = payload
+    return result
+
+
 def run_subprocess(command: list[str], *, cwd: Path) -> CommandResult:
-    result = subprocess.run(command, cwd=cwd, text=True, check=False)
-    return CommandResult(returncode=result.returncode)
+    result = subprocess.run(command, cwd=cwd, text=True, capture_output=True, check=False)
+    if result.stdout:
+        print(result.stdout, end="")
+    if result.stderr:
+        print(result.stderr, end="", file=sys.stderr)
+    return CommandResult(returncode=result.returncode, stdout=result.stdout or "", stderr=result.stderr or "")
 
 
 def load_candidate_snapshot(repo_root: Path, snapshot_path: str) -> dict[str, Any]:
@@ -627,6 +647,8 @@ def update_item_codex_result(
     status: str,
     returncode: int,
     now: str,
+    session_id: str = "",
+    task_dir: str = "",
 ) -> None:
     items = queue.get("items")
     if not isinstance(items, list):
@@ -639,6 +661,10 @@ def update_item_codex_result(
         codex["last_status"] = status
         codex["last_returncode"] = returncode
         codex["last_run_at"] = now
+        if session_id:
+            codex["session_id"] = session_id
+        if task_dir:
+            codex["last_task_dir"] = task_dir
         item["codex"] = codex
         item["updated_at"] = now
         if returncode == 0:
@@ -661,6 +687,8 @@ def merge_waiting_for_human_from_disk(
     *,
     returncode: int,
     now: str,
+    session_id: str = "",
+    task_dir: str = "",
 ) -> bool:
     if not config.queue_path.exists():
         return False
@@ -684,6 +712,10 @@ def merge_waiting_for_human_from_disk(
     codex["last_status"] = "waiting_for_human"
     codex["last_returncode"] = returncode
     codex["last_run_at"] = now
+    if session_id:
+        codex["session_id"] = session_id
+    if task_dir:
+        codex["last_task_dir"] = task_dir
     item["codex"] = codex
     item["updated_at"] = now
     return True
@@ -888,12 +920,18 @@ def advance_codex_worker(
 
     command = build_codex_worker_command(config, item)
     result = runner(command)
+    worker_result = parse_codex_worker_result(result.stdout)
+    existing_codex = item.get("codex") if isinstance(item.get("codex"), dict) else {}
+    session_id = str(worker_result.get("session_id") or existing_codex.get("session_id") or "").strip()
+    task_dir = str(worker_result.get("task_dir") or "").strip()
     if result.returncode == 0 and merge_waiting_for_human_from_disk(
         config,
         queue,
         str(item.get("id", "")),
         returncode=result.returncode,
         now=now,
+        session_id=session_id,
+        task_dir=task_dir,
     ):
         return [{"id": item.get("id", ""), "status": "waiting_for_human", "returncode": result.returncode}]
     status = "ready" if result.returncode == 0 else "codex_failed"
@@ -901,7 +939,15 @@ def advance_codex_worker(
         functional_state = functional_check_state_for_item(config, item)
         if functional_state in {"browser_pending", "browser_failed", "browser_passed"}:
             status = functional_state
-    update_item_codex_result(queue, str(item.get("id", "")), status=status, returncode=result.returncode, now=now)
+    update_item_codex_result(
+        queue,
+        str(item.get("id", "")),
+        status=status,
+        returncode=result.returncode,
+        now=now,
+        session_id=session_id,
+        task_dir=task_dir,
+    )
     return [{"id": item.get("id", ""), "status": status, "returncode": result.returncode}]
 
 
