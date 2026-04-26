@@ -663,6 +663,43 @@ def process_codex_control_commands(
     return results
 
 
+def mark_existing_messages_seen(
+    config: CodexControlConfig,
+    client: DiscordClient,
+    *,
+    now: str | None = None,
+) -> list[dict[str, str]]:
+    now = now or utc_now_iso()
+    contexts = discover_channels(config, client)
+    state_path = resolve_path(config.repo_root, config.state_path)
+    state = read_json(state_path, {})
+    channels_state = state.get("channels")
+    if not isinstance(channels_state, dict):
+        channels_state = {}
+    results: list[dict[str, str]] = []
+
+    for context in contexts:
+        messages = client.list_messages(context.channel_id, limit=1)
+        last_message_id = ""
+        if messages:
+            last_message_id = str(messages[0].get("id", "")).strip()
+        channel_state = channels_state.get(context.channel_id)
+        if not isinstance(channel_state, dict):
+            channel_state = {}
+        channel_state["last_message_id"] = last_message_id
+        channel_state["last_checked_at"] = now
+        channel_state["channel_name"] = context.channel_name
+        channel_state["slug"] = context.slug
+        channels_state[context.channel_id] = channel_state
+        results.append({"channel_id": context.channel_id, "message_id": last_message_id, "status": "marked_seen"})
+
+    state["channels"] = channels_state
+    state["last_checked_at"] = now
+    state["initialized_at"] = state.get("initialized_at") or now
+    write_json(state_path, state)
+    return results
+
+
 def config_from_project(repo_root: Path, *, execute: bool = True) -> CodexControlConfig:
     project_config = load_project_config(repo_root)
     workspace_root = Path(project_config.migration.workspace_root).expanduser() if project_config.migration.workspace_root else Path("")
@@ -694,6 +731,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Process Discord commands that spawn Codex control tasks.")
     parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[1]))
     parser.add_argument("--once", action="store_true", help="Process one polling batch and exit.")
+    parser.add_argument("--mark-seen", action="store_true", help="Initialize state from current channel messages without running commands.")
     parser.add_argument("--interval-seconds", type=float, default=15.0, help="Polling interval when running as a daemon.")
     parser.add_argument("--no-execute", action="store_true", help="Write task bundles but do not run Codex.")
     return parser.parse_args()
@@ -709,6 +747,10 @@ def main() -> int:
     if not config.guild_id:
         raise SystemExit("discord.guild_id is required in project-config.json")
     client = DiscordClient(token)
+    if args.mark_seen:
+        results = mark_existing_messages_seen(config, client)
+        print(json.dumps({"codex_control": results}, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
     if args.once:
         results = process_codex_control_commands(config, client)
         print(json.dumps({"codex_control": results}, ensure_ascii=False, indent=2, sort_keys=True))
