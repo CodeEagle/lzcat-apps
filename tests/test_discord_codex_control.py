@@ -16,6 +16,8 @@ from scripts.discord_codex_control import (
     CodexControlConfig,
     CodexControlRunResult,
     CodexControlTask,
+    DashboardConversationResult,
+    DashboardConversationTurn,
     ParsedCommand,
     build_gateway_identify_payload,
     build_task,
@@ -228,13 +230,11 @@ class DiscordCodexControlTest(unittest.TestCase):
             workdir=repo_root,
             implicit_codex=True,
         )
-        tasks: list[CodexControlTask] = []
+        turns: list[DashboardConversationTurn] = []
         replies: list[str] = []
 
         def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
             if method == "PUT" and route == "/channels/dashboard-1/messages/902/reactions/%E2%9C%85/@me":
-                return {}
-            if method == "PUT" and route == "/channels/dashboard-1/messages/902/reactions/%F0%9F%9A%80/@me":
                 return {}
             if method == "POST" and route == "/channels/dashboard-1/messages":
                 assert payload is not None
@@ -242,9 +242,12 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return {"id": "reply-1"}
             raise AssertionError(f"unexpected Discord call {method} {route}")
 
-        def runner(task: CodexControlTask) -> CodexControlRunResult:
-            tasks.append(task)
-            return CodexControlRunResult("completed", 0, "已处理。", task.task_dir)
+        def runner(_: CodexControlTask) -> CodexControlRunResult:
+            raise AssertionError("dashboard chat must not invoke per-message Codex worker")
+
+        def dashboard_conversation(turn: DashboardConversationTurn) -> DashboardConversationResult:
+            turns.append(turn)
+            return DashboardConversationResult("completed", "直接回复：继续处理。", session_id="dashboard-session-1")
 
         result = handle_gateway_message_create(
             config,
@@ -252,15 +255,17 @@ class DiscordCodexControlTest(unittest.TestCase):
             {"dashboard-1": context},
             {"id": "902", "channel_id": "dashboard-1", "content": "继续处理等待人工决策的项目", "author": {"id": "u1"}},
             runner=runner,
+            dashboard_conversation=dashboard_conversation,
             now="2026-04-26T10:00:00Z",
         )
 
         self.assertEqual(result, {"channel_id": "dashboard-1", "message_id": "902", "status": "completed"})
-        self.assertEqual(len(tasks), 1)
-        self.assertIn("继续处理等待人工决策的项目", tasks[0].prompt)
-        self.assertEqual(len(replies), 2)
-        self.assertIn("Codex worker 已启动", replies[0])
-        self.assertIn("Codex 任务完成", replies[-1])
+        self.assertEqual(len(turns), 1)
+        self.assertEqual(turns[0].instruction, "继续处理等待人工决策的项目")
+        self.assertEqual(len(replies), 1)
+        self.assertEqual(replies[0], "直接回复：继续处理。")
+        state = json.loads(config.state_path.read_text(encoding="utf-8"))
+        self.assertEqual(state["channels"]["dashboard-1"]["codex"]["session_id"], "dashboard-session-1")
 
     def test_gateway_message_create_runs_codex_command_from_migration_channel(self) -> None:
         repo_root = self.make_repo_root()
@@ -834,7 +839,8 @@ class DiscordCodexControlTest(unittest.TestCase):
         dashboard_root.mkdir(parents=True)
         (dashboard_root / "latest.md").write_text("# LazyCat 自动移植日报\n\n## 失败待处理\n- piclaw\n", encoding="utf-8")
         config = self.make_config(repo_root)
-        tasks: list[CodexControlTask] = []
+        turns: list[DashboardConversationTurn] = []
+        replies: list[str] = []
 
         def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
             if method == "GET" and route == "/guilds/guild-1/channels":
@@ -848,31 +854,35 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return [{"id": "151", "content": "!codex 总结今天失败原因", "author": {"id": "u1"}}]
             if method == "PUT" and route == "/channels/dashboard-1/messages/151/reactions/%E2%9C%85/@me":
                 return {}
-            if method == "PUT" and route == "/channels/dashboard-1/messages/151/reactions/%F0%9F%9A%80/@me":
-                return {}
             if method == "POST" and route == "/channels/dashboard-1/messages":
+                assert payload is not None
+                replies.append(str(payload.get("content", "")))
                 return {"id": "reply-1"}
             raise AssertionError(f"unexpected Discord call {method} {route}")
 
-        def runner(task: CodexControlTask) -> CodexControlRunResult:
-            tasks.append(task)
-            return CodexControlRunResult("completed", 0, "已总结。", task.task_dir)
+        def runner(_: CodexControlTask) -> CodexControlRunResult:
+            raise AssertionError("dashboard chat must not invoke per-message Codex worker")
+
+        def dashboard_conversation(turn: DashboardConversationTurn) -> DashboardConversationResult:
+            turns.append(turn)
+            return DashboardConversationResult("completed", "今天失败主要是截图和作者信息。")
 
         results = process_codex_control_commands(
             config,
             DiscordClient("token", transport=transport),
             runner=runner,
+            dashboard_conversation=dashboard_conversation,
             now="2026-04-26T10:00:00Z",
         )
 
         self.assertEqual(results, [{"channel_id": "dashboard-1", "message_id": "151", "status": "completed"}])
-        self.assertEqual(len(tasks), 1)
-        self.assertEqual(tasks[0].context.scope, "dashboard")
-        self.assertEqual(tasks[0].context.workdir, repo_root)
-        self.assertIn("Latest dashboard summary", tasks[0].prompt)
-        self.assertIn("piclaw", tasks[0].prompt)
+        self.assertEqual(len(turns), 1)
+        self.assertEqual(turns[0].context.scope, "dashboard")
+        self.assertEqual(turns[0].context.workdir, repo_root)
+        self.assertEqual(turns[0].instruction, "总结今天失败原因")
+        self.assertEqual(replies, ["今天失败主要是截图和作者信息。"])
 
-    def test_dashboard_channel_reuses_persistent_codex_session(self) -> None:
+    def test_dashboard_channel_uses_conversation_backend_instead_of_worker_resume(self) -> None:
         repo_root = self.make_repo_root()
         self.write_queue(repo_root)
         dashboard_root = repo_root / "registry" / "dashboard"
@@ -898,7 +908,8 @@ class DiscordCodexControlTest(unittest.TestCase):
             + "\n",
             encoding="utf-8",
         )
-        tasks: list[CodexControlTask] = []
+        turns: list[DashboardConversationTurn] = []
+        replies: list[str] = []
 
         def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
             if method == "GET" and route == "/guilds/guild-1/channels":
@@ -912,35 +923,31 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return [{"id": "152", "content": "!codex 继续", "author": {"id": "u1"}}]
             if method == "PUT" and route == "/channels/dashboard-1/messages/152/reactions/%E2%9C%85/@me":
                 return {}
-            if method == "PUT" and route == "/channels/dashboard-1/messages/152/reactions/%F0%9F%9A%80/@me":
-                return {}
             if method == "POST" and route == "/channels/dashboard-1/messages":
+                assert payload is not None
+                replies.append(str(payload.get("content", "")))
                 return {"id": "reply-1"}
             raise AssertionError(f"unexpected Discord call {method} {route}")
 
-        def runner(task: CodexControlTask) -> CodexControlRunResult:
-            tasks.append(task)
-            return CodexControlRunResult(
-                "completed",
-                0,
-                "继续完成。",
-                task.task_dir,
-                session_id="66666666-7777-8888-9999-aaaaaaaaaaaa",
-            )
+        def runner(_: CodexControlTask) -> CodexControlRunResult:
+            raise AssertionError("dashboard chat must not build a resume task")
+
+        def dashboard_conversation(turn: DashboardConversationTurn) -> DashboardConversationResult:
+            turns.append(turn)
+            return DashboardConversationResult("completed", "继续完成。", session_id="66666666-7777-8888-9999-aaaaaaaaaaaa")
 
         results = process_codex_control_commands(
             config,
             DiscordClient("token", transport=transport),
             runner=runner,
+            dashboard_conversation=dashboard_conversation,
             now="2026-04-26T10:00:00Z",
         )
 
         self.assertEqual(results, [{"channel_id": "dashboard-1", "message_id": "152", "status": "completed"}])
-        self.assertEqual(len(tasks), 1)
-        self.assertEqual(tasks[0].session_id, "11111111-2222-3333-4444-555555555555")
-        self.assertIn("resume", tasks[0].command)
-        self.assertLess(tasks[0].command.index("exec"), tasks[0].command.index("-C"))
-        self.assertLess(tasks[0].command.index("-C"), tasks[0].command.index("resume"))
+        self.assertEqual(len(turns), 1)
+        self.assertEqual(turns[0].instruction, "继续")
+        self.assertEqual(replies, ["继续完成。"])
         state = json.loads(config.state_path.read_text(encoding="utf-8"))
         self.assertEqual(
             state["channels"]["dashboard-1"]["codex"]["session_id"],

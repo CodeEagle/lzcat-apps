@@ -133,6 +133,25 @@ class CodexControlRunResult:
 
 
 @dataclass(frozen=True)
+class DashboardConversationTurn:
+    instruction: str
+    context: ChannelContext
+    config: CodexControlConfig
+    now: str
+    message_id: str = ""
+
+
+@dataclass(frozen=True)
+class DashboardConversationResult:
+    status: str
+    reply: str
+    session_id: str = ""
+
+
+DashboardConversationRunner = Callable[[DashboardConversationTurn], DashboardConversationResult]
+
+
+@dataclass(frozen=True)
 class ChannelMessageBatch:
     index: int
     context: ChannelContext
@@ -1605,6 +1624,171 @@ def make_discord_progress_callback(client: DiscordClient, channel_id: str) -> Pr
     return callback
 
 
+def dashboard_conversation_root(config: CodexControlConfig, channel_id: str) -> Path:
+    return config.repo_root / "registry" / "auto-migration" / "dashboard-conversations" / safe_task_name(channel_id)
+
+
+def build_dashboard_conversation_prompt(turn: DashboardConversationTurn, *, include_context: bool) -> str:
+    if not include_context:
+        return turn.instruction
+    context = turn.context
+    return f"""You are the fixed interactive Codex assistant behind the LazyCat migration dashboard Discord channel.
+
+Reply directly to the operator in concise Chinese. Do not include worker reports, task directories, return codes, or branch boilerplate unless the operator asks for them.
+
+Operator message:
+{turn.instruction}
+
+Channel context:
+- channel: #{context.channel_name} ({context.channel_id})
+- scope: {context.scope}
+- repo_root: {turn.config.repo_root}
+- workdir: {context.workdir}
+- queue_path: {resolve_path(turn.config.repo_root, turn.config.queue_path)}
+- workspace_root: {resolve_path(turn.config.repo_root, turn.config.workspace_root) if has_path(turn.config.workspace_root) else "(not configured)"}
+
+Operating rules:
+- Treat this as an ongoing conversation, not as a one-off worker task.
+- For actual migration work, keep app-specific changes in migration/<slug> worktrees.
+- Keep template branch for reusable migration-platform improvements.
+- If you need credentials, legal judgement, or final publish approval, ask clearly.
+- Run narrow verification before claiming changes are complete.
+
+{app_context_text(context)}
+"""
+
+
+def build_dashboard_conversation_command(
+    config: CodexControlConfig,
+    context: ChannelContext,
+    *,
+    session_id: str,
+    last_message_path: Path,
+) -> list[str]:
+    workdir = context.workdir or config.repo_root
+    base = [
+        "codex",
+        "--ask-for-approval",
+        "never",
+        "exec",
+        "-C",
+        str(workdir),
+        "--sandbox",
+        "danger-full-access",
+    ]
+    if session_id:
+        return [
+            *base,
+            "resume",
+            "--model",
+            config.model,
+            "--json",
+            "--output-last-message",
+            str(last_message_path),
+            session_id,
+            "-",
+        ]
+    return [
+        *base,
+        "--model",
+        config.model,
+        "--json",
+        "--output-last-message",
+        str(last_message_path),
+        "-",
+    ]
+
+
+def run_dashboard_conversation_command(
+    turn: DashboardConversationTurn,
+    *,
+    session_id: str,
+) -> DashboardConversationResult:
+    root = dashboard_conversation_root(turn.config, turn.context.channel_id)
+    root.mkdir(parents=True, exist_ok=True)
+    last_message_path = root / "last-message.md"
+    stdout_path = root / "codex.stdout.log"
+    stderr_path = root / "codex.stderr.log"
+    prompt = build_dashboard_conversation_prompt(turn, include_context=not session_id)
+    command = build_dashboard_conversation_command(
+        turn.config,
+        turn.context,
+        session_id=session_id,
+        last_message_path=last_message_path,
+    )
+    result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=False)
+    stdout_chunks = [result.stdout or ""]
+    stderr_chunks = [result.stderr or ""]
+    active_session_id = session_id
+    active_command = command
+    returncode = result.returncode
+    combined = f"{result.stdout or ''}\n{result.stderr or ''}"
+
+    if returncode != 0 and active_session_id and resume_session_missing(combined):
+        active_session_id = ""
+        prompt = build_dashboard_conversation_prompt(turn, include_context=True)
+        active_command = build_dashboard_conversation_command(
+            turn.config,
+            turn.context,
+            session_id="",
+            last_message_path=last_message_path,
+        )
+        retry = subprocess.run(active_command, input=prompt, text=True, capture_output=True, check=False)
+        stdout_chunks.append(f"\n\n--- retry without stale session ---\n{retry.stdout or ''}")
+        stderr_chunks.append(f"\n\n--- retry without stale session ---\n{retry.stderr or ''}")
+        returncode = retry.returncode
+        combined = f"{''.join(stdout_chunks)}\n{''.join(stderr_chunks)}"
+
+    fallback = fallback_model()
+    if returncode != 0 and fallback and fallback != turn.config.model and model_requires_newer_codex(combined):
+        fallback_command = command_with_model(active_command, fallback)
+        retry = subprocess.run(fallback_command, input=prompt, text=True, capture_output=True, check=False)
+        stdout_chunks.append(f"\n\n--- retry with {fallback} ---\n{retry.stdout or ''}")
+        stderr_chunks.append(f"\n\n--- retry with {fallback} ---\n{retry.stderr or ''}")
+        returncode = retry.returncode
+
+    stdout_text = "".join(stdout_chunks)
+    stderr_text = "".join(stderr_chunks)
+    stdout_path.write_text(stdout_text, encoding="utf-8")
+    stderr_path.write_text(stderr_text, encoding="utf-8")
+    next_session_id = extract_session_id_from_jsonl(stdout_text) or active_session_id
+    reply = read_text_if_exists(last_message_path, max_chars=1800).strip()
+    if not reply:
+        reply = summarize_codex_output(stdout_text, stderr_text) or "(Codex 没有输出回复)"
+    if returncode != 0:
+        return DashboardConversationResult("failed", f"Codex dashboard 对话失败：\n{reply}", session_id=next_session_id)
+    return DashboardConversationResult("completed", reply, session_id=next_session_id)
+
+
+class DashboardConversationWorker:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._session_id = ""
+
+    def __call__(self, turn: DashboardConversationTurn) -> DashboardConversationResult:
+        with self._lock:
+            state_session_id = dashboard_session_id(turn.config, turn.context.channel_id)
+            session_id = self._session_id or state_session_id
+            result = run_dashboard_conversation_command(turn, session_id=session_id)
+            if result.session_id:
+                self._session_id = result.session_id
+            return result
+
+
+_DASHBOARD_CONVERSATIONS_LOCK = threading.Lock()
+_DASHBOARD_CONVERSATIONS: dict[str, DashboardConversationWorker] = {}
+
+
+def default_dashboard_conversation(turn: DashboardConversationTurn) -> DashboardConversationResult:
+    key = f"{turn.config.repo_root}:{turn.context.channel_id}"
+    with _DASHBOARD_CONVERSATIONS_LOCK:
+        worker = _DASHBOARD_CONVERSATIONS.get(key)
+        if worker is None:
+            worker = DashboardConversationWorker()
+            _DASHBOARD_CONVERSATIONS[key] = worker
+    return worker(turn)
+
+
 def format_codex_result_reply(result: CodexControlRunResult, context: ChannelContext) -> str:
     title = "完成" if result.returncode == 0 else "失败"
     workdir = context.workdir or result.task_dir
@@ -1628,6 +1812,7 @@ def handle_command(
     *,
     client: DiscordClient | None = None,
     runner: CodexRunner = run_codex_control_task,
+    dashboard_conversation: DashboardConversationRunner = default_dashboard_conversation,
     now: str | None = None,
     task_id: str = "",
     progress_callback: ProgressCallback | None = None,
@@ -1657,6 +1842,16 @@ def handle_command(
         ensured_context = ensure_context_workdir(context, config)
     except RuntimeError as exc:
         return CommandResult("worktree_failed", f"恢复 `{context.slug}` worktree 失败：{exc}")
+    if ensured_context.scope == "dashboard":
+        turn = DashboardConversationTurn(
+            instruction=parsed.instruction,
+            context=ensured_context,
+            config=config,
+            now=now,
+            message_id=task_id,
+        )
+        dashboard_result = dashboard_conversation(turn)
+        return CommandResult(dashboard_result.status, dashboard_result.reply, session_id=dashboard_result.session_id)
     task = build_task(parsed.instruction, ensured_context, config, now=now, task_id=task_id)
     result = run_runner_with_progress(
         task,
@@ -1697,6 +1892,7 @@ def handle_gateway_message_create(
     message: dict[str, Any],
     *,
     runner: CodexRunner = run_codex_control_task,
+    dashboard_conversation: DashboardConversationRunner = default_dashboard_conversation,
     now: str | None = None,
     progress_interval_seconds: float = DEFAULT_PROGRESS_INTERVAL_SECONDS,
 ) -> dict[str, str]:
@@ -1721,7 +1917,8 @@ def handle_gateway_message_create(
         reaction_error = str(exc)
 
     will_run = parsed.kind == "codex" and not (context.scope == "migration" and not context.item)
-    if will_run:
+    will_run_worker = will_run and context.scope != "dashboard"
+    if will_run_worker:
         try:
             client.add_reaction(channel_id, message_id, WORKER_REACTION)
         except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
@@ -1732,9 +1929,10 @@ def handle_gateway_message_create(
         context,
         config,
         runner=runner,
+        dashboard_conversation=dashboard_conversation,
         now=now,
         task_id=message_id,
-        progress_callback=make_discord_progress_callback(client, channel_id) if will_run else None,
+        progress_callback=make_discord_progress_callback(client, channel_id) if will_run_worker else None,
         progress_interval_seconds=progress_interval_seconds,
     )
     if parsed.kind == "codex" and context.scope == "dashboard" and result.session_id:
@@ -1785,6 +1983,7 @@ def handle_gateway_interaction_create(
     interaction: dict[str, Any],
     *,
     runner: CodexRunner = run_codex_control_task,
+    dashboard_conversation: DashboardConversationRunner = default_dashboard_conversation,
     now: str | None = None,
 ) -> dict[str, str]:
     channel_id = str(interaction.get("channel_id", "")).strip()
@@ -1804,7 +2003,15 @@ def handle_gateway_interaction_create(
     followup_error = ""
     immediate_response = parsed.kind in {"help", "status", "content_unavailable"}
     if immediate_response:
-        result = handle_command(parsed, context, config, runner=runner, now=now, task_id=interaction_id)
+        result = handle_command(
+            parsed,
+            context,
+            config,
+            runner=runner,
+            dashboard_conversation=dashboard_conversation,
+            now=now,
+            task_id=interaction_id,
+        )
         try:
             client.create_interaction_response(interaction_id, interaction_token, _interaction_callback_message(result.reply))
         except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
@@ -1820,7 +2027,18 @@ def handle_gateway_interaction_create(
     except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
         response_error = str(exc)
 
-    result = handle_command(parsed, context, config, client=client, runner=runner, now=now, task_id=interaction_id)
+    result = handle_command(
+        parsed,
+        context,
+        config,
+        client=client,
+        runner=runner,
+        dashboard_conversation=dashboard_conversation,
+        now=now,
+        task_id=interaction_id,
+    )
+    if parsed.kind == "codex" and context.scope == "dashboard" and result.session_id:
+        persist_dashboard_session(config, context, session_id=result.session_id, now=now or utc_now_iso())
     if result.reply:
         try:
             client.create_followup_message(application_id, interaction_token, truncate_reply(result.reply))
@@ -2144,6 +2362,7 @@ def process_codex_control_commands(
     client: DiscordClient,
     *,
     runner: CodexRunner = run_codex_control_task,
+    dashboard_conversation: DashboardConversationRunner = default_dashboard_conversation,
     now: str | None = None,
 ) -> list[dict[str, str]]:
     now = now or utc_now_iso()
@@ -2203,8 +2422,9 @@ def process_codex_control_commands(
                 reaction_error = str(exc)
             is_action_command = parsed.kind in {"codex", "filter_cleanup"}
             will_run = is_action_command and not (context.scope == "migration" and not context.item)
+            will_run_worker = will_run and not (parsed.kind == "codex" and context.scope == "dashboard")
             send_error = ""
-            if will_run:
+            if will_run_worker:
                 try:
                     client.add_reaction(context.channel_id, message_id, WORKER_REACTION)
                 except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
@@ -2220,10 +2440,11 @@ def process_codex_control_commands(
                 config,
                 client=client,
                 runner=runner,
+                dashboard_conversation=dashboard_conversation,
                 now=now,
                 task_id=message_id,
                 progress_callback=make_discord_progress_callback(client, context.channel_id)
-                if parsed.kind == "codex" and will_run
+                if parsed.kind == "codex" and will_run_worker
                 else None,
             )
             if parsed.kind == "codex" and context.scope == "dashboard" and result.session_id:
