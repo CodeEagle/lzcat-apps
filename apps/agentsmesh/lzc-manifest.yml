@@ -1,0 +1,203 @@
+application:
+  public_path:
+    - /
+  subdomain: agentsmesh
+  upstreams:
+    -
+      backend: http://minio:9001/
+      location: /minio/
+    -
+      backend: http://traefik:80/
+      location: /
+author: AgentsMesh
+description: The AI Agent Workforce Platform — where teams scale beyond headcount
+homepage: https://agentsmesh.ai
+locales:
+  en:
+    description: The AI Agent Workforce Platform — where teams scale beyond headcount
+    name: AgentsMesh
+  zh:
+    description: （迁移初稿）Agentsmesh 的懒猫微服版本
+    name: AgentsMesh
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+name: AgentsMesh
+package: fun.selfstudio.app.migration.agentsmesh
+services:
+  backend:
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - PRIMARY_DOMAIN
+      - USE_HTTPS=false
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=agentsmesh
+      - DB_PASSWORD
+      - DB_NAME=agentsmesh
+      - DB_SSLMODE=disable
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET
+      - INTERNAL_API_SECRET
+      - SERVER_ADDRESS=:8080
+      - DEBUG=false
+      - CORS_ALLOWED_ORIGINS=*
+      - LOG_LEVEL=info
+      - LOG_FORMAT=json
+      - LOG_FILE=/dev/stdout
+      - EMAIL_PROVIDER=console
+      - STORAGE_ENDPOINT=minio:9000
+      - STORAGE_PUBLIC_ENDPOINT=${SERVER_HOST}:${MINIO_API_PORT:-9000}
+      - STORAGE_REGION=us-east-1
+      - STORAGE_BUCKET=agentsmesh
+      - STORAGE_ACCESS_KEY=minioadmin
+      - STORAGE_SECRET_KEY=__CHANGE_ME__
+      - STORAGE_USE_SSL=false
+      - STORAGE_USE_PATH_STYLE=true
+      - STORAGE_MAX_FILE_SIZE=10
+      - STORAGE_ALLOWED_TYPES=image/jpeg,image/png,image/gif,image/webp,application/pdf
+      - PKI_CA_CERT_FILE=/app/ssl/ca.crt
+      - PKI_CA_KEY_FILE=/app/ssl/ca.key
+      - PKI_VALIDITY_DAYS=365
+      - GRPC_ADDRESS=:9090
+      - GRPC_PUBLIC_ENDPOINT=grpc://${SERVER_HOST}:${GRPC_PORT:-9443}
+      - ADMIN_ENABLED=true
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test:
+        - CMD
+        - wget
+        - "--no-verbose"
+        - "--tries=1"
+        - "--spider"
+        - http://localhost:8080/health
+      timeout: 3s
+    image: registry.lazycat.cloud/placeholder/agentsmesh:backend
+  minio:
+    binds:
+      - /lzcapp/var/data/agentsmesh/minio:/data
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD
+      - MINIO_API_CORS_ALLOW_ORIGIN=*
+    healthcheck:
+      interval: 10s
+      retries: 5
+      test:
+        - CMD
+        - mc
+        - ready
+        - local
+      timeout: 5s
+    image: registry.lazycat.cloud/placeholder/agentsmesh:minio
+  postgres:
+    binds:
+      - /lzcapp/var/db/agentsmesh/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=agentsmesh
+      - POSTGRES_PASSWORD=__CHANGE_ME__
+      - POSTGRES_DB=agentsmesh
+    healthcheck:
+      interval: 10s
+      retries: 5
+      test:
+        - CMD-SHELL
+        - pg_isready -U agentsmesh
+      timeout: 5s
+    image: registry.lazycat.cloud/placeholder/agentsmesh:postgres
+  redis:
+    binds:
+      - /lzcapp/var/data/agentsmesh/redis:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      interval: 10s
+      retries: 5
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      timeout: 5s
+    image: registry.lazycat.cloud/placeholder/agentsmesh:redis
+  relay:
+    depends_on:
+      - backend
+    environment:
+      - SERVER_ADDRESS=:8090
+      - WS_READ_BUFFER_SIZE=4096
+      - WS_WRITE_BUFFER_SIZE=4096
+      - JWT_SECRET
+      - BACKEND_URL=http://backend:8080
+      - INTERNAL_API_SECRET
+      - RELAY_ID=selfhost-relay-1
+      - RELAY_REGION=local
+      - RELAY_CAPACITY=1000
+      - PRIMARY_DOMAIN
+      - USE_HTTPS=false
+      - SESSION_KEEP_ALIVE_DURATION=30s
+      - DEBUG=false
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 10s
+      test:
+        - CMD
+        - wget
+        - "--no-verbose"
+        - "--tries=1"
+        - "--spider"
+        - http://localhost:8090/health
+      timeout: 3s
+    image: registry.lazycat.cloud/placeholder/agentsmesh:relay
+  traefik:
+    binds:
+      - /lzcapp/pkg/content/traefik.yml:/etc/traefik/traefik.yml
+    depends_on:
+      - backend
+    image: registry.lazycat.cloud/placeholder/agentsmesh:traefik
+    setup_script: |
+      mkdir -p /etc/traefik
+      cp /lzcapp/pkg/content/traefik.yml /etc/traefik/traefik.yml
+      
+  web:
+    depends_on:
+      - backend
+    environment:
+      - NODE_ENV=production
+      - PRIMARY_DOMAIN
+      - USE_HTTPS=false
+      - POSTHOG_KEY=
+      - POSTHOG_HOST=
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test:
+        - CMD
+        - curl
+        - "-f"
+        - http://localhost:3000/
+      timeout: 10s
+    image: registry.lazycat.cloud/placeholder/agentsmesh:web
+  web-admin:
+    depends_on:
+      - backend
+    environment:
+      - NODE_ENV=production
+      - PRIMARY_DOMAIN
+      - USE_HTTPS=false
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      test:
+        - CMD
+        - curl
+        - "-f"
+        - http://localhost:3001/admin
+      timeout: 10s
+    image: registry.lazycat.cloud/placeholder/agentsmesh:web-admin
+version: 0.29.0
