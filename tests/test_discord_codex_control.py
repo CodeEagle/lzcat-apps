@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -15,12 +16,17 @@ from scripts.discord_codex_control import (
     CodexControlRunResult,
     CodexControlTask,
     build_gateway_identify_payload,
+    codex_command_catalog,
+    format_codex_result_reply,
     gateway_intents,
+    handle_gateway_interaction_create,
     handle_gateway_message_create,
     mark_existing_messages_seen,
+    parse_interaction_command,
     parse_control_message,
     parse_control_command,
     process_codex_control_commands,
+    register_guild_slash_commands,
 )
 from scripts.discord_migration_notifier import DiscordClient
 
@@ -77,6 +83,38 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertIsNone(parse_control_command("<@123> 继续处理"))
         self.assertIsNone(parse_control_command("<@999> 继续处理", bot_user_id="123"))
         self.assertIsNone(parse_control_command("随便聊一句"))
+
+    def test_parse_slash_interaction_commands(self) -> None:
+        self.assertEqual(
+            parse_interaction_command({"type": 2, "data": {"name": "status"}}),
+            parse_control_command("!status"),
+        )
+        self.assertEqual(
+            parse_interaction_command({"type": 2, "data": {"name": "codex", "options": [{"name": "task", "value": "继续处理"}]}}),
+            parse_control_command("!codex 继续处理"),
+        )
+        self.assertEqual(
+            parse_interaction_command({"type": 2, "data": {"name": "filter-close"}}).kind,
+            "filter_cleanup",
+        )
+        self.assertIsNone(parse_interaction_command({"type": 3, "data": {"name": "status"}}))
+
+    def test_register_guild_slash_commands_uses_catalog(self) -> None:
+        repo_root = self.make_repo_root()
+        config = self.make_config(repo_root)
+        events: list[tuple[str, str, object | None]] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            events.append((method, route, payload))
+            if method == "PUT" and route == "/applications/app-1/guilds/guild-1/commands":
+                assert payload == codex_command_catalog()
+                return [{"id": "cmd-1", "name": "status"}]
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        result = register_guild_slash_commands(config, DiscordClient("token", transport=transport), application_id="app-1")
+
+        self.assertEqual(result, [{"id": "cmd-1", "name": "status"}])
+        self.assertEqual(events, [("PUT", "/applications/app-1/guilds/guild-1/commands", codex_command_catalog())])
 
     def test_parse_empty_role_mention_as_content_unavailable(self) -> None:
         repo_root = self.make_repo_root()
@@ -169,6 +207,7 @@ class DiscordCodexControlTest(unittest.TestCase):
 
         def runner(task: CodexControlTask) -> CodexControlRunResult:
             tasks.append(task)
+            time.sleep(0.03)
             return CodexControlRunResult("completed", 0, "已处理。", task.task_dir)
 
         result = handle_gateway_message_create(
@@ -178,14 +217,147 @@ class DiscordCodexControlTest(unittest.TestCase):
             {"id": "901", "channel_id": "piclaw-1", "content": "!fix 继续修复", "author": {"id": "u1"}},
             runner=runner,
             now="2026-04-26T10:00:00Z",
+            progress_interval_seconds=0.01,
         )
 
         self.assertEqual(result, {"channel_id": "piclaw-1", "message_id": "901", "status": "completed"})
         self.assertEqual(len(tasks), 1)
         self.assertEqual(tasks[0].context.workdir, workspace_path)
         self.assertIn("继续修复", tasks[0].prompt)
+        self.assertGreaterEqual(len(replies), 3)
+        self.assertIn("Codex worker 已启动", replies[0])
+        self.assertTrue(any("Codex worker 运行中" in reply for reply in replies[1:-1]))
+        self.assertIn("Codex 任务完成", replies[-1])
+        self.assertFalse(any("收到" in reply for reply in replies))
+
+    def test_result_reply_includes_current_branch_and_commit(self) -> None:
+        repo_root = self.make_repo_root()
+        self.init_git_repo(repo_root)
+        subprocess.run(
+            ["git", "-C", str(repo_root), "checkout", "-b", "migration/piclaw"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        head = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "--short", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        context = ChannelContext(
+            channel_id="piclaw-1",
+            channel_name="migration-piclaw",
+            scope="migration",
+            slug="piclaw",
+            workdir=repo_root,
+        )
+
+        reply = format_codex_result_reply(CodexControlRunResult("completed", 0, "已处理。", repo_root / "task"), context)
+
+        self.assertIn("- 分支：migration/piclaw", reply)
+        self.assertIn(head, reply)
+
+    def test_gateway_interaction_create_runs_codex_command_from_migration_channel(self) -> None:
+        repo_root = self.make_repo_root()
+        workspace_path = repo_root.parent / f"{repo_root.name}-migration-workspaces" / "migration-piclaw"
+        workspace_path.mkdir(parents=True)
+        self.write_queue(repo_root, workspace_path=workspace_path)
+        config = self.make_config(repo_root)
+        item = json.loads((repo_root / "registry" / "auto-migration" / "queue.json").read_text())["items"][0]
+        context = ChannelContext(
+            channel_id="piclaw-1",
+            channel_name="migration-piclaw",
+            scope="migration",
+            slug="piclaw",
+            item=item,
+            workdir=workspace_path,
+        )
+        tasks: list[CodexControlTask] = []
+        events: list[tuple[str, str, dict[str, object] | None]] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            events.append((method, route, payload))
+            if method == "POST" and route == "/interactions/901/token-901/callback":
+                return {}
+            if method == "POST" and route == "/webhooks/app-1/token-901":
+                return {"id": "followup-1"}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        def runner(task: CodexControlTask) -> CodexControlRunResult:
+            tasks.append(task)
+            return CodexControlRunResult("completed", 0, "已处理。", task.task_dir)
+
+        result = handle_gateway_interaction_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"piclaw-1": context},
+            {
+                "id": "901",
+                "application_id": "app-1",
+                "channel_id": "piclaw-1",
+                "token": "token-901",
+                "type": 2,
+                "data": {"name": "fix", "options": [{"name": "issue", "value": "继续修复"}]},
+            },
+            runner=runner,
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(result, {"channel_id": "piclaw-1", "message_id": "901", "status": "completed"})
+        self.assertEqual(len(tasks), 1)
+        self.assertIn("继续修复", tasks[0].prompt)
+        self.assertEqual(
+            events[0],
+            (
+                "POST",
+                "/interactions/901/token-901/callback",
+                {"type": 5},
+            ),
+        )
+        self.assertEqual(events[1][0:2], ("POST", "/webhooks/app-1/token-901"))
+
+    def test_gateway_interaction_create_replies_immediately_for_status(self) -> None:
+        repo_root = self.make_repo_root()
+        self.write_queue(repo_root)
+        context = ChannelContext(
+            channel_id="dashboard-1",
+            channel_name="dashboard",
+            scope="dashboard",
+            slug="dashboard",
+            workdir=repo_root,
+        )
+        replies: list[str] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "POST" and route == "/interactions/900/token-900/callback":
+                assert payload is not None
+                replies.append(str((payload.get("data") or {}).get("content", "")))
+                return {}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        def runner(_: CodexControlTask) -> CodexControlRunResult:
+            raise AssertionError("status must not invoke Codex")
+
+        result = handle_gateway_interaction_create(
+            self.make_config(repo_root),
+            DiscordClient("token", transport=transport),
+            {"dashboard-1": context},
+            {
+                "id": "900",
+                "application_id": "app-1",
+                "channel_id": "dashboard-1",
+                "token": "token-900",
+                "type": 2,
+                "data": {"name": "status"},
+            },
+            runner=runner,
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(result, {"channel_id": "dashboard-1", "message_id": "900", "status": "status"})
         self.assertEqual(len(replies), 1)
-        self.assertNotIn("收到", replies[0])
+        self.assertIn("Codex Dashboard 状态", replies[0])
 
     def test_process_migration_channel_runs_codex_with_worktree_context(self) -> None:
         repo_root = self.make_repo_root()
@@ -242,7 +414,13 @@ class DiscordCodexControlTest(unittest.TestCase):
             events.index(("PUT", "/channels/piclaw-1/messages/100/reactions/%F0%9F%9A%80/@me", None)),
             events.index(("RUNNER", "codex", None)),
         )
-        self.assertEqual(sum(1 for event in events if event[0:2] == ("POST", "/channels/piclaw-1/messages")), 1)
+        progress_posts = [
+            event
+            for event in events
+            if event[0:2] == ("POST", "/channels/piclaw-1/messages") and event[2] and "Codex worker 已启动" in str(event[2].get("content", ""))
+        ]
+        self.assertEqual(len(progress_posts), 1)
+        self.assertEqual(sum(1 for event in events if event[0:2] == ("POST", "/channels/piclaw-1/messages")), 2)
         state = json.loads(config.state_path.read_text(encoding="utf-8"))
         self.assertEqual(state["channels"]["piclaw-1"]["last_message_id"], "100")
 

@@ -16,7 +16,7 @@ import subprocess
 import sys
 import time
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, as_completed
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -53,11 +53,16 @@ DISCORD_GATEWAY_GUILD_MESSAGES_INTENT = 1 << 9
 DISCORD_GATEWAY_MESSAGE_CONTENT_INTENT = 1 << 15
 ACK_REACTION = "%E2%9C%85"
 WORKER_REACTION = "%F0%9F%9A%80"
+DEFAULT_PROGRESS_INTERVAL_SECONDS = 60.0
 CONTROL_CHANNEL_NAME = "migration-control"
 CONTROL_ONLY_SUFFIXES = {"control", "dashboard", "local-agent", "codex-control"}
 DASHBOARD_CHANNEL_NAME = "dashboard"
+INTERACTION_APPLICATION_COMMAND = 2
+INTERACTION_RESPONSE_CHANNEL_MESSAGE_WITH_SOURCE = 4
+INTERACTION_RESPONSE_DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE = 5
 
 CodexRunner = Callable[["CodexControlTask"], "CodexControlRunResult"]
+ProgressCallback = Callable[["CodexControlTask", str, float], None]
 
 
 @dataclass(frozen=True)
@@ -175,6 +180,67 @@ def truncate_reply(content: str) -> str:
     if len(content) <= MAX_DISCORD_MESSAGE_LENGTH:
         return content
     return content[: MAX_DISCORD_MESSAGE_LENGTH - 20].rstrip() + "\n...[truncated]"
+
+
+def codex_command_catalog() -> list[dict[str, Any]]:
+    return [
+        {
+            "name": "help",
+            "description": "查看 Codex 控制命令列表",
+        },
+        {
+            "name": "status",
+            "description": "查看当前频道绑定的迁移项目、队列或 dashboard 状态",
+        },
+        {
+            "name": "codex",
+            "description": "让 Codex 在当前频道上下文中执行任务",
+            "options": [
+                {
+                    "type": 3,
+                    "name": "task",
+                    "description": "要交给 Codex 的任务说明",
+                    "required": True,
+                }
+            ],
+        },
+        {
+            "name": "fix",
+            "description": "排查并修复当前迁移频道对应项目的问题",
+            "options": [
+                {
+                    "type": 3,
+                    "name": "issue",
+                    "description": "补充问题线索；留空则按默认修复流程执行",
+                    "required": False,
+                }
+            ],
+        },
+        {
+            "name": "retry",
+            "description": "继续处理当前失败迁移并重跑必要验证",
+            "options": [
+                {
+                    "type": 3,
+                    "name": "focus",
+                    "description": "可选：补充这次重试的关注点",
+                    "required": False,
+                }
+            ],
+        },
+        {
+            "name": "filter-close",
+            "description": "把当前 repo 加入过滤名单并清理频道、worktree、branch",
+            "options": [
+                {
+                    "type": 3,
+                    "name": "reason",
+                    "description": "可选：补充过滤原因",
+                    "required": False,
+                }
+            ],
+        },
+    ]
 
 
 def is_bot_message(message: dict[str, Any]) -> bool:
@@ -362,6 +428,52 @@ def parse_control_command(content: str, *, bot_user_id: str = "") -> ParsedComma
     return None
 
 
+def _interaction_option_map(options: Any) -> dict[str, str]:
+    if not isinstance(options, list):
+        return {}
+    values: dict[str, str] = {}
+    for option in options:
+        if not isinstance(option, dict):
+            continue
+        name = str(option.get("name", "")).strip()
+        value = option.get("value")
+        if name and value is not None:
+            values[name] = str(value).strip()
+    return values
+
+
+def parse_interaction_command(interaction: dict[str, Any]) -> ParsedCommand | None:
+    if interaction.get("type") != INTERACTION_APPLICATION_COMMAND:
+        return None
+    data = interaction.get("data") if isinstance(interaction.get("data"), dict) else {}
+    name = str(data.get("name", "")).strip().lower()
+    options = _interaction_option_map(data.get("options"))
+    if name == "help":
+        return ParsedCommand("help")
+    if name == "status":
+        return ParsedCommand("status")
+    if name == "codex":
+        instruction = options.get("task", "")
+        if not instruction:
+            return ParsedCommand("help")
+        lowered = instruction.lower()
+        if lowered in {"help", "h", "?"}:
+            return ParsedCommand("help")
+        if lowered in {"status", "状态"}:
+            return ParsedCommand("status")
+        return ParsedCommand("codex", instruction)
+    if name == "fix":
+        instruction = options.get("issue", "") or "排查并修复当前迁移频道对应项目的失败，跑必要验证，并把结果写清楚。"
+        return ParsedCommand("codex", instruction)
+    if name == "retry":
+        instruction = options.get("focus", "") or "继续处理当前迁移，优先复现最近失败、修复问题并重跑必要验证。"
+        return ParsedCommand("codex", instruction)
+    if name == "filter-close":
+        instruction = options.get("reason", "") or "filter_and_cleanup_current_migration"
+        return ParsedCommand("filter_cleanup", instruction)
+    return None
+
+
 def strip_role_mention(content: str, role_ids: tuple[str, ...]) -> tuple[bool, str]:
     text = content.strip()
     for role_id in role_ids:
@@ -417,12 +529,12 @@ def build_help_reply() -> str:
     return "\n".join(
         [
             "**Codex 控制指令**",
-            "`!status` 查看当前频道绑定的迁移项目和 worktree",
-            "`!codex <需求>` 让 Codex 在当前频道上下文中执行任务",
-            "`!fix <问题>` 针对当前迁移项目排查修复",
-            "`!retry` 让 Codex 接着当前失败继续处理",
-            "`!filter-close` 把当前 repo 加入过滤名单并清理频道/worktree/branch/痕迹",
-            "`@Bot <需求>` 也可以直接唤起 Codex",
+            "`/status` 或 `!status` 查看当前频道绑定的迁移项目和 worktree",
+            "`/codex task:<需求>` 或 `!codex <需求>` 让 Codex 在当前频道上下文中执行任务",
+            "`/fix [issue]` 或 `!fix <问题>` 针对当前迁移项目排查修复",
+            "`/retry [focus]` 或 `!retry` 让 Codex 接着当前失败继续处理",
+            "`/filter-close [reason]` 或 `!filter-close` 把当前 repo 加入过滤名单并清理频道/worktree/branch/痕迹",
+            "`/help` 或 `@Bot <需求>` 也可以直接唤起 Codex",
         ]
     )
 
@@ -882,12 +994,103 @@ def build_task(
     )
 
 
+def _git_output(workdir: Path, args: list[str]) -> str:
+    if not workdir:
+        return ""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(workdir), *args],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=5,
+        )
+    except Exception:
+        return ""
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
+def git_workdir_summary(workdir: Path) -> str:
+    branch = _git_output(workdir, ["branch", "--show-current"])
+    if not branch:
+        branch = _git_output(workdir, ["rev-parse", "--abbrev-ref", "HEAD"])
+    head = _git_output(workdir, ["rev-parse", "--short", "HEAD"])
+    dirty = _git_output(workdir, ["status", "--short"])
+    dirty_count = len([line for line in dirty.splitlines() if line.strip()])
+    branch_part = branch or "(unknown)"
+    head_part = f" @ {head}" if head else ""
+    dirty_part = f"，未提交变更 {dirty_count} 个" if dirty_count else ""
+    return f"{branch_part}{head_part}{dirty_part}"
+
+
+def format_elapsed(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    minutes, remainder = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h{minutes:02d}m"
+    if minutes:
+        return f"{minutes}m{remainder:02d}s"
+    return f"{remainder}s"
+
+
+def format_codex_progress_message(task: CodexControlTask, phase: str, elapsed_seconds: float) -> str:
+    if phase == "started":
+        title = "**Codex worker 已启动**"
+    else:
+        title = f"**Codex worker 运行中 {format_elapsed(elapsed_seconds)}**"
+    workdir = task.context.workdir or task.config.repo_root
+    lines = [
+        title,
+        f"- 频道：#{task.context.channel_name}",
+        f"- 项目：{task.context.slug or task.context.scope or 'global'}",
+        f"- 分支：{git_workdir_summary(workdir)}",
+        f"- 任务目录：{task.task_dir}",
+    ]
+    return truncate_reply("\n".join(lines))
+
+
+def run_runner_with_progress(
+    task: CodexControlTask,
+    runner: CodexRunner,
+    *,
+    progress_callback: ProgressCallback | None = None,
+    progress_interval_seconds: float = DEFAULT_PROGRESS_INTERVAL_SECONDS,
+) -> CodexControlRunResult:
+    if progress_callback is None:
+        return runner(task)
+    start = time.monotonic()
+    progress_callback(task, "started", 0.0)
+    interval = max(0.01, progress_interval_seconds)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(runner, task)
+        while True:
+            try:
+                return future.result(timeout=interval)
+            except FuturesTimeoutError:
+                progress_callback(task, "running", time.monotonic() - start)
+
+
+def make_discord_progress_callback(client: DiscordClient, channel_id: str) -> ProgressCallback:
+    def callback(task: CodexControlTask, phase: str, elapsed_seconds: float) -> None:
+        try:
+            client.send_message(channel_id, format_codex_progress_message(task, phase, elapsed_seconds))
+        except Exception:
+            pass
+
+    return callback
+
+
 def format_codex_result_reply(result: CodexControlRunResult, context: ChannelContext) -> str:
     title = "完成" if result.returncode == 0 else "失败"
+    workdir = context.workdir or result.task_dir
     lines = [
         f"**Codex 任务{title}**",
         f"- 频道：#{context.channel_name}",
         f"- 项目：{context.slug or 'global'}",
+        f"- 分支：{git_workdir_summary(workdir)}",
         f"- returncode：{result.returncode}",
         f"- 任务目录：{result.task_dir}",
         "",
@@ -905,6 +1108,8 @@ def handle_command(
     runner: CodexRunner = run_codex_control_task,
     now: str | None = None,
     task_id: str = "",
+    progress_callback: ProgressCallback | None = None,
+    progress_interval_seconds: float = DEFAULT_PROGRESS_INTERVAL_SECONDS,
 ) -> CommandResult:
     now = now or utc_now_iso()
     if parsed.kind == "help":
@@ -925,7 +1130,12 @@ def handle_command(
             f"当前频道看起来是 `{context.slug}`，但 queue.json 里没有对应项目。先确认这个频道是否已经上架/过滤，或者用 `!codex <明确任务>` 在 control 频道执行全局排查。",
         )
     task = build_task(parsed.instruction, context, config, now=now, task_id=task_id)
-    result = runner(task)
+    result = run_runner_with_progress(
+        task,
+        runner,
+        progress_callback=progress_callback,
+        progress_interval_seconds=progress_interval_seconds,
+    )
     return CommandResult(result.status, format_codex_result_reply(result, context))
 
 
@@ -960,6 +1170,7 @@ def handle_gateway_message_create(
     *,
     runner: CodexRunner = run_codex_control_task,
     now: str | None = None,
+    progress_interval_seconds: float = DEFAULT_PROGRESS_INTERVAL_SECONDS,
 ) -> dict[str, str]:
     channel_id = str(message.get("channel_id", "")).strip()
     message_id = str(message.get("id", "")).strip()
@@ -988,7 +1199,16 @@ def handle_gateway_message_create(
         except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
             reaction_error = str(exc)
 
-    result = handle_command(parsed, context, config, runner=runner, now=now, task_id=message_id)
+    result = handle_command(
+        parsed,
+        context,
+        config,
+        runner=runner,
+        now=now,
+        task_id=message_id,
+        progress_callback=make_discord_progress_callback(client, channel_id) if will_run else None,
+        progress_interval_seconds=progress_interval_seconds,
+    )
     if result.reply:
         try:
             client.send_message(channel_id, truncate_reply(result.reply))
@@ -1001,6 +1221,89 @@ def handle_gateway_message_create(
         entry["reply_error"] = send_error
     if reaction_error:
         entry["reaction_error"] = reaction_error
+    return entry
+
+
+def register_guild_slash_commands(config: CodexControlConfig, client: DiscordClient, *, application_id: str) -> list[dict[str, Any]]:
+    if not application_id:
+        raise ValueError("application_id is required to register slash commands")
+    if not config.guild_id:
+        raise ValueError("guild_id is required to register slash commands")
+    return client.bulk_overwrite_guild_application_commands(application_id, config.guild_id, codex_command_catalog())
+
+
+def _interaction_callback_message(content: str) -> dict[str, object]:
+    return {
+        "type": INTERACTION_RESPONSE_CHANNEL_MESSAGE_WITH_SOURCE,
+        "data": {
+            "content": truncate_reply(content),
+            "allowed_mentions": {"parse": []},
+        },
+    }
+
+
+def _interaction_deferred_response() -> dict[str, object]:
+    return {
+        "type": INTERACTION_RESPONSE_DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+    }
+
+
+def handle_gateway_interaction_create(
+    config: CodexControlConfig,
+    client: DiscordClient,
+    contexts_by_channel_id: dict[str, ChannelContext],
+    interaction: dict[str, Any],
+    *,
+    runner: CodexRunner = run_codex_control_task,
+    now: str | None = None,
+) -> dict[str, str]:
+    channel_id = str(interaction.get("channel_id", "")).strip()
+    interaction_id = str(interaction.get("id", "")).strip()
+    interaction_token = str(interaction.get("token", "")).strip()
+    application_id = str(interaction.get("application_id", "")).strip()
+    if not channel_id or not interaction_id or not interaction_token or not application_id:
+        return {"channel_id": channel_id, "message_id": interaction_id, "status": "ignored"}
+    context = contexts_by_channel_id.get(channel_id)
+    if not context:
+        return {"channel_id": channel_id, "message_id": interaction_id, "status": "unknown_channel"}
+    parsed = parse_interaction_command(interaction)
+    if not parsed:
+        return {"channel_id": channel_id, "message_id": interaction_id, "status": "ignored"}
+
+    response_error = ""
+    followup_error = ""
+    immediate_response = parsed.kind in {"help", "status", "content_unavailable"}
+    if immediate_response:
+        result = handle_command(parsed, context, config, runner=runner, now=now, task_id=interaction_id)
+        try:
+            client.create_interaction_response(interaction_id, interaction_token, _interaction_callback_message(result.reply))
+        except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+            response_error = str(exc)
+        entry = {"channel_id": channel_id, "message_id": interaction_id, "status": result.status}
+        if response_error:
+            entry["status"] = f"{result.status}_reply_failed"
+            entry["reply_error"] = response_error
+        return entry
+
+    try:
+        client.create_interaction_response(interaction_id, interaction_token, _interaction_deferred_response())
+    except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+        response_error = str(exc)
+
+    result = handle_command(parsed, context, config, client=client, runner=runner, now=now, task_id=interaction_id)
+    if result.reply:
+        try:
+            client.create_followup_message(application_id, interaction_token, truncate_reply(result.reply))
+        except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+            followup_error = str(exc)
+
+    entry = {"channel_id": channel_id, "message_id": interaction_id, "status": result.status}
+    if response_error or followup_error:
+        entry["status"] = f"{result.status}_reply_failed"
+        if response_error:
+            entry["response_error"] = response_error
+        if followup_error:
+            entry["reply_error"] = followup_error
     return entry
 
 
@@ -1227,6 +1530,19 @@ def run_gateway_control(
                             contexts_by_channel_id = build_context_map(config, client)
                             last_context_refresh = time.monotonic()
                             continue
+                        if event_type == "INTERACTION_CREATE":
+                            channel_id = str(data.get("channel_id", "")).strip()
+                            if channel_id not in contexts_by_channel_id:
+                                contexts_by_channel_id = build_context_map(config, client)
+                            executor.submit(
+                                _handle_gateway_interaction_and_log,
+                                config,
+                                client,
+                                dict(contexts_by_channel_id),
+                                data,
+                                runner,
+                            )
+                            continue
                         if event_type != "MESSAGE_CREATE":
                             continue
                         channel_id = str(data.get("channel_id", "")).strip()
@@ -1269,6 +1585,28 @@ def _handle_gateway_message_and_log(
     )
     if result.get("status") not in {"ignored", "bot_ignored", "unknown_channel"}:
         print(json.dumps({"checked_at": utc_now_iso(), "gateway_message": result}, ensure_ascii=False, sort_keys=True), flush=True)
+
+
+def _handle_gateway_interaction_and_log(
+    config: CodexControlConfig,
+    client: DiscordClient,
+    contexts_by_channel_id: dict[str, ChannelContext],
+    interaction: dict[str, Any],
+    runner: CodexRunner,
+) -> None:
+    result = handle_gateway_interaction_create(
+        config,
+        client,
+        contexts_by_channel_id,
+        interaction,
+        runner=runner,
+        now=utc_now_iso(),
+    )
+    if result.get("status") not in {"ignored", "unknown_channel"}:
+        print(
+            json.dumps({"checked_at": utc_now_iso(), "gateway_interaction": result}, ensure_ascii=False, sort_keys=True),
+            flush=True,
+        )
 
 
 def process_codex_control_commands(
@@ -1346,7 +1684,18 @@ def process_codex_control_commands(
                         client.send_message(context.channel_id, "收到，正在把当前 repo 加入过滤名单并清理频道、worktree、branch。完成后这个频道会被关闭。")
                     except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
                         send_error = str(exc)
-            result = handle_command(parsed, context, config, client=client, runner=runner, now=now, task_id=message_id)
+            result = handle_command(
+                parsed,
+                context,
+                config,
+                client=client,
+                runner=runner,
+                now=now,
+                task_id=message_id,
+                progress_callback=make_discord_progress_callback(client, context.channel_id)
+                if parsed.kind == "codex" and will_run
+                else None,
+            )
             if result.reply and not result.delete_channel_id:
                 try:
                     client.send_message(context.channel_id, truncate_reply(result.reply))
@@ -1465,6 +1814,8 @@ def config_from_project(repo_root: Path, *, execute: bool = True) -> CodexContro
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Process Discord commands that spawn Codex control tasks.")
     parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[1]))
+    parser.add_argument("--sync-slash-commands", action="store_true", help="Register guild slash commands for the Codex control bot.")
+    parser.add_argument("--application-id", default="", help="Discord application ID override for slash command registration.")
     parser.add_argument(
         "--transport",
         choices=("gateway", "polling"),
@@ -1488,6 +1839,13 @@ def main() -> int:
     if not config.guild_id:
         raise SystemExit("discord.guild_id is required in project-config.json")
     client = DiscordClient(token)
+    if args.sync_slash_commands:
+        application_id = str(args.application_id).strip() or config.bot_user_id
+        if not application_id:
+            raise SystemExit("--application-id or codex_control.bot_user_id is required to register slash commands")
+        registered = register_guild_slash_commands(config, client, application_id=application_id)
+        print(json.dumps({"slash_commands": registered}, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
     if args.mark_seen:
         results = mark_existing_messages_seen(config, client)
         print(json.dumps({"codex_control": results}, ensure_ascii=False, indent=2, sort_keys=True))

@@ -193,6 +193,45 @@ class DiscordClient:
             raise ValueError("Discord delete channel response is not an object")
         return response
 
+    def bulk_overwrite_guild_application_commands(
+        self,
+        application_id: str,
+        guild_id: str,
+        commands: list[dict[str, object]],
+    ) -> list[dict[str, Any]]:
+        response = self.request_json("PUT", f"/applications/{application_id}/guilds/{guild_id}/commands", commands)  # type: ignore[arg-type]
+        if not isinstance(response, list):
+            raise ValueError("Discord bulk overwrite guild application commands response is not a list")
+        return [command for command in response if isinstance(command, dict)]
+
+    def create_interaction_response(
+        self,
+        interaction_id: str,
+        interaction_token: str,
+        payload: dict[str, object],
+    ) -> dict[str, Any]:
+        response = self.request_json("POST", f"/interactions/{interaction_id}/{interaction_token}/callback", payload)
+        if response == {}:
+            return {}
+        if not isinstance(response, dict):
+            raise ValueError("Discord create interaction response is not an object")
+        return response
+
+    def create_followup_message(
+        self,
+        application_id: str,
+        interaction_token: str,
+        content: str,
+    ) -> dict[str, Any]:
+        response = self.request_json(
+            "POST",
+            f"/webhooks/{application_id}/{interaction_token}",
+            {"content": content, "allowed_mentions": {"parse": []}},
+        )
+        if not isinstance(response, dict):
+            raise ValueError("Discord create followup message response is not an object")
+        return response
+
 
 @dataclass(frozen=True)
 class MigrationDiscordNotifier:
