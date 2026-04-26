@@ -1,7 +1,7 @@
 {
   "upstream_repo": "fastclaw-ai/fastclaw",
-  "source_version": "v0.23.0",
-  "build_version": "0.23.0",
-  "build_label": "v0.23.0@20260411T123039Z",
-  "last_checked_at": "2026-04-11T12:30:39.909041+00:00"
+  "source_version": "v0.24.0",
+  "build_version": "0.24.0",
+  "build_label": "v0.24.0@20260426T014121Z",
+  "last_checked_at": "2026-04-26T01:41:21.766206+00:00"
 }
