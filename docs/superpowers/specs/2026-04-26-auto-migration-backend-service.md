@@ -69,12 +69,41 @@ The copywriter stage should include:
 
 ## Initial Scheduler Shape
 
-The first service can be a small Python daemon or scheduled command:
+The first service is `scripts/auto_migration_service.py`. It owns a durable local queue at
+`registry/auto-migration/queue.json` and can run once for debugging or continuously as a daemon.
 
 ```bash
-python3 scripts/status_sync.py
-python3 scripts/scout.py scan --limit 50
-python3 scripts/auto_migrate.py --from-candidates --build-mode validate-only
+python3 scripts/auto_migration_service.py --once --dry-run
+python3 scripts/auto_migration_service.py --once
+python3 scripts/auto_migration_service.py \
+  --daemon \
+  --interval-seconds 3600 \
+  --limit 50 \
+  --max-migrations-per-cycle 1
 ```
 
-After validate-only succeeds, the service should stop and wait for an operator or a separate worker to approve real build/install. This keeps the early loop safe while still automating discovery and scaffolding.
+Default execution advances portable candidates to `scaffolded` with `auto_migrate.py --build-mode validate-only`.
+Real build/install is opt-in:
+
+```bash
+python3 scripts/auto_migration_service.py \
+  --daemon \
+  --enable-build-install \
+  --functional-check \
+  --box-domain <box-domain>
+```
+
+With build/install enabled, the service can move apps to `browser_pending`, `browser_failed`, or `browser_passed`
+based on `.functional-check.json`. On later cycles it rechecks `browser_pending` apps, so a Codex Browser Use
+acceptance file can be recorded asynchronously and the daemon will continue from there.
+
+When Browser Use passes, the service runs `copywriter.py` and `prepare_store_submission.py`. The app then reaches
+`publish_ready`, which means the LPK, copy, tutorial, source attribution, screenshots, and submission checklist are
+ready. The final developer-console submit/review action remains a human confirmation gate.
+
+Runtime files are intentionally ignored by git:
+
+- `registry/auto-migration/queue.json`
+- `registry/auto-migration/service logs`
+- `registry/candidates/*.json`
+- `registry/status/*.json`
