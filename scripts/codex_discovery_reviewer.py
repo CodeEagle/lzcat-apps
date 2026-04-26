@@ -13,18 +13,19 @@ from pathlib import Path
 from typing import Any
 
 
-DEFAULT_TASK_ROOT = "registry/auto-migration/codex-tasks"
+DEFAULT_TASK_ROOT = "registry/auto-migration/discovery-review-tasks"
 DEFAULT_OUTBOX = "registry/auto-migration/notifications"
 DEFAULT_CODEX_WORKER_MODEL = "gpt-5.5"
 DEFAULT_CODEX_FALLBACK_MODEL = "gpt-5.4"
 
 
 @dataclass(frozen=True)
-class CodexWorkerConfig:
+class DiscoveryReviewerConfig:
     repo_root: Path
+    queue_path: Path
     task_dir: Path
     outbox_dir: Path | None = None
-    box_domain: str = ""
+    developer_url: str = ""
     model: str = DEFAULT_CODEX_WORKER_MODEL
     execute: bool = True
 
@@ -46,82 +47,82 @@ def read_text_if_exists(path: Path, *, max_chars: int = 12000) -> str:
     return text[-max_chars:]
 
 
-def read_recent_logs(repo_root: Path, *, max_chars: int = 20000) -> str:
-    log_dir = repo_root / "registry" / "auto-migration" / "logs"
-    chunks: list[str] = []
-    for name in ("launchd.err.log", "launchd.out.log"):
-        path = log_dir / name
-        content = read_text_if_exists(path, max_chars=max_chars // 2)
-        if content:
-            chunks.append(f"## {name}\n\n{content}")
-    return "\n\n".join(chunks)
-
-
 def build_codex_prompt(
     repo_root: Path,
+    queue_path: Path,
     item: dict[str, Any],
     *,
-    box_domain: str = "",
-    recent_logs: str = "",
+    developer_url: str = "",
 ) -> str:
-    slug = str(item.get("slug", "")).strip()
-    app_dir = repo_root / "apps" / slug if slug else repo_root / "apps"
     item_json = json.dumps(item, ensure_ascii=False, indent=2, sort_keys=True)
-    app_state = read_text_if_exists(app_dir / ".migration-state.json", max_chars=12000)
-    functional_check = read_text_if_exists(app_dir / ".functional-check.json", max_chars=6000)
+    publication_status = read_text_if_exists(repo_root / "registry" / "status" / "local-publication-status.json", max_chars=12000)
+    latest_candidates = read_text_if_exists(repo_root / "registry" / "candidates" / "latest.json", max_chars=12000)
+    local_agent_candidates = read_text_if_exists(
+        repo_root / "registry" / "candidates" / "local-agent-latest.json",
+        max_chars=12000,
+    )
 
-    return f"""You are a Codex migration worker running unattended for the LazyCat lzcat-apps repository.
+    return f"""You are a Codex discovery reviewer for the LazyCat lzcat-apps auto-migration pipeline.
 
 Goal:
-- Fix the migration failure for this queue item.
-- Prefer durable, reusable fixes in scripts/full_migrate.py or shared scripts when the failure is generic.
-- Re-run the narrow failing command or relevant tests after changes.
-- Leave a concise final summary with changed files and verification results.
+- Decide whether this discovery candidate should proceed to migration before any build or migration starts.
+- Return exactly one decision: `migrate`, `skip`, or `needs_human`.
+- Use evidence from the upstream repository, local LazyCat publication status, candidate snapshots, and the user's developer app page when available.
+- Do not run the migration, do not build packages, do not submit or publish anything.
 
-Hard guardrails:
-- Do not submit, publish, or click final LazyCat developer-console review actions.
-- Do not revert unrelated user or daemon-generated changes.
-- Do not delete existing app directories unless the failure investigation proves they are disposable generated output.
-- Keep lzcat-apps as the single source of truth.
-- If Browser Use is required, create/refresh the acceptance plan and explain the needed browser check; do not fake acceptance.
-- If you are blocked on credentials, upstream ambiguity, product/listing decisions, app-store ownership, legal/license uncertainty, or final publish approval, do not guess. Update the queue item to state `waiting_for_human` with a `human_request` object containing `question`, `options`, `context`, and `created_at`, then say the request should be sent to Discord.
-- If the queue item already contains `human_response`, use it as the user's answer and continue from the blocked step.
+Decision rules:
+- `migrate`: the upstream appears to be a deployable self-hosted app or service, is not already published in this LazyCat app set, and has enough deployment evidence to attempt migration.
+- `skip`: it is already migrated/published, is a library/list/documentation/data-only repository, lacks deployable app evidence, or is otherwise not worth migrating.
+- `needs_human`: the decision depends on product/listing ownership, ambiguous app-store match, licensing risk, credentials, or a judgment call that should be asked in Discord.
+
+Required queue update:
+- Open and update this queue file: {queue_path}
+- Find the item whose `id` is `{item.get("id", "")}`.
+- For `migrate`, set `state` to `ready`, clear `last_error` and `filtered_reason`, and write:
+  `discovery_review.status = "migrate"`, `discovery_review.reviewed_at`, `discovery_review.reviewer = "codex"`,
+  `discovery_review.reason`, and `discovery_review.evidence` as a short list.
+- For `skip`, set `state` to `filtered_out`, set `filtered_reason` to `ai_discovery_skip`, set `last_error` to a concise reason, and write:
+  `discovery_review.status = "skip"`, `discovery_review.reviewed_at`, `discovery_review.reviewer = "codex"`,
+  `discovery_review.reason`, and `discovery_review.evidence`.
+- For `needs_human`, set `state` to `waiting_for_human` and write:
+  `human_request.kind = "discovery_review"`, `human_request.question`, `human_request.options`,
+  `human_request.context`, `human_request.created_at`, plus `discovery_review.status = "needs_human"`.
+- If the item already has `human_response`, use that answer as user input and continue the decision.
+- Preserve unrelated queue items and unrelated fields on this item.
+
+Useful local files:
+- registry/status/local-publication-status.json
+- registry/status/developer-apps.json
+- registry/candidates/latest.json
+- registry/candidates/local-agent-latest.json
+- project-config.json
+
+Developer app page:
+{developer_url or "(not configured)"}
 
 Queue item:
 ```json
 {item_json}
 ```
 
-Repository:
-- repo_root: {repo_root}
-- app_dir: {app_dir}
-- box_domain: {box_domain or "(not provided)"}
-
-Useful commands:
-```bash
-python3 scripts/full_migrate.py {item.get("source", "")} --build-mode reinstall --resume --no-commit
-python3 scripts/auto_migrate.py {item.get("source", "")} --build-mode reinstall --resume --functional-check --slug {slug} --box-domain {box_domain}
-python3 -m unittest tests.test_full_migrate tests.test_auto_migrate tests.test_auto_migration_service -v
-```
-
-App migration state:
+Local publication status excerpt:
 ```json
-{app_state or "{}"}
+{publication_status or "{}"}
 ```
 
-Functional check:
+Latest candidate snapshot excerpt:
 ```json
-{functional_check or "{}"}
+{latest_candidates or "{}"}
 ```
 
-Recent daemon logs:
-```text
-{recent_logs or "(no recent logs captured)"}
+LocalAgent candidate snapshot excerpt:
+```json
+{local_agent_candidates or "{}"}
 ```
 """
 
 
-def build_codex_command(config: CodexWorkerConfig) -> list[str]:
+def build_codex_command(config: DiscoveryReviewerConfig) -> list[str]:
     last_message_path = config.task_dir / "last-message.md"
     return [
         "codex",
@@ -158,7 +159,7 @@ def command_with_model(command: list[str], model: str) -> list[str]:
 
 
 def write_task_bundle(
-    config: CodexWorkerConfig,
+    config: DiscoveryReviewerConfig,
     item: dict[str, Any],
     *,
     prompt: str,
@@ -177,6 +178,7 @@ def write_task_bundle(
                 "item": item,
                 "command": command,
                 "prompt_path": str(prompt_path),
+                "queue_path": str(config.queue_path),
             },
             ensure_ascii=False,
             indent=2,
@@ -204,11 +206,11 @@ def write_notification(
     now: str,
 ) -> Path:
     outbox_dir.mkdir(parents=True, exist_ok=True)
-    path = outbox_dir / f"{now.replace(':', '').replace('-', '')}-{safe_task_name(str(item.get('id', 'unknown')))}.md"
+    path = outbox_dir / f"{now.replace(':', '').replace('-', '')}-{safe_task_name(str(item.get('id', 'unknown')))}-discovery.md"
     path.write_text(
         "\n".join(
             [
-                f"# Codex migration worker {status}",
+                f"# Codex discovery reviewer {status}",
                 "",
                 f"- time: {now}",
                 f"- item: {item.get('id', '')}",
@@ -224,7 +226,7 @@ def write_notification(
     return path
 
 
-def run_codex(config: CodexWorkerConfig, prompt: str, command: list[str]) -> int:
+def run_codex(config: DiscoveryReviewerConfig, prompt: str, command: list[str]) -> int:
     stdout_path = config.task_dir / "codex.stdout.log"
     stderr_path = config.task_dir / "codex.stderr.log"
     result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=False)
@@ -263,12 +265,14 @@ def parse_item_json(value: str) -> dict[str, Any]:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run a Codex worker for one LazyCat migration queue item.")
+    parser = argparse.ArgumentParser(description="Run a Codex reviewer for one discovery_review queue item.")
     parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[1]))
+    parser.add_argument("--queue-path", required=True)
+    parser.add_argument("--item-id", required=True)
+    parser.add_argument("--item-json", required=True)
     parser.add_argument("--task-root", default=DEFAULT_TASK_ROOT)
     parser.add_argument("--outbox-dir", default=DEFAULT_OUTBOX)
-    parser.add_argument("--item-json", required=True)
-    parser.add_argument("--box-domain", default="")
+    parser.add_argument("--developer-url", default="")
     parser.add_argument("--model", default=DEFAULT_CODEX_WORKER_MODEL)
     parser.add_argument("--no-execute", action="store_true")
     return parser.parse_args()
@@ -277,6 +281,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
+    queue_path = Path(args.queue_path)
+    if not queue_path.is_absolute():
+        queue_path = repo_root / queue_path
     item = parse_item_json(args.item_json)
     now = utc_now_iso()
     task_root = Path(args.task_root)
@@ -285,16 +292,17 @@ def main() -> int:
     outbox_dir = Path(args.outbox_dir)
     if not outbox_dir.is_absolute():
         outbox_dir = repo_root / outbox_dir
-    task_dir = task_root / f"{now.replace(':', '').replace('-', '')}-{safe_task_name(str(item.get('id', 'unknown')))}"
-    config = CodexWorkerConfig(
+    task_dir = task_root / f"{now.replace(':', '').replace('-', '')}-{safe_task_name(str(args.item_id))}"
+    config = DiscoveryReviewerConfig(
         repo_root=repo_root,
+        queue_path=queue_path,
         task_dir=task_dir,
         outbox_dir=outbox_dir,
-        box_domain=args.box_domain,
+        developer_url=args.developer_url,
         model=args.model,
         execute=not args.no_execute,
     )
-    prompt = build_codex_prompt(repo_root, item, box_domain=args.box_domain, recent_logs=read_recent_logs(repo_root))
+    prompt = build_codex_prompt(repo_root, queue_path, item, developer_url=args.developer_url)
     command = build_codex_command(config)
     bundle = write_task_bundle(config, item, prompt=prompt, command=command, now=now)
 

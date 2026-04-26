@@ -388,6 +388,26 @@ def build_codex_worker_command(config: ServiceConfig, item: dict[str, Any]) -> l
     return command
 
 
+def build_codex_discovery_review_command(config: ServiceConfig, item: dict[str, Any]) -> list[str]:
+    command = [
+        "python3",
+        "scripts/codex_discovery_reviewer.py",
+        "--repo-root",
+        str(config.repo_root),
+        "--queue-path",
+        str(config.queue_path),
+        "--item-id",
+        str(item.get("id", "")),
+        "--item-json",
+        json.dumps(item, ensure_ascii=False, sort_keys=True),
+    ]
+    if config.developer_url:
+        command.extend(["--developer-url", config.developer_url])
+    if config.codex_worker_model:
+        command.extend(["--model", config.codex_worker_model])
+    return command
+
+
 def run_subprocess(command: list[str], *, cwd: Path) -> CommandResult:
     result = subprocess.run(command, cwd=cwd, text=True, check=False)
     return CommandResult(returncode=result.returncode)
@@ -549,7 +569,42 @@ def select_next_codex_item(queue: dict[str, Any], *, max_attempts: int) -> dict[
         if state not in {"build_failed", "browser_failed"}:
             if state != "waiting_for_human" or not isinstance(item.get("human_response"), dict):
                 continue
+            human_request = item.get("human_request") if isinstance(item.get("human_request"), dict) else {}
+            if human_request.get("kind") == "discovery_review":
+                continue
         if codex_attempts(item) >= max_attempts:
+            continue
+        return item
+    return None
+
+
+def discovery_review_attempts(item: dict[str, Any]) -> int:
+    review = item.get("discovery_review")
+    if not isinstance(review, dict):
+        return 0
+    try:
+        return int(review.get("codex_attempts") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def is_discovery_human_reply(item: dict[str, Any]) -> bool:
+    if item.get("state") != "waiting_for_human" or not isinstance(item.get("human_response"), dict):
+        return False
+    human_request = item.get("human_request") if isinstance(item.get("human_request"), dict) else {}
+    return human_request.get("kind") == "discovery_review"
+
+
+def select_next_discovery_review_item(queue: dict[str, Any], *, max_attempts: int) -> dict[str, Any] | None:
+    items = queue.get("items")
+    if not isinstance(items, list):
+        return None
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if item.get("state") != "discovery_review" and not is_discovery_human_reply(item):
+            continue
+        if discovery_review_attempts(item) >= max_attempts:
             continue
         return item
     return None
@@ -624,6 +679,72 @@ def merge_waiting_for_human_from_disk(
     return True
 
 
+def merge_discovery_review_from_disk(
+    config: ServiceConfig,
+    queue: dict[str, Any],
+    item_id: str,
+    *,
+    returncode: int,
+    now: str,
+) -> str:
+    if not config.queue_path.exists():
+        return ""
+    try:
+        disk_queue = read_json(config.queue_path, {})
+    except (OSError, json.JSONDecodeError, ValueError):
+        return ""
+    disk_item = find_queue_item(disk_queue, item_id)
+    if not disk_item:
+        return ""
+    next_state = str(disk_item.get("state", "")).strip()
+    if next_state not in {"ready", "filtered_out", "waiting_for_human", "discovery_review"}:
+        return ""
+    if next_state == "waiting_for_human":
+        human_request = disk_item.get("human_request") if isinstance(disk_item.get("human_request"), dict) else {}
+        if human_request.get("kind") != "discovery_review":
+            return ""
+    item = find_queue_item(queue, item_id)
+    if item is None:
+        return ""
+    previous_attempts = discovery_review_attempts(item)
+    item.clear()
+    item.update(disk_item)
+    review = item.get("discovery_review") if isinstance(item.get("discovery_review"), dict) else {}
+    review["codex_attempts"] = previous_attempts + 1
+    review["last_status"] = next_state
+    review["last_returncode"] = returncode
+    review["last_run_at"] = now
+    item["discovery_review"] = review
+    item["updated_at"] = now
+    if next_state == "ready":
+        item.pop("last_error", None)
+        item.pop("filtered_reason", None)
+    elif next_state == "filtered_out":
+        item.setdefault("filtered_reason", "ai_discovery_skip")
+    return next_state
+
+
+def update_item_discovery_review_result(
+    queue: dict[str, Any],
+    item_id: str,
+    *,
+    status: str,
+    returncode: int,
+    now: str,
+) -> None:
+    item = find_queue_item(queue, item_id)
+    if item is None:
+        return
+    review = item.get("discovery_review") if isinstance(item.get("discovery_review"), dict) else {}
+    review["codex_attempts"] = int(review.get("codex_attempts") or 0) + 1
+    review["last_status"] = status
+    review["last_returncode"] = returncode
+    review["last_run_at"] = now
+    item["discovery_review"] = review
+    item["updated_at"] = now
+    item["last_error"] = f"codex discovery reviewer exited {returncode}"
+
+
 def build_discord_notifier(config: ServiceConfig) -> MigrationDiscordNotifier | None:
     if not config.discord_enabled:
         return None
@@ -690,6 +811,31 @@ def run_discovery_gate(
     return results
 
 
+def advance_discovery_reviewer(
+    config: ServiceConfig,
+    queue: dict[str, Any],
+    *,
+    runner: CommandRunner,
+    now: str,
+) -> list[dict[str, Any]]:
+    if not config.enable_codex_worker:
+        return []
+    item = select_next_discovery_review_item(queue, max_attempts=max(1, config.max_codex_attempts))
+    if not item:
+        return []
+
+    item_id = str(item.get("id", ""))
+    command = build_codex_discovery_review_command(config, item)
+    result = runner(command)
+    status = ""
+    if result.returncode == 0:
+        status = merge_discovery_review_from_disk(config, queue, item_id, returncode=result.returncode, now=now)
+    if not status:
+        status = "review_failed" if result.returncode != 0 else "review_no_update"
+        update_item_discovery_review_result(queue, item_id, status=status, returncode=result.returncode, now=now)
+    return [{"id": item_id, "status": status, "returncode": result.returncode}]
+
+
 def advance_codex_worker(
     config: ServiceConfig,
     queue: dict[str, Any],
@@ -738,6 +884,7 @@ def run_cycle(
         "browser_recheck": [],
         "codex_worker": [],
         "discovery_gate": [],
+        "discovery_reviewer": [],
         "discord_replies": [],
         "local_agent": {"status": "disabled"},
         "post_acceptance": [],
@@ -754,10 +901,16 @@ def run_cycle(
             except Exception as exc:  # pragma: no cover - exact Discord/network exception varies.
                 summary["discord_replies"] = [{"status": "failed", "error": str(exc)}]
     summary["discovery_gate"] = run_discovery_gate(config, queue, now=now, discord_notifier=discord_notifier)
+    summary["discovery_reviewer"] = advance_discovery_reviewer(config, queue, runner=runner, now=now)
     summary["browser_recheck"] = refresh_browser_pending(config, queue, runner=runner, now=now)
     summary["codex_worker"] = advance_codex_worker(config, queue, runner=runner, now=now)
     summary["post_acceptance"] = advance_post_acceptance(config, queue, runner=runner, now=now)
-    for result in [*summary["browser_recheck"], *summary["codex_worker"], *summary["post_acceptance"]]:
+    for result in [
+        *summary["discovery_reviewer"],
+        *summary["browser_recheck"],
+        *summary["codex_worker"],
+        *summary["post_acceptance"],
+    ]:
         publish_discord_update(
             config,
             queue,
@@ -769,6 +922,7 @@ def run_cycle(
     if (
         summary["discord_replies"]
         or summary["discovery_gate"]
+        or summary["discovery_reviewer"]
         or summary["browser_recheck"]
         or summary["codex_worker"]
         or summary["post_acceptance"]
@@ -799,6 +953,17 @@ def run_cycle(
     candidates = [*candidates, *local_agent_candidates]
     queue = upsert_candidates(queue, candidates, now=now)
     summary["discovery_gate"].extend(run_discovery_gate(config, queue, now=now, discord_notifier=discord_notifier))
+    if not summary["discovery_reviewer"]:
+        summary["discovery_reviewer"] = advance_discovery_reviewer(config, queue, runner=runner, now=now)
+        for result in summary["discovery_reviewer"]:
+            publish_discord_update(
+                config,
+                queue,
+                str(result.get("id", "")),
+                status=str(result.get("status", "")),
+                now=now,
+                discord_notifier=discord_notifier,
+            )
     selected = select_next_ready_item(queue)
     if not selected:
         write_json(config.queue_path, queue)
