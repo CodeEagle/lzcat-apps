@@ -273,6 +273,41 @@ class BootstrapMigrationTest(unittest.TestCase):
 
         self.assertEqual(bm.discover_repo_icon(source_repo), icon_path)
 
+    def test_build_registry_config_sorts_dict_lists_stably(self) -> None:
+        spec = {
+            "upstream_repo": "acme/helix-like",
+            "check_strategy": "github_release",
+            "build_strategy": "upstream_dockerfile",
+            "publish_to_store": False,
+            "official_image_registry": "",
+            "precompiled_binary_url": "",
+            "dockerfile_type": "dockerfile",
+            "service_port": 8080,
+            "service_cmd": [],
+            "image_targets": [{"service": "web"}, {"service": "api"}],
+            "dependencies": [],
+            "service_builds": [
+                {"target_service": "web", "dockerfile_path": "web/Dockerfile"},
+                {"target_service": "api", "dockerfile_path": "api/Dockerfile"},
+            ],
+            "dockerfile_path": "Dockerfile",
+            "build_context": ".",
+            "overlay_paths": [],
+            "upstream_submodules": [],
+            "docker_platform": "",
+            "image_owner": "",
+            "build_args": {},
+            "image_name": "",
+            "official_image_fallback_tag": "",
+            "repo": "",
+            "deploy_param_sync": None,
+            "migration_status": None,
+        }
+
+        config = bm.build_registry_config(spec)
+        self.assertEqual([entry["service"] for entry in config["image_targets"]], ["api", "web"])
+        self.assertEqual([entry["target_service"] for entry in config["service_builds"]], ["api", "web"])
+
 
 if __name__ == "__main__":
     unittest.main()

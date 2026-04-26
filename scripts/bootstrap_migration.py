@@ -762,17 +762,19 @@ def build_registry_config(spec: dict[str, Any]) -> dict[str, Any]:
     if spec.get("migration_status") is not None:
         payload["migration_status"] = spec["migration_status"]
 
+    def _stable_sort_key(value: Any) -> str:
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, sort_keys=True, ensure_ascii=False)
+        return str(value)
+
     # Canonicalize list/dict fields to make the registry payload deterministic
     for list_key in ("image_targets", "dependencies", "overlay_paths", "upstream_submodules"):
         if list_key in payload and isinstance(payload[list_key], list):
-            payload[list_key] = sorted(payload[list_key])
+            payload[list_key] = sorted(payload[list_key], key=_stable_sort_key)
 
     if "service_builds" in payload and isinstance(payload["service_builds"], list):
         try:
-            payload["service_builds"] = sorted(
-                payload["service_builds"],
-                key=lambda x: json.dumps(x, sort_keys=True, ensure_ascii=False),
-            )
+            payload["service_builds"] = sorted(payload["service_builds"], key=_stable_sort_key)
         except Exception:
             # best-effort; if serialization fails, leave as-is
             pass
