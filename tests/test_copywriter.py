@@ -64,6 +64,9 @@ class CopywriterTest(unittest.TestCase):
         self.assertIn("Demo App", package["store_copy"])
         self.assertIn("收益素材清单", package["store_copy"])
         self.assertIn("Primary workflow passed.", package["tutorial"])
+        self.assertIn("Primary workflow passed.", package["playground"])
+        self.assertIn("![应用界面]", package["playground"])
+        self.assertIn("../acceptance/demo-home.png", package["playground"])
 
     def test_build_copywriting_package_blocks_without_acceptance(self) -> None:
         repo_root = self.make_repo_root()
@@ -79,6 +82,7 @@ class CopywriterTest(unittest.TestCase):
 
         self.assertTrue(paths["store_copy"].exists())
         self.assertTrue(paths["tutorial"].exists())
+        self.assertTrue(paths["playground"].exists())
         self.assertIn("Demo App", paths["store_copy"].read_text(encoding="utf-8"))
 
 

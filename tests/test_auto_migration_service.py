@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -12,6 +14,7 @@ from scripts.auto_migration_service import (
     CommandResult,
     ServiceConfig,
     build_codex_worker_command,
+    build_config,
     build_copywriter_command,
     build_functional_check_command,
     build_prepare_submission_command,
@@ -25,6 +28,73 @@ from scripts.auto_migration_service import (
 class AutoMigrationServiceTest(unittest.TestCase):
     def make_repo_root(self) -> Path:
         return Path(tempfile.mkdtemp(prefix="auto-migration-service-test-"))
+
+    def make_args(self, repo_root: Path) -> argparse.Namespace:
+        return argparse.Namespace(
+            repo_root=str(repo_root),
+            queue_path="registry/auto-migration/queue.json",
+            candidate_snapshot="registry/candidates/latest.json",
+            limit=50,
+            skip_status_sync=False,
+            skip_scout=False,
+            skip_github_search=False,
+            skip_awesome_selfhosted=False,
+            dry_run=False,
+            enable_build_install=False,
+            functional_check=False,
+            box_domain="",
+            developer_url="",
+            max_migrations_per_cycle=1,
+            commit_scaffold=False,
+            resume=False,
+            enable_codex_worker=False,
+            max_codex_attempts=1,
+        )
+
+    def test_build_config_loads_migration_discord_and_local_agent_policy(self) -> None:
+        repo_root = self.make_repo_root()
+        (repo_root / "project-config.json").write_text(
+            json.dumps(
+                {
+                    "migration": {
+                        "template_branch": "template",
+                        "workspace_root": "/tmp/lzcat-workspaces",
+                        "codex_worker_model": "gpt-5.5",
+                    },
+                    "discord": {
+                        "enabled": True,
+                        "guild_id": "guild-1",
+                        "category_id": "category-1",
+                        "channel_prefix": "migration",
+                    },
+                    "local_agent": {
+                        "enabled": True,
+                        "path": "/tmp/LocalAgent",
+                        "snapshot_path": "registry/candidates/local-agent-latest.json",
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        with patch.dict("os.environ", {"LZCAT_DISCORD_BOT_TOKEN": "token-1"}):
+            config = build_config(self.make_args(repo_root))
+
+        self.assertEqual(config.template_branch, "template")
+        self.assertEqual(config.workspace_root, Path("/tmp/lzcat-workspaces"))
+        self.assertEqual(config.codex_worker_model, "gpt-5.5")
+        self.assertTrue(config.discord_enabled)
+        self.assertEqual(config.discord_guild_id, "guild-1")
+        self.assertEqual(config.discord_category_id, "category-1")
+        self.assertEqual(config.discord_channel_prefix, "migration")
+        self.assertEqual(config.discord_bot_token, "token-1")
+        self.assertTrue(config.local_agent_enabled)
+        self.assertEqual(config.local_agent_path, Path("/tmp/LocalAgent"))
+        self.assertEqual(
+            config.local_agent_snapshot_path,
+            repo_root.resolve() / "registry" / "candidates" / "local-agent-latest.json",
+        )
 
     def test_upsert_candidates_records_ready_and_filtered_items(self) -> None:
         queue = {"schema_version": 1, "items": []}
@@ -64,6 +134,31 @@ class AutoMigrationServiceTest(unittest.TestCase):
 
         self.assertEqual(updated["items"][0]["state"], "browser_pending")
         self.assertEqual(updated["items"][0]["updated_at"], "2026-04-26T00:00:00Z")
+
+    def test_upsert_candidates_preserves_waiting_for_human_state(self) -> None:
+        queue = {
+            "schema_version": 1,
+            "items": [
+                {
+                    "id": "github:owner/demo",
+                    "source": "owner/demo",
+                    "slug": "demo",
+                    "state": "waiting_for_human",
+                    "human_request": {"question": "Need credentials?", "created_at": "2026-04-25T00:00:00Z"},
+                    "created_at": "2026-04-25T00:00:00Z",
+                    "updated_at": "2026-04-25T00:00:00Z",
+                }
+            ],
+        }
+
+        updated = upsert_candidates(
+            queue,
+            [{"full_name": "owner/demo", "repo": "demo", "status": "portable"}],
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertEqual(updated["items"][0]["state"], "waiting_for_human")
+        self.assertEqual(updated["items"][0]["human_request"]["question"], "Need credentials?")
 
     def test_select_next_ready_item_skips_filtered_and_pending_items(self) -> None:
         queue = {
@@ -196,6 +291,171 @@ class AutoMigrationServiceTest(unittest.TestCase):
         states = {item["id"]: item["state"] for item in queue["items"]}
         self.assertEqual(states["github:owner/one"], "scaffolded")
         self.assertEqual(states["github:owner/two"], "ready")
+
+    def test_run_cycle_merges_local_agent_candidates_before_selecting(self) -> None:
+        repo_root = self.make_repo_root()
+        local_agent_root = repo_root / "LocalAgent"
+        (local_agent_root / "data").mkdir(parents=True)
+        (local_agent_root / "data" / "state.json").write_text(
+            json.dumps(
+                {
+                    "projects": {
+                        "owner/localapp": {
+                            "full_name": "owner/localapp",
+                            "repo": "localapp",
+                            "repo_url": "https://github.com/owner/localapp",
+                            "status": "portable",
+                            "description": "Found by LocalAgent",
+                        }
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (repo_root / "registry" / "candidates").mkdir(parents=True)
+        (repo_root / "registry" / "candidates" / "latest.json").write_text(json.dumps({"candidates": []}) + "\n", encoding="utf-8")
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=repo_root / "registry" / "auto-migration" / "queue.json",
+                skip_status_sync=True,
+                skip_scout=True,
+                dry_run=True,
+                local_agent_enabled=True,
+                local_agent_path=local_agent_root,
+                local_agent_snapshot_path=repo_root / "registry" / "candidates" / "local-agent-latest.json",
+            ),
+            runner=lambda command: CommandResult(returncode=0),
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertEqual(summary["local_agent"]["status"], "imported")
+        self.assertEqual(summary["selected"], "github:owner/localapp")
+        queue = json.loads((repo_root / "registry" / "auto-migration" / "queue.json").read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["candidate"]["discovery_source"], "local_agent")
+
+    def test_run_cycle_publishes_discord_update_for_migration_state(self) -> None:
+        repo_root = self.make_repo_root()
+        snapshot_path = repo_root / "registry" / "candidates" / "latest.json"
+        snapshot_path.parent.mkdir(parents=True)
+        snapshot_path.write_text(
+            json.dumps({"candidates": [{"full_name": "owner/piclaw", "repo": "piclaw", "status": "portable"}]}) + "\n",
+            encoding="utf-8",
+        )
+
+        class FakeDiscordNotifier:
+            def __init__(self) -> None:
+                self.updates: list[tuple[str, str]] = []
+
+            def publish_update(self, item: dict[str, object], *, status: str, now: str) -> dict[str, str]:
+                self.updates.append((str(item["id"]), status))
+                item["discord"] = {
+                    "channel_id": "channel-1",
+                    "message_id": "message-1",
+                    "last_status": status,
+                    "last_update_at": now,
+                }
+                return item["discord"]  # type: ignore[return-value]
+
+        notifier = FakeDiscordNotifier()
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=repo_root / "registry" / "auto-migration" / "queue.json",
+                skip_status_sync=True,
+                skip_scout=True,
+                discord_enabled=True,
+                discord_guild_id="guild-1",
+                discord_bot_token="token-1",
+            ),
+            runner=lambda command: CommandResult(returncode=0),
+            now="2026-04-26T00:00:00Z",
+            discord_notifier=notifier,
+        )
+
+        self.assertEqual(summary["migration"]["status"], "scaffolded")
+        self.assertEqual(notifier.updates, [("github:owner/piclaw", "scaffolded")])
+        queue = json.loads((repo_root / "registry" / "auto-migration" / "queue.json").read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["discord"]["channel_id"], "channel-1")
+        self.assertEqual(queue["items"][0]["discord"]["message_id"], "message-1")
+
+    def test_discord_update_failure_is_recorded_without_failing_cycle(self) -> None:
+        repo_root = self.make_repo_root()
+        snapshot_path = repo_root / "registry" / "candidates" / "latest.json"
+        snapshot_path.parent.mkdir(parents=True)
+        snapshot_path.write_text(
+            json.dumps({"candidates": [{"full_name": "owner/piclaw", "repo": "piclaw", "status": "portable"}]}) + "\n",
+            encoding="utf-8",
+        )
+
+        class FailingDiscordNotifier:
+            def publish_update(self, item: dict[str, object], *, status: str, now: str) -> dict[str, str]:
+                raise RuntimeError("Discord HTTP 403")
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=repo_root / "registry" / "auto-migration" / "queue.json",
+                skip_status_sync=True,
+                skip_scout=True,
+                discord_enabled=True,
+                discord_guild_id="guild-1",
+                discord_bot_token="token-1",
+            ),
+            runner=lambda command: CommandResult(returncode=0),
+            now="2026-04-26T00:00:00Z",
+            discord_notifier=FailingDiscordNotifier(),
+        )
+
+        self.assertEqual(summary["migration"]["status"], "scaffolded")
+        queue = json.loads((repo_root / "registry" / "auto-migration" / "queue.json").read_text(encoding="utf-8"))
+        self.assertIn("Discord HTTP 403", queue["items"][0]["discord"]["last_error"])
+
+    def test_run_cycle_creates_migration_worktree_before_migrating(self) -> None:
+        repo_root = self.make_repo_root()
+        workspace_root = repo_root / "migration-workspaces"
+        snapshot_path = repo_root / "registry" / "candidates" / "latest.json"
+        snapshot_path.parent.mkdir(parents=True)
+        snapshot_path.write_text(
+            json.dumps({"candidates": [{"full_name": "owner/piclaw", "repo": "piclaw", "status": "portable"}]}) + "\n",
+            encoding="utf-8",
+        )
+        calls: list[list[str]] = []
+
+        def runner(command: list[str]) -> CommandResult:
+            calls.append(command)
+            if command[:3] == ["git", "-C", str(repo_root)]:
+                (workspace_root / "migration-piclaw").mkdir(parents=True)
+            return CommandResult(returncode=0)
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=repo_root / "registry" / "auto-migration" / "queue.json",
+                skip_status_sync=True,
+                skip_scout=True,
+                template_branch="template",
+                workspace_root=workspace_root,
+            ),
+            runner=runner,
+            now="2026-04-26T00:00:00Z",
+        )
+
+        workspace_path = workspace_root / "migration-piclaw"
+        self.assertEqual(summary["migration"]["status"], "scaffolded")
+        self.assertEqual(
+            calls[0],
+            ["git", "-C", str(repo_root), "worktree", "add", "-b", "migration/piclaw", str(workspace_path), "template"],
+        )
+        auto_migrate_call = calls[1]
+        self.assertEqual(auto_migrate_call[:2], ["python3", "scripts/auto_migrate.py"])
+        self.assertEqual(auto_migrate_call[auto_migrate_call.index("--repo-root") + 1], str(workspace_path))
+        queue = json.loads((repo_root / "registry" / "auto-migration" / "queue.json").read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["branch"], "migration/piclaw")
+        self.assertEqual(queue["items"][0]["workspace_path"], str(workspace_path))
 
     def test_run_cycle_records_browser_pending_from_functional_check(self) -> None:
         repo_root = self.make_repo_root()
@@ -358,6 +618,8 @@ class AutoMigrationServiceTest(unittest.TestCase):
         self.assertEqual(payload["id"], "github:owner/demo")
         self.assertIn("--box-domain", command)
         self.assertIn("box.example.test", command)
+        self.assertIn("--model", command)
+        self.assertIn("gpt-5.5", command)
 
     def test_run_cycle_invokes_codex_worker_for_failed_item(self) -> None:
         repo_root = self.make_repo_root()
@@ -409,6 +671,145 @@ class AutoMigrationServiceTest(unittest.TestCase):
         queue = json.loads(queue_path.read_text(encoding="utf-8"))
         self.assertEqual(queue["items"][0]["state"], "ready")
         self.assertEqual(queue["items"][0]["codex"]["attempts"], 1)
+
+    def test_codex_worker_can_leave_item_waiting_for_human(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "github:owner/demo",
+                            "source": "owner/demo",
+                            "slug": "demo",
+                            "state": "build_failed",
+                            "created_at": "2026-04-25T00:00:00Z",
+                            "updated_at": "2026-04-25T00:00:00Z",
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        def runner(command: list[str]) -> CommandResult:
+            if command[:2] == ["python3", "scripts/codex_migration_worker.py"]:
+                queue_path.write_text(
+                    json.dumps(
+                        {
+                            "schema_version": 1,
+                            "items": [
+                                {
+                                    "id": "github:owner/demo",
+                                    "source": "owner/demo",
+                                    "slug": "demo",
+                                    "state": "waiting_for_human",
+                                    "human_request": {
+                                        "question": "Need app-store owner confirmation?",
+                                        "options": ["confirm", "skip"],
+                                        "created_at": "2026-04-26T00:00:00Z",
+                                    },
+                                }
+                            ],
+                        }
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+            return CommandResult(returncode=0)
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=queue_path,
+                skip_status_sync=True,
+                skip_scout=True,
+                dry_run=True,
+                enable_codex_worker=True,
+            ),
+            runner=runner,
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertEqual(summary["codex_worker"][0]["status"], "waiting_for_human")
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["state"], "waiting_for_human")
+        self.assertEqual(queue["items"][0]["human_request"]["question"], "Need app-store owner confirmation?")
+
+    def test_human_reply_is_ingested_before_codex_worker_resumes(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "github:owner/demo",
+                            "source": "owner/demo",
+                            "slug": "demo",
+                            "state": "waiting_for_human",
+                            "discord": {"channel_id": "channel-1", "message_id": "progress-1"},
+                            "human_request": {"question": "作者填谁？"},
+                            "created_at": "2026-04-25T00:00:00Z",
+                            "updated_at": "2026-04-25T00:00:00Z",
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        calls: list[list[str]] = []
+
+        def runner(command: list[str]) -> CommandResult:
+            calls.append(command)
+            return CommandResult(returncode=0)
+
+        observed_messages_calls: list[tuple[str, str]] = []
+
+        class FakeDiscordClient:
+            def list_messages(self, channel_id: str, *, after: str = "", limit: int = 20) -> list[dict[str, object]]:
+                observed_messages_calls.append((channel_id, after))
+                return [{"id": "human-1", "content": "填上游作者，继续。", "author": {"id": "u1", "username": "lincoln"}}]
+
+            def send_message(self, channel_id: str, content: str) -> dict[str, str]:
+                return {"id": "ack-1"}
+
+        class NullDiscordNotifier:
+            def publish_update(self, item: dict[str, object], *, status: str, now: str) -> dict[str, str]:
+                return {"channel_id": "channel-1", "message_id": "progress-1"}
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=queue_path,
+                skip_status_sync=True,
+                skip_scout=True,
+                dry_run=True,
+                discord_enabled=True,
+                discord_guild_id="guild-1",
+                discord_bot_token="token-1",
+                enable_codex_worker=True,
+                max_codex_attempts=2,
+            ),
+            runner=runner,
+            now="2026-04-26T00:00:00Z",
+            discord_notifier=NullDiscordNotifier(),
+            discord_client=FakeDiscordClient(),
+        )
+
+        self.assertEqual(summary["discord_replies"][0]["status"], "human_response_received")
+        self.assertEqual(observed_messages_calls, [("channel-1", "progress-1")])
+        self.assertTrue(any(call[:2] == ["python3", "scripts/codex_migration_worker.py"] for call in calls))
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["state"], "ready")
+        self.assertEqual(queue["items"][0]["human_response"]["content"], "填上游作者，继续。")
 
     def test_codex_worker_success_keeps_browser_failed_state(self) -> None:
         repo_root = self.make_repo_root()
