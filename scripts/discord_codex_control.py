@@ -1196,11 +1196,11 @@ def build_codex_command(task: CodexControlTask) -> list[str]:
                 "codex",
                 "--ask-for-approval",
                 "never",
+                "exec",
                 "-C",
                 str(task.context.workdir or task.config.repo_root),
                 "--sandbox",
                 "danger-full-access",
-                "exec",
                 "resume",
                 "--model",
                 task.config.model,
@@ -1233,6 +1233,11 @@ def model_requires_newer_codex(output: str) -> bool:
     return "requires a newer version of Codex" in output
 
 
+def resume_session_missing(output: str) -> bool:
+    lowered = output.lower()
+    return "thread/resume failed" in lowered and "no rollout found" in lowered
+
+
 def fallback_model() -> str:
     return os.environ.get("LZCAT_CODEX_FALLBACK_MODEL", DEFAULT_CODEX_FALLBACK_MODEL).strip()
 
@@ -1244,6 +1249,20 @@ def command_with_model(command: list[str], model: str) -> list[str]:
     else:
         updated.extend(["--model", model])
     return updated
+
+
+def command_without_session(task: CodexControlTask) -> list[str]:
+    fresh_task = CodexControlTask(
+        instruction=task.instruction,
+        context=task.context,
+        config=task.config,
+        task_dir=task.task_dir,
+        prompt=task.prompt,
+        command=[],
+        now=task.now,
+        session_id="",
+    )
+    return build_codex_command(fresh_task)
 
 
 def write_task_bundle(task: CodexControlTask) -> None:
@@ -1374,9 +1393,29 @@ def run_codex_control_task(task: CodexControlTask) -> CodexControlRunResult:
     stdout_thread.join()
     stderr_thread.join()
     combined = f"{''.join(stdout_chunks)}\n{''.join(stderr_chunks)}"
+    active_command = list(task.command)
+    resume_fallback_used: dict[str, Any] | None = None
+    if returncode != 0 and task.session_id.strip() and resume_session_missing(combined):
+        fresh_command = command_without_session(task)
+        fresh_result = subprocess.run(fresh_command, input=task.prompt, text=True, capture_output=True, check=False)
+        stdout_chunks.append(f"\n\n--- retry without stale session ---\n{fresh_result.stdout or ''}")
+        stderr_chunks.append(f"\n\n--- retry without stale session ---\n{fresh_result.stderr or ''}")
+        stdout_path.write_text("".join(stdout_chunks), encoding="utf-8")
+        stderr_path.write_text("".join(stderr_chunks), encoding="utf-8")
+        resume_fallback_used = {
+            "from_session_id": task.session_id.strip(),
+            "reason": "resume_session_missing",
+            "returncode": fresh_result.returncode,
+        }
+        active_command = fresh_command
+        returncode = fresh_result.returncode
+        combined = f"{''.join(stdout_chunks)}\n{''.join(stderr_chunks)}"
+        if summary := summarize_codex_output(fresh_result.stdout or "", fresh_result.stderr or ""):
+            write_progress_state(task, summary)
+
     fallback = fallback_model()
     if returncode != 0 and fallback and fallback != task.config.model and model_requires_newer_codex(combined):
-        fallback_command = command_with_model(task.command, fallback)
+        fallback_command = command_with_model(active_command, fallback)
         fallback_result = subprocess.run(fallback_command, input=task.prompt, text=True, capture_output=True, check=False)
         stdout_chunks.append(f"\n\n--- retry with {fallback} ---\n{fallback_result.stdout or ''}")
         stderr_chunks.append(f"\n\n--- retry with {fallback} ---\n{fallback_result.stderr or ''}")
@@ -1391,6 +1430,12 @@ def run_codex_control_task(task: CodexControlTask) -> CodexControlRunResult:
         returncode = fallback_result.returncode
         if summary := summarize_codex_output(fallback_result.stdout or "", fallback_result.stderr or ""):
             write_progress_state(task, summary)
+
+    if resume_fallback_used:
+        (task.task_dir / "resume-fallback.json").write_text(
+            json.dumps(resume_fallback_used, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
 
     if fallback_used:
         (task.task_dir / "model-fallback.json").write_text(

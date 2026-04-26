@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -17,6 +18,7 @@ from scripts.discord_codex_control import (
     CodexControlTask,
     ParsedCommand,
     build_gateway_identify_payload,
+    build_task,
     codex_command_catalog,
     ensure_context_workdir,
     format_codex_result_reply,
@@ -32,6 +34,7 @@ from scripts.discord_codex_control import (
     parse_control_command,
     process_codex_control_commands,
     register_guild_slash_commands,
+    run_codex_control_task,
 )
 from scripts.discord_migration_notifier import DiscordClient
 
@@ -936,11 +939,91 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertEqual(len(tasks), 1)
         self.assertEqual(tasks[0].session_id, "11111111-2222-3333-4444-555555555555")
         self.assertIn("resume", tasks[0].command)
+        self.assertLess(tasks[0].command.index("exec"), tasks[0].command.index("-C"))
+        self.assertLess(tasks[0].command.index("-C"), tasks[0].command.index("resume"))
         state = json.loads(config.state_path.read_text(encoding="utf-8"))
         self.assertEqual(
             state["channels"]["dashboard-1"]["codex"]["session_id"],
             "66666666-7777-8888-9999-aaaaaaaaaaaa",
         )
+
+    def test_run_codex_retries_dashboard_with_new_session_when_resume_is_missing(self) -> None:
+        repo_root = self.make_repo_root()
+        self.init_git_repo(repo_root)
+        config = self.make_config(repo_root)
+        config.state_path.parent.mkdir(parents=True, exist_ok=True)
+        config.state_path.write_text(
+            json.dumps(
+                {
+                    "channels": {
+                        "dashboard-1": {
+                            "channel_name": "dashboard",
+                            "slug": "dashboard",
+                            "codex": {"session_id": "11111111-2222-3333-4444-555555555555"},
+                        }
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        fake_bin = repo_root / "fake-bin"
+        fake_bin.mkdir()
+        calls_path = repo_root / "codex-calls.txt"
+        fake_codex = fake_bin / "codex"
+        fake_codex.write_text(
+            """#!/bin/sh
+echo "$*" >> "$CODEX_FAKE_CALLS"
+last=""
+previous=""
+for arg in "$@"; do
+  if [ "$previous" = "--output-last-message" ]; then
+    last="$arg"
+  fi
+  previous="$arg"
+done
+for arg in "$@"; do
+  if [ "$arg" = "resume" ]; then
+    echo "Error: thread/resume: thread/resume failed: no rollout found for thread id 11111111-2222-3333-4444-555555555555" >&2
+    exit 1
+  fi
+done
+printf '%s\\n' '{"type":"session","session_id":"66666666-7777-8888-9999-aaaaaaaaaaaa"}'
+if [ -n "$last" ]; then
+  printf '新会话完成。\\n' > "$last"
+fi
+exit 0
+""",
+            encoding="utf-8",
+        )
+        fake_codex.chmod(0o755)
+        context = ChannelContext(
+            channel_id="dashboard-1",
+            channel_name="dashboard",
+            scope="dashboard",
+            slug="dashboard",
+            workdir=repo_root,
+        )
+        task = build_task("继续", context, config, now="2026-04-26T10:00:00Z", task_id="152")
+        old_path = os.environ.get("PATH", "")
+        old_calls = os.environ.get("CODEX_FAKE_CALLS")
+        os.environ["PATH"] = f"{fake_bin}:{old_path}"
+        os.environ["CODEX_FAKE_CALLS"] = str(calls_path)
+        try:
+            result = run_codex_control_task(task)
+        finally:
+            os.environ["PATH"] = old_path
+            if old_calls is None:
+                os.environ.pop("CODEX_FAKE_CALLS", None)
+            else:
+                os.environ["CODEX_FAKE_CALLS"] = old_calls
+
+        calls = calls_path.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(result.session_id, "66666666-7777-8888-9999-aaaaaaaaaaaa")
+        self.assertEqual(len(calls), 2)
+        self.assertIn("resume", calls[0])
+        self.assertNotIn("resume", calls[1])
 
     def test_migration_channel_does_not_reuse_dashboard_style_session(self) -> None:
         repo_root = self.make_repo_root()
