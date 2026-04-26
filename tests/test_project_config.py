@@ -60,6 +60,14 @@ class ProjectConfigTest(unittest.TestCase):
                         "category_id": "456",
                         "channel_prefix": "migration",
                     },
+                    "codex_control": {
+                        "enabled": True,
+                        "control_channel": "migration-control",
+                        "state_path": "registry/auto-migration/discord-codex-control.json",
+                        "task_root": "registry/auto-migration/codex-control-tasks",
+                        "model": "gpt-5.5",
+                        "bot_user_id": "999",
+                    },
                 }
             )
             + "\n",
@@ -78,6 +86,12 @@ class ProjectConfigTest(unittest.TestCase):
         self.assertEqual(config.discord.guild_id, "123")
         self.assertEqual(config.discord.category_id, "456")
         self.assertEqual(config.discord.channel_prefix, "migration")
+        self.assertTrue(config.codex_control.enabled)
+        self.assertEqual(config.codex_control.control_channel, "migration-control")
+        self.assertEqual(config.codex_control.state_path, "registry/auto-migration/discord-codex-control.json")
+        self.assertEqual(config.codex_control.task_root, "registry/auto-migration/codex-control-tasks")
+        self.assertEqual(config.codex_control.model, "gpt-5.5")
+        self.assertEqual(config.codex_control.bot_user_id, "999")
 
     def test_missing_file_uses_disabled_status_sync(self) -> None:
         repo_root = Path(tempfile.mkdtemp(prefix="project-config-test-"))
@@ -89,6 +103,8 @@ class ProjectConfigTest(unittest.TestCase):
         self.assertEqual(config.migration.template_branch, "template")
         self.assertEqual(config.migration.codex_worker_model, "gpt-5.5")
         self.assertFalse(config.discord.enabled)
+        self.assertFalse(config.codex_control.enabled)
+        self.assertEqual(config.codex_control.control_channel, "migration-control")
 
 
 if __name__ == "__main__":

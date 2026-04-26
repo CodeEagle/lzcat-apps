@@ -26,5 +26,13 @@
     "enabled": true,
     "path": "/Users/lincoln/Develop/GitHub/LocalAgent",
     "snapshot_path": "registry/candidates/local-agent-latest.json"
+  },
+  "codex_control": {
+    "enabled": true,
+    "control_channel": "migration-control",
+    "state_path": "registry/auto-migration/discord-codex-control.json",
+    "task_root": "registry/auto-migration/codex-control-tasks",
+    "model": "gpt-5.5",
+    "bot_user_id": ""
   }
 }

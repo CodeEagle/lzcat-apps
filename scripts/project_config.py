@@ -40,11 +40,22 @@ class LocalAgentConfig:
 
 
 @dataclass(frozen=True)
+class CodexControlConfig:
+    enabled: bool = False
+    control_channel: str = "migration-control"
+    state_path: str = "registry/auto-migration/discord-codex-control.json"
+    task_root: str = "registry/auto-migration/codex-control-tasks"
+    model: str = "gpt-5.5"
+    bot_user_id: str = ""
+
+
+@dataclass(frozen=True)
 class ProjectConfig:
     lazycat: LazyCatConfig
     migration: MigrationConfig
     discord: DiscordConfig
     local_agent: LocalAgentConfig
+    codex_control: CodexControlConfig
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:
@@ -71,6 +82,7 @@ def load_project_config(repo_root: Path) -> ProjectConfig:
             migration=MigrationConfig(),
             discord=DiscordConfig(),
             local_agent=LocalAgentConfig(),
+            codex_control=CodexControlConfig(),
         )
 
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -79,6 +91,7 @@ def load_project_config(repo_root: Path) -> ProjectConfig:
     migration = payload.get("migration", {}) if isinstance(payload, dict) else {}
     discord = payload.get("discord", {}) if isinstance(payload, dict) else {}
     local_agent = payload.get("local_agent", {}) if isinstance(payload, dict) else {}
+    codex_control = payload.get("codex_control", {}) if isinstance(payload, dict) else {}
 
     return ProjectConfig(
         lazycat=LazyCatConfig(
@@ -106,5 +119,17 @@ def load_project_config(repo_root: Path) -> ProjectConfig:
             path=str(local_agent.get("path", "")).strip(),
             snapshot_path=str(local_agent.get("snapshot_path", "registry/candidates/local-agent-latest.json")).strip()
             or "registry/candidates/local-agent-latest.json",
+        ),
+        codex_control=CodexControlConfig(
+            enabled=_as_bool(codex_control.get("enabled"), False),
+            control_channel=str(codex_control.get("control_channel", "migration-control")).strip() or "migration-control",
+            state_path=str(
+                codex_control.get("state_path", "registry/auto-migration/discord-codex-control.json")
+            ).strip()
+            or "registry/auto-migration/discord-codex-control.json",
+            task_root=str(codex_control.get("task_root", "registry/auto-migration/codex-control-tasks")).strip()
+            or "registry/auto-migration/codex-control-tasks",
+            model=str(codex_control.get("model", "gpt-5.5")).strip() or "gpt-5.5",
+            bot_user_id=str(codex_control.get("bot_user_id", "")).strip(),
         ),
     )
