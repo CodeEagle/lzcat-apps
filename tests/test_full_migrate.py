@@ -367,6 +367,19 @@ services:
         self.assertEqual(command[:3], ["ruby", "--disable-gems", "-e"])
         self.assertEqual(command[-1], str(yaml_path))
 
+    def test_load_yaml_ruby_fallback_supports_legacy_psych_alias_signature(self) -> None:
+        temp_dir = Path(tempfile.mkdtemp(prefix="lzcat-yaml-ruby-loader-"))
+        yaml_path = temp_dir / "compose.yml"
+        yaml_path.write_text("services: {}\n", encoding="utf-8")
+
+        with mock.patch.object(fm, "yaml", None):
+            with mock.patch.object(fm, "sh", return_value='{"services":{}}') as sh_mock:
+                fm.load_yaml(yaml_path)
+
+        ruby_loader = sh_mock.call_args.args[0][3]
+        self.assertIn("Psych.safe_load(text, aliases: true)", ruby_loader)
+        self.assertIn("Psych.safe_load(text, [], [], true)", ruby_loader)
+
     def test_refresh_icon_path_recovers_from_stale_temp_path(self) -> None:
         source_repo = Path(tempfile.mkdtemp(prefix="lzcat-stale-icon-"))
         (source_repo / "docs").mkdir(parents=True, exist_ok=True)
