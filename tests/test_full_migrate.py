@@ -9,6 +9,7 @@ import tarfile
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "full_migrate.py"
@@ -351,6 +352,20 @@ services:
 
         data = fm.load_yaml(yaml_path)
         self.assertEqual(data["services"]["web"]["image"], "ghcr.io/example/web:1.2.3")
+
+    def test_load_yaml_ruby_fallback_disables_gems(self) -> None:
+        temp_dir = Path(tempfile.mkdtemp(prefix="lzcat-yaml-ruby-fallback-"))
+        yaml_path = temp_dir / "compose.yml"
+        yaml_path.write_text("services: {}\n", encoding="utf-8")
+
+        with mock.patch.object(fm, "yaml", None):
+            with mock.patch.object(fm, "sh", return_value='{"services":{}}') as sh_mock:
+                data = fm.load_yaml(yaml_path)
+
+        self.assertEqual(data, {"services": {}})
+        command = sh_mock.call_args.args[0]
+        self.assertEqual(command[:3], ["ruby", "--disable-gems", "-e"])
+        self.assertEqual(command[-1], str(yaml_path))
 
     def test_refresh_icon_path_recovers_from_stale_temp_path(self) -> None:
         source_repo = Path(tempfile.mkdtemp(prefix="lzcat-stale-icon-"))

@@ -902,16 +902,29 @@ def load_yaml(path: Path) -> Any:
         require "json"
 
         path = ARGV[0]
-        data =
+        text = File.read(path)
+        data = nil
+
+        if defined?(Psych) && Psych.respond_to?(:safe_load)
           begin
-            YAML.load_file(path, aliases: true)
+            data = Psych.safe_load(text, aliases: true)
           rescue ArgumentError
-            YAML.load_file(path)
+            data = Psych.safe_load(text)
           end
+        end
+
+        if data.nil?
+          begin
+            data = YAML.load(text)
+          rescue ArgumentError
+            data = YAML.load_file(path)
+          end
+        end
+
         puts JSON.generate(data)
         """
     ).strip()
-    output = sh(["ruby", "-e", ruby_loader, str(path)])
+    output = sh(["ruby", "--disable-gems", "-e", ruby_loader, str(path)])
     return json.loads(output) if output else {}
 
 
