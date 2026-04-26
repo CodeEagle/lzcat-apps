@@ -47,6 +47,9 @@ DEFAULT_TASK_ROOT = "registry/auto-migration/codex-control-tasks"
 DEFAULT_MANUAL_EXCLUSIONS_PATH = "registry/auto-migration/manual-exclusions.json"
 DEFAULT_CODEX_MODEL = "gpt-5.5"
 DEFAULT_CODEX_FALLBACK_MODEL = "gpt-5.4"
+SESSION_ID_PATTERN = re.compile(
+    r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
+)
 DISCORD_GATEWAY_HOST = "gateway.discord.gg"
 DISCORD_GATEWAY_PATH = "/?v=10&encoding=json"
 DISCORD_GATEWAY_GUILDS_INTENT = 1 << 0
@@ -105,6 +108,7 @@ class CommandResult:
     status: str
     reply: str = ""
     delete_channel_id: str = ""
+    session_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -116,6 +120,7 @@ class CodexControlTask:
     prompt: str
     command: list[str]
     now: str
+    session_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -124,6 +129,7 @@ class CodexControlRunResult:
     returncode: int
     summary: str
     task_dir: Path
+    session_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -176,6 +182,46 @@ def read_text_if_exists(path: Path, *, max_chars: int = 12000) -> str:
 
 def safe_task_name(value: str) -> str:
     return re.sub(r"[^0-9A-Za-z_.-]+", "-", value).strip("-").lower() or "unknown"
+
+
+def _session_id_from_value(value: Any) -> str:
+    if isinstance(value, str) and SESSION_ID_PATTERN.fullmatch(value.strip()):
+        return value.strip()
+    return ""
+
+
+def _walk_session_id(payload: Any) -> str:
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            key_text = str(key).lower()
+            if ("session" in key_text or "conversation" in key_text) and (session_id := _session_id_from_value(value)):
+                return session_id
+        for value in payload.values():
+            if session_id := _walk_session_id(value):
+                return session_id
+    elif isinstance(payload, list):
+        for value in payload:
+            if session_id := _walk_session_id(value):
+                return session_id
+    return ""
+
+
+def extract_session_id_from_jsonl(output: str) -> str:
+    session_id = ""
+    for line in output.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if found := _walk_session_id(payload):
+            session_id = found
+    if session_id:
+        return session_id
+    matches = SESSION_ID_PATTERN.findall(output)
+    return matches[-1] if matches else ""
 
 
 def truncate_reply(content: str) -> str:
@@ -1045,6 +1091,51 @@ Functional check:
 ```"""
 
 
+def dashboard_session_id(config: CodexControlConfig, channel_id: str) -> str:
+    state = read_json(resolve_path(config.repo_root, config.state_path), {})
+    channels = state.get("channels")
+    if not isinstance(channels, dict):
+        return ""
+    channel_state = channels.get(channel_id)
+    if not isinstance(channel_state, dict):
+        return ""
+    codex = channel_state.get("codex")
+    if not isinstance(codex, dict):
+        return ""
+    return str(codex.get("session_id", "")).strip()
+
+
+def persist_dashboard_session(
+    config: CodexControlConfig,
+    context: ChannelContext,
+    *,
+    session_id: str,
+    now: str,
+) -> None:
+    if context.scope != "dashboard" or not session_id:
+        return
+    state_path = resolve_path(config.repo_root, config.state_path)
+    state = read_json(state_path, {})
+    channels = state.get("channels")
+    if not isinstance(channels, dict):
+        channels = {}
+    channel_state = channels.get(context.channel_id)
+    if not isinstance(channel_state, dict):
+        channel_state = {}
+    codex = channel_state.get("codex")
+    if not isinstance(codex, dict):
+        codex = {}
+    codex["session_id"] = session_id
+    codex["updated_at"] = now
+    codex["mode"] = "persistent_dashboard"
+    channel_state["codex"] = codex
+    channel_state["channel_name"] = context.channel_name
+    channel_state["slug"] = context.slug
+    channels[context.channel_id] = channel_state
+    state["channels"] = channels
+    write_json(state_path, state)
+
+
 def build_codex_prompt(task: CodexControlTask) -> str:
     context = task.context
     item_json = json.dumps(context.item or {}, ensure_ascii=False, indent=2, sort_keys=True)
@@ -1083,6 +1174,44 @@ Operating rules:
 
 def build_codex_command(task: CodexControlTask) -> list[str]:
     last_message_path = task.task_dir / "last-message.md"
+    if task.context.scope == "dashboard":
+        session_id = task.session_id.strip()
+        command = [
+            "codex",
+            "--ask-for-approval",
+            "never",
+            "exec",
+            "-C",
+            str(task.context.workdir or task.config.repo_root),
+            "--model",
+            task.config.model,
+            "--sandbox",
+            "danger-full-access",
+            "--json",
+            "--output-last-message",
+            str(last_message_path),
+        ]
+        if session_id:
+            return [
+                "codex",
+                "--ask-for-approval",
+                "never",
+                "-C",
+                str(task.context.workdir or task.config.repo_root),
+                "--sandbox",
+                "danger-full-access",
+                "exec",
+                "resume",
+                "--model",
+                task.config.model,
+                "--json",
+                "--output-last-message",
+                str(last_message_path),
+                session_id,
+                "-",
+            ]
+        command.append("-")
+        return command
     return [
         "codex",
         "--ask-for-approval",
@@ -1136,6 +1265,8 @@ def write_task_bundle(task: CodexControlTask) -> None:
                 "queue_path": str(resolve_path(task.config.repo_root, task.config.queue_path)),
                 "item": task.context.item or {},
                 "command": task.command,
+                "resumed": bool(task.session_id.strip()),
+                "session_id": task.session_id.strip(),
             },
             ensure_ascii=False,
             indent=2,
@@ -1267,6 +1398,10 @@ def run_codex_control_task(task: CodexControlTask) -> CodexControlRunResult:
             encoding="utf-8",
         )
 
+    session_id = task.session_id.strip()
+    if task.context.scope == "dashboard":
+        session_id = extract_session_id_from_jsonl("".join(stdout_chunks)) or session_id
+
     last_message = read_text_if_exists(task.task_dir / "last-message.md", max_chars=1600).strip()
     if not last_message:
         last_message = read_text_if_exists(stdout_path, max_chars=1000).strip()
@@ -1274,7 +1409,7 @@ def run_codex_control_task(task: CodexControlTask) -> CodexControlRunResult:
         last_message = read_text_if_exists(stderr_path, max_chars=1000).strip()
     status = "completed" if returncode == 0 else "failed"
     summary = last_message or "(Codex 没有输出最终消息)"
-    return CodexControlRunResult(status, returncode, summary, task.task_dir)
+    return CodexControlRunResult(status, returncode, summary, task.task_dir, session_id=session_id)
 
 
 def build_task(
@@ -1297,6 +1432,7 @@ def build_task(
         prompt="",
         command=[],
         now=now,
+        session_id=dashboard_session_id(config, context.channel_id) if context.scope == "dashboard" else "",
     )
     prompt = build_codex_prompt(placeholder)
     task = CodexControlTask(
@@ -1307,6 +1443,7 @@ def build_task(
         prompt=prompt,
         command=[],
         now=now,
+        session_id=placeholder.session_id,
     )
     return CodexControlTask(
         instruction=instruction,
@@ -1316,6 +1453,7 @@ def build_task(
         prompt=prompt,
         command=build_codex_command(task),
         now=now,
+        session_id=task.session_id,
     )
 
 
@@ -1481,7 +1619,7 @@ def handle_command(
         progress_callback=progress_callback,
         progress_interval_seconds=progress_interval_seconds,
     )
-    return CommandResult(result.status, format_codex_result_reply(result, ensured_context))
+    return CommandResult(result.status, format_codex_result_reply(result, ensured_context), session_id=result.session_id)
 
 
 def gateway_intents() -> int:
@@ -1554,6 +1692,8 @@ def handle_gateway_message_create(
         progress_callback=make_discord_progress_callback(client, channel_id) if will_run else None,
         progress_interval_seconds=progress_interval_seconds,
     )
+    if parsed.kind == "codex" and context.scope == "dashboard" and result.session_id:
+        persist_dashboard_session(config, context, session_id=result.session_id, now=now or utc_now_iso())
     if result.reply:
         try:
             client.send_message(channel_id, truncate_reply(result.reply))
@@ -2041,6 +2181,13 @@ def process_codex_control_commands(
                 if parsed.kind == "codex" and will_run
                 else None,
             )
+            if parsed.kind == "codex" and context.scope == "dashboard" and result.session_id:
+                persist_dashboard_session(config, context, session_id=result.session_id, now=now)
+                channel_state["codex"] = {
+                    "session_id": result.session_id,
+                    "updated_at": now,
+                    "mode": "persistent_dashboard",
+                }
             if result.reply and not result.delete_channel_id:
                 try:
                     client.send_message(context.channel_id, truncate_reply(result.reply))

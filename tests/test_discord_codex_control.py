@@ -869,6 +869,140 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertIn("Latest dashboard summary", tasks[0].prompt)
         self.assertIn("piclaw", tasks[0].prompt)
 
+    def test_dashboard_channel_reuses_persistent_codex_session(self) -> None:
+        repo_root = self.make_repo_root()
+        self.write_queue(repo_root)
+        dashboard_root = repo_root / "registry" / "dashboard"
+        dashboard_root.mkdir(parents=True)
+        config = self.make_config(repo_root)
+        config.state_path.parent.mkdir(parents=True, exist_ok=True)
+        config.state_path.write_text(
+            json.dumps(
+                {
+                    "channels": {
+                        "dashboard-1": {
+                            "channel_name": "dashboard",
+                            "slug": "dashboard",
+                            "codex": {
+                                "session_id": "11111111-2222-3333-4444-555555555555",
+                                "updated_at": "2026-04-26T09:00:00Z",
+                                "mode": "persistent_dashboard",
+                            },
+                        }
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        tasks: list[CodexControlTask] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "GET" and route == "/guilds/guild-1/channels":
+                return [
+                    {"id": "control-1", "name": "migration-control", "type": 0, "parent_id": "category-1"},
+                    {"id": "dashboard-1", "name": "dashboard", "type": 0, "parent_id": "category-1"},
+                ]
+            if method == "GET" and route == "/channels/control-1/messages?limit=20":
+                return []
+            if method == "GET" and route == "/channels/dashboard-1/messages?limit=20":
+                return [{"id": "152", "content": "!codex 继续", "author": {"id": "u1"}}]
+            if method == "PUT" and route == "/channels/dashboard-1/messages/152/reactions/%E2%9C%85/@me":
+                return {}
+            if method == "PUT" and route == "/channels/dashboard-1/messages/152/reactions/%F0%9F%9A%80/@me":
+                return {}
+            if method == "POST" and route == "/channels/dashboard-1/messages":
+                return {"id": "reply-1"}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        def runner(task: CodexControlTask) -> CodexControlRunResult:
+            tasks.append(task)
+            return CodexControlRunResult(
+                "completed",
+                0,
+                "继续完成。",
+                task.task_dir,
+                session_id="66666666-7777-8888-9999-aaaaaaaaaaaa",
+            )
+
+        results = process_codex_control_commands(
+            config,
+            DiscordClient("token", transport=transport),
+            runner=runner,
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(results, [{"channel_id": "dashboard-1", "message_id": "152", "status": "completed"}])
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0].session_id, "11111111-2222-3333-4444-555555555555")
+        self.assertIn("resume", tasks[0].command)
+        state = json.loads(config.state_path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            state["channels"]["dashboard-1"]["codex"]["session_id"],
+            "66666666-7777-8888-9999-aaaaaaaaaaaa",
+        )
+
+    def test_migration_channel_does_not_reuse_dashboard_style_session(self) -> None:
+        repo_root = self.make_repo_root()
+        workspace_path = repo_root / "migration-workspaces" / "migration-piclaw"
+        workspace_path.mkdir(parents=True)
+        self.write_queue(repo_root, workspace_path=workspace_path)
+        config = self.make_config(repo_root)
+        config.state_path.parent.mkdir(parents=True, exist_ok=True)
+        config.state_path.write_text(
+            json.dumps(
+                {
+                    "channels": {
+                        "piclaw-1": {
+                            "channel_name": "migration-piclaw",
+                            "slug": "piclaw",
+                            "codex": {"session_id": "11111111-2222-3333-4444-555555555555"},
+                        }
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        tasks: list[CodexControlTask] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "GET" and route == "/guilds/guild-1/channels":
+                return [
+                    {"id": "control-1", "name": "migration-control", "type": 0, "parent_id": "category-1"},
+                    {"id": "piclaw-1", "name": "migration-piclaw", "type": 0, "parent_id": "category-1"},
+                ]
+            if method == "GET" and route == "/channels/control-1/messages?limit=20":
+                return []
+            if method == "GET" and route == "/channels/piclaw-1/messages?limit=20":
+                return [{"id": "153", "content": "!codex 继续修复", "author": {"id": "u1"}}]
+            if method == "PUT" and route == "/channels/piclaw-1/messages/153/reactions/%E2%9C%85/@me":
+                return {}
+            if method == "PUT" and route == "/channels/piclaw-1/messages/153/reactions/%F0%9F%9A%80/@me":
+                return {}
+            if method == "POST" and route == "/channels/piclaw-1/messages":
+                return {"id": "reply-1"}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        def runner(task: CodexControlTask) -> CodexControlRunResult:
+            tasks.append(task)
+            return CodexControlRunResult("completed", 0, "修复完成。", task.task_dir)
+
+        results = process_codex_control_commands(
+            config,
+            DiscordClient("token", transport=transport),
+            runner=runner,
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(results, [{"channel_id": "piclaw-1", "message_id": "153", "status": "completed"}])
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0].session_id, "")
+        self.assertNotIn("resume", tasks[0].command)
+        state = json.loads(config.state_path.read_text(encoding="utf-8"))
+        self.assertEqual(state["channels"]["piclaw-1"]["last_message_id"], "153")
+        self.assertEqual(state["channels"]["piclaw-1"]["codex"]["session_id"], "11111111-2222-3333-4444-555555555555")
+
     def test_dashboard_operator_decision_records_human_response_without_runner(self) -> None:
         repo_root = self.make_repo_root()
         queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
