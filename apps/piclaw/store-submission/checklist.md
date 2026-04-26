@@ -20,6 +20,7 @@
 - Icon: `apps/piclaw/store-submission/assets/icon.png`
 - Screenshots:
 - `apps/piclaw/store-submission/assets/screenshots/piclaw-home.png`
+- Web screenshot metadata: `apps/piclaw/acceptance/web-screenshots.json`
 
 ## 文案来源
 
