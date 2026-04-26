@@ -67,6 +67,7 @@ class ProjectConfigTest(unittest.TestCase):
                         "task_root": "registry/auto-migration/codex-control-tasks",
                         "model": "gpt-5.5",
                         "bot_user_id": "999",
+                        "mention_role_ids": ["888", "777"],
                     },
                 }
             )
@@ -92,6 +93,7 @@ class ProjectConfigTest(unittest.TestCase):
         self.assertEqual(config.codex_control.task_root, "registry/auto-migration/codex-control-tasks")
         self.assertEqual(config.codex_control.model, "gpt-5.5")
         self.assertEqual(config.codex_control.bot_user_id, "999")
+        self.assertEqual(config.codex_control.mention_role_ids, ("888", "777"))
 
     def test_missing_file_uses_disabled_status_sync(self) -> None:
         repo_root = Path(tempfile.mkdtemp(prefix="project-config-test-"))

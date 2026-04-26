@@ -47,6 +47,7 @@ class CodexControlConfig:
     task_root: str = "registry/auto-migration/codex-control-tasks"
     model: str = "gpt-5.5"
     bot_user_id: str = ""
+    mention_role_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -72,6 +73,12 @@ def _as_int(value: Any, default: int) -> int:
     except (TypeError, ValueError):
         return default
     return parsed if parsed >= 0 else default
+
+
+def _as_str_tuple(value: Any) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        return ()
+    return tuple(str(item).strip() for item in value if str(item).strip())
 
 
 def load_project_config(repo_root: Path) -> ProjectConfig:
@@ -131,5 +138,6 @@ def load_project_config(repo_root: Path) -> ProjectConfig:
             or "registry/auto-migration/codex-control-tasks",
             model=str(codex_control.get("model", "gpt-5.5")).strip() or "gpt-5.5",
             bot_user_id=str(codex_control.get("bot_user_id", "")).strip(),
+            mention_role_ids=_as_str_tuple(codex_control.get("mention_role_ids")),
         ),
     )
