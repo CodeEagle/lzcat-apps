@@ -61,6 +61,7 @@ def build_codex_prompt(
     repo_root: Path,
     item: dict[str, Any],
     *,
+    queue_path: Path | None = None,
     box_domain: str = "",
     recent_logs: str = "",
 ) -> str:
@@ -84,7 +85,7 @@ Hard guardrails:
 - Do not delete existing app directories unless the failure investigation proves they are disposable generated output.
 - Keep lzcat-apps as the single source of truth.
 - If Browser Use is required, create/refresh the acceptance plan and explain the needed browser check; do not fake acceptance.
-- If you are blocked on credentials, upstream ambiguity, product/listing decisions, app-store ownership, legal/license uncertainty, or final publish approval, do not guess. Update the queue item to state `waiting_for_human` with a `human_request` object containing `question`, `options`, `context`, and `created_at`, then say the request should be sent to Discord.
+- If you are blocked on credentials, upstream ambiguity, product/listing decisions, app-store ownership, legal/license uncertainty, or final publish approval, do not guess. Update the queue item in `queue_path` to state `waiting_for_human` with a `human_request` object containing `question`, `options`, `context`, and `created_at`, then say the request should be sent to Discord.
 - If the queue item already contains `human_response`, use it as the user's answer and continue from the blocked step.
 
 Queue item:
@@ -95,12 +96,13 @@ Queue item:
 Repository:
 - repo_root: {repo_root}
 - app_dir: {app_dir}
+- queue_path: {queue_path or "(not provided)"}
 - box_domain: {box_domain or "(not provided)"}
 
 Useful commands:
 ```bash
 python3 scripts/full_migrate.py {item.get("source", "")} --build-mode reinstall --resume --no-commit
-python3 scripts/auto_migrate.py {item.get("source", "")} --build-mode reinstall --resume --functional-check --slug {slug} --box-domain {box_domain}
+python3 scripts/auto_migrate.py {item.get("source", "")} --repo-root {repo_root} --build-mode reinstall --resume --functional-check --slug {slug} --box-domain {box_domain}
 python3 -m unittest tests.test_full_migrate tests.test_auto_migrate tests.test_auto_migration_service -v
 ```
 
@@ -265,6 +267,7 @@ def parse_item_json(value: str) -> dict[str, Any]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a Codex worker for one LazyCat migration queue item.")
     parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[1]))
+    parser.add_argument("--queue-path", default="")
     parser.add_argument("--task-root", default=DEFAULT_TASK_ROOT)
     parser.add_argument("--outbox-dir", default=DEFAULT_OUTBOX)
     parser.add_argument("--item-json", required=True)
@@ -277,6 +280,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
+    queue_path = Path(args.queue_path).expanduser() if args.queue_path else None
+    if queue_path and not queue_path.is_absolute():
+        queue_path = repo_root / queue_path
     item = parse_item_json(args.item_json)
     now = utc_now_iso()
     task_root = Path(args.task_root)
@@ -294,7 +300,13 @@ def main() -> int:
         model=args.model,
         execute=not args.no_execute,
     )
-    prompt = build_codex_prompt(repo_root, item, box_domain=args.box_domain, recent_logs=read_recent_logs(repo_root))
+    prompt = build_codex_prompt(
+        repo_root,
+        item,
+        queue_path=queue_path,
+        box_domain=args.box_domain,
+        recent_logs=read_recent_logs(repo_root),
+    )
     command = build_codex_command(config)
     bundle = write_task_bundle(config, item, prompt=prompt, command=command, now=now)
 
