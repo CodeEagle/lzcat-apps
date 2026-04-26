@@ -1,0 +1,101 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "rcarmo/piclaw",
+  "fixes": {
+    "project_name": "PiClaw",
+    "description": "Self-hosted Pi Coding Agent workspace with browser chat, session management, and persistent project storage.",
+    "description_zh": "在懒猫微服中运行的自托管 Pi Coding Agent 工作台，支持浏览器聊天、会话管理和持久化项目工作区。",
+    "homepage": "https://github.com/rcarmo/piclaw",
+    "license": "MIT",
+    "author": "rcarmo",
+    "package": "fun.selfstudio.app.migration.piclaw",
+    "check_strategy": "github_release",
+    "build_strategy": "upstream_dockerfile",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "docker_platform": "linux/amd64",
+    "image_targets": [
+      "pibox"
+    ],
+    "service_port": 8080,
+    "services": {
+      "pibox": {
+        "image": "registry.lazycat.cloud/placeholder/piclaw:pibox",
+        "environment": [
+          "TERM=xterm-256color",
+          "PUID=1000",
+          "PGID=1000",
+          "PICLAW_WEB_PORT=8080",
+          "PICLAW_AUTOSTART=1"
+        ],
+        "binds": [
+          "/lzcapp/var/data/piclaw/pibox/config:/config",
+          "/lzcapp/var/data/piclaw/pibox/workspace:/workspace"
+        ]
+      }
+    },
+    "application": {
+      "subdomain": "piclaw",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://pibox:8080/"
+        }
+      ]
+    },
+    "env_vars": [
+      {
+        "name": "TERM",
+        "description": "From compose service pibox",
+        "required": false,
+        "value": "xterm-256color"
+      },
+      {
+        "name": "PUID",
+        "description": "From compose service pibox",
+        "required": false,
+        "value": "1000"
+      },
+      {
+        "name": "PGID",
+        "description": "From compose service pibox",
+        "required": false,
+        "value": "1000"
+      },
+      {
+        "name": "PICLAW_WEB_PORT",
+        "description": "From compose service pibox",
+        "required": false,
+        "value": "8080"
+      },
+      {
+        "name": "PICLAW_AUTOSTART",
+        "description": "From compose service pibox",
+        "required": false,
+        "value": "1"
+      }
+    ],
+    "data_paths": [
+      {
+        "host": "/lzcapp/var/data/piclaw/pibox/config",
+        "container": "/config",
+        "description": "From compose service pibox"
+      },
+      {
+        "host": "/lzcapp/var/data/piclaw/pibox/workspace",
+        "container": "/workspace",
+        "description": "From compose service pibox"
+      }
+    ],
+    "startup_notes": [
+      "自动扫描到 compose 文件：docker-compose.yml",
+      "主服务推断为 `pibox`，入口端口 `8080`。",
+      "未扫描到 env 示例文件",
+      "扫描到 README：README.md, README.md, README.md"
+    ],
+    "include_content": false
+  }
+}

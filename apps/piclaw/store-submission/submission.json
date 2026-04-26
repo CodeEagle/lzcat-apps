@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "slug": "piclaw",
+  "developer_apps_url": "https://lazycat.cloud/appstore/more/developers/178",
+  "package": "fun.selfstudio.app.migration.piclaw",
+  "name": "PiClaw",
+  "version": "2.0.1",
+  "homepage": "https://github.com/rcarmo/piclaw",
+  "license": "MIT",
+  "upstream_attribution": {
+    "original_or_source_author": false,
+    "source_author": "rcarmo",
+    "source_url": "https://github.com/rcarmo/piclaw"
+  },
+  "short_description": "把 Pi Coding Agent 放进懒猫微服，在浏览器里管理本地 AI 编程会话、项目工作区和长期任务记录。",
+  "description_zh": "在懒猫微服中运行的自托管 Pi Coding Agent 工作台，支持浏览器聊天、会话管理和持久化项目工作区。",
+  "description_en": "Self-hosted Pi Coding Agent workspace with browser chat, session management, and persistent project storage.",
+  "store_description": "PiClaw 是面向开发者的自托管 AI 编程工作台。安装到懒猫微服后，可以通过浏览器访问聊天式编程界面，管理 `@piclaw` 会话、搜索历史任务，并把配置与工作区持久化保存在微服上。\n\n这个移植版适合想把 AI 编程助手从个人电脑搬到家庭/团队微服的用户：常用项目、会话状态、运行日志和模型配置可以集中放在盒子里，局域网或远程访问时打开网页即可继续工作。对上架审核而言，本次验收已确认应用不是空白页、平台错误页或循环启动页，而是进入了真实 PiClaw 主界面。",
+  "english_description": "PiClaw is a self-hosted Pi Coding Agent workspace for LazyCat. It provides a browser-based coding-agent chat UI, session controls, search, and persistent project storage so developers can keep AI coding workflows running on their own microserver.",
+  "keywords": [
+    "PiClaw",
+    "piclaw",
+    "AI 编程",
+    "Coding Agent",
+    "自托管",
+    "LazyCat",
+    "懒猫微服",
+    "开发者工具",
+    "项目工作区"
+  ],
+  "lpk": {
+    "path": "dist/piclaw.lpk",
+    "sha256": "cae7a1c202d987c2b624b219696bb59a28e2d4286ed65815803cdd53a77fff68",
+    "size_bytes": 14967,
+    "manifest": {
+      "name": "PiClaw",
+      "package": "fun.selfstudio.app.migration.piclaw",
+      "version": "2.0.1"
+    }
+  },
+  "assets": {
+    "icon": "apps/piclaw/store-submission/assets/icon.png",
+    "screenshots": [
+      "apps/piclaw/store-submission/assets/screenshots/piclaw-desktop-1920.png",
+      "apps/piclaw/store-submission/assets/screenshots/piclaw-desktop-2560.png"
+    ],
+    "source_icon": "apps/piclaw/icon.png",
+    "source_screenshots": [
+      "apps/piclaw/acceptance/piclaw-desktop-1920.png",
+      "apps/piclaw/acceptance/piclaw-desktop-2560.png"
+    ],
+    "web_screenshot_metadata": "apps/piclaw/acceptance/web-screenshots.json",
+    "store_copy": "apps/piclaw/copywriting/store-copy.md",
+    "tutorial": "apps/piclaw/copywriting/tutorial.md"
+  },
+  "browser_acceptance": {
+    "status": "pass",
+    "result_path": "apps/piclaw/acceptance/browser-use-result.json",
+    "evidence": "Codex Browser Use opened the installed LazyCat app at https://piclaw.rx79.heiyu.space/. The app rendered the PiClaw main chat UI instead of the LazyCat startup page, showed the message composer/session controls, and browser console logs contained no errors or warnings. LazyCat containers were running with funselfstudioappmigrationpiclaw-app-1 healthy and the supervisor-managed piclaw process entered RUNNING state."
+  },
+  "submission_steps": [
+    "Open the configured LazyCat developer apps page.",
+    "Create a new app entry.",
+    "Fill name, package id, version, descriptions, keywords, homepage, and license from this JSON.",
+    "Upload icon and screenshots from assets.",
+    "Upload the verified LPK from lpk.path.",
+    "Stop before the final create/submit/publish action and ask for confirmation."
+  ]
+}
