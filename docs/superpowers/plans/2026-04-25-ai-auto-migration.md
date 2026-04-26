@@ -1400,6 +1400,41 @@ python3 -m unittest tests.test_auto_migration_service -v
 
 Expected: service tests pass.
 
+## Task 14: Codex Worker and IM Notification Hook
+
+**Files:**
+- Create: `scripts/codex_migration_worker.py`
+- Test: `tests/test_codex_migration_worker.py`
+- Update: `scripts/auto_migration_service.py`
+- Update: `tests/test_auto_migration_service.py`
+- Update: `docs/superpowers/specs/2026-04-26-auto-migration-backend-service.md`
+
+- [x] **Step 1: Add Codex worker tests**
+
+Cover safe task names, prompt guardrails, `codex exec` command construction, task bundle output, and notification
+outbox files.
+
+- [x] **Step 2: Implement standalone Codex worker**
+
+Add `scripts/codex_migration_worker.py` that:
+
+- receives one queue item as JSON
+- writes `prompt.md`, `task.json`, `codex.stdout.log`, `codex.stderr.log`, `last-message.md`, and `result.json`
+- runs `codex exec -C <repo> --sandbox danger-full-access --ask-for-approval never -`
+- writes an IM-friendly Markdown notification to `registry/auto-migration/notifications/`
+- includes guardrails forbidding final developer-console submission or fake Browser Use acceptance
+
+- [x] **Step 3: Wire daemon trigger**
+
+Add `--enable-codex-worker` and `--max-codex-attempts`. The daemon invokes the worker for `build_failed` and
+`browser_failed` items, then resets successful items to `ready` so they can be retried automatically.
+
+- [x] **Step 4: Preserve Telegram safety**
+
+Do not reuse an existing generic Telegram bot token for a second polling bridge. Until a dedicated
+codex-to-im-lzcat bot is configured, notifications are written to the local outbox for a notification-service or
+future dedicated bridge to forward.
+
 ## Rollout Order
 
 1. Implement Tasks 1-3 to get project config, Obscura probe, and developer status sync.
@@ -1409,6 +1444,7 @@ Expected: service tests pass.
 5. Run Task 10 with one known app.
 6. Add copywriting and publisher convenience scripts after the pilot passes.
 7. Run Task 13 as the 7x24 supervisor that keeps discovery, migration, Browser Use recheck, copywriting, and `publish_ready` preparation moving.
+8. Enable Task 14 so failed migrations are handed to Codex automatically and produce IM notification outbox entries.
 
 ## Self-Review
 

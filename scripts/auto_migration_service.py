@@ -60,6 +60,8 @@ class ServiceConfig:
     max_migrations_per_cycle: int = 1
     commit_scaffold: bool = False
     resume: bool = False
+    enable_codex_worker: bool = False
+    max_codex_attempts: int = 1
 
 
 CommandRunner = Callable[[list[str]], CommandResult]
@@ -292,6 +294,20 @@ def build_prepare_submission_command(config: ServiceConfig, item: dict[str, Any]
     return command
 
 
+def build_codex_worker_command(config: ServiceConfig, item: dict[str, Any]) -> list[str]:
+    command = [
+        "python3",
+        "scripts/codex_migration_worker.py",
+        "--repo-root",
+        str(config.repo_root),
+        "--item-json",
+        json.dumps(item, ensure_ascii=False, sort_keys=True),
+    ]
+    if config.box_domain:
+        command.extend(["--box-domain", config.box_domain])
+    return command
+
+
 def run_subprocess(command: list[str], *, cwd: Path) -> CommandResult:
     result = subprocess.run(command, cwd=cwd, text=True, check=False)
     return CommandResult(returncode=result.returncode)
@@ -410,6 +426,78 @@ def refresh_browser_pending(
     return results
 
 
+def codex_attempts(item: dict[str, Any]) -> int:
+    codex = item.get("codex")
+    if not isinstance(codex, dict):
+        return 0
+    try:
+        return int(codex.get("attempts") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def select_next_codex_item(queue: dict[str, Any], *, max_attempts: int) -> dict[str, Any] | None:
+    items = queue.get("items")
+    if not isinstance(items, list):
+        return None
+    for item in items:
+        if not isinstance(item, dict) or item.get("state") not in {"build_failed", "browser_failed"}:
+            continue
+        if codex_attempts(item) >= max_attempts:
+            continue
+        return item
+    return None
+
+
+def update_item_codex_result(
+    queue: dict[str, Any],
+    item_id: str,
+    *,
+    status: str,
+    returncode: int,
+    now: str,
+) -> None:
+    items = queue.get("items")
+    if not isinstance(items, list):
+        return
+    for item in items:
+        if not isinstance(item, dict) or item.get("id") != item_id:
+            continue
+        codex = item.get("codex") if isinstance(item.get("codex"), dict) else {}
+        codex["attempts"] = int(codex.get("attempts") or 0) + 1
+        codex["last_status"] = status
+        codex["last_returncode"] = returncode
+        codex["last_run_at"] = now
+        item["codex"] = codex
+        item["updated_at"] = now
+        if returncode == 0:
+            item["state"] = "ready"
+            item.pop("last_error", None)
+        else:
+            item["last_error"] = f"codex worker exited {returncode}"
+        break
+
+
+def advance_codex_worker(
+    config: ServiceConfig,
+    queue: dict[str, Any],
+    *,
+    runner: CommandRunner,
+    now: str,
+) -> list[dict[str, Any]]:
+    if not config.enable_codex_worker:
+        return []
+    item = select_next_codex_item(queue, max_attempts=max(1, config.max_codex_attempts))
+    if not item:
+        return []
+
+    command = build_codex_worker_command(config, item)
+    result = runner(command)
+    status = "ready" if result.returncode == 0 else "codex_failed"
+    update_item_codex_result(queue, str(item.get("id", "")), status=status, returncode=result.returncode, now=now)
+    return [{"id": item.get("id", ""), "status": status, "returncode": result.returncode}]
+
+
 def run_cycle(config: ServiceConfig, *, runner: CommandRunner | None = None, now: str | None = None) -> dict[str, Any]:
     now = now or utc_now_iso()
     runner = runner or (lambda command: run_subprocess(command, cwd=config.repo_root))
@@ -417,6 +505,7 @@ def run_cycle(config: ServiceConfig, *, runner: CommandRunner | None = None, now
         "started_at": now,
         "commands": [],
         "browser_recheck": [],
+        "codex_worker": [],
         "post_acceptance": [],
         "selected": None,
         "migration": {"status": "none"},
@@ -440,6 +529,7 @@ def run_cycle(config: ServiceConfig, *, runner: CommandRunner | None = None, now
     queue = read_json(config.queue_path, empty_queue(now))
     queue = upsert_candidates(queue, candidates, now=now)
     summary["browser_recheck"] = refresh_browser_pending(config, queue, runner=runner, now=now)
+    summary["codex_worker"] = advance_codex_worker(config, queue, runner=runner, now=now)
     summary["post_acceptance"] = advance_post_acceptance(config, queue, runner=runner, now=now)
     selected = select_next_ready_item(queue)
     if not selected:
@@ -518,6 +608,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-migrations-per-cycle", type=int, default=1)
     parser.add_argument("--commit-scaffold", action="store_true")
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--enable-codex-worker", action="store_true")
+    parser.add_argument("--max-codex-attempts", type=int, default=1)
     return parser.parse_args()
 
 
@@ -546,6 +638,8 @@ def build_config(args: argparse.Namespace) -> ServiceConfig:
         max_migrations_per_cycle=max(1, args.max_migrations_per_cycle),
         commit_scaffold=args.commit_scaffold,
         resume=args.resume,
+        enable_codex_worker=args.enable_codex_worker,
+        max_codex_attempts=max(1, args.max_codex_attempts),
     )
 
 
