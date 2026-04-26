@@ -9,6 +9,7 @@ import re
 import subprocess
 import time
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -41,6 +42,7 @@ ACK_REACTION = "%F0%9F%91%80"
 WORKER_REACTION = "%F0%9F%94%A7"
 CONTROL_CHANNEL_NAME = "migration-control"
 CONTROL_ONLY_SUFFIXES = {"control", "dashboard", "local-agent", "codex-control"}
+SPECIAL_DASHBOARD_SUFFIX = "dashboard"
 
 CodexRunner = Callable[["CodexControlTask"], "CodexControlRunResult"]
 
@@ -101,6 +103,16 @@ class CodexControlRunResult:
     returncode: int
     summary: str
     task_dir: Path
+
+
+@dataclass(frozen=True)
+class ChannelMessageBatch:
+    index: int
+    context: ChannelContext
+    channel_state: dict[str, Any]
+    last_message_id: str
+    messages: list[dict[str, Any]]
+    error: str = ""
 
 
 def utc_now_iso() -> str:
@@ -205,6 +217,11 @@ def slug_from_channel_name(channel_name: str, config: CodexControlConfig) -> str
     return suffix
 
 
+def dashboard_channel_name(config: CodexControlConfig) -> str:
+    prefix = normalize_slug(config.channel_prefix) or "migration"
+    return f"{prefix}-{SPECIAL_DASHBOARD_SUFFIX}"
+
+
 def build_workdir(config: CodexControlConfig, slug: str, item: dict[str, Any] | None) -> Path:
     if not slug:
         return config.repo_root
@@ -231,6 +248,14 @@ def channel_context(channel: dict[str, Any], config: CodexControlConfig, items: 
         return None
     if normalize_slug(channel_name) == normalize_slug(config.control_channel):
         return ChannelContext(channel_id=channel_id, channel_name=channel_name, scope="control", workdir=config.repo_root)
+    if normalize_slug(channel_name) == normalize_slug(dashboard_channel_name(config)):
+        return ChannelContext(
+            channel_id=channel_id,
+            channel_name=channel_name,
+            scope="dashboard",
+            slug=SPECIAL_DASHBOARD_SUFFIX,
+            workdir=config.repo_root,
+        )
     slug = slug_from_channel_name(channel_name, config)
     if not slug:
         return None
@@ -248,16 +273,22 @@ def channel_context(channel: dict[str, Any], config: CodexControlConfig, items: 
 def discover_channels(config: CodexControlConfig, client: DiscordClient) -> list[ChannelContext]:
     if not config.guild_id:
         return []
-    control = client.ensure_text_channel(
-        config.guild_id,
-        config.category_id,
-        config.control_channel,
-        topic="LazyCat Codex control channel",
-    )
     items = queue_items(config)
     channels = client.list_guild_channels(config.guild_id)
-    if not any(str(channel.get("id", "")).strip() == str(control.get("id", "")).strip() for channel in channels):
-        channels.append(control)
+    if not any(
+        channel.get("type") == DISCORD_GUILD_TEXT_TYPE
+        and str(channel.get("name", "")).strip() == config.control_channel
+        and (not config.category_id or channel.get("parent_id") == config.category_id)
+        for channel in channels
+    ):
+        control = client.ensure_text_channel(
+            config.guild_id,
+            config.category_id,
+            config.control_channel,
+            topic="LazyCat Codex control channel",
+        )
+        if not any(str(channel.get("id", "")).strip() == str(control.get("id", "")).strip() for channel in channels):
+            channels.append(control)
     contexts: list[ChannelContext] = []
     seen: set[str] = set()
     for channel in channels:
@@ -405,6 +436,29 @@ def build_status_reply(context: ChannelContext, config: CodexControlConfig) -> s
                 f"- 默认模型：{config.model}",
             ]
         )
+    if context.scope == "dashboard":
+        latest = read_json(config.repo_root / "registry" / "dashboard" / "latest.json", {})
+        generated_at = str(latest.get("generated_at", "")).strip() or "(未生成)"
+        queue = latest.get("queue") if isinstance(latest.get("queue"), dict) else {}
+        local_agent = latest.get("local_agent") if isinstance(latest.get("local_agent"), dict) else {}
+        publication = latest.get("publication") if isinstance(latest.get("publication"), dict) else {}
+        waiting = latest.get("waiting_for_human") if isinstance(latest.get("waiting_for_human"), list) else []
+        failed = latest.get("failed_items") if isinstance(latest.get("failed_items"), list) else []
+        top_candidates = latest.get("top_candidates") if isinstance(latest.get("top_candidates"), list) else []
+        return "\n".join(
+            [
+                "**Codex Dashboard 状态**",
+                f"- repo：{config.repo_root}",
+                f"- 最新日报：{generated_at}",
+                f"- 队列：{queue.get('total', 0)}（{_format_count_dict(queue.get('state_counts'))}）",
+                f"- LocalAgent 候选：{local_agent.get('total', 0)}（{_format_count_dict(local_agent.get('status_counts'))}）",
+                f"- 已发布跟踪：{publication.get('total', 0)}（{_format_count_dict(publication.get('status_counts'))}）",
+                f"- 等待回复：{len(waiting)}",
+                f"- 失败待处理：{len(failed)}",
+                f"- 今日优先候选：{len(top_candidates)}",
+                f"- 任务目录：{resolve_path(config.repo_root, config.task_root)}",
+            ]
+        )
 
     item = context.item or {}
     source = str(item.get("source", "")).strip() or "(queue 未找到)"
@@ -424,7 +478,21 @@ def build_status_reply(context: ChannelContext, config: CodexControlConfig) -> s
     )
 
 
+def _format_count_dict(value: Any) -> str:
+    if not isinstance(value, dict) or not value:
+        return "none"
+    return ", ".join(f"{key}={value[key]}" for key in sorted(value))
+
+
 def app_context_text(context: ChannelContext) -> str:
+    if context.scope == "dashboard":
+        latest = read_text_if_exists(context.workdir / "registry" / "dashboard" / "latest.md", max_chars=12000)
+        if not latest:
+            return ""
+        return f"""Latest dashboard summary:
+```markdown
+{latest}
+```"""
     if not context.slug or not context.workdir:
         return ""
     app_dir = context.workdir / "apps" / context.slug
@@ -672,6 +740,37 @@ def handle_command(
     return CommandResult(result.status, format_codex_result_reply(result, context))
 
 
+def fetch_channel_message_batches(
+    contexts: list[ChannelContext],
+    channels_state: dict[str, Any],
+    client: DiscordClient,
+    *,
+    limit: int,
+    fallback_last_message_id: str = "",
+) -> list[ChannelMessageBatch]:
+    if not contexts:
+        return []
+
+    def fetch(index: int, context: ChannelContext) -> ChannelMessageBatch:
+        channel_state = channels_state.get(context.channel_id)
+        if not isinstance(channel_state, dict):
+            channel_state = {}
+        last_message_id = str(channel_state.get("last_message_id") or fallback_last_message_id or "").strip()
+        try:
+            messages = order_messages(client.list_messages(context.channel_id, after=last_message_id, limit=limit))
+        except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+            return ChannelMessageBatch(index, context, channel_state, last_message_id, [], error=str(exc))
+        return ChannelMessageBatch(index, context, channel_state, last_message_id, messages)
+
+    max_workers = min(8, max(1, len(contexts)))
+    batches: list[ChannelMessageBatch] = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(fetch, index, context) for index, context in enumerate(contexts)]
+        for future in as_completed(futures):
+            batches.append(future.result())
+    return sorted(batches, key=lambda batch: batch.index)
+
+
 def process_codex_control_commands(
     config: CodexControlConfig,
     client: DiscordClient,
@@ -696,16 +795,20 @@ def process_codex_control_commands(
     if not isinstance(channels_state, dict):
         channels_state = {}
     results: list[dict[str, str]] = []
+    batches = fetch_channel_message_batches(
+        contexts,
+        channels_state,
+        client,
+        limit=20,
+        fallback_last_message_id=str(state.get("last_message_id") or "").strip(),
+    )
 
-    for context in contexts:
-        channel_state = channels_state.get(context.channel_id)
-        if not isinstance(channel_state, dict):
-            channel_state = {}
-        last_message_id = str(channel_state.get("last_message_id") or state.get("last_message_id") or "").strip()
-        try:
-            messages = order_messages(client.list_messages(context.channel_id, after=last_message_id, limit=20))
-        except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
-            channel_state["last_error"] = str(exc)
+    for batch in batches:
+        context = batch.context
+        channel_state = batch.channel_state
+        last_message_id = batch.last_message_id
+        if batch.error:
+            channel_state["last_error"] = batch.error
             channel_state["last_checked_at"] = now
             channel_state["channel_name"] = context.channel_name
             channel_state["slug"] = context.slug
@@ -713,7 +816,7 @@ def process_codex_control_commands(
             results.append({"channel_id": context.channel_id, "message_id": "", "status": "channel_read_failed"})
             continue
         last_seen = last_message_id
-        for message in messages:
+        for message in batch.messages:
             message_id = str(message.get("id", "")).strip()
             if not message_id:
                 continue
@@ -791,15 +894,13 @@ def mark_existing_messages_seen(
     if not isinstance(channels_state, dict):
         channels_state = {}
     results: list[dict[str, str]] = []
+    batches = fetch_channel_message_batches(contexts, channels_state, client, limit=1)
 
-    for context in contexts:
-        channel_state = channels_state.get(context.channel_id)
-        if not isinstance(channel_state, dict):
-            channel_state = {}
-        try:
-            messages = client.list_messages(context.channel_id, limit=1)
-        except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
-            channel_state["last_error"] = str(exc)
+    for batch in batches:
+        context = batch.context
+        channel_state = batch.channel_state
+        if batch.error:
+            channel_state["last_error"] = batch.error
             channel_state["last_checked_at"] = now
             channel_state["channel_name"] = context.channel_name
             channel_state["slug"] = context.slug
@@ -807,8 +908,8 @@ def mark_existing_messages_seen(
             results.append({"channel_id": context.channel_id, "message_id": "", "status": "channel_read_failed"})
             continue
         last_message_id = ""
-        if messages:
-            last_message_id = str(messages[0].get("id", "")).strip()
+        if batch.messages:
+            last_message_id = str(batch.messages[0].get("id", "")).strip()
         channel_state["last_message_id"] = last_message_id
         channel_state["last_checked_at"] = now
         channel_state["channel_name"] = context.channel_name
