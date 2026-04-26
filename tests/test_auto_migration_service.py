@@ -410,6 +410,57 @@ class AutoMigrationServiceTest(unittest.TestCase):
         self.assertEqual(queue["items"][0]["state"], "ready")
         self.assertEqual(queue["items"][0]["codex"]["attempts"], 1)
 
+    def test_codex_worker_success_keeps_browser_failed_state(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        app_dir = repo_root / "apps" / "demo"
+        app_dir.mkdir(parents=True)
+        (app_dir / ".functional-check.json").write_text(
+            json.dumps({"browser_acceptance_status": "browser_failed"}) + "\n",
+            encoding="utf-8",
+        )
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "github:owner/demo",
+                            "source": "owner/demo",
+                            "slug": "demo",
+                            "state": "browser_failed",
+                            "last_error": "Browser Use failed",
+                            "created_at": "2026-04-25T00:00:00Z",
+                            "updated_at": "2026-04-25T00:00:00Z",
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=queue_path,
+                skip_status_sync=True,
+                skip_scout=True,
+                dry_run=True,
+                functional_check=True,
+                enable_codex_worker=True,
+                box_domain="box.example.test",
+            ),
+            runner=lambda command: CommandResult(returncode=0),
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertEqual(summary["codex_worker"][0]["status"], "browser_failed")
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["state"], "browser_failed")
+        self.assertEqual(queue["items"][0]["codex"]["last_status"], "browser_failed")
+
     def test_run_cycle_respects_codex_attempt_limit(self) -> None:
         repo_root = self.make_repo_root()
         queue_path = repo_root / "registry" / "auto-migration" / "queue.json"

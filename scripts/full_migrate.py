@@ -4365,6 +4365,17 @@ def preflight_check(repo_root: Path, slug: str) -> tuple[bool, list[str]]:
     dockerfile_path = str(config.get("dockerfile_path", "")).strip()
     if dockerfile_path and not (app_dir / dockerfile_path).exists():
         issues.append(f"configured dockerfile_path is missing: {app_dir / dockerfile_path}")
+    elif dockerfile_path:
+        dockerfile_text = (app_dir / dockerfile_path).read_text(encoding="utf-8", errors="ignore")
+        placeholder_markers = [
+            "Replace this placeholder Dockerfile before running a real build",
+            "TODO: replace this placeholder with the real build steps",
+        ]
+        if any(marker in dockerfile_text for marker in placeholder_markers):
+            issues.append(
+                f"configured dockerfile_path points to a placeholder Dockerfile: {app_dir / dockerfile_path}; "
+                "replace it with a real upstream build before installing or submitting"
+            )
     for service_name, payload in services.items():
         if isinstance(payload, dict) and payload.get("command") and payload.get("setup_script"):
             issues.append(f"service {service_name} defines both command and setup_script")
