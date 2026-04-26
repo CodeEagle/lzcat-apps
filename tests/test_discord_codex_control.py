@@ -113,7 +113,7 @@ class DiscordCodexControlTest(unittest.TestCase):
 
         def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
             events.append((method, route, payload))
-            if method == "PUT" and route == "/channels/dashboard-1/messages/900/reactions/%F0%9F%91%80/@me":
+            if method == "PUT" and route == "/channels/dashboard-1/messages/900/reactions/%E2%9C%85/@me":
                 return {}
             if method == "POST" and route == "/channels/dashboard-1/messages":
                 assert payload is not None
@@ -154,13 +154,16 @@ class DiscordCodexControlTest(unittest.TestCase):
             workdir=workspace_path,
         )
         tasks: list[CodexControlTask] = []
+        replies: list[str] = []
 
         def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
-            if method == "PUT" and route == "/channels/piclaw-1/messages/901/reactions/%F0%9F%91%80/@me":
+            if method == "PUT" and route == "/channels/piclaw-1/messages/901/reactions/%E2%9C%85/@me":
                 return {}
-            if method == "PUT" and route == "/channels/piclaw-1/messages/901/reactions/%F0%9F%94%A7/@me":
+            if method == "PUT" and route == "/channels/piclaw-1/messages/901/reactions/%F0%9F%9A%80/@me":
                 return {}
             if method == "POST" and route == "/channels/piclaw-1/messages":
+                assert payload is not None
+                replies.append(str(payload.get("content", "")))
                 return {"id": "reply-1"}
             raise AssertionError(f"unexpected Discord call {method} {route}")
 
@@ -181,6 +184,8 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertEqual(len(tasks), 1)
         self.assertEqual(tasks[0].context.workdir, workspace_path)
         self.assertIn("继续修复", tasks[0].prompt)
+        self.assertEqual(len(replies), 1)
+        self.assertNotIn("收到", replies[0])
 
     def test_process_migration_channel_runs_codex_with_worktree_context(self) -> None:
         repo_root = self.make_repo_root()
@@ -202,9 +207,9 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return []
             if method == "GET" and route == "/channels/piclaw-1/messages?limit=20":
                 return [{"id": "100", "content": "!fix 修复网页截图流程", "author": {"id": "u1"}}]
-            if method == "PUT" and route == "/channels/piclaw-1/messages/100/reactions/%F0%9F%91%80/@me":
+            if method == "PUT" and route == "/channels/piclaw-1/messages/100/reactions/%E2%9C%85/@me":
                 return {}
-            if method == "PUT" and route == "/channels/piclaw-1/messages/100/reactions/%F0%9F%94%A7/@me":
+            if method == "PUT" and route == "/channels/piclaw-1/messages/100/reactions/%F0%9F%9A%80/@me":
                 return {}
             if method == "POST" and route == "/channels/piclaw-1/messages":
                 return {"id": f"reply-{len(events)}"}
@@ -230,14 +235,14 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertIn("rcarmo/piclaw", tasks[0].prompt)
         self.assertIn(str(workspace_path), tasks[0].command)
         self.assertLess(
-            events.index(("PUT", "/channels/piclaw-1/messages/100/reactions/%F0%9F%91%80/@me", None)),
+            events.index(("PUT", "/channels/piclaw-1/messages/100/reactions/%E2%9C%85/@me", None)),
             next(index for index, event in enumerate(events) if event[0:2] == ("POST", "/channels/piclaw-1/messages")),
         )
         self.assertLess(
-            events.index(("PUT", "/channels/piclaw-1/messages/100/reactions/%F0%9F%94%A7/@me", None)),
+            events.index(("PUT", "/channels/piclaw-1/messages/100/reactions/%F0%9F%9A%80/@me", None)),
             events.index(("RUNNER", "codex", None)),
         )
-        self.assertEqual(sum(1 for event in events if event[0:2] == ("POST", "/channels/piclaw-1/messages")), 2)
+        self.assertEqual(sum(1 for event in events if event[0:2] == ("POST", "/channels/piclaw-1/messages")), 1)
         state = json.loads(config.state_path.read_text(encoding="utf-8"))
         self.assertEqual(state["channels"]["piclaw-1"]["last_message_id"], "100")
 
@@ -259,7 +264,7 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return []
             if method == "GET" and route == "/channels/piclaw-1/messages?limit=20":
                 return [{"id": "101", "content": "!status", "author": {"id": "u1"}}]
-            if method == "PUT" and route == "/channels/piclaw-1/messages/101/reactions/%F0%9F%91%80/@me":
+            if method == "PUT" and route == "/channels/piclaw-1/messages/101/reactions/%E2%9C%85/@me":
                 return {}
             if method == "POST" and route == "/channels/piclaw-1/messages":
                 assert payload is not None
@@ -315,7 +320,7 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return []
             if method == "GET" and route == "/channels/dashboard-1/messages?limit=20":
                 return [{"id": "150", "content": "!status", "author": {"id": "u1"}}]
-            if method == "PUT" and route == "/channels/dashboard-1/messages/150/reactions/%F0%9F%91%80/@me":
+            if method == "PUT" and route == "/channels/dashboard-1/messages/150/reactions/%E2%9C%85/@me":
                 return {}
             if method == "POST" and route == "/channels/dashboard-1/messages":
                 assert payload is not None
@@ -358,9 +363,9 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return []
             if method == "GET" and route == "/channels/dashboard-1/messages?limit=20":
                 return [{"id": "151", "content": "!codex 总结今天失败原因", "author": {"id": "u1"}}]
-            if method == "PUT" and route == "/channels/dashboard-1/messages/151/reactions/%F0%9F%91%80/@me":
+            if method == "PUT" and route == "/channels/dashboard-1/messages/151/reactions/%E2%9C%85/@me":
                 return {}
-            if method == "PUT" and route == "/channels/dashboard-1/messages/151/reactions/%F0%9F%94%A7/@me":
+            if method == "PUT" and route == "/channels/dashboard-1/messages/151/reactions/%F0%9F%9A%80/@me":
                 return {}
             if method == "POST" and route == "/channels/dashboard-1/messages":
                 return {"id": "reply-1"}
@@ -400,7 +405,7 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return []
             if method == "GET" and route == "/channels/demo-1/messages?limit=20":
                 return [{"id": "102", "content": "!fix 继续", "author": {"id": "u1"}}]
-            if method == "PUT" and route == "/channels/demo-1/messages/102/reactions/%F0%9F%91%80/@me":
+            if method == "PUT" and route == "/channels/demo-1/messages/102/reactions/%E2%9C%85/@me":
                 return {}
             if method == "POST" and route == "/channels/demo-1/messages":
                 assert payload is not None
@@ -479,7 +484,7 @@ class DiscordCodexControlTest(unittest.TestCase):
                 raise RuntimeError("HTTP 403")
             if method == "GET" and route == "/channels/piclaw-1/messages?limit=20":
                 return [{"id": "301", "content": "!status", "author": {"id": "u1"}}]
-            if method == "PUT" and route == "/channels/piclaw-1/messages/301/reactions/%F0%9F%91%80/@me":
+            if method == "PUT" and route == "/channels/piclaw-1/messages/301/reactions/%E2%9C%85/@me":
                 return {}
             if method == "POST" and route == "/channels/piclaw-1/messages":
                 assert payload is not None
@@ -534,7 +539,7 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return []
             if method == "GET" and route == "/channels/piclaw-1/messages?limit=20":
                 return [{"id": "401", "content": "!status", "author": {"id": "u1"}}]
-            if method == "PUT" and route == "/channels/piclaw-1/messages/401/reactions/%F0%9F%91%80/@me":
+            if method == "PUT" and route == "/channels/piclaw-1/messages/401/reactions/%E2%9C%85/@me":
                 return {}
             if method == "POST" and route == "/channels/piclaw-1/messages":
                 raise RuntimeError("send failed")
@@ -586,9 +591,9 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return []
             if method == "GET" and route in {"/channels/piclaw-1/messages?limit=20", "/channels/piclaw-1/messages?after=old&limit=20", "/channels/piclaw-1/messages?limit=20&after=old"}:
                 return [{"id": "501", "content": "!filter-close", "author": {"id": "u1"}}]
-            if method == "PUT" and route == "/channels/piclaw-1/messages/501/reactions/%F0%9F%91%80/@me":
+            if method == "PUT" and route == "/channels/piclaw-1/messages/501/reactions/%E2%9C%85/@me":
                 return {}
-            if method == "PUT" and route == "/channels/piclaw-1/messages/501/reactions/%F0%9F%94%A7/@me":
+            if method == "PUT" and route == "/channels/piclaw-1/messages/501/reactions/%F0%9F%9A%80/@me":
                 return {}
             if method == "POST" and route == "/channels/piclaw-1/messages":
                 assert payload is not None

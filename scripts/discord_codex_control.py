@@ -51,8 +51,8 @@ DISCORD_GATEWAY_PATH = "/?v=10&encoding=json"
 DISCORD_GATEWAY_GUILDS_INTENT = 1 << 0
 DISCORD_GATEWAY_GUILD_MESSAGES_INTENT = 1 << 9
 DISCORD_GATEWAY_MESSAGE_CONTENT_INTENT = 1 << 15
-ACK_REACTION = "%F0%9F%91%80"
-WORKER_REACTION = "%F0%9F%94%A7"
+ACK_REACTION = "%E2%9C%85"
+WORKER_REACTION = "%F0%9F%9A%80"
 CONTROL_CHANNEL_NAME = "migration-control"
 CONTROL_ONLY_SUFFIXES = {"control", "dashboard", "local-agent", "codex-control"}
 DASHBOARD_CHANNEL_NAME = "dashboard"
@@ -987,10 +987,6 @@ def handle_gateway_message_create(
             client.add_reaction(channel_id, message_id, WORKER_REACTION)
         except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
             reaction_error = str(exc)
-        try:
-            client.send_message(channel_id, truncate_reply(f"收到，正在交给 Codex 处理：{parsed.instruction}"))
-        except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
-            send_error = str(exc)
 
     result = handle_command(parsed, context, config, runner=runner, now=now, task_id=message_id)
     if result.reply:
@@ -1345,13 +1341,11 @@ def process_codex_control_commands(
                     client.add_reaction(context.channel_id, message_id, WORKER_REACTION)
                 except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
                     reaction_error = str(exc)
-                try:
-                    if parsed.kind == "filter_cleanup":
+                if parsed.kind == "filter_cleanup":
+                    try:
                         client.send_message(context.channel_id, "收到，正在把当前 repo 加入过滤名单并清理频道、worktree、branch。完成后这个频道会被关闭。")
-                    else:
-                        client.send_message(context.channel_id, truncate_reply(f"收到，正在交给 Codex 处理：{parsed.instruction}"))
-                except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
-                    send_error = str(exc)
+                    except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+                        send_error = str(exc)
             result = handle_command(parsed, context, config, client=client, runner=runner, now=now, task_id=message_id)
             if result.reply and not result.delete_channel_id:
                 try:
