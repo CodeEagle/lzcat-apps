@@ -1,23 +1,23 @@
 {
   "schema_version": 1,
   "app": "signoz",
-  "source_version": "v0.119.0",
-  "build_version": "0.119.0",
-  "head_sha": "f145055848f6",
+  "source_version": "v0.120.0",
+  "build_version": "0.120.0",
+  "head_sha": "0decb1680f14",
   "build_recipe_hash": "9922dd014189bd647f0a348847511208afdf6f3e40d2fd9b084e28f6a510f602",
-  "updated_at": "2026-04-15T12:42:22.604836+00:00",
+  "updated_at": "2026-04-26T01:39:57.536731+00:00",
   "images": {
     "clickhouse": "registry.lazycat.cloud/invokerlaw/clickhouse/clickhouse-server:ccb6549ae7e253ed",
     "init-clickhouse": "registry.lazycat.cloud/invokerlaw/clickhouse/clickhouse-server:ccb6549ae7e253ed",
     "otel-collector": "registry.lazycat.cloud/invokerlaw/signoz/signoz-otel-collector:85bd090294be0dbf",
-    "signoz": "registry.lazycat.cloud/invokerlaw/signoz/signoz:cf8108ea8b8e369d",
+    "signoz": "registry.lazycat.cloud/invokerlaw/signoz/signoz:fc66cf1c7b713a69",
     "zookeeper-1": "registry.lazycat.cloud/invokerlaw/signoz/zookeeper:730916d2ce75de76"
   },
   "source_images": {
     "clickhouse": "clickhouse/clickhouse-server:25.5.6",
     "init-clickhouse": "clickhouse/clickhouse-server:25.5.6",
     "otel-collector": "signoz/signoz-otel-collector:v0.144.2",
-    "signoz": "signoz/signoz:v0.119.0",
+    "signoz": "signoz/signoz:v0.120.0",
     "zookeeper-1": "signoz/zookeeper:3.7.1"
   },
   "source_digests": {
@@ -25,9 +25,9 @@
   },
   "copy_image_events": [
     {
-      "source_image": "signoz/signoz:v0.119.0",
-      "target_image": "registry.lazycat.cloud/invokerlaw/signoz/signoz:cf8108ea8b8e369d",
-      "elapsed_seconds": 47.61,
+      "source_image": "signoz/signoz:v0.120.0",
+      "target_image": "registry.lazycat.cloud/invokerlaw/signoz/signoz:fc66cf1c7b713a69",
+      "elapsed_seconds": 49.163,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
