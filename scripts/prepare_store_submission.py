@@ -80,6 +80,34 @@ def copy_asset(source: Path, output_dir: Path, filename: str | None = None) -> P
     return dest
 
 
+def validate_web_screenshots(repo_root: Path, app_root: Path, screenshot_paths: list[Path]) -> Path:
+    metadata_path = app_root / "acceptance" / "web-screenshots.json"
+    if not metadata_path.exists():
+        raise RuntimeError(
+            "store screenshots must be captured from the web page content area; "
+            "run scripts/capture_web_screenshot.py before preparing submission materials"
+        )
+    metadata = read_json(metadata_path)
+    if metadata.get("capture_method") != "playwright_page_screenshot":
+        raise RuntimeError("web screenshot metadata has an unsupported capture_method")
+    records = metadata.get("screenshots", [])
+    if not isinstance(records, list):
+        raise RuntimeError("web screenshot metadata screenshots must be a list")
+    recorded_paths = {
+        str(item.get("path", "")).strip()
+        for item in records
+        if isinstance(item, dict)
+    }
+    expected_paths = {relative_to_repo(repo_root, path) for path in screenshot_paths}
+    missing = sorted(expected_paths - recorded_paths)
+    if missing:
+        raise RuntimeError(
+            "acceptance screenshots are missing web-page capture metadata: "
+            + ", ".join(missing)
+        )
+    return metadata_path
+
+
 def build_submission(repo_root: Path, slug: str, developer_url: str, output_dir: Path) -> dict[str, Any]:
     app_root = repo_root / "apps" / slug
     if not app_root.exists():
@@ -109,6 +137,7 @@ def build_submission(repo_root: Path, slug: str, developer_url: str, output_dir:
     screenshot_paths = sorted((app_root / "acceptance").glob("*.png"))
     if not screenshot_paths:
         raise FileNotFoundError(f"no acceptance screenshots found under {app_root / 'acceptance'}")
+    web_screenshot_metadata_path = validate_web_screenshots(repo_root, app_root, screenshot_paths)
     materialized_assets_dir = output_dir / "assets"
     materialized_icon_path = copy_asset(icon_path, materialized_assets_dir, "icon.png")
     materialized_screenshot_paths = [
@@ -160,6 +189,7 @@ def build_submission(repo_root: Path, slug: str, developer_url: str, output_dir:
             "screenshots": [relative_to_repo(repo_root, path) for path in materialized_screenshot_paths],
             "source_icon": relative_to_repo(repo_root, icon_path),
             "source_screenshots": [relative_to_repo(repo_root, path) for path in screenshot_paths],
+            "web_screenshot_metadata": relative_to_repo(repo_root, web_screenshot_metadata_path),
             "store_copy": relative_to_repo(repo_root, store_copy_path),
             "tutorial": relative_to_repo(repo_root, tutorial_path),
         },
@@ -209,6 +239,7 @@ def write_checklist(repo_root: Path, output_dir: Path, submission: dict[str, Any
 - Icon: `{submission["assets"]["icon"]}`
 - Screenshots:
 {screenshots}
+- Web screenshot metadata: `{submission["assets"]["web_screenshot_metadata"]}`
 
 ## 文案来源
 

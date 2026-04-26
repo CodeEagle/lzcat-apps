@@ -42,6 +42,7 @@
     "source_screenshots": [
       "apps/piclaw/acceptance/piclaw-home.png"
     ],
+    "web_screenshot_metadata": "apps/piclaw/acceptance/web-screenshots.json",
     "store_copy": "apps/piclaw/copywriting/store-copy.md",
     "tutorial": "apps/piclaw/copywriting/tutorial.md"
   },
