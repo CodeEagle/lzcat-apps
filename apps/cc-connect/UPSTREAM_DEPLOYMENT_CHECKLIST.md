@@ -33,7 +33,7 @@
 - `/data/state`：cc-connect `data_dir`，保存会话、cron、relay、项目状态。
 - `/data/home/.config`、`/data/home/.local/share`、`/data/home/.cache`：Agent CLI 与 npm/global CLI 运行时状态。
 - `/data/home/.claude`、`/data/home/.codex`、`/data/home/.agents/skills`：可选导入本机 Claude Code/Codex 登录状态、commands 和 skills；这些目录包含敏感凭据，必须由用户手动确认后复制。
-- 启动更新：`entrypoint.sh` 默认每次启动运行 `/usr/local/bin/update-agent-clis.sh --best-effort` 更新 Agent CLI；更新失败不阻塞主服务，可通过 `CC_CONNECT_UPDATE_AGENT_CLIS_ON_START=0` 关闭。
+- 启动更新：`entrypoint.sh` 默认每次启动在后台运行 `/usr/local/bin/update-agent-clis.sh --best-effort` 更新 Agent CLI，日志写入 `/data/state/agent-cli-update.log`；更新失败不阻塞主服务，可通过 `CC_CONNECT_UPDATE_AGENT_CLIS_ON_START=0` 关闭。
 - `/data/workspaces`：用户在 Web 管理台创建项目时的默认工作区根目录。
 - `/data/bin`：用户可追加安装自定义 agent CLI，已加入 PATH。
 

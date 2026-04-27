@@ -28,7 +28,11 @@ export CODEX_HOME="${CODEX_HOME:-${HOME}/.codex}"
 export PATH="${DATA_DIR}/bin:${PATH}"
 
 if [ "${CC_CONNECT_UPDATE_AGENT_CLIS_ON_START:-1}" != "0" ] && [ -x /usr/local/bin/update-agent-clis.sh ]; then
-  /usr/local/bin/update-agent-clis.sh --best-effort
+  (
+    echo "[agent-cli] startup update started at $(date -Is)"
+    /usr/local/bin/update-agent-clis.sh --best-effort
+    echo "[agent-cli] startup update finished at $(date -Is)"
+  ) >>"${DATA_DIR}/state/agent-cli-update.log" 2>&1 &
 fi
 
 if [ ! -f "${CONFIG_FILE}" ]; then

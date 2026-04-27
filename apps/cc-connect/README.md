@@ -25,7 +25,7 @@ cc-connect 把 Claude Code、Codex、Gemini CLI、OpenCode 等本地 AI coding a
 1. Node 22 构建 `web/dist`。
 2. Go 1.25 构建 `cmd/cc-connect` 并嵌入 Web 资源。
 3. 运行时镜像携带 `cc-connect`、Node、git、sqlite3，并默认安装 Claude Code、Codex、Gemini CLI、iFlow CLI、OpenCode、Kimi CLI 和 Qoder CLI。构建期安装失败会让 GitHub Workflow 失败，避免产出缺少默认 Agent 的 LPK。
-4. 容器每次启动时会重新执行 Agent CLI 更新。更新失败只记录 warning，不阻塞 cc-connect 启动；如需关闭，设置 `CC_CONNECT_UPDATE_AGENT_CLIS_ON_START=0`。
+4. 容器每次启动时会在后台重新执行 Agent CLI 更新，日志写入 `/data/state/agent-cli-update.log`。更新失败只记录 warning，不阻塞 cc-connect 启动；如需关闭，设置 `CC_CONNECT_UPDATE_AGENT_CLIS_ON_START=0`。
 
 正式构建由 `trigger-build.yml` 执行，产物镜像地址通过 `.lazycat-images.json` 管理，仓库内 manifest 保持占位镜像。
 
