@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -81,12 +82,24 @@ async def capture(args: argparse.Namespace) -> tuple[Path, Path]:
 
     viewport = args.viewport
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(headless=True)
+        launch_kwargs: dict[str, Any] = {"headless": True}
+        executable_path = os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH", "").strip()
+        if executable_path:
+            launch_kwargs["executable_path"] = executable_path
+        browser = await playwright.chromium.launch(**launch_kwargs)
         page = await browser.new_page(
             viewport={"width": viewport[0], "height": viewport[1]},
             ignore_https_errors=True,
         )
         await page.goto(args.url, wait_until="domcontentloaded", timeout=args.timeout_ms)
+        if args.click_text:
+            target = page.get_by_role("link", name=args.click_text).first
+            if not await target.count():
+                target = page.get_by_role("button", name=args.click_text).first
+            if not await target.count():
+                target = page.get_by_text(args.click_text, exact=True).first
+            await target.click(timeout=args.timeout_ms)
+
         if args.wait_text:
             await page.get_by_text(args.wait_text, exact=False).first.wait_for(
                 state="visible",
@@ -115,6 +128,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", default="")
     parser.add_argument("--viewport", type=parse_viewport, default=(1280, 800))
     parser.add_argument("--wait-text", default="")
+    parser.add_argument("--click-text", default="")
     parser.add_argument("--dismiss-text", default="Dismiss")
     parser.add_argument("--timeout-ms", type=int, default=60000)
     parser.add_argument("--full-page", action="store_true")
