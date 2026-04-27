@@ -37,4 +37,35 @@ cc-connect 把 Claude Code、Codex、Gemini CLI、OpenCode 等本地 AI coding a
 3. 添加 Feishu/Lark、Telegram、Discord、Slack、Weixin 等平台凭据。
 4. 保存后按页面提示重启或重载服务。
 
+## Claude Code / Codex 接入
+
+LazyCat 版运行在容器里，不能直接读取你电脑上的 `~/.claude`、`~/.codex` 或已登录的本地 CLI 状态。推荐做法是在 Web 管理台重新配置 Provider：
+
+1. 在 `Providers` 添加 Anthropic/OpenAI 或兼容中转 Provider。
+2. 在 `Projects` 创建项目，Agent 类型选择 `claudecode` 或 `codex`。
+3. 工作目录使用 `/data/workspaces/<project>`。
+
+这种方式不需要导入本机 CLI 凭据。cc-connect 会把 Provider API Key 注入 Claude Code/Codex；Codex 还会自动写入 `/data/home/.codex/auth.json`。
+
+如果必须复用本机已经登录的 Claude Code/Codex，请手动把本机配置复制进 LazyCat 容器的 `/data/home`。这些目录包含登录 token 和 API Key，只在确认接受把凭据上传到 LazyCat 盒子时执行：
+
+```bash
+cd /Volumes/ORICO/Development/Github/lzcat/lzcat-apps-cc-connect/apps/cc-connect
+
+# Claude Code: OAuth/API 配置、commands、skills 等
+lzc-cli project cp -s cc-connect --release ~/.claude /data/home/.claude
+[ -f ~/.claude.json ] && lzc-cli project cp -s cc-connect --release ~/.claude.json /data/home/.claude.json
+
+# Codex: auth.json、config.toml、skills、sessions 等
+lzc-cli project cp -s cc-connect --release ~/.codex /data/home/.codex
+
+# 可选：Codex 兼容的全局 skills 目录
+[ -d ~/.agents/skills ] && lzc-cli project cp -s cc-connect --release ~/.agents/skills /data/home/.agents/skills
+
+# 检查容器内 CLI 是否可见
+lzc-cli project exec -s cc-connect --release -- bash -lc 'HOME=/data/home CODEX_HOME=/data/home/.codex claude --version && codex --version'
+```
+
+复制后在 System 页面执行 `Restart`，或重新安装/重启应用。Web 管理台的 Skills 页面会从 `/data/home/.claude/skills`、`/data/home/.codex/skills` 和 `/data/home/.agents/skills` 读取可用技能。
+
 Webhook 型平台需要公网 callback；当前 LazyCat manifest 只固定暴露 `/hook`，其余自定义 callback 端口建议优先改成长连接模式或另行配置反代。

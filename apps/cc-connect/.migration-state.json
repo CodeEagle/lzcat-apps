@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "https://github.com/chenhg5/cc-connect",
   "created_at": "2026-04-27T06:40:03.291292+00:00",
-  "updated_at": "2026-04-27T07:07:32+00:00",
+  "updated_at": "2026-04-27T07:16:56.157231+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -66,6 +66,7 @@
             "CC_CONNECT_DATA_DIR=/data",
             "CC_CONNECT_CONFIG=/data/config.toml",
             "HOME=/data/home",
+            "CODEX_HOME=/data/home/.codex",
             "XDG_CONFIG_HOME=/data/home/.config",
             "XDG_DATA_HOME=/data/home/.local/share",
             "XDG_CACHE_HOME=/data/home/.cache"
@@ -93,6 +94,7 @@
         "CC_CONNECT_DATA_DIR=/data",
         "CC_CONNECT_CONFIG=/data/config.toml",
         "HOME=/data/home",
+        "CODEX_HOME=/data/home/.codex",
         "XDG_CONFIG_HOME=/data/home/.config",
         "XDG_DATA_HOME=/data/home/.local/share",
         "XDG_CACHE_HOME=/data/home/.cache"
@@ -104,7 +106,8 @@
         "Go 1.25 source build with embedded web admin UI.",
         "Default config is created at /data/config.toml on first start.",
         "Management-only startup is enabled by a LazyCat build patch.",
-        "Tokenless web login is enabled when CC_CONNECT_MANAGEMENT_TOKEN is empty."
+        "Tokenless web login is enabled when CC_CONNECT_MANAGEMENT_TOKEN is empty.",
+        "Agent CLI home is persisted under /data/home, with CODEX_HOME=/data/home/.codex."
       ],
       "include_content": false,
       "ai_pod_service": "",
@@ -126,12 +129,12 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-27T06:53:15.494099+00:00",
+      "completed_at": "2026-04-27T07:16:53.758331+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-27T06:53:17.786824+00:00",
+      "completed_at": "2026-04-27T07:16:56.102121+00:00",
       "conclusion": "已自动推断构建路线为 `target_repo_dockerfile`"
     },
     "3": {
@@ -164,13 +167,13 @@
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-04-27T06:53:17.834984+00:00",
+      "completed_at": "2026-04-27T07:16:56.156562+00:00",
       "conclusion": "预检通过",
       "all_passed": true
     },
     "8": {
       "completed": true,
-      "completed_at": "2026-04-27T06:53:17.835329+00:00",
+      "completed_at": "2026-04-27T07:16:56.157227+00:00",
       "conclusion": "validate-only 模式停止"
     },
     "9": {

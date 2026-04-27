@@ -13,6 +13,9 @@ mkdir -p \
   "${DATA_DIR}/home/.config" \
   "${DATA_DIR}/home/.local/share" \
   "${DATA_DIR}/home/.cache" \
+  "${DATA_DIR}/home/.agents/skills" \
+  "${DATA_DIR}/home/.claude" \
+  "${DATA_DIR}/home/.codex" \
   "${DATA_DIR}/state" \
   "${DATA_DIR}/workspaces" \
   "${DATA_DIR}/bin"
@@ -21,6 +24,7 @@ export HOME="${HOME:-${DATA_DIR}/home}"
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
 export XDG_DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${HOME}/.cache}"
+export CODEX_HOME="${CODEX_HOME:-${HOME}/.codex}"
 export PATH="${DATA_DIR}/bin:${PATH}"
 
 if [ ! -f "${CONFIG_FILE}" ]; then

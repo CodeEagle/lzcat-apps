@@ -27,6 +27,7 @@
           "CC_CONNECT_DATA_DIR=/data",
           "CC_CONNECT_CONFIG=/data/config.toml",
           "HOME=/data/home",
+          "CODEX_HOME=/data/home/.codex",
           "XDG_CONFIG_HOME=/data/home/.config",
           "XDG_DATA_HOME=/data/home/.local/share",
           "XDG_CACHE_HOME=/data/home/.cache"
@@ -51,12 +52,10 @@
       ]
     },
     "startup_notes": [
-      "检测到前端应用目录 `web` 使用静态站构建，可按 nginx 托管产物封装。",
-      "构建目录：`web`；安装根目录：`web`。",
-      "自动推断构建命令：`pnpm build`。",
-      "运行时按静态站处理，由 nginx 托管构建产物目录。",
-      "未扫描到 env 示例文件",
-      "扫描到 README：README.md, README.zh-CN.md, README.md"
+      "Go 1.25 source build with embedded web admin UI.",
+      "Default config is created at /data/config.toml on first start.",
+      "Management-only startup is enabled by a LazyCat build patch.",
+      "Agent CLI home is persisted under /data/home, with CODEX_HOME=/data/home/.codex."
     ],
     "include_content": false
   }
