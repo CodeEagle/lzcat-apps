@@ -47,6 +47,7 @@
     "multica.json",
     "mercury-agent.json",
     "piclaw.json",
-    "cc-connect.json"
+    "cc-connect.json",
+    "agent-runtime.json"
   ]
 }

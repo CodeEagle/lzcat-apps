@@ -1,0 +1,64 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "CodeEagle/agent-runtime",
+  "fixes": {
+    "project_name": "agent-runtime",
+    "description": "Portable multi-tenant CLI agent runtime for shared agent CLI tools",
+    "description_zh": "（迁移初稿）Agent Runtime 的懒猫微服版本",
+    "homepage": "https://github.com/CodeEagle/agent-runtime",
+    "author": "CodeEagle",
+    "package": "fun.selfstudio.app.migration.agent-runtime",
+    "check_strategy": "commit_sha",
+    "build_strategy": "upstream_dockerfile",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "docker_platform": "linux/amd64",
+    "image_targets": [
+      "agent-runtime"
+    ],
+    "service_port": 8080,
+    "services": {
+      "agent-runtime": {
+        "image": "registry.lazycat.cloud/placeholder/agent-runtime:bootstrap",
+        "healthcheck": {
+          "test": [
+            "CMD-SHELL",
+            "wget -qO- http://127.0.0.1:8080/api/health >/dev/null || exit 1"
+          ],
+          "interval": "30s",
+          "timeout": "10s",
+          "retries": 5
+        },
+        "binds": [
+          "/lzcapp/var/data/agent-runtime/agent-runtime:/data"
+        ]
+      }
+    },
+    "application": {
+      "subdomain": "agent-runtime",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://agent-runtime:8080/"
+        }
+      ]
+    },
+    "data_paths": [
+      {
+        "host": "/lzcapp/var/data/agent-runtime/agent-runtime",
+        "container": "/data",
+        "description": "From mkdir -p in Dockerfile"
+      }
+    ],
+    "startup_notes": [
+      "自动扫描到 Dockerfile：Dockerfile",
+      "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
+      "未扫描到 env 示例文件",
+      "扫描到 README：README.md"
+    ],
+    "include_content": false
+  }
+}
