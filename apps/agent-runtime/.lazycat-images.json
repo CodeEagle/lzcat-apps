@@ -1,25 +1,25 @@
 {
   "schema_version": 1,
   "app": "agent-runtime",
-  "source_version": "1bd8371",
-  "build_version": "0.1.8",
-  "head_sha": "d436319dc5a7",
+  "source_version": "61eb808",
+  "build_version": "0.1.9",
+  "head_sha": "09786cbbfb7a",
   "build_recipe_hash": "aab0f1660c2571c384c6d888b6a1dd18c2176ad02c088a0e7567bc044f25d84d",
-  "updated_at": "2026-04-27T14:06:04.432116+00:00",
+  "updated_at": "2026-04-27T15:24:31.574065+00:00",
   "images": {
-    "agent-runtime": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:1f393ca2973015d4"
+    "agent-runtime": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:d7cee3d8c5ca6286"
   },
   "source_images": {
-    "agent-runtime": "ghcr.io/codeeagle/lazycatimages:agentRuntime_d436319dc5a7"
+    "agent-runtime": "ghcr.io/codeeagle/lazycatimages:agentRuntime_09786cbbfb7a"
   },
   "source_digests": {
-    "_primary": "sha256:35ad5f8f2decfbd2d5eddedd440f03e9517eb90e525d642bdb50175f2b9a5e93"
+    "_primary": "sha256:3fc3669ddbf6e8232962557b9ef90e3b970681267951b2224567eb1810ce3399"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:agentRuntime_d436319dc5a7",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:1f393ca2973015d4",
-      "elapsed_seconds": 47.567,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:agentRuntime_09786cbbfb7a",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:d7cee3d8c5ca6286",
+      "elapsed_seconds": 29.602,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
