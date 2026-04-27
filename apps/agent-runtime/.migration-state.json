@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "CodeEagle/agent-runtime",
   "created_at": "2026-04-27T08:40:22.314397+00:00",
-  "updated_at": "2026-04-27T09:51:36.489822+00:00",
+  "updated_at": "2026-04-27T09:52:50.957094+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -158,26 +158,26 @@
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-04-27T08:57:36.753081+00:00",
+      "completed_at": "2026-04-27T09:51:36.682673+00:00",
       "conclusion": "预检通过",
       "all_passed": true
     },
     "8": {
       "completed": true,
-      "completed_at": "2026-04-27T09:01:12.716443+00:00",
+      "completed_at": "2026-04-27T09:52:47.128908+00:00",
       "conclusion": "构建成功",
       "build_mode": "reinstall"
     },
     "9": {
       "completed": true,
-      "completed_at": "2026-04-27T09:01:12.718115+00:00",
+      "completed_at": "2026-04-27T09:52:47.131819+00:00",
       "conclusion": "lpk 已验证",
-      "lpk_sha256": "9c9462c280dd040e1b54f6955a53bbf41aee022050586db8e21d0780db629380",
+      "lpk_sha256": "f3852564d53b522770a565cf5e7da0bdc5910f71d1601761e6dedca6ab9549bf",
       "lpk_size_bytes": 854
     },
     "10": {
       "completed": true,
-      "completed_at": "2026-04-27T09:01:16.382747+00:00",
+      "completed_at": "2026-04-27T09:52:50.957039+00:00",
       "conclusion": "验收完成",
       "pending_backports": []
     }
@@ -188,16 +188,26 @@
       "step": 8,
       "description": "    )\n    ^\n  File \"/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/scripts/run_build.py\", line 187, in run_streaming\n    raise RuntimeError(\n    ...<2 lines>...\n    )\nRuntimeError: Command failed (1): ['docker', 'build', '--platform', 'linux/amd64', '-f', '/var/folders/j_/6_f1sp_s54bds4vqqhyx2flr0000gn/T/lzcat-upstream-acp9l30k/Dockerfile', '-t', 'ghcr.io/codeeagle/lazycatimages:agentRuntime_d184e0d8ec3c', '--label', 'org.opencontainers.image.source=https://github.com/CodeEagle/lzcat-apps', '--build-arg', 'SOURCE_VERSION=8b1fc6d', '--build-arg', 'BUILD_VERSION=0.1.1', '/var/folders/j_/6_f1sp_s54bds4vqqhyx2flr0000gn/T/lzcat-upstream-acp9l30k']\noutput:\nDEPRECATED: The legacy builder is deprecated and will be removed in a future release.\n            Install the buildx component to build images with BuildKit:\n            https://docs.docker.com/go/buildx/\nSending build context to Docker daemon  87.04kB\nStep 1/16 : FROM golang:1.24-alpine AS build\n1.24-alpine: Pulling from library/golang\n4f4fb700ef54: Pulling fs layer\n8f78851c25d2: Pulling fs layer\n589002ba0eae: Pulling fs layer\nf7bdfd728ac2: Pulling fs layer\nc95d909b2488: Pulling fs layer\n4f4fb700ef54: Already exists\n4f4fb700ef54: Pull complete\n1d33ae2c002b: Download complete\nc95d909b2488: Download complete\n8f78851c25d2: Download complete\n137f4946deb0: Download complete\n589002ba0eae: Download complete\n8f78851c25d2: Pull complete\n589002ba0eae: Pull complete\nf7bdfd728ac2: Download complete\nc95d909b2488: Pull complete\nf7bdfd728ac2: Pull complete\nDigest: sha256:8bee1901f1e530bfb4a7850aa7a479d17ae3a18beb6e09064ed54cfd245b7191\nStatus: Image is up to date for golang:1.24-alpine\n ---> 8bee1901f1e5\nStep 2/16 : WORKDIR /src\n ---> Running in b05eaf6b16cb\n ---> Removed intermediate container b05eaf6b16cb\n ---> 0fdd2dddc958\nStep 3/16 : COPY go.mod ./\nfailed to get destination image \"sha256:0fdd2dddc9586b5dfae194cfe3876a24d82c2448c30097a1af1089ae956db93e\": image with reference sha256:0fdd2dddc9586b5dfae194cfe3876a24d82c2448c30097a1af1089ae956db93e was found but does not provide the specified platform (linux/amd64)",
       "category": "build",
-      "status": "resolved",
-      "created_at": "2026-04-27T08:41:52.773432+00:00"
+      "status": "backported",
+      "created_at": "2026-04-27T08:41:52.773432+00:00",
+      "backport": {
+        "target": "scripts/run_build.py",
+        "description": "Use docker buildx with --load when platform-specific image builds are requested.",
+        "committed": true
+      }
     },
     {
       "id": "p2",
       "step": 8,
       "description": "  File \"/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/scripts/run_build.py\", line 2350, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/scripts/run_build.py\", line 2054, in main\n    target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name, dry_run=args.dry_run)\n  File \"/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/scripts/run_build.py\", line 1664, in build_target_image\n    return build_with_dockerfile(\n        source_root,\n    ...<6 lines>...\n        dry_run=dry_run,\n    )\n  File \"/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/scripts/run_build.py\", line 1413, in build_with_dockerfile\n    run_streaming(\n    ~~~~~~~~~~~~~^\n        args,\n        ^^^^^\n    ...<4 lines>...\n        heartbeat_interval=parse_int_env(env, \"LZCAT_BUILD_HEARTBEAT_INTERVAL\", 60),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/scripts/run_build.py\", line 187, in run_streaming\n    raise RuntimeError(\n    ...<2 lines>...\n    )\nRuntimeError: Command failed (1): ['docker', 'build', '--platform', 'linux/amd64', '-f', '/var/folders/j_/6_f1sp_s54bds4vqqhyx2flr0000gn/T/lzcat-upstream-1i12o1k7/Dockerfile', '-t', 'ghcr.io/codeeagle/lazycatimages:agentRuntime_bec21a2d1c7a', '--label', 'org.opencontainers.image.source=https://github.com/CodeEagle/lzcat-apps', '--build-arg', 'SOURCE_VERSION=ec58b1a', '--build-arg', 'BUILD_VERSION=0.1.1', '/var/folders/j_/6_f1sp_s54bds4vqqhyx2flr0000gn/T/lzcat-upstream-1i12o1k7']\noutput:\nDEPRECATED: The legacy builder is deprecated and will be removed in a future release.\n            Install the buildx component to build images with BuildKit:\n            https://docs.docker.com/go/buildx/\nSending build context to Docker daemon  87.04kB\nStep 1/17 : ARG TARGETPLATFORM=linux/amd64\nStep 2/17 : FROM --platform=$TARGETPLATFORM golang:1.24-alpine AS build\n ---> 8bee1901f1e5\nStep 3/17 : WORKDIR /src\n ---> Running in ee6b130256f2\n ---> Removed intermediate container ee6b130256f2\n ---> 1a5cf436e1a7\nStep 4/17 : COPY go.mod ./\nfailed to get destination image \"sha256:1a5cf436e1a755a390a6eab75eb6b78e757cae0d79c74759187ae3aeffcc4cef\": image with reference sha256:1a5cf436e1a755a390a6eab75eb6b78e757cae0d79c74759187ae3aeffcc4cef was found but does not provide the specified platform (linux/amd64)",
       "category": "build",
-      "status": "resolved",
-      "created_at": "2026-04-27T08:43:59.361073+00:00"
+      "status": "backported",
+      "created_at": "2026-04-27T08:43:59.361073+00:00",
+      "backport": {
+        "target": "scripts/run_build.py",
+        "description": "Use docker buildx with --load when platform-specific image builds are requested.",
+        "committed": true
+      }
     }
   ],
   "verification": {}
