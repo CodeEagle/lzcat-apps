@@ -1,25 +1,25 @@
 {
   "schema_version": 1,
   "app": "piclaw",
-  "source_version": "v2.0.2",
-  "build_version": "2.0.2",
-  "head_sha": "fad9baed19e1",
-  "build_recipe_hash": "906c4d9a40e9e92a82e4dae3591ffac6cac97bf17e1146628657a843417d8cb1",
-  "updated_at": "2026-04-27T10:04:38.319693+00:00",
+  "source_version": "00caa07",
+  "build_version": "2.0.3",
+  "head_sha": "4819e50da197",
+  "build_recipe_hash": "6f84e6c5cdb62b2fb7bc16e0841183871ff01d3edcd73a93ab288aab7c392771",
+  "updated_at": "2026-04-27T10:57:34.506653+00:00",
   "images": {
-    "pibox": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:2b54adb4e68dc891"
+    "pibox": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:a07bac5fcea24ec3"
   },
   "source_images": {
-    "pibox": "ghcr.io/codeeagle/lazycatimages:piclaw_fad9baed19e1"
+    "pibox": "ghcr.io/codeeagle/lazycatimages:piclaw_4819e50da197"
   },
   "source_digests": {
-    "_primary": "sha256:f85b83c9d16639b83efd4f7bbcff057042367b20d5e5eed3d845905b687ad52f"
+    "_primary": "sha256:9012eca6439001db57ebaaeb89cb4ec1d3a2ee07910d0a2b04728e7ed76b067f"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:piclaw_fad9baed19e1",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:2b54adb4e68dc891",
-      "elapsed_seconds": 137.575,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:piclaw_4819e50da197",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:a07bac5fcea24ec3",
+      "elapsed_seconds": 139.078,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
