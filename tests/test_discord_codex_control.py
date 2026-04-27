@@ -291,7 +291,7 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertIn("队列：3", replies[0])
         self.assertFalse(config.state_path.exists())
 
-    def test_dashboard_action_request_runs_worker_not_persistent_conversation(self) -> None:
+    def test_dashboard_action_request_stays_in_persistent_conversation(self) -> None:
         repo_root = self.make_repo_root()
         config = self.make_config(repo_root)
         context = ChannelContext(
@@ -302,13 +302,11 @@ class DiscordCodexControlTest(unittest.TestCase):
             workdir=repo_root,
             implicit_codex=True,
         )
-        tasks: list[CodexControlTask] = []
+        turns: list[DashboardConversationTurn] = []
         replies: list[str] = []
 
         def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
             if method == "PUT" and route == "/channels/dashboard-1/messages/905/reactions/%E2%9C%85/@me":
-                return {}
-            if method == "PUT" and route == "/channels/dashboard-1/messages/905/reactions/%F0%9F%9A%80/@me":
                 return {}
             if method == "POST" and route == "/channels/dashboard-1/messages":
                 assert payload is not None
@@ -316,12 +314,12 @@ class DiscordCodexControlTest(unittest.TestCase):
                 return {"id": "reply-1"}
             raise AssertionError(f"unexpected Discord call {method} {route}")
 
-        def runner(task: CodexControlTask) -> CodexControlRunResult:
-            tasks.append(task)
-            return CodexControlRunResult("completed", 0, "worker 已完成。", task.task_dir)
+        def runner(_: CodexControlTask) -> CodexControlRunResult:
+            raise AssertionError("dashboard action requests must never enter the worker prompt")
 
-        def dashboard_conversation(_: DashboardConversationTurn) -> DashboardConversationResult:
-            raise AssertionError("action request must not use persistent dashboard conversation")
+        def dashboard_conversation(turn: DashboardConversationTurn) -> DashboardConversationResult:
+            turns.append(turn)
+            return DashboardConversationResult("completed", "我会保持在 dashboard 对话里处理这个请求。", session_id="dashboard-session-2")
 
         result = handle_gateway_message_create(
             config,
@@ -335,11 +333,11 @@ class DiscordCodexControlTest(unittest.TestCase):
         )
 
         self.assertEqual(result, {"channel_id": "dashboard-1", "message_id": "905", "status": "completed"})
-        self.assertEqual(len(tasks), 1)
-        self.assertEqual(tasks[0].context.scope, "dashboard")
-        self.assertIn("把发现逻辑改一下", tasks[0].prompt)
-        self.assertIn("Codex worker 已启动", replies[0])
-        self.assertIn("Codex 任务完成", replies[-1])
+        self.assertEqual(len(turns), 1)
+        self.assertEqual(turns[0].instruction, "把发现逻辑改一下")
+        self.assertEqual(replies, ["我会保持在 dashboard 对话里处理这个请求。"])
+        state = json.loads(config.state_path.read_text(encoding="utf-8"))
+        self.assertEqual(state["channels"]["dashboard-1"]["codex"]["session_id"], "dashboard-session-2")
 
     def test_gateway_message_create_reports_timing_breakdown(self) -> None:
         repo_root = self.make_repo_root()

@@ -829,42 +829,6 @@ def enrich_codex_command_with_attachments(
     return ParsedCommand("codex", instruction, (*existing_images, *image_paths_from_results(results)))
 
 
-DASHBOARD_WORKER_KEYWORDS = (
-    "改",
-    "修改",
-    "修复",
-    "添加",
-    "加上",
-    "实现",
-    "执行",
-    "跑",
-    "运行",
-    "构建",
-    "测试",
-    "迁移",
-    "处理",
-    "接入",
-    "部署",
-    "更新",
-    "删除",
-    "fix",
-    "implement",
-    "add",
-    "update",
-    "run",
-    "build",
-    "test",
-    "migrate",
-)
-
-
-def dashboard_instruction_needs_worker(instruction: str) -> bool:
-    text = instruction.strip().lower()
-    if not text:
-        return False
-    return any(keyword in text for keyword in DASHBOARD_WORKER_KEYWORDS)
-
-
 def build_help_reply() -> str:
     return "\n".join(
         [
@@ -1909,7 +1873,8 @@ Channel context:
 Operating rules:
 	- Treat this as an ongoing conversation, not as a one-off worker task.
 	- Stay online as the dashboard conversation agent. Do not edit files, run builds, mutate queue state, or execute migration work from this session.
-	- If the operator asks for changes, fixes, builds, tests, or other work, tell them that the request should be handled by a worker; the control layer routes obvious action requests to workers automatically.
+	- If the operator asks for changes, fixes, builds, tests, or other work, stay in this dashboard conversation. Do not claim that a worker has started.
+	- When real migration work is needed, explain which migration/control channel command the operator should use, or ask the operator to confirm routing it there.
 	- For actual migration work, keep app-specific changes in migration/<slug> worktrees.
 - Keep template branch for reusable migration-platform improvements.
 - If you need credentials, legal judgement, or final publish approval, ask clearly.
@@ -2120,7 +2085,7 @@ def handle_command(
         ensured_context = ensure_context_workdir(context, config)
     except RuntimeError as exc:
         return CommandResult("worktree_failed", f"恢复 `{context.slug}` worktree 失败：{exc}")
-    if ensured_context.scope == "dashboard" and not dashboard_instruction_needs_worker(parsed.instruction):
+    if ensured_context.scope == "dashboard":
         if reply := dashboard_fast_reply(ensured_context, config, parsed.instruction, parsed.image_paths):
             return CommandResult("status", reply)
         turn = DashboardConversationTurn(
@@ -2219,7 +2184,7 @@ def handle_gateway_message_create(
     is_action_command = parsed.kind in {"codex", "filter_cleanup"}
     will_run = is_action_command and not (context.scope == "migration" and not context.item)
     will_run_worker = will_run and (
-        parsed.kind == "filter_cleanup" or context.scope != "dashboard" or dashboard_instruction_needs_worker(parsed.instruction)
+        parsed.kind == "filter_cleanup" or context.scope != "dashboard"
     )
     if will_run_worker:
         try:
@@ -2767,8 +2732,7 @@ def process_codex_control_commands(
             is_action_command = parsed.kind in {"codex", "filter_cleanup"}
             will_run = is_action_command and not (context.scope == "migration" and not context.item)
             will_run_worker = will_run and (
-                not (parsed.kind == "codex" and context.scope == "dashboard")
-                or dashboard_instruction_needs_worker(parsed.instruction)
+                parsed.kind == "filter_cleanup" or not (parsed.kind == "codex" and context.scope == "dashboard")
             )
             send_error = ""
             if will_run_worker:
