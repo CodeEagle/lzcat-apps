@@ -18,10 +18,12 @@ from scripts.discord_codex_control import (
     CodexControlTask,
     DashboardConversationResult,
     DashboardConversationTurn,
+    build_dashboard_conversation_command,
     ParsedCommand,
     build_gateway_identify_payload,
     build_task,
     codex_command_catalog,
+    cleanup_workspace_and_branch,
     ensure_context_workdir,
     format_codex_result_reply,
     format_codex_progress_message,
@@ -514,6 +516,65 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertEqual(len(replies), 2)
         self.assertIn("Codex worker 已启动", replies[0])
         self.assertIn("Codex 任务完成", replies[-1])
+
+    def test_gateway_message_create_runs_filter_close_with_client(self) -> None:
+        repo_root = self.make_repo_root()
+        self.init_git_repo(repo_root)
+        workspace_path = repo_root / "migration-workspaces" / "migration-piclaw"
+        workspace_path.parent.mkdir(parents=True, exist_ok=True)
+        self.write_queue(repo_root, workspace_path=workspace_path)
+        subprocess.run(
+            ["git", "-C", str(repo_root), "worktree", "add", "-b", "migration/piclaw", str(workspace_path), "template"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        config = self.make_config(repo_root, workspace_root=workspace_path.parent)
+        item = json.loads(config.queue_path.read_text(encoding="utf-8"))["items"][0]
+        context = ChannelContext(
+            channel_id="piclaw-1",
+            channel_name="migration-piclaw",
+            scope="migration",
+            slug="piclaw",
+            item=item,
+            workdir=workspace_path,
+        )
+        replies: list[str] = []
+        deleted_channels: list[str] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "PUT" and route == "/channels/piclaw-1/messages/906/reactions/%E2%9C%85/@me":
+                return {}
+            if method == "PUT" and route == "/channels/piclaw-1/messages/906/reactions/%F0%9F%9A%80/@me":
+                return {}
+            if method == "POST" and route == "/channels/piclaw-1/messages":
+                assert payload is not None
+                replies.append(str(payload.get("content", "")))
+                return {"id": "reply-1"}
+            if method == "DELETE" and route == "/channels/piclaw-1":
+                deleted_channels.append("piclaw-1")
+                return {"id": "piclaw-1"}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        def runner(_: CodexControlTask) -> CodexControlRunResult:
+            raise AssertionError("filter cleanup must not spawn Codex")
+
+        result = handle_gateway_message_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"piclaw-1": context},
+            {"id": "906", "channel_id": "piclaw-1", "content": "!filter-close", "author": {"id": "u1"}},
+            runner=runner,
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(result, {"channel_id": "piclaw-1", "message_id": "906", "status": "filtered_cleaned"})
+        self.assertEqual(deleted_channels, ["piclaw-1"])
+        self.assertEqual(len(replies), 1)
+        self.assertIn("频道会被关闭", replies[0])
+        queue = json.loads(config.queue_path.read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["state"], "filtered_out")
+        self.assertFalse(workspace_path.exists())
 
     def test_migration_operator_decision_records_human_response_without_runner(self) -> None:
         repo_root = self.make_repo_root()
@@ -1206,6 +1267,62 @@ exit 0
         self.assertEqual(len(calls), 2)
         self.assertIn("resume", calls[0])
         self.assertNotIn("resume", calls[1])
+
+    def test_dashboard_conversation_command_uses_repo_root_for_empty_workdir(self) -> None:
+        repo_root = self.make_repo_root()
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="dashboard-1",
+            channel_name="dashboard",
+            scope="dashboard",
+            slug="dashboard",
+            workdir=Path(""),
+        )
+
+        command = build_dashboard_conversation_command(
+            config,
+            context,
+            session_id="",
+            last_message_path=repo_root / "last-message.md",
+        )
+
+        self.assertEqual(command[command.index("-C") + 1], str(repo_root))
+
+    def test_filter_close_refuses_empty_workdir(self) -> None:
+        repo_root = self.make_repo_root()
+        self.init_git_repo(repo_root)
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="piclaw-1",
+            channel_name="migration-piclaw",
+            scope="migration",
+            slug="piclaw",
+            item={"id": "github:rcarmo/piclaw", "source": "rcarmo/piclaw", "slug": "piclaw"},
+            workdir=Path(""),
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "unsafe cleanup workdir"):
+            cleanup_workspace_and_branch(config, context)
+
+        self.assertTrue((repo_root / "README.md").exists())
+
+    def test_filter_close_refuses_repo_root_workdir(self) -> None:
+        repo_root = self.make_repo_root()
+        self.init_git_repo(repo_root)
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="piclaw-1",
+            channel_name="migration-piclaw",
+            scope="migration",
+            slug="piclaw",
+            item={"id": "github:rcarmo/piclaw", "source": "rcarmo/piclaw", "slug": "piclaw"},
+            workdir=repo_root,
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "unsafe cleanup workdir"):
+            cleanup_workspace_and_branch(config, context)
+
+        self.assertTrue((repo_root / "README.md").exists())
 
     def test_migration_channel_does_not_reuse_dashboard_style_session(self) -> None:
         repo_root = self.make_repo_root()

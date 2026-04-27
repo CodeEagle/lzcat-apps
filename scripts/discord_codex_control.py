@@ -201,6 +201,20 @@ def has_path(value: Path | str) -> bool:
     return str(value).strip() not in {"", "."}
 
 
+def is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+    except ValueError:
+        return False
+    return True
+
+
+def effective_context_workdir(config: CodexControlConfig, context: ChannelContext) -> Path:
+    if not has_path(context.workdir):
+        return config.repo_root
+    return resolve_path(config.repo_root, context.workdir)
+
+
 def read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
     if not path.exists():
         return default
@@ -449,7 +463,7 @@ def _migration_workspace_for_context(context: ChannelContext, config: CodexContr
     workspace_root = resolve_path(config.repo_root, config.workspace_root) if has_path(config.workspace_root) else Path("")
     if has_path(workspace_root):
         return migration_workspace_path(workspace_root, context.slug)
-    return context.workdir or config.repo_root
+    return effective_context_workdir(config, context)
 
 
 def _git_branch_exists(repo_root: Path, branch: str) -> bool:
@@ -482,7 +496,8 @@ def _update_queue_workspace_binding(config: CodexControlConfig, item_id: str, *,
 def ensure_context_workdir(context: ChannelContext, config: CodexControlConfig) -> ChannelContext:
     if context.scope != "migration" or not context.slug:
         return context
-    if context.workdir.exists() and context.workdir != config.repo_root:
+    current_workdir = effective_context_workdir(config, context)
+    if has_path(context.workdir) and current_workdir.exists() and current_workdir != config.repo_root:
         return context
     if not has_path(config.workspace_root):
         return context
@@ -914,7 +929,7 @@ def build_status_reply(context: ChannelContext, config: CodexControlConfig) -> s
     source = str(item.get("source", "")).strip() or "(queue 未找到)"
     state = str(item.get("state", "")).strip() or "(unknown)"
     branch = f"migration/{context.slug}" if context.slug else "(unknown)"
-    workdir = context.workdir if context.workdir else config.repo_root
+    workdir = effective_context_workdir(config, context)
     return "\n".join(
         [
             f"**Codex 频道状态：{context.slug or context.channel_name}**",
@@ -1131,10 +1146,32 @@ def apply_operator_decision(
     )
 
 
+def cleanup_workspace_target(config: CodexControlConfig, context: ChannelContext) -> Path:
+    if context.scope != "migration" or not context.slug:
+        raise RuntimeError("unsafe cleanup workdir: cleanup requires a migration channel with a slug")
+    if not has_path(context.workdir):
+        raise RuntimeError("unsafe cleanup workdir: missing migration worktree path")
+    if not has_path(config.workspace_root):
+        raise RuntimeError("unsafe cleanup workdir: migration workspace root is not configured")
+
+    repo_root = config.repo_root.resolve()
+    workspace_root = resolve_path(config.repo_root, config.workspace_root).resolve()
+    workdir = resolve_path(config.repo_root, context.workdir).resolve()
+    expected = migration_workspace_path(workspace_root, context.slug).resolve()
+
+    if workdir == repo_root or workdir == workdir.parent:
+        raise RuntimeError(f"unsafe cleanup workdir: refusing to delete protected path {workdir}")
+    if workdir != expected:
+        raise RuntimeError(f"unsafe cleanup workdir: expected {expected}, got {workdir}")
+    if not is_relative_to(workdir, workspace_root) or workdir == workspace_root:
+        raise RuntimeError(f"unsafe cleanup workdir: {workdir} is outside workspace root {workspace_root}")
+    return workdir
+
+
 def cleanup_workspace_and_branch(config: CodexControlConfig, context: ChannelContext) -> list[str]:
     actions: list[str] = []
-    workdir = context.workdir
-    if workdir and workdir != config.repo_root and workdir.exists():
+    workdir = cleanup_workspace_target(config, context)
+    if workdir.exists():
         result = subprocess.run(
             ["git", "-C", str(config.repo_root), "worktree", "remove", "--force", str(workdir)],
             capture_output=True,
@@ -1144,7 +1181,7 @@ def cleanup_workspace_and_branch(config: CodexControlConfig, context: ChannelCon
         if result.returncode != 0:
             raise RuntimeError((result.stderr or result.stdout or "").strip() or f"git worktree remove failed: {workdir}")
         actions.append(f"worktree_removed:{workdir}")
-    if workdir and workdir.exists():
+    if workdir.exists():
         shutil.rmtree(workdir, ignore_errors=True)
         if not workdir.exists():
             actions.append(f"workspace_deleted:{workdir}")
@@ -1207,6 +1244,10 @@ def cleanup_channel_state(config: CodexControlConfig, context: ChannelContext) -
 def run_filter_cleanup(context: ChannelContext, config: CodexControlConfig, client: DiscordClient, *, now: str) -> CommandResult:
     if context.scope != "migration" or not context.item:
         return CommandResult("missing_queue_item", "这个命令只能在绑定了 queue 项目的 migration 频道里使用。")
+    try:
+        cleanup_workspace_target(config, context)
+    except RuntimeError as exc:
+        return CommandResult("filter_cleanup_failed", f"`/filter-close` 已停止，未删除频道或 worktree：{exc}")
     entry = append_manual_exclusion(config, context.item, now=now)
     note = f"manual_filter_cleanup:{entry['matched_keyword']}:{entry['reason']}"
     update_queue_item_for_cleanup(config, context, now=now, note=note)
@@ -1217,18 +1258,19 @@ def run_filter_cleanup(context: ChannelContext, config: CodexControlConfig, clie
     return CommandResult("filtered_cleaned", "", delete_channel_id=context.channel_id)
 
 
-def app_context_text(context: ChannelContext) -> str:
+def app_context_text(context: ChannelContext, config: CodexControlConfig) -> str:
+    workdir = effective_context_workdir(config, context)
     if context.scope == "dashboard":
-        latest = read_text_if_exists(context.workdir / "registry" / "dashboard" / "latest.md", max_chars=12000)
+        latest = read_text_if_exists(workdir / "registry" / "dashboard" / "latest.md", max_chars=12000)
         if not latest:
             return ""
         return f"""Latest dashboard summary:
 ```markdown
 {latest}
 ```"""
-    if not context.slug or not context.workdir:
+    if not context.slug or not has_path(context.workdir):
         return ""
-    app_dir = context.workdir / "apps" / context.slug
+    app_dir = workdir / "apps" / context.slug
     state = read_text_if_exists(app_dir / ".migration-state.json", max_chars=10000)
     functional = read_text_if_exists(app_dir / ".functional-check.json", max_chars=5000)
     if not state and not functional:
@@ -1291,6 +1333,7 @@ def persist_dashboard_session(
 
 def build_codex_prompt(task: CodexControlTask) -> str:
     context = task.context
+    workdir = effective_context_workdir(task.config, context)
     item_json = json.dumps(context.item or {}, ensure_ascii=False, indent=2, sort_keys=True)
     return f"""You are the always-on Codex control worker for the LazyCat lzcat-apps migration workflow.
 
@@ -1302,7 +1345,7 @@ Channel context:
 - scope: {context.scope}
 - slug: {context.slug or "(global control)"}
 - repo_root: {task.config.repo_root}
-- workdir: {context.workdir}
+- workdir: {workdir}
 - queue_path: {resolve_path(task.config.repo_root, task.config.queue_path)}
 - workspace_root: {resolve_path(task.config.repo_root, task.config.workspace_root) if has_path(task.config.workspace_root) else "(not configured)"}
 
@@ -1321,12 +1364,13 @@ Operating rules:
 - Run narrow verification for code changes and include exact commands/results in the final summary.
 - Keep the final message concise because it will be posted back to Discord.
 
-{app_context_text(context)}
+{app_context_text(context, task.config)}
 """
 
 
 def build_codex_command(task: CodexControlTask) -> list[str]:
     last_message_path = task.task_dir / "last-message.md"
+    workdir = effective_context_workdir(task.config, task.context)
     image_args = [arg for image_path in task.image_paths for arg in ("--image", str(image_path))]
     if task.context.scope == "dashboard":
         session_id = task.session_id.strip()
@@ -1336,7 +1380,7 @@ def build_codex_command(task: CodexControlTask) -> list[str]:
             "never",
             "exec",
             "-C",
-            str(task.context.workdir or task.config.repo_root),
+            str(workdir),
             "--model",
             task.config.model,
             "--sandbox",
@@ -1353,7 +1397,7 @@ def build_codex_command(task: CodexControlTask) -> list[str]:
                 "never",
                 "exec",
                 "-C",
-                str(task.context.workdir or task.config.repo_root),
+                str(workdir),
                 "--sandbox",
                 "danger-full-access",
                 "resume",
@@ -1374,7 +1418,7 @@ def build_codex_command(task: CodexControlTask) -> list[str]:
         "never",
         "exec",
         "-C",
-        str(task.context.workdir or task.config.repo_root),
+        str(workdir),
         "--model",
         task.config.model,
         "--sandbox",
@@ -1438,7 +1482,7 @@ def write_task_bundle(task: CodexControlTask) -> None:
                     "scope": task.context.scope,
                     "slug": task.context.slug,
                 },
-                "workdir": str(task.context.workdir),
+                "workdir": str(effective_context_workdir(task.config, task.context)),
                 "queue_path": str(resolve_path(task.config.repo_root, task.config.queue_path)),
                 "item": task.context.item or {},
                 "command": task.command,
@@ -1715,7 +1759,7 @@ def format_codex_progress_message(task: CodexControlTask, phase: str, elapsed_se
     summary = instruction_summary(summary) or instruction_summary(task.instruction)
     if phase == "started":
         title = "**Codex worker 已启动**"
-        workdir = task.context.workdir or task.config.repo_root
+        workdir = effective_context_workdir(task.config, task.context)
         lines = [
             title,
             f"- 当前工作：{summary}",
@@ -1776,6 +1820,7 @@ def build_dashboard_conversation_prompt(turn: DashboardConversationTurn, *, incl
     if not include_context:
         return turn.instruction
     context = turn.context
+    workdir = effective_context_workdir(turn.config, context)
     return f"""You are the fixed interactive Codex assistant behind the LazyCat migration dashboard Discord channel.
 
 Reply directly to the operator in concise Chinese. Do not include worker reports, task directories, return codes, or branch boilerplate unless the operator asks for them.
@@ -1787,7 +1832,7 @@ Channel context:
 - channel: #{context.channel_name} ({context.channel_id})
 - scope: {context.scope}
 - repo_root: {turn.config.repo_root}
-- workdir: {context.workdir}
+- workdir: {workdir}
 - queue_path: {resolve_path(turn.config.repo_root, turn.config.queue_path)}
 - workspace_root: {resolve_path(turn.config.repo_root, turn.config.workspace_root) if has_path(turn.config.workspace_root) else "(not configured)"}
 
@@ -1800,7 +1845,7 @@ Operating rules:
 - If you need credentials, legal judgement, or final publish approval, ask clearly.
 - Run narrow verification before claiming changes are complete.
 
-{app_context_text(context)}
+{app_context_text(context, turn.config)}
 """
 
 
@@ -1812,7 +1857,7 @@ def build_dashboard_conversation_command(
     last_message_path: Path,
     image_paths: tuple[str, ...] = (),
 ) -> list[str]:
-    workdir = context.workdir or config.repo_root
+    workdir = effective_context_workdir(config, context)
     image_args = [arg for image_path in image_paths for arg in ("--image", str(image_path))]
     base = [
         "codex",
@@ -1943,7 +1988,7 @@ def default_dashboard_conversation(turn: DashboardConversationTurn) -> Dashboard
 
 def format_codex_result_reply(result: CodexControlRunResult, context: ChannelContext) -> str:
     title = "完成" if result.returncode == 0 else "失败"
-    workdir = context.workdir or result.task_dir
+    workdir = context.workdir if has_path(context.workdir) else result.task_dir
     lines = [
         f"**Codex 任务{title}**",
         f"- 频道：#{context.channel_name}",
@@ -2086,18 +2131,27 @@ def handle_gateway_message_create(
     except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
         reaction_error = str(exc)
 
-    will_run = parsed.kind == "codex" and not (context.scope == "migration" and not context.item)
-    will_run_worker = will_run and (context.scope != "dashboard" or dashboard_instruction_needs_worker(parsed.instruction))
+    is_action_command = parsed.kind in {"codex", "filter_cleanup"}
+    will_run = is_action_command and not (context.scope == "migration" and not context.item)
+    will_run_worker = will_run and (
+        parsed.kind == "filter_cleanup" or context.scope != "dashboard" or dashboard_instruction_needs_worker(parsed.instruction)
+    )
     if will_run_worker:
         try:
             client.add_reaction(channel_id, message_id, WORKER_REACTION)
         except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
             reaction_error = str(exc)
+        if parsed.kind == "filter_cleanup":
+            try:
+                client.send_message(channel_id, "收到，正在把当前 repo 加入过滤名单并清理频道、worktree、branch。完成后这个频道会被关闭。")
+            except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+                send_error = str(exc)
 
     result = handle_command(
         parsed,
         context,
         config,
+        client=client,
         runner=runner,
         dashboard_conversation=dashboard_conversation,
         now=now,
