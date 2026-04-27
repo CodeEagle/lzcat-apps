@@ -125,7 +125,59 @@ def patch_server(root: Path) -> None:
     if old not in text:
         raise SystemExit(f"management-only config patch target not found: {config_go}")
     config_go.write_text(text.replace(old, new), encoding="utf-8")
+    patch_feishu_project_creation_result(root)
+    patch_management_platform_fail_open(root)
     patch_terminal_server(root)
+
+
+def patch_feishu_project_creation_result(root: Path) -> None:
+    config_go = root / "config" / "config.go"
+    text = config_go.read_text(encoding="utf-8")
+    old = """\treturn &EnsureProjectWithFeishuResult{
+\t\tCreated:          true,
+\t\tAddedPlatform:    false,
+\t\tProjectIndex:     len(cfg.Projects) - 1,
+\t\tPlatformAbsIndex: len(cfg.Projects[len(cfg.Projects)-1].Platforms) - 1,
+\t\tPlatformType:     platformType,
+\t}, nil
+"""
+    new = """\treturn &EnsureProjectWithFeishuResult{
+\t\tCreated:          true,
+\t\tAddedPlatform:    false,
+\t\tProjectIndex:     len(cfg.Projects),
+\t\tPlatformAbsIndex: 0,
+\t\tPlatformType:     platformType,
+\t}, nil
+"""
+    if old not in text:
+        raise SystemExit(f"feishu project creation result patch target not found: {config_go}")
+    config_go.write_text(text.replace(old, new), encoding="utf-8")
+
+
+def patch_management_platform_fail_open(root: Path) -> None:
+    main_go = root / "cmd" / "cc-connect" / "main.go"
+    text = main_go.read_text(encoding="utf-8")
+    old = """\t\t\tp, err := core.CreatePlatform(pc.Type, opts)
+\t\t\tif err != nil {
+\t\t\t\tslog.Error("failed to create platform", "project", proj.Name, "type", pc.Type, "error", err)
+\t\t\t\tos.Exit(1)
+\t\t\t}
+\t\t\tplatforms = append(platforms, p)
+"""
+    new = """\t\t\tp, err := core.CreatePlatform(pc.Type, opts)
+\t\t\tif err != nil {
+\t\t\t\tif cfg.Management.Enabled != nil && *cfg.Management.Enabled {
+\t\t\t\t\tslog.Warn("skipping platform with invalid configuration", "project", proj.Name, "type", pc.Type, "error", err)
+\t\t\t\t\tcontinue
+\t\t\t\t}
+\t\t\t\tslog.Error("failed to create platform", "project", proj.Name, "type", pc.Type, "error", err)
+\t\t\t\tos.Exit(1)
+\t\t\t}
+\t\t\tplatforms = append(platforms, p)
+"""
+    if old not in text:
+        raise SystemExit(f"management platform fail-open patch target not found: {main_go}")
+    main_go.write_text(text.replace(old, new), encoding="utf-8")
 
 
 def patch_terminal_server(root: Path) -> None:
