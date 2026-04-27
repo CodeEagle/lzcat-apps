@@ -57,7 +57,8 @@
       "Default config is created at /data/config.toml on first start.",
       "Management-only startup is enabled by a LazyCat build patch.",
       "Agent CLI home is persisted under /data/home, with CODEX_HOME=/data/home/.codex.",
-      "Default agent CLIs are installed during image build and updated on every container start."
+      "Default agent CLIs are installed during image build and updated on every container start.",
+      "LazyCat patch adds a full web terminal for manual CLI login flows."
     ],
     "include_content": false
   }

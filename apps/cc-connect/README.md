@@ -48,6 +48,8 @@ LazyCat 版运行在容器里，镜像已默认带上 Claude Code、Codex、Gemi
 
 这种方式不需要导入本机 CLI 凭据。cc-connect 会把 Provider API Key 注入 Claude Code/Codex；Codex 还会自动写入 `/data/home/.codex/auth.json`。
 
+也可以直接在 Web 管理台打开 `Terminal` 页面。该页面是容器内的完整交互式 shell，支持手动执行 `claude login`、`codex login`、`gemini` 等登录流程，也可以执行普通开发命令。页面里的快捷按钮只负责把常用登录命令写入终端，不会限制你使用 shell。
+
 如果必须复用本机已经登录的 Claude Code/Codex，请手动把本机配置复制进 LazyCat 容器的 `/data/home`。这些目录包含登录 token 和 API Key，只在确认接受把凭据上传到 LazyCat 盒子时执行：
 
 ```bash

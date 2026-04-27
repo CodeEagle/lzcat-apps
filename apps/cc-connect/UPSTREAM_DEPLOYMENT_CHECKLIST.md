@@ -26,6 +26,7 @@
 - 外部依赖：无数据库、Redis、对象存储依赖；聊天平台凭据、LLM provider key 和 agent 配置由 Web 管理台写入 `/data/config.toml`。
 - 初始化：首次启动若 `/data/config.toml` 不存在，由 `lazycat/entrypoint.sh` 创建 management-only 配置。
 - 登录机制：上游 Web 管理台以 management token 登录；LazyCat 默认 management token 为空，并补丁支持 tokenless 自动登录，依赖 LazyCat 访问控制实现免密。
+- Web 终端：LazyCat 构建补丁为管理台增加 `Terminal` 页面和 `/api/v1/terminal/ws`，在容器内打开完整交互式 shell，便于用户手动运行 Claude Code、Codex 等 CLI 登录流程。
 
 ## 真实写路径与权限
 - `/data/config.toml`：entrypoint 首次创建，root 写入，`0600` umask。
