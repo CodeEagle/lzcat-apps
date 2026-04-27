@@ -29,6 +29,17 @@ try:
         MAX_DISCORD_MESSAGE_LENGTH,
         DiscordClient,
     )
+    from .discord_attachment_recognition import (
+        AttachmentRecognitionConfig,
+        AttachmentRecognizer,
+        build_attachment_instruction,
+        image_paths_from_results,
+        recognize_message_attachments,
+    )
+    from .discord_local_agent_commands import (
+        LocalAgentCommandConfig,
+        handle_command_text as handle_local_agent_command_text,
+    )
     from .migration_workspace import build_worktree_command, migration_branch_name, migration_workspace_path, normalize_slug
     from .project_config import load_project_config
 except ImportError:  # pragma: no cover - direct script execution
@@ -36,6 +47,17 @@ except ImportError:  # pragma: no cover - direct script execution
         DISCORD_GUILD_TEXT_TYPE,
         MAX_DISCORD_MESSAGE_LENGTH,
         DiscordClient,
+    )
+    from discord_attachment_recognition import (
+        AttachmentRecognitionConfig,
+        AttachmentRecognizer,
+        build_attachment_instruction,
+        image_paths_from_results,
+        recognize_message_attachments,
+    )
+    from discord_local_agent_commands import (
+        LocalAgentCommandConfig,
+        handle_command_text as handle_local_agent_command_text,
     )
     from migration_workspace import build_worktree_command, migration_branch_name, migration_workspace_path, normalize_slug
     from project_config import load_project_config
@@ -90,6 +112,7 @@ class CodexControlConfig:
 class ParsedCommand:
     kind: str
     instruction: str = ""
+    image_paths: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -121,6 +144,7 @@ class CodexControlTask:
     command: list[str]
     now: str
     session_id: str = ""
+    image_paths: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -139,6 +163,7 @@ class DashboardConversationTurn:
     config: CodexControlConfig
     now: str
     message_id: str = ""
+    image_paths: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -315,6 +340,18 @@ def codex_command_catalog() -> list[dict[str, Any]]:
                     "name": "reason",
                     "description": "可选：补充过滤原因",
                     "required": False,
+                }
+            ],
+        },
+        {
+            "name": "local-agent",
+            "description": "执行 LocalAgent 控制命令",
+            "options": [
+                {
+                    "type": 3,
+                    "name": "command",
+                    "description": "LocalAgent 命令，如 status、import、queue 5、find 关键词",
+                    "required": True,
                 }
             ],
         },
@@ -616,6 +653,8 @@ def parse_control_command(content: str, *, bot_user_id: str = "") -> ParsedComma
     if prefix in {"!filter-close", "/filter-close", "!drop", "/drop"}:
         instruction = rest or "filter_and_cleanup_current_migration"
         return ParsedCommand("filter_cleanup", instruction)
+    if prefix in {"!la", "/la", "!local-agent", "/local-agent"}:
+        return ParsedCommand("local_agent", f"!la {rest}".strip())
     return None
 
 
@@ -662,6 +701,11 @@ def parse_interaction_command(interaction: dict[str, Any]) -> ParsedCommand | No
     if name == "filter-close":
         instruction = options.get("reason", "") or "filter_and_cleanup_current_migration"
         return ParsedCommand("filter_cleanup", instruction)
+    if name == "local-agent":
+        command = options.get("command", "").strip()
+        if not command:
+            return ParsedCommand("local_agent", "!la help")
+        return ParsedCommand("local_agent", f"!la {command}")
     return None
 
 
@@ -730,6 +774,75 @@ def parse_channel_message(
     return ParsedCommand("codex", content)
 
 
+def enrich_codex_command_with_attachments(
+    parsed: ParsedCommand | None,
+    message: dict[str, Any],
+    config: CodexControlConfig,
+    context: ChannelContext,
+    *,
+    now: str,
+    attachment_recognizer: AttachmentRecognizer | None = None,
+) -> ParsedCommand | None:
+    attachments = message.get("attachments")
+    if not isinstance(attachments, list) or not attachments:
+        return parsed
+    if parsed and parsed.kind != "codex":
+        return parsed
+    if parsed is None and not context.implicit_codex:
+        return None
+
+    recognition_config = AttachmentRecognitionConfig(repo_root=config.repo_root)
+    results = recognize_message_attachments(
+        message,
+        recognition_config,
+        now=now,
+        recognizer=attachment_recognizer,
+    )
+    if not results:
+        return parsed
+    instruction = build_attachment_instruction(parsed.instruction if parsed else str(message.get("content", "")), results)
+    if not instruction:
+        return parsed
+    existing_images = parsed.image_paths if parsed else ()
+    return ParsedCommand("codex", instruction, (*existing_images, *image_paths_from_results(results)))
+
+
+DASHBOARD_WORKER_KEYWORDS = (
+    "改",
+    "修改",
+    "修复",
+    "添加",
+    "加上",
+    "实现",
+    "执行",
+    "跑",
+    "运行",
+    "构建",
+    "测试",
+    "迁移",
+    "处理",
+    "接入",
+    "部署",
+    "更新",
+    "删除",
+    "fix",
+    "implement",
+    "add",
+    "update",
+    "run",
+    "build",
+    "test",
+    "migrate",
+)
+
+
+def dashboard_instruction_needs_worker(instruction: str) -> bool:
+    text = instruction.strip().lower()
+    if not text:
+        return False
+    return any(keyword in text for keyword in DASHBOARD_WORKER_KEYWORDS)
+
+
 def build_help_reply() -> str:
     return "\n".join(
         [
@@ -739,6 +852,8 @@ def build_help_reply() -> str:
             "`/fix [issue]` 或 `!fix <问题>` 针对当前迁移项目排查修复",
             "`/retry [focus]` 或 `!retry` 让 Codex 接着当前失败继续处理",
             "`/filter-close [reason]` 或 `!filter-close` 把当前 repo 加入过滤名单并清理频道/worktree/branch/痕迹",
+            "`/local-agent command:<命令>` 或 `!la <命令>` 执行 LocalAgent status/import/queue/find",
+            "直接发图片或语音附件时，会先识别内容再交给 Codex；可配合文字说明一起发。",
             "`/help` 或 `@Bot <需求>` 也可以直接唤起 Codex",
             "`#dashboard` / `#migration-control` 里的普通文本会默认直接交给 Codex，不需要每次 @",
         ]
@@ -810,6 +925,25 @@ def build_status_reply(context: ChannelContext, config: CodexControlConfig) -> s
             f"- worktree 存在：{'yes' if workdir.exists() else 'no'}",
             f"- 任务目录：{resolve_path(config.repo_root, config.task_root)}",
         ]
+    )
+
+
+def build_local_agent_command_config(config: CodexControlConfig) -> LocalAgentCommandConfig:
+    project_config = load_project_config(config.repo_root)
+    local_agent_root = Path(project_config.local_agent.path).expanduser() if project_config.local_agent.path else Path("")
+    if local_agent_root and not local_agent_root.is_absolute():
+        local_agent_root = config.repo_root / local_agent_root
+    snapshot_path = Path(project_config.local_agent.snapshot_path).expanduser()
+    if not snapshot_path.is_absolute():
+        snapshot_path = config.repo_root / snapshot_path
+    return LocalAgentCommandConfig(
+        repo_root=config.repo_root,
+        local_agent_root=local_agent_root,
+        snapshot_path=snapshot_path,
+        queue_path=resolve_path(config.repo_root, config.queue_path),
+        guild_id=config.guild_id,
+        category_id=config.category_id,
+        channel_prefix=config.channel_prefix,
     )
 
 
@@ -1193,6 +1327,7 @@ Operating rules:
 
 def build_codex_command(task: CodexControlTask) -> list[str]:
     last_message_path = task.task_dir / "last-message.md"
+    image_args = [arg for image_path in task.image_paths for arg in ("--image", str(image_path))]
     if task.context.scope == "dashboard":
         session_id = task.session_id.strip()
         command = [
@@ -1209,6 +1344,7 @@ def build_codex_command(task: CodexControlTask) -> list[str]:
             "--json",
             "--output-last-message",
             str(last_message_path),
+            *image_args,
         ]
         if session_id:
             return [
@@ -1226,6 +1362,7 @@ def build_codex_command(task: CodexControlTask) -> list[str]:
                 "--json",
                 "--output-last-message",
                 str(last_message_path),
+                *image_args,
                 session_id,
                 "-",
             ]
@@ -1244,6 +1381,7 @@ def build_codex_command(task: CodexControlTask) -> list[str]:
         "danger-full-access",
         "--output-last-message",
         str(last_message_path),
+        *image_args,
         "-",
     ]
 
@@ -1280,6 +1418,7 @@ def command_without_session(task: CodexControlTask) -> list[str]:
         command=[],
         now=task.now,
         session_id="",
+        image_paths=task.image_paths,
     )
     return build_codex_command(fresh_task)
 
@@ -1305,6 +1444,7 @@ def write_task_bundle(task: CodexControlTask) -> None:
                 "command": task.command,
                 "resumed": bool(task.session_id.strip()),
                 "session_id": task.session_id.strip(),
+                "image_paths": list(task.image_paths),
             },
             ensure_ascii=False,
             indent=2,
@@ -1483,6 +1623,7 @@ def build_task(
     *,
     now: str,
     task_id: str = "",
+    image_paths: tuple[str | Path, ...] = (),
 ) -> CodexControlTask:
     slug_or_scope = context.slug or context.scope or "control"
     channel_part = safe_task_name(context.channel_name or context.channel_id)
@@ -1497,6 +1638,7 @@ def build_task(
         command=[],
         now=now,
         session_id=dashboard_session_id(config, context.channel_id) if context.scope == "dashboard" else "",
+        image_paths=tuple(str(path) for path in image_paths),
     )
     prompt = build_codex_prompt(placeholder)
     task = CodexControlTask(
@@ -1508,6 +1650,7 @@ def build_task(
         command=[],
         now=now,
         session_id=placeholder.session_id,
+        image_paths=tuple(str(path) for path in image_paths),
     )
     return CodexControlTask(
         instruction=instruction,
@@ -1518,6 +1661,7 @@ def build_task(
         command=build_codex_command(task),
         now=now,
         session_id=task.session_id,
+        image_paths=task.image_paths,
     )
 
 
@@ -1648,8 +1792,10 @@ Channel context:
 - workspace_root: {resolve_path(turn.config.repo_root, turn.config.workspace_root) if has_path(turn.config.workspace_root) else "(not configured)"}
 
 Operating rules:
-- Treat this as an ongoing conversation, not as a one-off worker task.
-- For actual migration work, keep app-specific changes in migration/<slug> worktrees.
+	- Treat this as an ongoing conversation, not as a one-off worker task.
+	- Stay online as the dashboard conversation agent. Do not edit files, run builds, mutate queue state, or execute migration work from this session.
+	- If the operator asks for changes, fixes, builds, tests, or other work, tell them that the request should be handled by a worker; the control layer routes obvious action requests to workers automatically.
+	- For actual migration work, keep app-specific changes in migration/<slug> worktrees.
 - Keep template branch for reusable migration-platform improvements.
 - If you need credentials, legal judgement, or final publish approval, ask clearly.
 - Run narrow verification before claiming changes are complete.
@@ -1664,8 +1810,10 @@ def build_dashboard_conversation_command(
     *,
     session_id: str,
     last_message_path: Path,
+    image_paths: tuple[str, ...] = (),
 ) -> list[str]:
     workdir = context.workdir or config.repo_root
+    image_args = [arg for image_path in image_paths for arg in ("--image", str(image_path))]
     base = [
         "codex",
         "--ask-for-approval",
@@ -1685,6 +1833,7 @@ def build_dashboard_conversation_command(
             "--json",
             "--output-last-message",
             str(last_message_path),
+            *image_args,
             session_id,
             "-",
         ]
@@ -1695,6 +1844,7 @@ def build_dashboard_conversation_command(
         "--json",
         "--output-last-message",
         str(last_message_path),
+        *image_args,
         "-",
     ]
 
@@ -1715,6 +1865,7 @@ def run_dashboard_conversation_command(
         turn.context,
         session_id=session_id,
         last_message_path=last_message_path,
+        image_paths=turn.image_paths,
     )
     result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=False)
     stdout_chunks = [result.stdout or ""]
@@ -1732,6 +1883,7 @@ def run_dashboard_conversation_command(
             turn.context,
             session_id="",
             last_message_path=last_message_path,
+            image_paths=turn.image_paths,
         )
         retry = subprocess.run(active_command, input=prompt, text=True, capture_output=True, check=False)
         stdout_chunks.append(f"\n\n--- retry without stale session ---\n{retry.stdout or ''}")
@@ -1825,6 +1977,13 @@ def handle_command(
         return CommandResult("content_unavailable", build_content_unavailable_reply())
     if parsed.kind == "status":
         return CommandResult("status", build_status_reply(context, config))
+    if parsed.kind == "local_agent":
+        result = handle_local_agent_command_text(
+            parsed.instruction or "!la help",
+            build_local_agent_command_config(config),
+            now=now,
+        )
+        return CommandResult(result.status, truncate_reply(result.reply))
     if parsed.kind == "filter_cleanup":
         if client is None:
             return CommandResult("failed", "Discord client is required for cleanup commands.")
@@ -1842,17 +2001,18 @@ def handle_command(
         ensured_context = ensure_context_workdir(context, config)
     except RuntimeError as exc:
         return CommandResult("worktree_failed", f"恢复 `{context.slug}` worktree 失败：{exc}")
-    if ensured_context.scope == "dashboard":
+    if ensured_context.scope == "dashboard" and not dashboard_instruction_needs_worker(parsed.instruction):
         turn = DashboardConversationTurn(
             instruction=parsed.instruction,
             context=ensured_context,
             config=config,
             now=now,
             message_id=task_id,
+            image_paths=parsed.image_paths,
         )
         dashboard_result = dashboard_conversation(turn)
         return CommandResult(dashboard_result.status, dashboard_result.reply, session_id=dashboard_result.session_id)
-    task = build_task(parsed.instruction, ensured_context, config, now=now, task_id=task_id)
+    task = build_task(parsed.instruction, ensured_context, config, now=now, task_id=task_id, image_paths=parsed.image_paths)
     result = run_runner_with_progress(
         task,
         runner,
@@ -1895,7 +2055,9 @@ def handle_gateway_message_create(
     dashboard_conversation: DashboardConversationRunner = default_dashboard_conversation,
     now: str | None = None,
     progress_interval_seconds: float = DEFAULT_PROGRESS_INTERVAL_SECONDS,
+    attachment_recognizer: AttachmentRecognizer | None = None,
 ) -> dict[str, str]:
+    now = now or utc_now_iso()
     channel_id = str(message.get("channel_id", "")).strip()
     message_id = str(message.get("id", "")).strip()
     if not channel_id or not message_id:
@@ -1906,6 +2068,14 @@ def handle_gateway_message_create(
     if is_bot_message(message):
         return {"channel_id": channel_id, "message_id": message_id, "status": "bot_ignored"}
     parsed = parse_channel_message(message, config, context)
+    parsed = enrich_codex_command_with_attachments(
+        parsed,
+        message,
+        config,
+        context,
+        now=now,
+        attachment_recognizer=attachment_recognizer,
+    )
     if not parsed:
         return {"channel_id": channel_id, "message_id": message_id, "status": "ignored"}
 
@@ -1917,7 +2087,7 @@ def handle_gateway_message_create(
         reaction_error = str(exc)
 
     will_run = parsed.kind == "codex" and not (context.scope == "migration" and not context.item)
-    will_run_worker = will_run and context.scope != "dashboard"
+    will_run_worker = will_run and (context.scope != "dashboard" or dashboard_instruction_needs_worker(parsed.instruction))
     if will_run_worker:
         try:
             client.add_reaction(channel_id, message_id, WORKER_REACTION)
@@ -1936,7 +2106,7 @@ def handle_gateway_message_create(
         progress_interval_seconds=progress_interval_seconds,
     )
     if parsed.kind == "codex" and context.scope == "dashboard" and result.session_id:
-        persist_dashboard_session(config, context, session_id=result.session_id, now=now or utc_now_iso())
+        persist_dashboard_session(config, context, session_id=result.session_id, now=now)
     if result.reply:
         try:
             client.send_message(channel_id, truncate_reply(result.reply))
@@ -2364,6 +2534,7 @@ def process_codex_control_commands(
     runner: CodexRunner = run_codex_control_task,
     dashboard_conversation: DashboardConversationRunner = default_dashboard_conversation,
     now: str | None = None,
+    attachment_recognizer: AttachmentRecognizer | None = None,
 ) -> list[dict[str, str]]:
     now = now or utc_now_iso()
     state_path = resolve_path(config.repo_root, config.state_path)
@@ -2413,6 +2584,14 @@ def process_codex_control_commands(
                 continue
             last_seen = message_id
             parsed = parse_channel_message(message, config, context)
+            parsed = enrich_codex_command_with_attachments(
+                parsed,
+                message,
+                config,
+                context,
+                now=now,
+                attachment_recognizer=attachment_recognizer,
+            )
             if not parsed:
                 continue
             reaction_error = ""
@@ -2422,7 +2601,10 @@ def process_codex_control_commands(
                 reaction_error = str(exc)
             is_action_command = parsed.kind in {"codex", "filter_cleanup"}
             will_run = is_action_command and not (context.scope == "migration" and not context.item)
-            will_run_worker = will_run and not (parsed.kind == "codex" and context.scope == "dashboard")
+            will_run_worker = will_run and (
+                not (parsed.kind == "codex" and context.scope == "dashboard")
+                or dashboard_instruction_needs_worker(parsed.instruction)
+            )
             send_error = ""
             if will_run_worker:
                 try:

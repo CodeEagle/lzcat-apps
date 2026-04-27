@@ -88,6 +88,7 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertEqual(parse_control_command("!codex 修一下截图").instruction, "修一下截图")
         self.assertEqual(parse_control_command("!fix").kind, "codex")
         self.assertEqual(parse_control_command("!filter-close").kind, "filter_cleanup")
+        self.assertEqual(parse_control_command("!la status"), ParsedCommand("local_agent", "!la status"))
         self.assertEqual(parse_control_command("<@123> status", bot_user_id="123").kind, "status")
         self.assertEqual(parse_control_command("<@123> 继续处理", bot_user_id="123").instruction, "继续处理")
         self.assertIsNone(parse_control_command("<@123> 继续处理"))
@@ -106,6 +107,12 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertEqual(
             parse_interaction_command({"type": 2, "data": {"name": "filter-close"}}).kind,
             "filter_cleanup",
+        )
+        self.assertEqual(
+            parse_interaction_command(
+                {"type": 2, "data": {"name": "local-agent", "options": [{"name": "command", "value": "status"}]}}
+            ),
+            ParsedCommand("local_agent", "!la status"),
         )
         self.assertIsNone(parse_interaction_command({"type": 3, "data": {"name": "status"}}))
 
@@ -247,13 +254,13 @@ class DiscordCodexControlTest(unittest.TestCase):
 
         def dashboard_conversation(turn: DashboardConversationTurn) -> DashboardConversationResult:
             turns.append(turn)
-            return DashboardConversationResult("completed", "直接回复：继续处理。", session_id="dashboard-session-1")
+            return DashboardConversationResult("completed", "直接回复：队列状态。", session_id="dashboard-session-1")
 
         result = handle_gateway_message_create(
             config,
             DiscordClient("token", transport=transport),
             {"dashboard-1": context},
-            {"id": "902", "channel_id": "dashboard-1", "content": "继续处理等待人工决策的项目", "author": {"id": "u1"}},
+            {"id": "902", "channel_id": "dashboard-1", "content": "现在队列怎么样", "author": {"id": "u1"}},
             runner=runner,
             dashboard_conversation=dashboard_conversation,
             now="2026-04-26T10:00:00Z",
@@ -261,11 +268,149 @@ class DiscordCodexControlTest(unittest.TestCase):
 
         self.assertEqual(result, {"channel_id": "dashboard-1", "message_id": "902", "status": "completed"})
         self.assertEqual(len(turns), 1)
-        self.assertEqual(turns[0].instruction, "继续处理等待人工决策的项目")
+        self.assertEqual(turns[0].instruction, "现在队列怎么样")
         self.assertEqual(len(replies), 1)
-        self.assertEqual(replies[0], "直接回复：继续处理。")
+        self.assertEqual(replies[0], "直接回复：队列状态。")
         state = json.loads(config.state_path.read_text(encoding="utf-8"))
         self.assertEqual(state["channels"]["dashboard-1"]["codex"]["session_id"], "dashboard-session-1")
+
+    def test_dashboard_action_request_runs_worker_not_persistent_conversation(self) -> None:
+        repo_root = self.make_repo_root()
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="dashboard-1",
+            channel_name="dashboard",
+            scope="dashboard",
+            slug="dashboard",
+            workdir=repo_root,
+            implicit_codex=True,
+        )
+        tasks: list[CodexControlTask] = []
+        replies: list[str] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "PUT" and route == "/channels/dashboard-1/messages/905/reactions/%E2%9C%85/@me":
+                return {}
+            if method == "PUT" and route == "/channels/dashboard-1/messages/905/reactions/%F0%9F%9A%80/@me":
+                return {}
+            if method == "POST" and route == "/channels/dashboard-1/messages":
+                assert payload is not None
+                replies.append(str(payload.get("content", "")))
+                return {"id": "reply-1"}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        def runner(task: CodexControlTask) -> CodexControlRunResult:
+            tasks.append(task)
+            return CodexControlRunResult("completed", 0, "worker 已完成。", task.task_dir)
+
+        def dashboard_conversation(_: DashboardConversationTurn) -> DashboardConversationResult:
+            raise AssertionError("action request must not use persistent dashboard conversation")
+
+        result = handle_gateway_message_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"dashboard-1": context},
+            {"id": "905", "channel_id": "dashboard-1", "content": "把发现逻辑改一下", "author": {"id": "u1"}},
+            runner=runner,
+            dashboard_conversation=dashboard_conversation,
+            now="2026-04-27T10:00:00Z",
+            progress_interval_seconds=0.01,
+        )
+
+        self.assertEqual(result, {"channel_id": "dashboard-1", "message_id": "905", "status": "completed"})
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0].context.scope, "dashboard")
+        self.assertIn("把发现逻辑改一下", tasks[0].prompt)
+        self.assertIn("Codex worker 已启动", replies[0])
+        self.assertIn("Codex 任务完成", replies[-1])
+
+    def test_gateway_message_create_recognizes_image_attachment_for_dashboard_instruction(self) -> None:
+        repo_root = self.make_repo_root()
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="dashboard-1",
+            channel_name="dashboard",
+            scope="dashboard",
+            slug="dashboard",
+            workdir=repo_root,
+            implicit_codex=True,
+        )
+        turns: list[DashboardConversationTurn] = []
+        replies: list[str] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "PUT" and route == "/channels/dashboard-1/messages/904/reactions/%E2%9C%85/@me":
+                return {}
+            if method == "POST" and route == "/channels/dashboard-1/messages":
+                assert payload is not None
+                replies.append(str(payload.get("content", "")))
+                return {"id": "reply-1"}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        def runner(_: CodexControlTask) -> CodexControlRunResult:
+            raise AssertionError("dashboard chat must not invoke per-message Codex worker")
+
+        def dashboard_conversation(turn: DashboardConversationTurn) -> DashboardConversationResult:
+            turns.append(turn)
+            return DashboardConversationResult("completed", "收到图片。", session_id="dashboard-session-1")
+
+        result = handle_gateway_message_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"dashboard-1": context},
+            {
+                "id": "904",
+                "channel_id": "dashboard-1",
+                "content": "",
+                "attachments": [{"filename": "shot.png", "content_type": "image/png", "url": "https://cdn.example/shot.png"}],
+                "author": {"id": "u1"},
+            },
+            runner=runner,
+            dashboard_conversation=dashboard_conversation,
+            now="2026-04-27T10:00:00Z",
+            attachment_recognizer=lambda attachment, kind: __import__(
+                "scripts.discord_attachment_recognition", fromlist=["AttachmentRecognitionResult"]
+            ).AttachmentRecognitionResult(
+                kind=kind,
+                filename=str(attachment["filename"]),
+                url=str(attachment["url"]),
+                status="recognized",
+                text="图片里是 LazyCat 安装错误页。",
+            ),
+        )
+
+        self.assertEqual(result, {"channel_id": "dashboard-1", "message_id": "904", "status": "completed"})
+        self.assertEqual(len(turns), 1)
+        self.assertIn("附件识别结果", turns[0].instruction)
+        self.assertIn("LazyCat 安装错误页", turns[0].instruction)
+        self.assertEqual(turns[0].image_paths, ())
+        self.assertEqual(replies, ["收到图片。"])
+
+    def test_build_task_passes_native_codex_image_attachments(self) -> None:
+        repo_root = self.make_repo_root()
+        image_path = repo_root / "shot.png"
+        image_path.write_bytes(b"fake")
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="piclaw-1",
+            channel_name="migration-piclaw",
+            scope="migration",
+            slug="piclaw",
+            item={"id": "item-1", "slug": "piclaw", "source": "owner/piclaw"},
+            workdir=repo_root,
+        )
+
+        task = build_task(
+            "看图修复",
+            context,
+            config,
+            now="2026-04-27T10:00:00Z",
+            task_id="message-1",
+            image_paths=(image_path,),
+        )
+
+        self.assertIn("--image", task.command)
+        self.assertIn(str(image_path), task.command)
 
     def test_gateway_message_create_runs_codex_command_from_migration_channel(self) -> None:
         repo_root = self.make_repo_root()
@@ -414,6 +559,36 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertEqual(item["human_response"]["content"], "choose_official_author")
         self.assertEqual(item["human_response"]["source"], "migration_operator")
         self.assertEqual(item["human_response"]["channel_id"], "piclaw-1")
+
+    def test_handle_command_runs_local_agent_command_without_codex(self) -> None:
+        repo_root = self.make_repo_root()
+        snapshot_path = repo_root / "registry" / "candidates" / "local-agent-latest.json"
+        snapshot_path.parent.mkdir(parents=True)
+        snapshot_path.write_text(json.dumps({"candidates": [{"status": "portable"}]}) + "\n", encoding="utf-8")
+        self.write_queue(repo_root)
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="dashboard-1",
+            channel_name="dashboard",
+            scope="dashboard",
+            slug="dashboard",
+            workdir=repo_root,
+        )
+
+        def runner(_: CodexControlTask) -> CodexControlRunResult:
+            raise AssertionError("LocalAgent command must not invoke Codex")
+
+        result = handle_command(
+            ParsedCommand("local_agent", "!la status"),
+            context,
+            config,
+            runner=runner,
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(result.status, "status")
+        self.assertIn("LocalAgent 状态", result.reply)
+        self.assertIn("候选快照：1", result.reply)
 
     def test_running_progress_message_only_reports_summary_delta(self) -> None:
         repo_root = self.make_repo_root()

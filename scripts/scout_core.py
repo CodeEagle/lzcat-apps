@@ -54,21 +54,28 @@ GITHUB_SEARCH_SOURCES = (
     {
         "name": "github_search_self_hosted_recent",
         "label": "GitHub Search Self-hosted",
-        "query_template": "topic:self-hosted stars:>500 pushed:>={recent_date} archived:false fork:false",
+        "query_template": "topic:self-hosted archived:false fork:false",
         "sort": "updated",
         "per_page": 20,
     },
     {
         "name": "github_search_high_star_recent",
-        "label": "GitHub Search High Star",
-        "query_template": "stars:>2000 pushed:>={recent_date} archived:false fork:false",
+        "label": "GitHub Search Web App",
+        "query_template": "web app server archived:false fork:false",
         "sort": "updated",
         "per_page": 20,
     },
     {
         "name": "github_search_docker_recent",
         "label": "GitHub Search Dockerized",
-        "query_template": "docker in:readme stars:>1000 pushed:>={recent_date} archived:false fork:false",
+        "query_template": "docker OR docker-compose in:readme archived:false fork:false",
+        "sort": "updated",
+        "per_page": 20,
+    },
+    {
+        "name": "github_search_self_hosted_games",
+        "label": "GitHub Search Self-hosted Games",
+        "query_template": "self-hosted game OR browser game OR multiplayer server archived:false fork:false",
         "sort": "updated",
         "per_page": 20,
     },
@@ -78,8 +85,6 @@ AWESOME_SELFHOSTED_SOURCE = {
     "name": "awesome_selfhosted_high_star",
     "label": "Awesome Self-Hosted",
     "snapshot_url": "https://codeload.github.com/awesome-selfhosted/awesome-selfhosted-data/tar.gz/refs/heads/master",
-    "min_stars": 1000,
-    "recent_days": 540,
 }
 
 
@@ -178,7 +183,50 @@ DEPLOYABLE_HINTS = (
     "deployment",
     "admin panel",
     "portal",
+    "game",
+    "browser game",
+    "multiplayer",
+    "multiplayer server",
+    "game server",
 )
+
+
+class DiscoveryRunLogger:
+    def __init__(self, path: Path, *, run_id: str | None = None) -> None:
+        self.path = path
+        self.run_id = run_id or datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+
+    def event(
+        self,
+        *,
+        stage: str,
+        item_id: str = "",
+        repo: str = "",
+        inputs: dict[str, Any] | None = None,
+        outputs: dict[str, Any] | None = None,
+        decision: dict[str, Any] | None = None,
+        evidence: list[str] | None = None,
+        error: str = "",
+        source: str = "",
+    ) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        payload: dict[str, Any] = {
+            "run_id": self.run_id,
+            "timestamp": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+            "stage": stage,
+            "item_id": item_id,
+            "repo": repo,
+            "inputs": inputs or {},
+            "outputs": outputs or {},
+            "decision": decision or {},
+            "evidence": evidence or [],
+        }
+        if error:
+            payload["error"] = error
+        if source:
+            payload["source"] = source
+        with self.path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
 
 
 def compact_whitespace(value: str) -> str:
@@ -242,23 +290,7 @@ def parse_appstore_hits(markdown: str) -> list[dict[str, str]]:
 def classify_search_hits(repo: dict[str, Any], hits: list[dict[str, str]]) -> tuple[str, str]:
     if not hits:
         return ("portable", "No matching app found in LazyCat app store search.")
-
-    repo_norm = normalize(repo["repo"])
-    full_name_norm = normalize(repo["full_name"])
-    strong_matches = []
-    for hit in hits:
-        hit_norm = normalize(hit["raw_label"])
-        if not hit_norm:
-            continue
-        if hit_norm.startswith(repo_norm + " ") or hit_norm == repo_norm:
-            strong_matches.append(hit)
-            continue
-        if full_name_norm and full_name_norm in hit_norm:
-            strong_matches.append(hit)
-
-    if strong_matches:
-        return ("already_migrated", "Strong app-store match found for repository name.")
-    return ("needs_review", "App-store search returned possible matches that need manual review.")
+    return ("needs_review", "LazyCat app-store search returned matches; AI discovery review required.")
 
 
 def find_publication_match(
@@ -319,6 +351,39 @@ def merge_repositories(repos: list[dict[str, Any]]) -> list[dict[str, Any]]:
             | set(repo.get("source_labels", [repo.get("source_label", repo["source_name"])]))
         )
     return list(merged.values())
+
+
+def candidate_item_id(repo: dict[str, Any]) -> str:
+    full_name = compact_whitespace(str(repo.get("full_name", ""))).strip("/")
+    if full_name:
+        return f"github:{full_name.lower()}"
+    repo_url = compact_whitespace(str(repo.get("repo_url", ""))).rstrip("/").removesuffix(".git")
+    if "github.com/" in repo_url:
+        repo_url = repo_url.rsplit("github.com/", 1)[-1]
+    return f"github:{repo_url.lower()}" if repo_url else ""
+
+
+def log_candidate_decision(
+    logger: DiscoveryRunLogger | None,
+    *,
+    repo: dict[str, Any],
+    candidate: dict[str, Any],
+    evidence: list[str],
+) -> None:
+    if logger is None:
+        return
+    status = str(candidate.get("status", "")).strip()
+    reason = str(candidate.get("status_reason", "")).strip()
+    logger.event(
+        stage="candidate_check",
+        item_id=candidate_item_id(repo),
+        repo=str(repo.get("full_name", "")).strip(),
+        inputs={"repo": repo},
+        outputs={"candidate": candidate},
+        decision={"status": status, "reason": reason},
+        evidence=evidence or ([reason] if reason else []),
+        source="scripts.scout_core.check_candidate",
+    )
 
 
 def find_exclusion(repo: dict[str, Any]) -> dict[str, str] | None:
@@ -599,7 +664,6 @@ def fetch_github_search_candidates() -> list[dict[str, Any]]:
 
 def fetch_awesome_selfhosted_candidates() -> list[dict[str, Any]]:
     snapshot_bytes = fetch_bytes(AWESOME_SELFHOSTED_SOURCE["snapshot_url"], timeout=120, retries=4)
-    recent_cutoff = build_recent_date(AWESOME_SELFHOSTED_SOURCE["recent_days"])
     source_name = AWESOME_SELFHOSTED_SOURCE["name"]
     source_label = AWESOME_SELFHOSTED_SOURCE["label"]
     repos: list[dict[str, Any]] = []
@@ -619,11 +683,6 @@ def fetch_awesome_selfhosted_candidates() -> list[dict[str, Any]]:
             if not parsed:
                 continue
             if bool(payload.get("archived", False)):
-                continue
-            if int(payload.get("stargazers_count", 0) or 0) < AWESOME_SELFHOSTED_SOURCE["min_stars"]:
-                continue
-            updated_at = compact_whitespace(payload.get("updated_at", ""))
-            if updated_at and updated_at < recent_cutoff:
                 continue
             owner, repo = parsed
             full_name = f"{owner}/{repo}"
@@ -739,6 +798,7 @@ def check_candidate(
     *,
     checked_at: str,
     publication_index: dict[str, dict[str, Any]] | None = None,
+    logger: DiscoveryRunLogger | None = None,
 ) -> dict[str, Any]:
     candidate = {
         "full_name": repo["full_name"],
@@ -768,6 +828,12 @@ def check_candidate(
                 "local_app": summarize_publication_match(publication_match),
             }
         )
+        log_candidate_decision(
+            logger,
+            repo=repo,
+            candidate=candidate,
+            evidence=[reason, f"local_app={candidate['local_app'].get('slug', '')}"],
+        )
         return candidate
 
     exclusion = find_exclusion(repo) or find_non_deployable_reason(repo)
@@ -778,6 +844,12 @@ def check_candidate(
                 "status_reason": exclusion["reason"],
                 "exclusion": exclusion,
             }
+        )
+        log_candidate_decision(
+            logger,
+            repo=repo,
+            candidate=candidate,
+            evidence=[exclusion["reason"], f"matched_keyword={exclusion['matched_keyword']}"],
         )
         return candidate
 
@@ -792,6 +864,12 @@ def check_candidate(
     )
     if search_result["errors"]:
         candidate["search_errors"] = search_result["errors"]
+    evidence = [search_result["reason"]]
+    if search_result["hits"]:
+        evidence.extend(f"appstore_hit={hit.get('raw_label', '')}:{hit.get('detail_url', '')}" for hit in search_result["hits"][:5])
+    if search_result["errors"]:
+        evidence.extend(f"search_error={error}" for error in search_result["errors"][:5])
+    log_candidate_decision(logger, repo=repo, candidate=candidate, evidence=evidence)
     return candidate
 
 

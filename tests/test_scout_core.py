@@ -12,6 +12,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from unittest.mock import patch
 
 from scripts.scout_core import (
+    AWESOME_SELFHOSTED_SOURCE,
+    GITHUB_SEARCH_SOURCES,
+    DiscoveryRunLogger,
     build_search_terms,
     check_candidate,
     classify_search_hits,
@@ -25,14 +28,26 @@ class ScoutCoreTest(unittest.TestCase):
     def test_build_search_terms_includes_dash_and_space_variants(self) -> None:
         self.assertEqual(build_search_terms("paperclip-ai"), ["paperclip-ai", "paperclip ai"])
 
-    def test_classify_strong_lazycat_match_as_already_migrated(self) -> None:
+    def test_github_search_sources_do_not_gate_by_stars_or_push_date(self) -> None:
+        queries = [source["query_template"] for source in GITHUB_SEARCH_SOURCES]
+
+        self.assertTrue(any("game" in query.lower() for query in queries))
+        for query in queries:
+            self.assertNotIn("stars:", query)
+            self.assertNotIn("pushed:", query)
+
+    def test_awesome_selfhosted_source_does_not_gate_by_stars_or_update_date(self) -> None:
+        self.assertNotIn("min_stars", AWESOME_SELFHOSTED_SOURCE)
+        self.assertNotIn("recent_days", AWESOME_SELFHOSTED_SOURCE)
+
+    def test_classify_lazycat_hit_as_needs_review_for_ai(self) -> None:
         status, reason = classify_search_hits(
             {"repo": "paperclip", "full_name": "paperclipai/paperclip"},
             [{"raw_label": "Paperclip AI", "detail_url": "https://lazycat.cloud/appstore/detail/x"}],
         )
 
-        self.assertEqual(status, "already_migrated")
-        self.assertIn("Strong", reason)
+        self.assertEqual(status, "needs_review")
+        self.assertIn("AI", reason)
 
     def test_merge_repositories_combines_sources(self) -> None:
         repos = [
@@ -88,7 +103,7 @@ Python[1,234](http://github.com/owner/demo/stargazers) 5 stars today
         self.assertEqual(repos[0]["stars_today"], 5)
 
     @patch("scripts.scout_core.fetch_text")
-    def test_search_lazycat_returns_already_migrated_for_strong_hit(self, fetch_text_mock) -> None:
+    def test_search_lazycat_returns_needs_review_for_strong_hit(self, fetch_text_mock) -> None:
         fetch_text_mock.return_value = """
 [![Image 0](x) Paperclip AI](http://lazycat.cloud/appstore/detail/fun.selfstudio.app.migration.paperclip)
 """
@@ -96,9 +111,45 @@ Python[1,234](http://github.com/owner/demo/stargazers) 5 stars today
 
         result = search_lazycat(repo)
 
-        self.assertEqual(result["status"], "already_migrated")
+        self.assertEqual(result["status"], "needs_review")
         self.assertEqual(result["hits"][0]["raw_label"], "Paperclip AI")
         self.assertEqual(result["searches"][0]["term"], "paperclip")
+
+    @patch("scripts.scout_core.search_lazycat")
+    def test_check_candidate_writes_structured_decision_log(self, search_mock) -> None:
+        search_mock.return_value = {
+            "status": "portable",
+            "reason": "No matching app found in LazyCat app store search.",
+            "searches": [{"term": "demo"}],
+            "hits": [],
+            "errors": [],
+        }
+        log_path = Path(tempfile.mkdtemp(prefix="scout-log-test-")) / "run.jsonl"
+        logger = DiscoveryRunLogger(log_path, run_id="run-1")
+        repo = {
+            "source_name": "manual_check",
+            "source_label": "Manual Check",
+            "owner": "owner",
+            "repo": "demo",
+            "full_name": "owner/demo",
+            "repo_url": "https://github.com/owner/demo",
+            "description": "Self-hosted browser game server",
+            "language": "TypeScript",
+            "total_stars": 0,
+            "stars_today": 0,
+        }
+
+        candidate = check_candidate(repo, checked_at="2026-04-25T00:00:00Z", logger=logger)
+
+        self.assertEqual(candidate["status"], "portable")
+        events = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(events[0]["run_id"], "run-1")
+        self.assertEqual(events[0]["stage"], "candidate_check")
+        self.assertEqual(events[0]["item_id"], "github:owner/demo")
+        self.assertEqual(events[0]["inputs"]["repo"]["full_name"], "owner/demo")
+        self.assertEqual(events[0]["outputs"]["candidate"]["status"], "portable")
+        self.assertEqual(events[0]["decision"]["status"], "portable")
+        self.assertIn("No matching app", events[0]["evidence"][0])
 
     @patch("scripts.scout_core.search_lazycat")
     def test_check_candidate_excludes_non_deployable_without_store_search(self, search_mock) -> None:

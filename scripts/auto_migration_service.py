@@ -37,6 +37,7 @@ except ImportError:  # pragma: no cover - direct script execution
 
 DEFAULT_CANDIDATE_SNAPSHOT = "registry/candidates/latest.json"
 DEFAULT_QUEUE_PATH = "registry/auto-migration/queue.json"
+DEFAULT_DISCOVERY_LOG_DIR = "registry/auto-migration/logs/discovery-runs"
 FILTERED_CANDIDATE_STATUSES = {"already_migrated", "excluded", "in_progress"}
 PROTECTED_STATES = {
     "scaffolded",
@@ -115,6 +116,42 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     temp_path = path.with_suffix(path.suffix + ".tmp")
     temp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     temp_path.replace(path)
+
+
+def discovery_log_path(repo_root: Path, now: str) -> Path:
+    run_id = now.replace(":", "").replace("-", "")
+    return repo_root / DEFAULT_DISCOVERY_LOG_DIR / f"{run_id}.jsonl"
+
+
+def append_service_event(
+    config: ServiceConfig,
+    *,
+    now: str,
+    stage: str,
+    item_id: str = "",
+    inputs: dict[str, Any] | None = None,
+    outputs: dict[str, Any] | None = None,
+    decision: dict[str, Any] | None = None,
+    evidence: list[str] | None = None,
+    error: str = "",
+) -> None:
+    path = discovery_log_path(config.repo_root, now)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, Any] = {
+        "run_id": now.replace(":", "").replace("-", ""),
+        "timestamp": utc_now_iso(),
+        "stage": stage,
+        "item_id": item_id,
+        "inputs": inputs or {},
+        "outputs": outputs or {},
+        "decision": decision or {},
+        "evidence": evidence or [],
+        "source": "scripts.auto_migration_service",
+    }
+    if error:
+        payload["error"] = error
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
 
 
 def candidate_source(candidate: dict[str, Any]) -> str:
@@ -977,6 +1014,20 @@ def run_cycle(
     }
 
     queue = read_json(config.queue_path, empty_queue(now))
+    append_service_event(
+        config,
+        now=now,
+        stage="cycle_start",
+        inputs={
+            "queue_path": str(config.queue_path),
+            "skip_scout": config.skip_scout,
+            "scan_limit": config.scan_limit,
+            "local_agent_enabled": config.local_agent_enabled,
+        },
+        outputs={"queue_items": len(queue.get("items", [])) if isinstance(queue.get("items"), list) else 0},
+        decision={"status": "started"},
+        evidence=["auto migration cycle started"],
+    )
     if config.discord_enabled:
         client = discord_client or build_discord_client(config)
         if client:
@@ -994,10 +1045,42 @@ def run_cycle(
                 except Exception as exc:  # pragma: no cover - exact Discord/network exception varies.
                     summary["local_agent_commands"] = [{"status": "failed", "error": str(exc)}]
     summary["discovery_gate"] = run_discovery_gate(config, queue, now=now, discord_notifier=discord_notifier)
+    append_service_event(
+        config,
+        now=now,
+        stage="discovery_gate",
+        outputs={"changes": summary["discovery_gate"]},
+        decision={"status": "completed"},
+        evidence=[f"changes={len(summary['discovery_gate'])}"],
+    )
     summary["discovery_reviewer"] = advance_discovery_reviewer(config, queue, runner=runner, now=now)
+    append_service_event(
+        config,
+        now=now,
+        stage="discovery_reviewer",
+        outputs={"results": summary["discovery_reviewer"]},
+        decision={"status": "completed"},
+        evidence=[f"results={len(summary['discovery_reviewer'])}"],
+    )
     summary["browser_recheck"] = refresh_browser_pending(config, queue, runner=runner, now=now)
     summary["codex_worker"] = advance_codex_worker(config, queue, runner=runner, now=now)
     summary["post_acceptance"] = advance_post_acceptance(config, queue, runner=runner, now=now)
+    append_service_event(
+        config,
+        now=now,
+        stage="workers",
+        outputs={
+            "browser_recheck": summary["browser_recheck"],
+            "codex_worker": summary["codex_worker"],
+            "post_acceptance": summary["post_acceptance"],
+        },
+        decision={"status": "completed"},
+        evidence=[
+            f"browser_recheck={len(summary['browser_recheck'])}",
+            f"codex_worker={len(summary['codex_worker'])}",
+            f"post_acceptance={len(summary['post_acceptance'])}",
+        ],
+    )
     for result in [
         *summary["discovery_reviewer"],
         *summary["browser_recheck"],
@@ -1026,11 +1109,29 @@ def run_cycle(
         command = build_status_sync_command(config)
         result = runner(command)
         summary["commands"].append({"command": command, "returncode": result.returncode})
+        append_service_event(
+            config,
+            now=now,
+            stage="status_sync_command",
+            inputs={"command": command},
+            outputs={"returncode": result.returncode, "stdout": result.stdout[-4000:], "stderr": result.stderr[-4000:]},
+            decision={"status": "completed" if result.returncode == 0 else "failed"},
+            evidence=[f"returncode={result.returncode}"],
+        )
 
     if not config.skip_scout:
         command = build_scout_scan_command(config)
         result = runner(command)
         summary["commands"].append({"command": command, "returncode": result.returncode})
+        append_service_event(
+            config,
+            now=now,
+            stage="scout_scan_command",
+            inputs={"command": command},
+            outputs={"returncode": result.returncode, "stdout": result.stdout[-4000:], "stderr": result.stderr[-4000:]},
+            decision={"status": "completed" if result.returncode == 0 else "failed"},
+            evidence=[f"returncode={result.returncode}"],
+        )
         if result.returncode != 0:
             write_json(config.queue_path, queue)
             summary["migration"] = {"status": "scout_failed", "returncode": result.returncode}
@@ -1038,12 +1139,37 @@ def run_cycle(
 
     local_agent_snapshot, local_agent_summary = import_local_agent_snapshot(config, now=now)
     summary["local_agent"] = local_agent_summary
+    append_service_event(
+        config,
+        now=now,
+        stage="local_agent_import",
+        inputs={"enabled": config.local_agent_enabled, "path": str(config.local_agent_path)},
+        outputs=local_agent_summary,
+        decision={"status": str(local_agent_summary.get("status", ""))},
+        evidence=[f"candidate_count={local_agent_summary.get('candidate_count', 0)}"],
+    )
     snapshot = load_candidate_snapshot(config.repo_root, config.candidate_snapshot)
     candidates = snapshot.get("candidates") if isinstance(snapshot.get("candidates"), list) else []
     local_agent_candidates = (
         local_agent_snapshot.get("candidates") if isinstance(local_agent_snapshot.get("candidates"), list) else []
     )
     candidates = [*candidates, *local_agent_candidates]
+    append_service_event(
+        config,
+        now=now,
+        stage="candidate_snapshot_merge",
+        inputs={
+            "candidate_snapshot": config.candidate_snapshot,
+            "local_agent_snapshot": str(config.local_agent_snapshot_path),
+        },
+        outputs={
+            "scout_candidates": len(candidates) - len(local_agent_candidates),
+            "local_agent_candidates": len(local_agent_candidates),
+            "merged_candidates": len(candidates),
+        },
+        decision={"status": "upsert_candidates"},
+        evidence=[f"merged_candidates={len(candidates)}"],
+    )
     queue = upsert_candidates(queue, candidates, now=now)
     summary["discovery_gate"].extend(run_discovery_gate(config, queue, now=now, discord_notifier=discord_notifier))
     if not summary["discovery_reviewer"]:
@@ -1061,9 +1187,26 @@ def run_cycle(
     if not selected:
         write_json(config.queue_path, queue)
         summary["migration"] = {"status": "idle"}
+        append_service_event(
+            config,
+            now=now,
+            stage="migration_selection",
+            outputs={"selected": None},
+            decision={"status": "idle"},
+            evidence=["no ready item selected"],
+        )
         return summary
 
     summary["selected"] = selected["id"]
+    append_service_event(
+        config,
+        now=now,
+        stage="migration_selection",
+        item_id=str(selected.get("id", "")),
+        outputs={"selected": selected.get("id"), "slug": selected.get("slug"), "source": selected.get("source")},
+        decision={"status": "selected"},
+        evidence=[f"state={selected.get('state', '')}"],
+    )
     if config.dry_run:
         write_json(config.queue_path, queue)
         summary["migration"] = {"status": "dry_run"}

@@ -10,10 +10,10 @@ from typing import Any
 
 try:
     from .publication_status import load_publication_index
-    from .scout_core import check_candidate, parse_repo_input, scan_remote_candidates
+    from .scout_core import DiscoveryRunLogger, check_candidate, parse_repo_input, scan_remote_candidates
 except ImportError:  # pragma: no cover - direct script execution
     from publication_status import load_publication_index
-    from scout_core import check_candidate, parse_repo_input, scan_remote_candidates
+    from scout_core import DiscoveryRunLogger, check_candidate, parse_repo_input, scan_remote_candidates
 
 
 def utc_now_iso() -> str:
@@ -54,11 +54,17 @@ def write_candidate_files(repo_root: Path, payload: dict[str, Any]) -> dict[str,
     return {"latest": latest_path, "dated": dated_path}
 
 
+def default_discovery_log_path(repo_root: Path, generated_at: str) -> Path:
+    run_id = generated_at.replace(":", "").replace("-", "")
+    return repo_root / "registry" / "auto-migration" / "logs" / "discovery-runs" / f"{run_id}.jsonl"
+
+
 def check_repository(
     repo_ref: str,
     *,
     checked_at: str,
     publication_index: dict[str, dict[str, Any]] | None = None,
+    logger: DiscoveryRunLogger | None = None,
 ) -> dict[str, Any]:
     parsed = parse_repo_input(repo_ref)
     if not parsed:
@@ -82,6 +88,7 @@ def check_repository(
         },
         checked_at=checked_at,
         publication_index=publication_index,
+        logger=logger,
     )
 
 
@@ -92,11 +99,25 @@ def scan_candidates(
     include_github_search: bool,
     include_awesome: bool,
     publication_index: dict[str, dict[str, Any]] | None = None,
+    logger: DiscoveryRunLogger | None = None,
 ) -> list[dict[str, Any]]:
     repos = scan_remote_candidates(include_github_search=include_github_search, include_awesome=include_awesome)
+    if logger:
+        logger.event(
+            stage="scan_sources",
+            inputs={
+                "limit": limit,
+                "include_github_search": include_github_search,
+                "include_awesome": include_awesome,
+            },
+            outputs={"repo_count": len(repos), "selected_count": len(repos[:limit])},
+            decision={"status": "selected_for_candidate_check"},
+            evidence=[f"repos={len(repos)}", f"limit={limit}"],
+            source="scripts.scout.scan_candidates",
+        )
     candidates: list[dict[str, Any]] = []
     for repo in repos[:limit]:
-        candidates.append(check_candidate(repo, checked_at=checked_at, publication_index=publication_index))
+        candidates.append(check_candidate(repo, checked_at=checked_at, publication_index=publication_index, logger=logger))
     return candidates
 
 
@@ -109,9 +130,11 @@ def parse_args() -> argparse.Namespace:
     scan_parser.add_argument("--limit", type=int, default=50)
     scan_parser.add_argument("--skip-github-search", action="store_true")
     scan_parser.add_argument("--skip-awesome-selfhosted", action="store_true")
+    scan_parser.add_argument("--log-path", default="", help="Write structured discovery JSONL events to this path.")
 
     check_parser = subparsers.add_parser("check", help="Classify one GitHub repository.")
     check_parser.add_argument("repo")
+    check_parser.add_argument("--log-path", default="", help="Write structured discovery JSONL events to this path.")
     return parser.parse_args()
 
 
@@ -120,9 +143,14 @@ def main() -> int:
     repo_root = Path(args.repo_root).resolve()
     checked_at = utc_now_iso()
     publication_index = load_publication_index(repo_root)
+    log_path_arg = str(getattr(args, "log_path", "") or "").strip()
+    log_path = Path(log_path_arg).expanduser() if log_path_arg else default_discovery_log_path(repo_root, checked_at)
+    if log_path_arg and not log_path.is_absolute():
+        log_path = repo_root / log_path
+    logger = DiscoveryRunLogger(log_path)
 
     if args.command == "check":
-        candidate = check_repository(args.repo, checked_at=checked_at, publication_index=publication_index)
+        candidate = check_repository(args.repo, checked_at=checked_at, publication_index=publication_index, logger=logger)
         print(json.dumps(candidate, ensure_ascii=False, indent=2, sort_keys=True))
         return 0
 
@@ -135,10 +163,12 @@ def main() -> int:
         include_github_search=not args.skip_github_search,
         include_awesome=not args.skip_awesome_selfhosted,
         publication_index=publication_index,
+        logger=logger,
     )
     payload = build_payload(candidates, generated_at=checked_at)
     paths = write_candidate_files(repo_root, payload)
     print(paths["latest"])
+    print(logger.path)
     print(json.dumps(payload["meta"], ensure_ascii=False, sort_keys=True))
     return 0
 
