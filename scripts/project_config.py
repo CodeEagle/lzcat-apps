@@ -46,7 +46,8 @@ class CodexControlConfig:
     state_path: str = "registry/auto-migration/discord-codex-control.json"
     task_root: str = "registry/auto-migration/codex-control-tasks"
     model: str = "gpt-5.5"
-    dashboard_model: str = "gpt-5.4-mini"
+    dashboard_model: str = "gpt-5.5"
+    dashboard_reasoning_effort: str = "xhigh"
     dashboard_session_max_input_tokens: int = 500000
     bot_user_id: str = ""
     mention_role_ids: tuple[str, ...] = ()
@@ -139,7 +140,9 @@ def load_project_config(repo_root: Path) -> ProjectConfig:
             task_root=str(codex_control.get("task_root", "registry/auto-migration/codex-control-tasks")).strip()
             or "registry/auto-migration/codex-control-tasks",
             model=str(codex_control.get("model", "gpt-5.5")).strip() or "gpt-5.5",
-            dashboard_model=str(codex_control.get("dashboard_model", "gpt-5.4-mini")).strip() or "gpt-5.4-mini",
+            dashboard_model=str(codex_control.get("dashboard_model", "gpt-5.5")).strip() or "gpt-5.5",
+            dashboard_reasoning_effort=str(codex_control.get("dashboard_reasoning_effort", "xhigh")).strip()
+            or "xhigh",
             dashboard_session_max_input_tokens=_as_int(
                 codex_control.get("dashboard_session_max_input_tokens"),
                 500000,

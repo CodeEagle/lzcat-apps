@@ -33,7 +33,8 @@
     "state_path": "registry/auto-migration/discord-codex-control.json",
     "task_root": "registry/auto-migration/codex-control-tasks",
     "model": "gpt-5.5",
-    "dashboard_model": "gpt-5.4-mini",
+    "dashboard_model": "gpt-5.5",
+    "dashboard_reasoning_effort": "xhigh",
     "dashboard_session_max_input_tokens": 500000,
     "bot_user_id": "1497941153608241192",
     "mention_role_ids": [

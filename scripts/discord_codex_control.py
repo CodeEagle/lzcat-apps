@@ -107,6 +107,7 @@ class CodexControlConfig:
     mention_role_ids: tuple[str, ...] = ()
     model: str = DEFAULT_CODEX_MODEL
     dashboard_model: str = ""
+    dashboard_reasoning_effort: str = "xhigh"
     dashboard_session_max_input_tokens: int = 500000
     execute: bool = True
 
@@ -1791,6 +1792,13 @@ def effective_dashboard_model(config: CodexControlConfig) -> str:
     return config.dashboard_model.strip() or config.model
 
 
+def dashboard_reasoning_args(config: CodexControlConfig) -> list[str]:
+    effort = config.dashboard_reasoning_effort.strip()
+    if not effort:
+        return []
+    return ["--config", f'model_reasoning_effort="{effort}"']
+
+
 def dashboard_usage_from_jsonl(output: str) -> dict[str, int]:
     latest: dict[str, int] = {}
     for line in output.splitlines():
@@ -1903,6 +1911,7 @@ def build_dashboard_conversation_command(
         str(workdir),
         "--sandbox",
         "danger-full-access",
+        *dashboard_reasoning_args(config),
     ]
     if session_id:
         return [
@@ -2877,6 +2886,7 @@ def config_from_project(repo_root: Path, *, execute: bool = True) -> CodexContro
         mention_role_ids=project_config.codex_control.mention_role_ids,
         model=project_config.codex_control.model or project_config.migration.codex_worker_model,
         dashboard_model=project_config.codex_control.dashboard_model,
+        dashboard_reasoning_effort=project_config.codex_control.dashboard_reasoning_effort,
         dashboard_session_max_input_tokens=project_config.codex_control.dashboard_session_max_input_tokens,
         execute=execute,
     )

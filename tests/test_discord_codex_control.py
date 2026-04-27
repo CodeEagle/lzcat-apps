@@ -84,7 +84,8 @@ class DiscordCodexControlTest(unittest.TestCase):
             control_channel="migration-control",
             mention_role_ids=("role-1",),
             model="gpt-5.5",
-            dashboard_model="gpt-5.4-mini",
+            dashboard_model="gpt-5.5",
+            dashboard_reasoning_effort="xhigh",
         )
 
     def test_parse_direct_and_mention_commands(self) -> None:
@@ -1347,7 +1348,8 @@ exit 0
         )
 
         self.assertEqual(command[command.index("-C") + 1], str(repo_root))
-        self.assertEqual(command[command.index("--model") + 1], "gpt-5.4-mini")
+        self.assertEqual(command[command.index("--model") + 1], "gpt-5.5")
+        self.assertEqual(command[command.index("--config") + 1], 'model_reasoning_effort="xhigh"')
 
     def test_dashboard_conversation_resets_session_when_previous_usage_is_too_large(self) -> None:
         repo_root = self.make_repo_root()
@@ -1358,7 +1360,8 @@ exit 0
             state_path=repo_root / "registry" / "auto-migration" / "discord-codex-control.json",
             task_root=repo_root / "registry" / "auto-migration" / "codex-control-tasks",
             model="gpt-5.5",
-            dashboard_model="gpt-5.4-mini",
+            dashboard_model="gpt-5.5",
+            dashboard_reasoning_effort="xhigh",
             dashboard_session_max_input_tokens=100,
         )
         config.state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1433,7 +1436,8 @@ exit 0
         self.assertEqual(result.session_id, "66666666-7777-8888-9999-aaaaaaaaaaaa")
         self.assertEqual(len(calls), 1)
         self.assertNotIn("resume", calls[0])
-        self.assertEqual(calls[0].split()[calls[0].split().index("--model") + 1], "gpt-5.4-mini")
+        self.assertEqual(calls[0].split()[calls[0].split().index("--model") + 1], "gpt-5.5")
+        self.assertEqual(calls[0].split()[calls[0].split().index("--config") + 1], 'model_reasoning_effort="xhigh"')
 
     def test_filter_close_refuses_empty_workdir(self) -> None:
         repo_root = self.make_repo_root()
