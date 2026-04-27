@@ -27,6 +27,10 @@ export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${HOME}/.cache}"
 export CODEX_HOME="${CODEX_HOME:-${HOME}/.codex}"
 export PATH="${DATA_DIR}/bin:${PATH}"
 
+if [ "${CC_CONNECT_UPDATE_AGENT_CLIS_ON_START:-1}" != "0" ] && [ -x /usr/local/bin/update-agent-clis.sh ]; then
+  /usr/local/bin/update-agent-clis.sh --best-effort
+fi
+
 if [ ! -f "${CONFIG_FILE}" ]; then
   umask 077
   cat >"${CONFIG_FILE}" <<EOF

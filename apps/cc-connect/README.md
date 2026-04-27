@@ -24,7 +24,8 @@ cc-connect 把 Claude Code、Codex、Gemini CLI、OpenCode 等本地 AI coding a
 
 1. Node 22 构建 `web/dist`。
 2. Go 1.25 构建 `cmd/cc-connect` 并嵌入 Web 资源。
-3. 运行时镜像携带 `cc-connect`、Node、git、sqlite3 以及常见 Agent CLI 的 best-effort npm 安装。
+3. 运行时镜像携带 `cc-connect`、Node、git、sqlite3，并默认安装 Claude Code、Codex、Gemini CLI、iFlow CLI、OpenCode、Kimi CLI 和 Qoder CLI。构建期安装失败会让 GitHub Workflow 失败，避免产出缺少默认 Agent 的 LPK。
+4. 容器每次启动时会重新执行 Agent CLI 更新。更新失败只记录 warning，不阻塞 cc-connect 启动；如需关闭，设置 `CC_CONNECT_UPDATE_AGENT_CLIS_ON_START=0`。
 
 正式构建由 `trigger-build.yml` 执行，产物镜像地址通过 `.lazycat-images.json` 管理，仓库内 manifest 保持占位镜像。
 
@@ -39,7 +40,7 @@ cc-connect 把 Claude Code、Codex、Gemini CLI、OpenCode 等本地 AI coding a
 
 ## Claude Code / Codex 接入
 
-LazyCat 版运行在容器里，不能直接读取你电脑上的 `~/.claude`、`~/.codex` 或已登录的本地 CLI 状态。推荐做法是在 Web 管理台重新配置 Provider：
+LazyCat 版运行在容器里，镜像已默认带上 Claude Code、Codex、Gemini CLI、iFlow CLI、OpenCode、Kimi CLI 和 Qoder CLI，但不能直接读取你电脑上的 `~/.claude`、`~/.codex` 或已登录的本地 CLI 状态。推荐做法是在 Web 管理台重新配置 Provider：
 
 1. 在 `Providers` 添加 Anthropic/OpenAI 或兼容中转 Provider。
 2. 在 `Projects` 创建项目，Agent 类型选择 `claudecode` 或 `codex`。

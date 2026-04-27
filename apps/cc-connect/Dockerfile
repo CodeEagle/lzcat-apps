@@ -75,22 +75,18 @@ RUN apt-get update \
       git \
       openssh-client \
       python3 \
+      python3-pip \
       sqlite3 \
       tini \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /data /data/home /data/state /data/workspaces /data/bin
 
-# Common agent CLIs are optional: cc-connect still runs if an upstream package is
-# temporarily unavailable, and users can install extra CLIs into /data/bin later.
-RUN set -eux; \
-    for pkg in \
-      "@anthropic-ai/claude-code@latest" \
-      "@openai/codex@latest" \
-      "@google/gemini-cli@latest" \
-      "opencode-ai@latest"; do \
-      npm install -g --no-audit --no-fund "$pkg" || echo "warning: optional npm agent package failed: $pkg"; \
-    done; \
-    npm cache clean --force
+COPY lazycat/update-agent-clis.sh /usr/local/bin/update-agent-clis.sh
+
+# Default agent CLIs are installed into the image. Build fails if the default
+# set cannot be installed, so the LPK does not ship without runnable agents.
+RUN chmod +x /usr/local/bin/update-agent-clis.sh \
+    && /usr/local/bin/update-agent-clis.sh --required
 
 COPY --from=go-builder /out/cc-connect /usr/local/bin/cc-connect
 COPY lazycat/entrypoint.sh /usr/local/bin/entrypoint.sh

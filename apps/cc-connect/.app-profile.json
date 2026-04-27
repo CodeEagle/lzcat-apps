@@ -28,6 +28,7 @@
           "CC_CONNECT_CONFIG=/data/config.toml",
           "HOME=/data/home",
           "CODEX_HOME=/data/home/.codex",
+          "CC_CONNECT_UPDATE_AGENT_CLIS_ON_START=1",
           "XDG_CONFIG_HOME=/data/home/.config",
           "XDG_DATA_HOME=/data/home/.local/share",
           "XDG_CACHE_HOME=/data/home/.cache"
@@ -55,7 +56,8 @@
       "Go 1.25 source build with embedded web admin UI.",
       "Default config is created at /data/config.toml on first start.",
       "Management-only startup is enabled by a LazyCat build patch.",
-      "Agent CLI home is persisted under /data/home, with CODEX_HOME=/data/home/.codex."
+      "Agent CLI home is persisted under /data/home, with CODEX_HOME=/data/home/.codex.",
+      "Default agent CLIs are installed during image build and updated on every container start."
     ],
     "include_content": false
   }

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "https://github.com/chenhg5/cc-connect",
   "created_at": "2026-04-27T06:40:03.291292+00:00",
-  "updated_at": "2026-04-27T07:16:56.157231+00:00",
+  "updated_at": "2026-04-27T07:26:40.585339+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -67,6 +67,7 @@
             "CC_CONNECT_CONFIG=/data/config.toml",
             "HOME=/data/home",
             "CODEX_HOME=/data/home/.codex",
+            "CC_CONNECT_UPDATE_AGENT_CLIS_ON_START=1",
             "XDG_CONFIG_HOME=/data/home/.config",
             "XDG_DATA_HOME=/data/home/.local/share",
             "XDG_CACHE_HOME=/data/home/.cache"
@@ -95,6 +96,7 @@
         "CC_CONNECT_CONFIG=/data/config.toml",
         "HOME=/data/home",
         "CODEX_HOME=/data/home/.codex",
+        "CC_CONNECT_UPDATE_AGENT_CLIS_ON_START=1",
         "XDG_CONFIG_HOME=/data/home/.config",
         "XDG_DATA_HOME=/data/home/.local/share",
         "XDG_CACHE_HOME=/data/home/.cache"
@@ -107,7 +109,8 @@
         "Default config is created at /data/config.toml on first start.",
         "Management-only startup is enabled by a LazyCat build patch.",
         "Tokenless web login is enabled when CC_CONNECT_MANAGEMENT_TOKEN is empty.",
-        "Agent CLI home is persisted under /data/home, with CODEX_HOME=/data/home/.codex."
+        "Agent CLI home is persisted under /data/home, with CODEX_HOME=/data/home/.codex.",
+        "Default agent CLIs are installed during image build and updated on every container start."
       ],
       "include_content": false,
       "ai_pod_service": "",
@@ -129,12 +132,12 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-27T07:16:53.758331+00:00",
+      "completed_at": "2026-04-27T07:26:38.410846+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-27T07:16:56.102121+00:00",
+      "completed_at": "2026-04-27T07:26:40.537254+00:00",
       "conclusion": "已自动推断构建路线为 `target_repo_dockerfile`"
     },
     "3": {
@@ -167,13 +170,13 @@
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-04-27T07:16:56.156562+00:00",
+      "completed_at": "2026-04-27T07:26:40.584899+00:00",
       "conclusion": "预检通过",
       "all_passed": true
     },
     "8": {
       "completed": true,
-      "completed_at": "2026-04-27T07:16:56.157227+00:00",
+      "completed_at": "2026-04-27T07:26:40.585335+00:00",
       "conclusion": "validate-only 模式停止"
     },
     "9": {
