@@ -21,7 +21,7 @@ cc-connect 把 Claude Code、Codex、Gemini CLI、OpenCode 等本地 AI coding a
 
 ## 构建说明
 
-`Dockerfile` 从 `CodeEagle/cc-connect` LazyCat source fork 的 release tag 拉取源码。fork 基于上游 `v1.3.2`，并内置 Web Terminal、tokenless 管理台入口、Feishu 扫码保存修复和管理模式下的平台配置容错。
+`Dockerfile` 从 `CodeEagle/cc-connect` source fork 的 release tag 拉取源码。当前 `v1.3.3` 集成了 Web Terminal、tokenless 管理台入口、Feishu 扫码保存修复、管理模式下的平台配置容错，以及 Weixin 音频/视频媒体发送修复。
 
 1. Node 22 构建 `web/dist`。
 2. Go 1.25 构建 `cmd/cc-connect` 并嵌入 Web 资源。
