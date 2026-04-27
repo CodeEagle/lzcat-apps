@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "CodeEagle/agent-runtime",
   "created_at": "2026-04-27T08:40:22.314397+00:00",
-  "updated_at": "2026-04-27T08:40:27.369692+00:00",
+  "updated_at": "2026-04-27T08:43:31.025465+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -120,12 +120,12 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-27T08:40:23.780289+00:00",
+      "completed_at": "2026-04-27T08:43:26.267449+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-27T08:40:27.328691+00:00",
+      "completed_at": "2026-04-27T08:43:31.025369+00:00",
       "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
     },
     "3": {
@@ -155,8 +155,23 @@
       "completed": true,
       "completed_at": "2026-04-27T08:40:27.369690+00:00",
       "conclusion": "剩余文件已补齐"
+    },
+    "7": {
+      "completed": true,
+      "completed_at": "2026-04-27T08:40:27.537100+00:00",
+      "conclusion": "预检通过",
+      "all_passed": true
     }
   },
-  "problems": [],
+  "problems": [
+    {
+      "id": "p1",
+      "step": 8,
+      "description": "    )\n    ^\n  File \"/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/scripts/run_build.py\", line 187, in run_streaming\n    raise RuntimeError(\n    ...<2 lines>...\n    )\nRuntimeError: Command failed (1): ['docker', 'build', '--platform', 'linux/amd64', '-f', '/var/folders/j_/6_f1sp_s54bds4vqqhyx2flr0000gn/T/lzcat-upstream-acp9l30k/Dockerfile', '-t', 'ghcr.io/codeeagle/lazycatimages:agentRuntime_d184e0d8ec3c', '--label', 'org.opencontainers.image.source=https://github.com/CodeEagle/lzcat-apps', '--build-arg', 'SOURCE_VERSION=8b1fc6d', '--build-arg', 'BUILD_VERSION=0.1.1', '/var/folders/j_/6_f1sp_s54bds4vqqhyx2flr0000gn/T/lzcat-upstream-acp9l30k']\noutput:\nDEPRECATED: The legacy builder is deprecated and will be removed in a future release.\n            Install the buildx component to build images with BuildKit:\n            https://docs.docker.com/go/buildx/\nSending build context to Docker daemon  87.04kB\nStep 1/16 : FROM golang:1.24-alpine AS build\n1.24-alpine: Pulling from library/golang\n4f4fb700ef54: Pulling fs layer\n8f78851c25d2: Pulling fs layer\n589002ba0eae: Pulling fs layer\nf7bdfd728ac2: Pulling fs layer\nc95d909b2488: Pulling fs layer\n4f4fb700ef54: Already exists\n4f4fb700ef54: Pull complete\n1d33ae2c002b: Download complete\nc95d909b2488: Download complete\n8f78851c25d2: Download complete\n137f4946deb0: Download complete\n589002ba0eae: Download complete\n8f78851c25d2: Pull complete\n589002ba0eae: Pull complete\nf7bdfd728ac2: Download complete\nc95d909b2488: Pull complete\nf7bdfd728ac2: Pull complete\nDigest: sha256:8bee1901f1e530bfb4a7850aa7a479d17ae3a18beb6e09064ed54cfd245b7191\nStatus: Image is up to date for golang:1.24-alpine\n ---> 8bee1901f1e5\nStep 2/16 : WORKDIR /src\n ---> Running in b05eaf6b16cb\n ---> Removed intermediate container b05eaf6b16cb\n ---> 0fdd2dddc958\nStep 3/16 : COPY go.mod ./\nfailed to get destination image \"sha256:0fdd2dddc9586b5dfae194cfe3876a24d82c2448c30097a1af1089ae956db93e\": image with reference sha256:0fdd2dddc9586b5dfae194cfe3876a24d82c2448c30097a1af1089ae956db93e was found but does not provide the specified platform (linux/amd64)",
+      "category": "build",
+      "status": "open",
+      "created_at": "2026-04-27T08:41:52.773432+00:00"
+    }
+  ],
   "verification": {}
 }
