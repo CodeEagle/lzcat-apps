@@ -1397,9 +1397,13 @@ def build_with_dockerfile(
     if not dockerfile.exists():
         raise RuntimeError(f"Dockerfile not found: {dockerfile}")
     container_cli = resolve_container_cli(env)
-    args = [container_cli, "build"]
-    if platform:
-        args.extend(["--platform", platform])
+    use_buildx = bool(platform) and container_cli == "docker" and docker_buildx_available(env)
+    if use_buildx:
+        args = [container_cli, "buildx", "build", "--load", "--platform", platform]
+    else:
+        args = [container_cli, "build"]
+        if platform:
+            args.extend(["--platform", platform])
     args.extend(["-f", str(dockerfile), "-t", target_image])
     if target:
         args.extend(["--target", target])
@@ -1450,6 +1454,17 @@ def build_with_dockerfile(
                 log(f"Retrying docker push in {delay}s")
                 time.sleep(delay)
     return target_image
+
+
+def docker_buildx_available(env: dict[str, str]) -> bool:
+    return subprocess.run(
+        ["docker", "buildx", "version"],
+        env=env,
+        text=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    ).returncode == 0
 
 
 def resolve_image_owner(config: dict[str, Any], env: dict[str, str]) -> str:
