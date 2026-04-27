@@ -15,11 +15,11 @@ params:
   - id: google_client_id
     type: string
     name: Google Client ID
-    description: Google OAuth 客户端 ID。填写后登录页会显示 Continue with Google。
+    description: 仅作为非 LazyCat OIDC 环境的回退配置；LazyCat 上默认使用微服 OIDC 免密登录。
     optional: true
 
   - id: google_client_secret
     type: string
     name: Google Client Secret
-    description: Google OAuth 客户端密钥。需要与 Google Client ID 配套填写。
+    description: 仅作为非 LazyCat OIDC 环境的回退配置；需要与 Google Client ID 配套填写。
     optional: true
