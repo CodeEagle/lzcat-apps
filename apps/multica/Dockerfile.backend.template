@@ -1,5 +1,9 @@
 # --- Build stage ---
-FROM golang:1.26-alpine AS builder
+ARG BUILDPLATFORM
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
+
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
 
 RUN apk add --no-cache git
 
@@ -17,9 +21,9 @@ RUN go run /tmp/patch-backend-build.go
 # Build binaries
 ARG VERSION=dev
 ARG COMMIT=unknown
-RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/server ./cmd/server
-RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/multica ./cmd/multica
-RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/migrate ./cmd/migrate
+RUN cd server && CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags "-s -w" -o bin/server ./cmd/server
+RUN cd server && CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o bin/multica ./cmd/multica
+RUN cd server && CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags "-s -w" -o bin/migrate ./cmd/migrate
 
 # --- Runtime stage ---
 FROM alpine:3.21

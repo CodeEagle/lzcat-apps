@@ -24,7 +24,13 @@
 
 ## 登录
 
-Multica 保留上游验证码登录流程。用户输入邮箱后，应用会调用后端发送真实验证码；未配置邮件服务时，可从后端日志查看开发验证码。
+Multica 在 LazyCat 上优先使用微服 OIDC 免密登录：
+
+- `application.oidc_redirect_path` 设置为 `/auth/callback`，安装时由系统注入 OIDC client、token 和 userinfo endpoint。
+- 登录页会通过 browser inject 自动跳转到 `/auth/oidc/start`，已登录微服的用户会进入 LazyCat OIDC 标准授权流。
+- 后端将 LazyCat OIDC userinfo 映射为 Multica 用户，并设置 Multica 自身的 HttpOnly 会话 cookie。
+
+如果 OIDC 不可用，仍保留上游验证码登录流程。用户输入邮箱后，应用会调用后端发送真实验证码；未配置邮件服务时，可从后端日志查看开发验证码。
 
 ## 首次登录
 1. 在邮箱字段输入任意邮箱（如 `admin@lazycat.local`）
@@ -57,6 +63,12 @@ LazyCat 迁移补丁只修复验证码页 Back 按钮：点击 Back 会返回应
 | GOOGLE_CLIENT_ID | No | - | From compose service backend |
 | GOOGLE_CLIENT_SECRET | No | - | From compose service backend |
 | GOOGLE_REDIRECT_URI | No | http://localhost:3000/auth/callback | From compose service backend |
+| OIDC_CLIENT_ID | Yes on LazyCat | `${LAZYCAT_AUTH_OIDC_CLIENT_ID}` | LazyCat OIDC client id |
+| OIDC_CLIENT_SECRET | Yes on LazyCat | `${LAZYCAT_AUTH_OIDC_CLIENT_SECRET}` | LazyCat OIDC client secret |
+| OIDC_AUTH_URI | Yes on LazyCat | `${LAZYCAT_AUTH_OIDC_AUTH_URI}` | LazyCat OIDC authorization endpoint |
+| OIDC_TOKEN_URI | Yes on LazyCat | `${LAZYCAT_AUTH_OIDC_TOKEN_URI}` | LazyCat OIDC token endpoint |
+| OIDC_USERINFO_URI | Yes on LazyCat | `${LAZYCAT_AUTH_OIDC_USERINFO_URI}` | LazyCat OIDC userinfo endpoint |
+| OIDC_REDIRECT_URI | Yes on LazyCat | `https://multica.${LAZYCAT_BOX_DOMAIN}/auth/callback` | LazyCat OIDC callback |
 | S3_BUCKET | No | - | From compose service backend |
 | S3_REGION | No | us-west-2 | From compose service backend |
 | CLOUDFRONT_DOMAIN | No | - | From compose service backend |
