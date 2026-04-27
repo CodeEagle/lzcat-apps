@@ -9,12 +9,12 @@
 - Name: PiClaw
 - Package: `fun.selfstudio.app.migration.piclaw`
 - Version: `2.0.1`
-- Homepage: https://github.com/rcarmo/piclaw
+- Homepage: https://github.com/CodeEagle/piclaw
 - License: MIT
 - Keywords: PiClaw, piclaw, AI 编程, Coding Agent, 自托管, LazyCat, 懒猫微服, 开发者工具, 项目工作区
 - Original/source-author declaration: `False`
 - Source Author: rcarmo
-- Source URL: https://github.com/rcarmo/piclaw
+- Source URL: https://github.com/CodeEagle/piclaw
 
 ## 需要上传的文件
 

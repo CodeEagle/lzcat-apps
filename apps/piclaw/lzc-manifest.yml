@@ -8,7 +8,7 @@ application:
       location: /
 author: rcarmo
 description: Self-hosted Pi Coding Agent workspace with browser chat, session management, and persistent project storage.
-homepage: https://github.com/rcarmo/piclaw
+homepage: https://github.com/CodeEagle/piclaw
 license: MIT
 locales:
   en:

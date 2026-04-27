@@ -6,7 +6,7 @@
 - Slug: `piclaw`
 - Package: `fun.selfstudio.app.migration.piclaw`
 - Version: `2.0.1`
-- Homepage: https://github.com/rcarmo/piclaw
+- Homepage: https://github.com/CodeEagle/piclaw
 - License: MIT
 
 ## 一句话卖点

@@ -3,9 +3,9 @@
 ## 已确认字段
 - PROJECT_NAME: piclaw
 - PROJECT_SLUG: piclaw
-- UPSTREAM_REPO: rcarmo/piclaw
-- UPSTREAM_URL: https://github.com/rcarmo/piclaw
-- HOMEPAGE: https://github.com/rcarmo/piclaw
+- UPSTREAM_REPO: CodeEagle/piclaw
+- UPSTREAM_URL: https://github.com/CodeEagle/piclaw
+- HOMEPAGE: https://github.com/CodeEagle/piclaw
 - LICENSE: MIT
 - AUTHOR: rcarmo
 - VERSION: 2.0.1
@@ -14,7 +14,7 @@
 - AI_POD_SERVICE: 无
 - AI_POD_SERVICE_NAME: 无
 - AI_POD_SERVICE_PORT: 无
-- CHECK_STRATEGY: github_release
+- CHECK_STRATEGY: commit_sha
 - BUILD_STRATEGY: upstream_dockerfile
 
 ## 预填环境变量

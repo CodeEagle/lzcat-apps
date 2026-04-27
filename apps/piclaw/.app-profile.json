@@ -1,15 +1,15 @@
 {
   "managed_by": "full_migrate",
-  "generated_from_upstream": "rcarmo/piclaw",
+  "generated_from_upstream": "CodeEagle/piclaw",
   "fixes": {
     "project_name": "PiClaw",
     "description": "Self-hosted Pi Coding Agent workspace with browser chat, session management, and persistent project storage.",
     "description_zh": "在懒猫微服中运行的自托管 Pi Coding Agent 工作台，支持浏览器聊天、会话管理和持久化项目工作区。",
-    "homepage": "https://github.com/rcarmo/piclaw",
+    "homepage": "https://github.com/CodeEagle/piclaw",
     "license": "MIT",
     "author": "rcarmo",
     "package": "fun.selfstudio.app.migration.piclaw",
-    "check_strategy": "github_release",
+    "check_strategy": "commit_sha",
     "build_strategy": "upstream_dockerfile",
     "dockerfile_type": "custom",
     "build_context": ".",

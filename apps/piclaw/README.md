@@ -1,13 +1,13 @@
 # piclaw
 
-本目录由 `scripts/bootstrap_migration.py` 生成，用于把上游 `rcarmo/piclaw` 初始化为懒猫微服迁移项目。
+本目录由 `scripts/bootstrap_migration.py` 生成，用于把上游 `CodeEagle/piclaw` 初始化为懒猫微服迁移项目。
 
 ## 上游项目
-- Upstream Repo: rcarmo/piclaw
-- Homepage: https://github.com/rcarmo/piclaw
+- Upstream Repo: CodeEagle/piclaw
+- Homepage: https://github.com/CodeEagle/piclaw
 - License: MIT
 - Author: rcarmo
-- Version Strategy: `github_release` -> 当前初稿版本 `2.0.1`
+- Version Strategy: `commit_sha` -> 当前初稿版本 `2.0.1`
 
 ## 当前迁移骨架
 - Build Strategy: `upstream_dockerfile`
