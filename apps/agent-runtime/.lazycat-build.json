@@ -1,7 +1,7 @@
 {
   "upstream_repo": "CodeEagle/agent-runtime",
-  "source_version": "9c2bca1",
-  "build_version": "0.1.4",
-  "build_label": "9c2bca1@20260427T102106Z",
-  "last_checked_at": "2026-04-27T10:21:06.470375+00:00"
+  "source_version": "15dbf43",
+  "build_version": "0.1.5",
+  "build_label": "15dbf43@20260427T103829Z",
+  "last_checked_at": "2026-04-27T10:38:29.174391+00:00"
 }
