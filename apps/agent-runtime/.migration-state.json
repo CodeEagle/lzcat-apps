@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "CodeEagle/agent-runtime",
   "created_at": "2026-04-27T08:40:22.314397+00:00",
-  "updated_at": "2026-04-27T13:31:38.881584+00:00",
+  "updated_at": "2026-04-27T13:39:54.126373+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -120,12 +120,12 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-27T13:31:36.029299+00:00",
+      "completed_at": "2026-04-27T13:39:51.097129+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-27T13:31:38.881500+00:00",
+      "completed_at": "2026-04-27T13:39:54.126286+00:00",
       "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
     },
     "3": {
@@ -158,26 +158,26 @@
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-04-27T10:37:07.566081+00:00",
+      "completed_at": "2026-04-27T13:31:39.040105+00:00",
       "conclusion": "预检通过",
       "all_passed": true
     },
     "8": {
       "completed": true,
-      "completed_at": "2026-04-27T10:38:42.224850+00:00",
+      "completed_at": "2026-04-27T13:32:53.228044+00:00",
       "conclusion": "构建成功",
       "build_mode": "install"
     },
     "9": {
       "completed": true,
-      "completed_at": "2026-04-27T10:38:42.227795+00:00",
+      "completed_at": "2026-04-27T13:32:53.229044+00:00",
       "conclusion": "lpk 已验证",
-      "lpk_sha256": "72e9cb58a2f85758954fcbefdb99311b30c5b540ed4c6f600ab6542e93874ddb",
-      "lpk_size_bytes": 854
+      "lpk_sha256": "c953ff6959838b3cde4b4dcae630b55440f60b71864a88f3f5811c3d045d23ca",
+      "lpk_size_bytes": 853
     },
     "10": {
       "completed": true,
-      "completed_at": "2026-04-27T10:38:47.105847+00:00",
+      "completed_at": "2026-04-27T13:33:05.813204+00:00",
       "conclusion": "验收完成",
       "pending_backports": []
     }
