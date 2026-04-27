@@ -6,6 +6,7 @@ INSTALL_KIMI="${CC_CONNECT_INSTALL_KIMI:-1}"
 INSTALL_QODER="${CC_CONNECT_INSTALL_QODER:-1}"
 KIMI_UV_TOOL_DIR="${CC_CONNECT_KIMI_UV_TOOL_DIR:-/usr/local/share/uv/tools}"
 KIMI_UV_TOOL_BIN_DIR="${CC_CONNECT_KIMI_UV_TOOL_BIN_DIR:-/usr/local/bin}"
+KIMI_UV_PYTHON_INSTALL_DIR="${CC_CONNECT_KIMI_UV_PYTHON_INSTALL_DIR:-/usr/local/share/uv/python}"
 QODER_INSTALL_HOME="${CC_CONNECT_QODER_INSTALL_HOME:-${HOME:-/root}}"
 
 is_executable_file() {
@@ -75,7 +76,7 @@ ensure_kimi_link() {
     "${HOME:-/root}/.local/bin/kimi" \
     "/data/home/.local/bin/kimi" \
     "/root/.local/bin/kimi"; do
-    if is_executable_file "${candidate}"; then
+    if is_executable_file "${candidate}" && "${candidate}" --version >/dev/null 2>&1; then
       [ "${candidate}" = "/usr/local/bin/kimi" ] || ln -sf "${candidate}" /usr/local/bin/kimi
       return 0
     fi
@@ -150,9 +151,10 @@ install_kimi() {
     return 127
   }
 
-  mkdir -p "${KIMI_UV_TOOL_DIR}" "${KIMI_UV_TOOL_BIN_DIR}"
+  mkdir -p "${KIMI_UV_TOOL_DIR}" "${KIMI_UV_TOOL_BIN_DIR}" "${KIMI_UV_PYTHON_INSTALL_DIR}"
   UV_TOOL_DIR="${KIMI_UV_TOOL_DIR}" \
     UV_TOOL_BIN_DIR="${KIMI_UV_TOOL_BIN_DIR}" \
+    UV_PYTHON_INSTALL_DIR="${KIMI_UV_PYTHON_INSTALL_DIR}" \
     "${uv_bin}" tool install --python 3.13 --force kimi-cli
   ensure_kimi_link
   command -v kimi >/dev/null 2>&1
