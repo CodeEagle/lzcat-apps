@@ -89,6 +89,7 @@ INTERACTION_RESPONSE_DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE = 5
 
 CodexRunner = Callable[["CodexControlTask"], "CodexControlRunResult"]
 ProgressCallback = Callable[["CodexControlTask", str, float, str], None]
+TimingSink = Callable[[dict[str, object]], None]
 
 
 @dataclass(frozen=True)
@@ -105,6 +106,8 @@ class CodexControlConfig:
     bot_user_id: str = ""
     mention_role_ids: tuple[str, ...] = ()
     model: str = DEFAULT_CODEX_MODEL
+    dashboard_model: str = ""
+    dashboard_session_max_input_tokens: int = 500000
     execute: bool = True
 
 
@@ -409,6 +412,10 @@ def find_queue_item_by_slug(items: list[dict[str, Any]], slug: str) -> dict[str,
 def item_counts(items: list[dict[str, Any]]) -> str:
     counts = Counter(str(item.get("state", "")).strip() or "unknown" for item in items)
     return ", ".join(f"{name}={count}" for name, count in sorted(counts.items())) or "none"
+
+
+def elapsed_ms(start: float) -> int:
+    return max(0, int((time.monotonic() - start) * 1000))
 
 
 def slug_from_channel_name(channel_name: str, config: CodexControlConfig) -> str:
@@ -1816,6 +1823,69 @@ def dashboard_conversation_root(config: CodexControlConfig, channel_id: str) -> 
     return config.repo_root / "registry" / "auto-migration" / "dashboard-conversations" / safe_task_name(channel_id)
 
 
+def effective_dashboard_model(config: CodexControlConfig) -> str:
+    return config.dashboard_model.strip() or config.model
+
+
+def dashboard_usage_from_jsonl(output: str) -> dict[str, int]:
+    latest: dict[str, int] = {}
+    for line in output.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        usage = payload.get("usage") if isinstance(payload, dict) else None
+        if not isinstance(usage, dict):
+            continue
+        parsed = {str(key): int(value) for key, value in usage.items() if isinstance(value, int)}
+        if parsed:
+            latest = parsed
+    return latest
+
+
+def dashboard_session_usage(config: CodexControlConfig, channel_id: str) -> dict[str, int]:
+    stdout_path = dashboard_conversation_root(config, channel_id) / "codex.stdout.log"
+    return dashboard_usage_from_jsonl(read_text_if_exists(stdout_path, max_chars=20000))
+
+
+def dashboard_session_needs_reset(config: CodexControlConfig, channel_id: str) -> bool:
+    limit = max(0, int(config.dashboard_session_max_input_tokens))
+    if not limit:
+        return False
+    usage = dashboard_session_usage(config, channel_id)
+    return int(usage.get("input_tokens", 0)) > limit
+
+
+def dashboard_fast_reply(context: ChannelContext, config: CodexControlConfig, instruction: str, image_paths: tuple[str, ...]) -> str:
+    if context.scope != "dashboard" or image_paths:
+        return ""
+    text = re.sub(r"\s+", "", instruction.strip().lower())
+    text = text.strip("。！？!?")
+    if not text:
+        return ""
+    status_texts = {
+        "status",
+        "状态",
+        "队列",
+        "进度",
+        "dashboard",
+        "现在队列怎么样",
+        "现在状态怎么样",
+        "队列怎么样",
+        "状态怎么样",
+        "今天进度",
+        "今日进度",
+    }
+    if text in status_texts:
+        return build_status_reply(context, config)
+    if re.fullmatch(r"(现在|当前|今天|今日)?(队列|状态|进度)(怎么样|如何|呢)?", text):
+        return build_status_reply(context, config)
+    return ""
+
+
 def build_dashboard_conversation_prompt(turn: DashboardConversationTurn, *, include_context: bool) -> str:
     if not include_context:
         return turn.instruction
@@ -1874,7 +1944,7 @@ def build_dashboard_conversation_command(
             *base,
             "resume",
             "--model",
-            config.model,
+            effective_dashboard_model(config),
             "--json",
             "--output-last-message",
             str(last_message_path),
@@ -1885,7 +1955,7 @@ def build_dashboard_conversation_command(
     return [
         *base,
         "--model",
-        config.model,
+        effective_dashboard_model(config),
         "--json",
         "--output-last-message",
         str(last_message_path),
@@ -1937,7 +2007,8 @@ def run_dashboard_conversation_command(
         combined = f"{''.join(stdout_chunks)}\n{''.join(stderr_chunks)}"
 
     fallback = fallback_model()
-    if returncode != 0 and fallback and fallback != turn.config.model and model_requires_newer_codex(combined):
+    active_model = effective_dashboard_model(turn.config)
+    if returncode != 0 and fallback and fallback != active_model and model_requires_newer_codex(combined):
         fallback_command = command_with_model(active_command, fallback)
         retry = subprocess.run(fallback_command, input=prompt, text=True, capture_output=True, check=False)
         stdout_chunks.append(f"\n\n--- retry with {fallback} ---\n{retry.stdout or ''}")
@@ -1966,6 +2037,9 @@ class DashboardConversationWorker:
         with self._lock:
             state_session_id = dashboard_session_id(turn.config, turn.context.channel_id)
             session_id = self._session_id or state_session_id
+            if session_id and dashboard_session_needs_reset(turn.config, turn.context.channel_id):
+                session_id = ""
+                self._session_id = ""
             result = run_dashboard_conversation_command(turn, session_id=session_id)
             if result.session_id:
                 self._session_id = result.session_id
@@ -2047,6 +2121,8 @@ def handle_command(
     except RuntimeError as exc:
         return CommandResult("worktree_failed", f"恢复 `{context.slug}` worktree 失败：{exc}")
     if ensured_context.scope == "dashboard" and not dashboard_instruction_needs_worker(parsed.instruction):
+        if reply := dashboard_fast_reply(ensured_context, config, parsed.instruction, parsed.image_paths):
+            return CommandResult("status", reply)
         turn = DashboardConversationTurn(
             instruction=parsed.instruction,
             context=ensured_context,
@@ -2101,7 +2177,13 @@ def handle_gateway_message_create(
     now: str | None = None,
     progress_interval_seconds: float = DEFAULT_PROGRESS_INTERVAL_SECONDS,
     attachment_recognizer: AttachmentRecognizer | None = None,
+    timing_sink: TimingSink | None = None,
 ) -> dict[str, str]:
+    started_at = time.monotonic()
+    parse_ms = 0
+    ack_ms = 0
+    codex_ms = 0
+    send_ms = 0
     now = now or utc_now_iso()
     channel_id = str(message.get("channel_id", "")).strip()
     message_id = str(message.get("id", "")).strip()
@@ -2123,13 +2205,16 @@ def handle_gateway_message_create(
     )
     if not parsed:
         return {"channel_id": channel_id, "message_id": message_id, "status": "ignored"}
+    parse_ms = elapsed_ms(started_at)
 
     reaction_error = ""
     send_error = ""
+    ack_started_at = time.monotonic()
     try:
         client.add_reaction(channel_id, message_id, ACK_REACTION)
     except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
         reaction_error = str(exc)
+    ack_ms = elapsed_ms(ack_started_at)
 
     is_action_command = parsed.kind in {"codex", "filter_cleanup"}
     will_run = is_action_command and not (context.scope == "migration" and not context.item)
@@ -2143,10 +2228,14 @@ def handle_gateway_message_create(
             reaction_error = str(exc)
         if parsed.kind == "filter_cleanup":
             try:
+                send_started_at = time.monotonic()
                 client.send_message(channel_id, "收到，正在把当前 repo 加入过滤名单并清理频道、worktree、branch。完成后这个频道会被关闭。")
+                send_ms += elapsed_ms(send_started_at)
             except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+                send_ms += elapsed_ms(send_started_at)
                 send_error = str(exc)
 
+    codex_started_at = time.monotonic()
     result = handle_command(
         parsed,
         context,
@@ -2159,12 +2248,16 @@ def handle_gateway_message_create(
         progress_callback=make_discord_progress_callback(client, channel_id) if will_run_worker else None,
         progress_interval_seconds=progress_interval_seconds,
     )
+    codex_ms = elapsed_ms(codex_started_at)
     if parsed.kind == "codex" and context.scope == "dashboard" and result.session_id:
         persist_dashboard_session(config, context, session_id=result.session_id, now=now)
     if result.reply:
         try:
+            send_started_at = time.monotonic()
             client.send_message(channel_id, truncate_reply(result.reply))
+            send_ms += elapsed_ms(send_started_at)
         except Exception as exc:  # pragma: no cover - exact HTTP exception type varies.
+            send_ms += elapsed_ms(send_started_at)
             send_error = str(exc)
 
     entry = {"channel_id": channel_id, "message_id": message_id, "status": result.status}
@@ -2173,6 +2266,20 @@ def handle_gateway_message_create(
         entry["reply_error"] = send_error
     if reaction_error:
         entry["reaction_error"] = reaction_error
+    if timing_sink is not None:
+        timing_sink(
+            {
+                "channel_id": channel_id,
+                "message_id": message_id,
+                "status": entry["status"],
+                "kind": parsed.kind,
+                "parse_ms": parse_ms,
+                "ack_ms": ack_ms,
+                "codex_ms": codex_ms,
+                "send_ms": send_ms,
+                "total_ms": elapsed_ms(started_at),
+            }
+        )
     return entry
 
 
@@ -2547,6 +2654,7 @@ def _handle_gateway_message_and_log(
     message: dict[str, Any],
     runner: CodexRunner,
 ) -> None:
+    timing: dict[str, object] = {}
     result = handle_gateway_message_create(
         config,
         client,
@@ -2554,9 +2662,12 @@ def _handle_gateway_message_and_log(
         message,
         runner=runner,
         now=utc_now_iso(),
+        timing_sink=timing.update,
     )
     if result.get("status") not in {"ignored", "bot_ignored", "unknown_channel"}:
         print(json.dumps({"checked_at": utc_now_iso(), "gateway_message": result}, ensure_ascii=False, sort_keys=True), flush=True)
+        if timing:
+            print(json.dumps({"checked_at": utc_now_iso(), "gateway_timing": timing}, ensure_ascii=False, sort_keys=True), flush=True)
 
 
 def _handle_gateway_interaction_and_log(
@@ -2801,6 +2912,8 @@ def config_from_project(repo_root: Path, *, execute: bool = True) -> CodexContro
         bot_user_id=project_config.codex_control.bot_user_id,
         mention_role_ids=project_config.codex_control.mention_role_ids,
         model=project_config.codex_control.model or project_config.migration.codex_worker_model,
+        dashboard_model=project_config.codex_control.dashboard_model,
+        dashboard_session_max_input_tokens=project_config.codex_control.dashboard_session_max_input_tokens,
         execute=execute,
     )
 

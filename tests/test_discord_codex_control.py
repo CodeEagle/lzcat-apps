@@ -18,6 +18,7 @@ from scripts.discord_codex_control import (
     CodexControlTask,
     DashboardConversationResult,
     DashboardConversationTurn,
+    DashboardConversationWorker,
     build_dashboard_conversation_command,
     ParsedCommand,
     build_gateway_identify_payload,
@@ -83,6 +84,7 @@ class DiscordCodexControlTest(unittest.TestCase):
             control_channel="migration-control",
             mention_role_ids=("role-1",),
             model="gpt-5.5",
+            dashboard_model="gpt-5.4-mini",
         )
 
     def test_parse_direct_and_mention_commands(self) -> None:
@@ -228,8 +230,25 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertIn("Codex Dashboard 状态", replies[0])
         self.assertFalse(any("/messages?limit" in event[1] for event in events))
 
-    def test_gateway_message_create_runs_plain_text_from_dashboard_channel(self) -> None:
+    def test_gateway_message_create_fast_replies_dashboard_status_question(self) -> None:
         repo_root = self.make_repo_root()
+        dashboard_root = repo_root / "registry" / "dashboard"
+        dashboard_root.mkdir(parents=True)
+        (dashboard_root / "latest.json").write_text(
+            json.dumps(
+                {
+                    "generated_at": "2026-04-26T10:00:00Z",
+                    "queue": {"total": 3, "state_counts": {"ready": 2, "waiting_for_human": 1}},
+                    "local_agent": {"total": 7, "status_counts": {"portable": 4}},
+                    "publication": {"total": 2, "status_counts": {"published": 2}},
+                    "waiting_for_human": [{"slug": "piclaw"}],
+                    "failed_items": [],
+                    "top_candidates": [{"full_name": "owner/app"}],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         config = self.make_config(repo_root)
         context = ChannelContext(
             channel_id="dashboard-1",
@@ -239,7 +258,6 @@ class DiscordCodexControlTest(unittest.TestCase):
             workdir=repo_root,
             implicit_codex=True,
         )
-        turns: list[DashboardConversationTurn] = []
         replies: list[str] = []
 
         def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
@@ -254,9 +272,8 @@ class DiscordCodexControlTest(unittest.TestCase):
         def runner(_: CodexControlTask) -> CodexControlRunResult:
             raise AssertionError("dashboard chat must not invoke per-message Codex worker")
 
-        def dashboard_conversation(turn: DashboardConversationTurn) -> DashboardConversationResult:
-            turns.append(turn)
-            return DashboardConversationResult("completed", "直接回复：队列状态。", session_id="dashboard-session-1")
+        def dashboard_conversation(_: DashboardConversationTurn) -> DashboardConversationResult:
+            raise AssertionError("status-like dashboard messages should use the local fast path")
 
         result = handle_gateway_message_create(
             config,
@@ -268,13 +285,11 @@ class DiscordCodexControlTest(unittest.TestCase):
             now="2026-04-26T10:00:00Z",
         )
 
-        self.assertEqual(result, {"channel_id": "dashboard-1", "message_id": "902", "status": "completed"})
-        self.assertEqual(len(turns), 1)
-        self.assertEqual(turns[0].instruction, "现在队列怎么样")
+        self.assertEqual(result, {"channel_id": "dashboard-1", "message_id": "902", "status": "status"})
         self.assertEqual(len(replies), 1)
-        self.assertEqual(replies[0], "直接回复：队列状态。")
-        state = json.loads(config.state_path.read_text(encoding="utf-8"))
-        self.assertEqual(state["channels"]["dashboard-1"]["codex"]["session_id"], "dashboard-session-1")
+        self.assertIn("Codex Dashboard 状态", replies[0])
+        self.assertIn("队列：3", replies[0])
+        self.assertFalse(config.state_path.exists())
 
     def test_dashboard_action_request_runs_worker_not_persistent_conversation(self) -> None:
         repo_root = self.make_repo_root()
@@ -325,6 +340,53 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertIn("把发现逻辑改一下", tasks[0].prompt)
         self.assertIn("Codex worker 已启动", replies[0])
         self.assertIn("Codex 任务完成", replies[-1])
+
+    def test_gateway_message_create_reports_timing_breakdown(self) -> None:
+        repo_root = self.make_repo_root()
+        config = self.make_config(repo_root)
+        context = ChannelContext(
+            channel_id="dashboard-1",
+            channel_name="dashboard",
+            scope="dashboard",
+            slug="dashboard",
+            workdir=repo_root,
+            implicit_codex=True,
+        )
+        timings: list[dict[str, object]] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "PUT" and route == "/channels/dashboard-1/messages/907/reactions/%E2%9C%85/@me":
+                return {}
+            if method == "POST" and route == "/channels/dashboard-1/messages":
+                return {"id": "reply-1"}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        def runner(_: CodexControlTask) -> CodexControlRunResult:
+            raise AssertionError("dashboard chat must not invoke per-message Codex worker")
+
+        def dashboard_conversation(_: DashboardConversationTurn) -> DashboardConversationResult:
+            return DashboardConversationResult("completed", "直接回复。", session_id="dashboard-session-1")
+
+        result = handle_gateway_message_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"dashboard-1": context},
+            {"id": "907", "channel_id": "dashboard-1", "content": "随便聊一句", "author": {"id": "u1"}},
+            runner=runner,
+            dashboard_conversation=dashboard_conversation,
+            now="2026-04-27T10:00:00Z",
+            timing_sink=timings.append,
+        )
+
+        self.assertEqual(result, {"channel_id": "dashboard-1", "message_id": "907", "status": "completed"})
+        self.assertEqual(len(timings), 1)
+        timing = timings[0]
+        self.assertEqual(timing["channel_id"], "dashboard-1")
+        self.assertEqual(timing["message_id"], "907")
+        self.assertEqual(timing["status"], "completed")
+        self.assertEqual(timing["kind"], "codex")
+        for key in ("parse_ms", "ack_ms", "codex_ms", "send_ms", "total_ms"):
+            self.assertIsInstance(timing[key], int)
 
     def test_gateway_message_create_recognizes_image_attachment_for_dashboard_instruction(self) -> None:
         repo_root = self.make_repo_root()
@@ -1287,6 +1349,93 @@ exit 0
         )
 
         self.assertEqual(command[command.index("-C") + 1], str(repo_root))
+        self.assertEqual(command[command.index("--model") + 1], "gpt-5.4-mini")
+
+    def test_dashboard_conversation_resets_session_when_previous_usage_is_too_large(self) -> None:
+        repo_root = self.make_repo_root()
+        self.init_git_repo(repo_root)
+        config = CodexControlConfig(
+            repo_root=repo_root,
+            queue_path=repo_root / "registry" / "auto-migration" / "queue.json",
+            state_path=repo_root / "registry" / "auto-migration" / "discord-codex-control.json",
+            task_root=repo_root / "registry" / "auto-migration" / "codex-control-tasks",
+            model="gpt-5.5",
+            dashboard_model="gpt-5.4-mini",
+            dashboard_session_max_input_tokens=100,
+        )
+        config.state_path.parent.mkdir(parents=True, exist_ok=True)
+        config.state_path.write_text(
+            json.dumps(
+                {
+                    "channels": {
+                        "dashboard-1": {
+                            "channel_name": "dashboard",
+                            "slug": "dashboard",
+                            "codex": {"session_id": "11111111-2222-3333-4444-555555555555"},
+                        }
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        conversation_root = repo_root / "registry" / "auto-migration" / "dashboard-conversations" / "dashboard-1"
+        conversation_root.mkdir(parents=True)
+        (conversation_root / "codex.stdout.log").write_text(
+            '{"type":"turn.completed","usage":{"input_tokens":101,"cached_input_tokens":90}}\n',
+            encoding="utf-8",
+        )
+        fake_bin = repo_root / "fake-bin"
+        fake_bin.mkdir()
+        calls_path = repo_root / "codex-calls.txt"
+        fake_codex = fake_bin / "codex"
+        fake_codex.write_text(
+            """#!/bin/sh
+echo "$*" >> "$CODEX_FAKE_CALLS"
+last=""
+previous=""
+for arg in "$@"; do
+  if [ "$previous" = "--output-last-message" ]; then
+    last="$arg"
+  fi
+  previous="$arg"
+done
+printf '%s\\n' '{"type":"thread.started","thread_id":"66666666-7777-8888-9999-aaaaaaaaaaaa"}'
+if [ -n "$last" ]; then
+  printf '新会话完成。\\n' > "$last"
+fi
+exit 0
+""",
+            encoding="utf-8",
+        )
+        fake_codex.chmod(0o755)
+        context = ChannelContext(
+            channel_id="dashboard-1",
+            channel_name="dashboard",
+            scope="dashboard",
+            slug="dashboard",
+            workdir=repo_root,
+        )
+        turn = DashboardConversationTurn("继续", context, config, now="2026-04-26T10:00:00Z", message_id="152")
+        old_path = os.environ.get("PATH", "")
+        old_calls = os.environ.get("CODEX_FAKE_CALLS")
+        os.environ["PATH"] = f"{fake_bin}:{old_path}"
+        os.environ["CODEX_FAKE_CALLS"] = str(calls_path)
+        try:
+            result = DashboardConversationWorker()(turn)
+        finally:
+            os.environ["PATH"] = old_path
+            if old_calls is None:
+                os.environ.pop("CODEX_FAKE_CALLS", None)
+            else:
+                os.environ["CODEX_FAKE_CALLS"] = old_calls
+
+        calls = calls_path.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(result.session_id, "66666666-7777-8888-9999-aaaaaaaaaaaa")
+        self.assertEqual(len(calls), 1)
+        self.assertNotIn("resume", calls[0])
+        self.assertEqual(calls[0].split()[calls[0].split().index("--model") + 1], "gpt-5.4-mini")
 
     def test_filter_close_refuses_empty_workdir(self) -> None:
         repo_root = self.make_repo_root()

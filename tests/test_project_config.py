@@ -66,6 +66,8 @@ class ProjectConfigTest(unittest.TestCase):
                         "state_path": "registry/auto-migration/discord-codex-control.json",
                         "task_root": "registry/auto-migration/codex-control-tasks",
                         "model": "gpt-5.5",
+                        "dashboard_model": "gpt-5.4-mini",
+                        "dashboard_session_max_input_tokens": 12345,
                         "bot_user_id": "999",
                         "mention_role_ids": ["888", "777"],
                     },
@@ -92,6 +94,8 @@ class ProjectConfigTest(unittest.TestCase):
         self.assertEqual(config.codex_control.state_path, "registry/auto-migration/discord-codex-control.json")
         self.assertEqual(config.codex_control.task_root, "registry/auto-migration/codex-control-tasks")
         self.assertEqual(config.codex_control.model, "gpt-5.5")
+        self.assertEqual(config.codex_control.dashboard_model, "gpt-5.4-mini")
+        self.assertEqual(config.codex_control.dashboard_session_max_input_tokens, 12345)
         self.assertEqual(config.codex_control.bot_user_id, "999")
         self.assertEqual(config.codex_control.mention_role_ids, ("888", "777"))
 
@@ -107,6 +111,8 @@ class ProjectConfigTest(unittest.TestCase):
         self.assertFalse(config.discord.enabled)
         self.assertFalse(config.codex_control.enabled)
         self.assertEqual(config.codex_control.control_channel, "migration-control")
+        self.assertEqual(config.codex_control.dashboard_model, "gpt-5.4-mini")
+        self.assertGreater(config.codex_control.dashboard_session_max_input_tokens, 0)
 
 
 if __name__ == "__main__":
