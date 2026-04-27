@@ -1,7 +1,7 @@
 {
   "upstream_repo": "CodeEagle/piclaw",
-  "source_version": "00caa07",
-  "build_version": "2.0.3",
-  "build_label": "00caa07@20260427T105734Z",
-  "last_checked_at": "2026-04-27T10:57:34.506956+00:00"
+  "source_version": "c25ee34",
+  "build_version": "2.0.4",
+  "build_label": "c25ee34@20260427T152842Z",
+  "last_checked_at": "2026-04-27T15:28:42.408992+00:00"
 }
