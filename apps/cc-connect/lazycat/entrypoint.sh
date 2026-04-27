@@ -25,7 +25,11 @@ export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
 export XDG_DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${HOME}/.cache}"
 export CODEX_HOME="${CODEX_HOME:-${HOME}/.codex}"
-export PATH="${DATA_DIR}/bin:${PATH}"
+export PATH="${DATA_DIR}/bin:${HOME}/.local/bin:${PATH}"
+
+if [ -x /usr/local/bin/update-agent-clis.sh ]; then
+  /usr/local/bin/update-agent-clis.sh --link-only || true
+fi
 
 if [ "${CC_CONNECT_UPDATE_AGENT_CLIS_ON_START:-1}" != "0" ] && [ -x /usr/local/bin/update-agent-clis.sh ]; then
   (

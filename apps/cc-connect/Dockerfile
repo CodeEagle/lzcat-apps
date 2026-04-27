@@ -81,7 +81,7 @@ COPY lazycat/update-agent-clis.sh /usr/local/bin/update-agent-clis.sh
 # Default agent CLIs are installed into the image. Build fails if the default
 # set cannot be installed, so the LPK does not ship without runnable agents.
 RUN chmod +x /usr/local/bin/update-agent-clis.sh \
-    && /usr/local/bin/update-agent-clis.sh --required
+    && CC_CONNECT_QODER_INSTALL_HOME=/opt/qoder /usr/local/bin/update-agent-clis.sh --required
 
 COPY --from=go-builder /out/cc-connect /usr/local/bin/cc-connect
 COPY lazycat/entrypoint.sh /usr/local/bin/entrypoint.sh
