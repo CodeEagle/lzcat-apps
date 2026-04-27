@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "CodeEagle/agent-runtime",
   "created_at": "2026-04-27T08:40:22.314397+00:00",
-  "updated_at": "2026-04-27T14:04:41.537789+00:00",
+  "updated_at": "2026-04-27T14:06:43.937095+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -158,26 +158,26 @@
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-04-27T13:39:54.292867+00:00",
+      "completed_at": "2026-04-27T14:04:41.689849+00:00",
       "conclusion": "预检通过",
       "all_passed": true
     },
     "8": {
       "completed": true,
-      "completed_at": "2026-04-27T13:41:04.517482+00:00",
+      "completed_at": "2026-04-27T14:06:31.230890+00:00",
       "conclusion": "构建成功",
       "build_mode": "install"
     },
     "9": {
       "completed": true,
-      "completed_at": "2026-04-27T13:41:04.519214+00:00",
+      "completed_at": "2026-04-27T14:06:31.232403+00:00",
       "conclusion": "lpk 已验证",
-      "lpk_sha256": "b89ef4b0c46134fa4b1ab25f9c7f4425089603f47daec215c4bc89eaf6f8a233",
-      "lpk_size_bytes": 854
+      "lpk_sha256": "bbc7a4cf750cc8e8ebd2278855e73a9e9ba9c98aa1beb5f900482d74ce83a8cb",
+      "lpk_size_bytes": 855
     },
     "10": {
       "completed": true,
-      "completed_at": "2026-04-27T13:41:15.197266+00:00",
+      "completed_at": "2026-04-27T14:06:43.937040+00:00",
       "conclusion": "验收完成",
       "pending_backports": []
     }
