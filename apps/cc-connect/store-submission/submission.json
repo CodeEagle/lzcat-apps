@@ -4,13 +4,13 @@
   "developer_apps_url": "https://lazycat.cloud/appstore/more/developers/178",
   "package": "fun.selfstudio.app.migration.cc-connect",
   "name": "cc-connect",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "homepage": "https://github.com/chenhg5/cc-connect",
   "license": "MIT",
   "upstream_attribution": {
     "original_or_source_author": false,
     "source_author": "chenhg5",
-    "source_url": "https://github.com/chenhg5/cc-connect"
+    "source_url": "https://github.com/CodeEagle/cc-connect"
   },
   "short_description": "把 Claude Code、Codex、Gemini CLI 等本地 AI 编程 Agent 接入 Discord、Telegram、Slack、飞书等聊天平台。",
   "description_zh": "通过内置 Web 管理台把 Claude Code、Codex、Gemini CLI 等本地 Agent 接入聊天平台。",
@@ -40,7 +40,7 @@
     "manifest": {
       "name": "cc-connect",
       "package": "fun.selfstudio.app.migration.cc-connect",
-      "version": "1.3.2"
+      "version": "1.3.3"
     }
   },
   "assets": {
@@ -68,7 +68,7 @@
   "browser_acceptance": {
     "status": "pass",
     "result_path": "apps/cc-connect/acceptance/browser-use-result.json",
-    "evidence": "Chrome acceptance: LazyCat entry rendered CC-Connect Admin dashboard with version 1.3.2; Projects, Providers, Skills, Chat, Cron, and System routes rendered; /api/v1/status returned ok:true with version 1.3.2."
+    "evidence": "Chrome acceptance: LazyCat entry rendered CC-Connect Admin dashboard with version 1.3.3; Projects, Providers, Skills, Chat, Cron, and System routes rendered; /api/v1/status returned ok:true with version 1.3.3."
   },
   "reward_opportunities": [
     {

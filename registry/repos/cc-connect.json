@@ -17,5 +17,5 @@
   "publish_to_store": false,
   "service_cmd": [],
   "service_port": 9820,
-  "upstream_repo": "chenhg5/cc-connect"
+  "upstream_repo": "CodeEagle/cc-connect"
 }

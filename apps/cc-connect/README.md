@@ -4,10 +4,11 @@ cc-connect 把 Claude Code、Codex、Gemini CLI、OpenCode 等本地 AI coding a
 
 ## 上游项目
 - Upstream Repo: chenhg5/cc-connect
+- LazyCat Source Fork: CodeEagle/cc-connect
 - Homepage: https://github.com/chenhg5/cc-connect
 - License: MIT
 - Author: chenhg5
-- Version Strategy: `github_release`，当前版本 `1.3.2`
+- Version Strategy: `github_release`，当前版本 `1.3.3`
 
 ## LazyCat 拓扑
 - Service: `cc-connect`
@@ -16,11 +17,11 @@ cc-connect 把 Claude Code、Codex、Gemini CLI、OpenCode 等本地 AI coding a
 - Webhook 路由: `/hook`
 - 持久化目录: `/lzcapp/var/data/cc-connect` -> `/data`
 
-首次启动会创建 `/data/config.toml`，默认开启 management、bridge 和 webhook。management token 为空时，构建补丁允许 Web 管理台 tokenless 自动登录，由 LazyCat 访问控制承担入口鉴权。
+首次启动会创建 `/data/config.toml`，默认开启 management、bridge 和 webhook。management token 为空时，LazyCat source fork 允许 Web 管理台 tokenless 自动登录，由 LazyCat 访问控制承担入口鉴权。
 
 ## 构建说明
 
-`Dockerfile` 从上游 release tag 拉取源码：
+`Dockerfile` 从 `CodeEagle/cc-connect` LazyCat source fork 的 release tag 拉取源码。fork 基于上游 `v1.3.2`，并内置 Web Terminal、tokenless 管理台入口、Feishu 扫码保存修复和管理模式下的平台配置容错。
 
 1. Node 22 构建 `web/dist`。
 2. Go 1.25 构建 `cmd/cc-connect` 并嵌入 Web 资源。

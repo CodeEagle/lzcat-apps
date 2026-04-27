@@ -1,6 +1,6 @@
 {
   "managed_by": "full_migrate",
-  "generated_from_upstream": "chenhg5/cc-connect",
+  "generated_from_upstream": "CodeEagle/cc-connect",
   "fixes": {
     "project_name": "cc-connect",
     "description": "Bridge local AI coding agents to messaging platforms with a built-in web admin dashboard.",
@@ -55,10 +55,10 @@
     "startup_notes": [
       "Go 1.25 source build with embedded web admin UI.",
       "Default config is created at /data/config.toml on first start.",
-      "Management-only startup is enabled by a LazyCat build patch.",
+      "Management-only startup is enabled by the LazyCat source fork.",
       "Agent CLI home is persisted under /data/home, with CODEX_HOME=/data/home/.codex.",
       "Default agent CLIs are installed during image build and updated in the background on every container start.",
-      "LazyCat patch adds a full web terminal for manual CLI login flows."
+      "The LazyCat source fork adds a full web terminal for manual CLI login flows."
     ],
     "include_content": false
   }

@@ -3,12 +3,13 @@
 ## 已确认字段
 - PROJECT_NAME: cc-connect
 - PROJECT_SLUG: cc-connect
-- UPSTREAM_REPO: chenhg5/cc-connect
-- UPSTREAM_URL: https://github.com/chenhg5/cc-connect
+- UPSTREAM_REPO: CodeEagle/cc-connect
+- UPSTREAM_URL: https://github.com/CodeEagle/cc-connect
+- UPSTREAM_ORIGIN: chenhg5/cc-connect
 - HOMEPAGE: https://github.com/chenhg5/cc-connect
 - LICENSE: MIT
 - AUTHOR: chenhg5
-- VERSION: 1.3.2
+- VERSION: 1.3.3
 - IMAGE: workflow 构建后写入 `apps/cc-connect/.lazycat-images.json`
 - PORT: 9820
 - CHECK_STRATEGY: github_release
@@ -19,14 +20,14 @@
 - Web 管理台：上游 `make build` 会先执行 `web` target，将 `web/dist` 嵌入 Go 二进制；管理 API 默认端口为 `9820`。
 - Bridge：`[bridge]` 默认端口 `9810`，路径 `/bridge/ws`；管理台也可在同进程路由该路径。
 - Webhook：`[webhook]` 默认端口 `9111`，LazyCat 额外把 `/hook` 路由到该端口。
-- Docker/Compose：上游未提供官方 Dockerfile 或 compose；迁移使用目标仓库 Dockerfile 从 GitHub release tag 拉取源码构建。
+- Docker/Compose：上游未提供官方 Dockerfile 或 compose；迁移使用目标仓库 Dockerfile 从 `CodeEagle/cc-connect` LazyCat source fork 的 GitHub release tag 拉取源码构建。
 - 构建依赖：Node 22 构建 Web 前端，Go 1.25 构建二进制，运行时基于 Node 22 slim，默认安装 Claude Code、Codex、Gemini CLI、iFlow CLI、OpenCode、Kimi CLI 和 Qoder CLI；构建期安装失败会让 workflow 失败。
 - 环境变量：上游 config 支持 `${VAR_NAME}` 替换；LazyCat 镜像使用 `CC_CONNECT_DATA_DIR`、`CC_CONNECT_CONFIG`、`CC_CONNECT_MANAGEMENT_TOKEN`、`CC_CONNECT_BRIDGE_TOKEN`、`CC_CONNECT_WEBHOOK_TOKEN` 控制默认配置，并固定 `HOME=/data/home`、`CODEX_HOME=/data/home/.codex`。
 - 数据目录：`data_dir`、会话、项目状态、CLI home/cache、用户工作区全部放在 `/data` 下。
 - 外部依赖：无数据库、Redis、对象存储依赖；聊天平台凭据、LLM provider key 和 agent 配置由 Web 管理台写入 `/data/config.toml`。
 - 初始化：首次启动若 `/data/config.toml` 不存在，由 `lazycat/entrypoint.sh` 创建 management-only 配置。
-- 登录机制：上游 Web 管理台以 management token 登录；LazyCat 默认 management token 为空，并补丁支持 tokenless 自动登录，依赖 LazyCat 访问控制实现免密。
-- Web 终端：LazyCat 构建补丁为管理台增加 `Terminal` 页面和 `/api/v1/terminal/ws`，在容器内打开完整交互式 shell，便于用户手动运行 Claude Code、Codex 等 CLI 登录流程。
+- 登录机制：上游 Web 管理台以 management token 登录；LazyCat 默认 management token 为空，并由 source fork 支持 tokenless 自动登录，依赖 LazyCat 访问控制实现免密。
+- Web 终端：LazyCat source fork 为管理台增加 `Terminal` 页面和 `/api/v1/terminal/ws`，在容器内打开完整交互式 shell，便于用户手动运行 Claude Code、Codex 等 CLI 登录流程。
 
 ## 真实写路径与权限
 - `/data/config.toml`：entrypoint 首次创建，root 写入，`0600` umask。

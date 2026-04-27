@@ -8,13 +8,13 @@
 
 - Name: cc-connect
 - Package: `fun.selfstudio.app.migration.cc-connect`
-- Version: `1.3.2`
+- Version: `1.3.3`
 - Homepage: https://github.com/chenhg5/cc-connect
 - License: MIT
 - Keywords: cc-connect, Claude Code, Codex, Gemini CLI, AI Agent, Coding Agent, Discord, Telegram, Slack, 飞书, 自托管, LazyCat, 懒猫微服, 开发者工具
 - Original/source-author declaration: `False`
 - Source Author: chenhg5
-- Source URL: https://github.com/chenhg5/cc-connect
+- Source URL: https://github.com/CodeEagle/cc-connect
 
 ## 需要上传的文件
 

@@ -5,7 +5,7 @@
 - App: cc-connect
 - Slug: `cc-connect`
 - Package: `fun.selfstudio.app.migration.cc-connect`
-- Version: `1.3.2`
+- Version: `1.3.3`
 - Homepage: https://github.com/chenhg5/cc-connect
 - License: MIT
 - Source Author: chenhg5
@@ -42,7 +42,7 @@ cc-connect is a self-hosted bridge for connecting local AI coding agents such as
 
 ## Browser Use 验收证据
 
-Chrome acceptance rendered the installed LazyCat entry for cc-connect, showed the CC-Connect Admin dashboard with version 1.3.2, confirmed Projects, Providers, Skills, Chat, Cron, System, and Terminal routes, and `/api/v1/status` returned `ok:true` with version `1.3.2`. A direct WebSocket check for `/api/v1/terminal/ws` returned `101 Switching Protocols`, opened a shell in `/data/workspaces`, and executed a harmless command successfully.
+Chrome acceptance rendered the installed LazyCat entry for cc-connect, showed the CC-Connect Admin dashboard with version 1.3.3, confirmed Projects, Providers, Skills, Chat, Cron, System, and Terminal routes, and `/api/v1/status` returned `ok:true` with version `1.3.3`. A direct WebSocket check for `/api/v1/terminal/ws` returned `101 Switching Protocols`, opened a shell in `/data/workspaces`, and executed a harmless command successfully.
 
 ## 上架前核对清单
 
