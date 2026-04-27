@@ -46,6 +46,7 @@
     "copilot-api-plus.json",
     "multica.json",
     "mercury-agent.json",
-    "piclaw.json"
+    "piclaw.json",
+    "cc-connect.json"
   ]
 }

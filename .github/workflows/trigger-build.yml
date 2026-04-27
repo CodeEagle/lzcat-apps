@@ -62,9 +62,7 @@ on:
           - "multica"
           - "mercury-agent"
           - "piclaw"
-          - "nodewarden"
-          - "microsandbox"
-          - "helix"
+          - "cc-connect"
           # END AUTO-GENERATED APP OPTIONS
       target_version:
         description: "Target upstream version to build. Leave empty for latest."
