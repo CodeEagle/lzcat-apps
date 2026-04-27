@@ -8,8 +8,29 @@ homepage: https://github.com/multica-ai/multica
 author: TODO
 application:
   subdomain: multica
+  oidc_redirect_path: /auth/callback
   public_path:
     - /
+  injects:
+    - id: lazycat-oidc-autologin
+      auth_required: true
+      when:
+        - /login
+      do: |
+        (() => {
+          if (window.location.pathname !== "/login") return;
+          const params = new URLSearchParams(window.location.search);
+          if (params.has("cli_callback")) return;
+          const key = "multica.lazycat.oidc_autologin_started";
+          if (window.sessionStorage.getItem(key) === "1") return;
+          window.sessionStorage.setItem(key, "1");
+          const stateParts = [];
+          const next = params.get("next");
+          if (next) stateParts.push(`next:${next}`);
+          const target = new URL("/auth/oidc/start", window.location.origin);
+          if (stateParts.length > 0) target.searchParams.set("state", stateParts.join(","));
+          window.location.href = target.toString();
+        })();
   upstreams:
     - backend: http://multica-backend:8080/api/
       location: /api/
@@ -57,6 +78,13 @@ services:
       - '{{ if index .U "google_client_id" }}GOOGLE_CLIENT_ID={{ index .U "google_client_id" }}{{ else }}GOOGLE_CLIENT_ID={{ end }}'
       - '{{ if index .U "google_client_secret" }}GOOGLE_CLIENT_SECRET={{ index .U "google_client_secret" }}{{ else }}GOOGLE_CLIENT_SECRET={{ end }}'
       - GOOGLE_REDIRECT_URI=https://multica.${LAZYCAT_BOX_DOMAIN}/auth/callback
+      - OIDC_CLIENT_ID=${LAZYCAT_AUTH_OIDC_CLIENT_ID}
+      - OIDC_CLIENT_SECRET=${LAZYCAT_AUTH_OIDC_CLIENT_SECRET}
+      - OIDC_AUTH_URI=${LAZYCAT_AUTH_OIDC_AUTH_URI}
+      - OIDC_TOKEN_URI=${LAZYCAT_AUTH_OIDC_TOKEN_URI}
+      - OIDC_USERINFO_URI=${LAZYCAT_AUTH_OIDC_USERINFO_URI}
+      - OIDC_ISSUER_URI=${LAZYCAT_AUTH_OIDC_ISSUER_URI}
+      - OIDC_REDIRECT_URI=https://multica.${LAZYCAT_BOX_DOMAIN}/auth/callback
       - S3_BUCKET=
       - S3_REGION=us-west-2
       - CLOUDFRONT_DOMAIN=
