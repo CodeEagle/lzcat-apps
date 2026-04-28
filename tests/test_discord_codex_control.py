@@ -23,6 +23,7 @@ from scripts.discord_codex_control import (
     ParsedCommand,
     build_gateway_identify_payload,
     build_task,
+    channel_context,
     codex_command_catalog,
     cleanup_workspace_and_branch,
     ensure_context_workdir,
@@ -99,6 +100,25 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertIsNone(parse_control_command("<@123> 继续处理"))
         self.assertIsNone(parse_control_command("<@999> 继续处理", bot_user_id="123"))
         self.assertIsNone(parse_control_command("随便聊一句"))
+
+    def test_dashboard_channel_context_can_be_disabled_for_agenthub_takeover(self) -> None:
+        repo_root = self.make_repo_root()
+        config = self.make_config(repo_root)
+        old_value = os.environ.get("LZCAT_CODEX_DISABLE_DASHBOARD")
+        os.environ["LZCAT_CODEX_DISABLE_DASHBOARD"] = "1"
+        try:
+            context = channel_context(
+                {"id": "dashboard-1", "name": "dashboard", "type": 0, "parent_id": "category-1"},
+                config,
+                [],
+            )
+        finally:
+            if old_value is None:
+                os.environ.pop("LZCAT_CODEX_DISABLE_DASHBOARD", None)
+            else:
+                os.environ["LZCAT_CODEX_DISABLE_DASHBOARD"] = old_value
+
+        self.assertIsNone(context)
 
     def test_parse_slash_interaction_commands(self) -> None:
         self.assertEqual(

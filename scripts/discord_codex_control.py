@@ -438,6 +438,11 @@ def dashboard_channel_name() -> str:
     return DASHBOARD_CHANNEL_NAME
 
 
+def dashboard_channel_enabled() -> bool:
+    value = os.environ.get("LZCAT_CODEX_DISABLE_DASHBOARD", "").strip().lower()
+    return value not in {"1", "true", "yes", "on"}
+
+
 def build_workdir(config: CodexControlConfig, slug: str, item: dict[str, Any] | None) -> Path:
     if not slug:
         return config.repo_root
@@ -577,6 +582,8 @@ def channel_context(channel: dict[str, Any], config: CodexControlConfig, items: 
             implicit_codex=True,
         )
     if normalize_slug(channel_name) == normalize_slug(dashboard_channel_name()):
+        if not dashboard_channel_enabled():
+            return None
         return ChannelContext(
             channel_id=channel_id,
             channel_name=channel_name,
