@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "CodeEagle/agent-runtime",
   "created_at": "2026-04-27T08:40:22.314397+00:00",
-  "updated_at": "2026-04-28T06:10:47.877378+00:00",
+  "updated_at": "2026-04-28T06:11:58.400837+00:00",
   "context": {
     "source": {
       "kind": "docker_image",
@@ -160,26 +160,26 @@
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-04-28T04:34:41.515479+00:00",
+      "completed_at": "2026-04-28T06:10:48.023201+00:00",
       "conclusion": "预检通过",
       "all_passed": true
     },
     "8": {
       "completed": true,
-      "completed_at": "2026-04-28T04:35:53.235505+00:00",
+      "completed_at": "2026-04-28T06:11:54.520237+00:00",
       "conclusion": "构建成功",
       "build_mode": "install"
     },
     "9": {
       "completed": true,
-      "completed_at": "2026-04-28T04:35:53.236662+00:00",
+      "completed_at": "2026-04-28T06:11:54.521920+00:00",
       "conclusion": "lpk 已验证",
-      "lpk_sha256": "fe03c0b6f9088af427db476299d6053812dd72f3daedb353aec72d32f4d28ca9",
-      "lpk_size_bytes": 856
+      "lpk_sha256": "e7a4fa2d0d0f62d548fec82bfa3390fe284f61ae82855d861fe270049bb082f2",
+      "lpk_size_bytes": 855
     },
     "10": {
       "completed": true,
-      "completed_at": "2026-04-28T04:35:58.095539+00:00",
+      "completed_at": "2026-04-28T06:11:58.400793+00:00",
       "conclusion": "验收完成",
       "pending_backports": []
     }
