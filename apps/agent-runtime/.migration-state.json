@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "CodeEagle/agent-runtime",
   "created_at": "2026-04-27T08:40:22.314397+00:00",
-  "updated_at": "2026-04-28T03:56:01.805417+00:00",
+  "updated_at": "2026-04-28T04:04:53.854778+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -120,12 +120,12 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-28T03:53:56.488730+00:00",
+      "completed_at": "2026-04-28T04:04:50.658552+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-28T03:54:00.255209+00:00",
+      "completed_at": "2026-04-28T04:04:53.854674+00:00",
       "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
     },
     "3": {
