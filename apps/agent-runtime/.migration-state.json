@@ -2,13 +2,13 @@
   "schema_version": 1,
   "source_input": "CodeEagle/agent-runtime",
   "created_at": "2026-04-27T08:40:22.314397+00:00",
-  "updated_at": "2026-04-28T04:35:58.095600+00:00",
+  "updated_at": "2026-04-28T06:10:47.877378+00:00",
   "context": {
     "source": {
-      "kind": "github_repo",
+      "kind": "docker_image",
       "url": "CodeEagle/agent-runtime",
-      "upstream_repo": "CodeEagle/agent-runtime",
-      "homepage": "https://github.com/CodeEagle/agent-runtime"
+      "upstream_repo": "",
+      "homepage": ""
     },
     "environment": {
       "gh_token_source": "GH_PAT",
@@ -17,10 +17,12 @@
       "image_owner": ""
     },
     "route_decision": {
-      "route": "upstream_dockerfile",
-      "build_strategy": "upstream_dockerfile",
-      "check_strategy": "commit_sha",
-      "risks": []
+      "route": "official_image",
+      "build_strategy": "official_image",
+      "check_strategy": "github_tag",
+      "risks": [
+        "镜像 tag 不是 semver，后续自动更新可能需要人工指定版本"
+      ]
     },
     "version": {
       "upstream": "",
@@ -120,13 +122,13 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-28T04:34:38.504459+00:00",
-      "conclusion": "已识别输入类型为 `github_repo`"
+      "completed_at": "2026-04-28T06:10:47.876163+00:00",
+      "conclusion": "已识别输入类型为 `docker_image`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-28T04:34:41.352819+00:00",
-      "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
+      "completed_at": "2026-04-28T06:10:47.877255+00:00",
+      "conclusion": "已自动推断构建路线为 `official_image`"
     },
     "3": {
       "completed": true,
