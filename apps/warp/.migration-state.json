@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "source_input": "https://github.com/warpdotdev/warp",
+  "created_at": "2026-04-29T06:20:00Z",
+  "updated_at": "2026-04-29T06:20:00Z",
+  "context": {
+    "source": {
+      "kind": "github_repo",
+      "url": "https://github.com/warpdotdev/warp",
+      "upstream_repo": "warpdotdev/warp",
+      "homepage": "https://www.warp.dev"
+    },
+    "route_decision": {
+      "route": "native-desktop-novnc",
+      "build_strategy": "target_repo_dockerfile",
+      "check_strategy": "commit_sha",
+      "risks": [
+        "Upstream Warp is a native desktop terminal, not an HTTP web app.",
+        "This package exposes a Linux desktop session through noVNC.",
+        "Public store publication must preserve AGPL/MIT notices and avoid implying official Warp endorsement."
+      ]
+    },
+    "version": {
+      "upstream": "0.2026.04.27.15.32.stable.02",
+      "normalized": "2026.4.27"
+    }
+  },
+  "steps": {
+    "1": {
+      "completed": true,
+      "completed_at": "2026-04-29T06:20:00Z",
+      "conclusion": "已识别上游为 GitHub 仓库并完成部署材料扫描"
+    },
+    "2": {
+      "completed": true,
+      "completed_at": "2026-04-29T06:20:00Z",
+      "conclusion": "full_migrate 识别为原生桌面项目；改走 noVNC 桌面封装路线"
+    },
+    "3": {
+      "completed": true,
+      "completed_at": "2026-04-29T06:20:00Z",
+      "conclusion": "已注册 monorepo app: warp"
+    },
+    "4": {
+      "completed": true,
+      "completed_at": "2026-04-29T06:20:00Z",
+      "conclusion": "已创建 app 骨架、Dockerfile、许可证文件和图标"
+    },
+    "5": {
+      "completed": true,
+      "completed_at": "2026-04-29T06:20:00Z",
+      "conclusion": "manifest 已按 noVNC 单服务拓扑生成"
+    },
+    "6": {
+      "completed": true,
+      "completed_at": "2026-04-29T06:20:00Z",
+      "conclusion": "README、构建配置和上游部署清单已补齐"
+    }
+  },
+  "problems": [
+    {
+      "id": "p1",
+      "step": 2,
+      "description": "full_migrate.py cannot automatically migrate Warp because it is a native desktop/CLI repository without a production HTTP service topology.",
+      "category": "route",
+      "status": "resolved",
+      "created_at": "2026-04-29T06:20:00Z",
+      "resolution": "Use a custom target_repo_dockerfile that installs the official Linux warp-terminal package and exposes it through Xvfb/x11vnc/noVNC."
+    }
+  ],
+  "verification": {}
+}
