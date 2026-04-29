@@ -28,6 +28,7 @@ RUN set -eux; \
       fonts-noto-color-emoji \
       fonts-noto-cjk \
       gnupg \
+      libasound2 \
       libgl1-mesa-dri \
       libnss3 \
       libx11-xcb1 \
