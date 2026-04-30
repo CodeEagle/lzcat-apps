@@ -1,6 +1,6 @@
 # Fusion 懒猫微服使用攻略
 
-> 发布摘要：Fusion 是一个面向开发者的 AI 编程任务看板。它把需求、规划、执行、评审、合并放在同一个浏览器工作台里，适合把长期项目放到懒猫微服上持续运行。
+> 一句话概览：Fusion 是一个面向开发者的 AI 编程任务看板。它把需求、规划、执行、评审、合并放在同一个浏览器工作台里，适合把长期项目放到懒猫微服上持续运行。
 
 ## 适合谁
 
@@ -49,13 +49,13 @@ LazyCat Fusion Demo -> /project
 
 ## 02 AI Setup：可以跳过，但不能忽略
 
-注册项目后，Fusion 会进入 AI Setup。这里可以配置 OpenAI、Anthropic、Google 等 provider。截图展示的是未连接 provider 的早期状态，适合公开文章使用，不会泄露任何密钥。
+注册项目后，Fusion 会进入 AI Setup。这里可以配置 OpenAI、Anthropic、Google 等 provider。截图展示的是未连接 provider 的早期状态，也是新装后最常见的状态。
 
 ![Fusion AI Setup：未连接 provider 的状态](assets/tutorial-04-ai-setup.png)
 
 没有 provider 时，Fusion 仍然能打开看板、创建任务、查看任务详情、使用 Git/终端相关接口；但 AI 自动规划、代码执行、审查和总结不会真正跑起来。
 
-公开截图时注意：不要截 API Key、token、账号邮箱、私有模型地址。教程里展示“未连接”状态即可。
+配置 provider 时，密钥只需要保存在 Settings 或懒猫安装参数里，不需要写进任务描述、README 或提交记录。
 
 ## 03 OpenRouter/free：低成本试跑方式
 
@@ -137,7 +137,7 @@ EACCES: permission denied, mkdir '/home/node/.pi/agent/sessions/...'
 /home/node/.pi/agent/sessions
 ```
 
-远程 OAuth 也要注意：如果 OpenAI 授权页返回 `unknown_error`，不一定是浏览器拦截。更常见的原因是 OAuth client 对远程 redirect URI 校验失败。本次测试采用的是已登录 Codex CLI 的 OAuth 凭据导入到 Fusion 的方式。这里涉及 access token 和 refresh token，只建议在你信任的自有懒猫设备上操作，不要把 token 放进攻略截图、日志或仓库。
+远程 OAuth 也要注意：如果 OpenAI 授权页返回 `unknown_error`，不一定是浏览器拦截。更常见的原因是 OAuth client 对远程 redirect URI 校验失败。本次测试采用的是已登录 Codex CLI 的 OAuth 凭据导入到 Fusion 的方式。这里涉及 access token 和 refresh token，只建议在你信任的自有懒猫设备上操作，不要把 token 写进任务描述、日志或仓库。
 
 ## 05 进阶玩法：把 Hermes、OpenClaw、Paperclip 当作员工
 
@@ -158,7 +158,7 @@ Fusion 不只是在 provider 之间切模型。Settings 里还有 Runtimes，可
 3. 保存后去 agent / model / routing 相关页面，把任务 lane 或特定任务指向对应 runtime。
 4. 先用小任务确认连接、权限、worktree 和合并流程都正常，再让它处理真实代码。
 
-懒猫部署时要特别注意：这些 runtime 调用的是 Fusion 容器内能访问到的命令或 API，不是你电脑上的命令。截图里 Hermes 显示 `hermes not found on PATH`，说明入口已经识别，但当前容器还没安装 Hermes CLI。OpenClaw 也同理，需要把 CLI 放进镜像、挂载目录或旁路服务里；Paperclip 则要确保 Fusion 能访问 Paperclip API，并且 agent key 不要出现在截图和公开文档里。
+懒猫部署时要特别注意：这些 runtime 调用的是 Fusion 容器内能访问到的命令或 API，不是你电脑上的命令。截图里 Hermes 显示 `hermes not found on PATH`，说明入口已经识别，但当前容器还没安装 Hermes CLI。OpenClaw 也同理，需要把 CLI 放进镜像、挂载目录或旁路服务里；Paperclip 则要确保 Fusion 能访问 Paperclip API，并且 agent key 只保存在 runtime 设置里。
 
 使用心得是：不要一开始就把所有员工都打开。先保留一个主执行者，再加一个专门做 review 或调研的员工；每增加一种 runtime，都用独立的小任务验证它的权限、输出格式和超时行为。这样出问题时能快速判断是模型、runtime、Git worktree 还是 Fusion workflow 本身的问题。
 
@@ -331,7 +331,3 @@ Fusion 的正确用法不是“让 AI 直接接管整个仓库”，而是把任
 **Codex 规划成功，但执行时报 `.pi/agent/sessions` 权限错误**
 
 检查 `/home/node/.pi/agent/sessions` 是否存在且归 `node:node` 所有。懒猫版已经在启动命令里预创建该目录；如果是旧包或手动迁移环境，补目录后重试任务即可。
-
-**截图/发布攻略时要注意什么**
-
-只截产品界面、任务示例和非敏感状态。不要截 API key、GitHub token、私有仓库 URL、真实客户任务、回调 URL 或日志里的密钥。
