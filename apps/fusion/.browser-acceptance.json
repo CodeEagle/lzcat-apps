@@ -1,34 +1,66 @@
 {
+  "schema_version": 1,
+  "slug": "fusion",
   "status": "pass",
-  "tested_at": "2026-04-30T03:29:00.000000+00:00",
-  "url": "https://fusion.rx79.heiyu.space/",
-  "tool": "Chrome headless via DevTools Protocol",
-  "note": "Browser Use navigation tool was not exposed in this session; acceptance used a real installed Chrome browser through CDP.",
-  "checks": {
-    "dashboard_rendered": true,
-    "title": "Fusion",
-    "root_child_count": 4,
-    "api_tasks": {
-      "status": 200,
-      "body": "[]"
-    },
-    "terminal_session_create": {
-      "status": 201,
-      "shell": "/bin/bash",
-      "cwd": "/project"
-    },
+  "accepted_at": "2026-04-30T05:24:00Z",
+  "entry_url": "https://fusion.rx79.heiyu.space/",
+  "browser_use": {
+    "dom_rendered": true,
     "console_errors": [],
-    "exceptions": []
+    "network_failures": [],
+    "screenshots": [
+      "apps/fusion/copywriting/assets/tutorial-01-first-run.png",
+      "apps/fusion/copywriting/assets/tutorial-03-empty-board.png",
+      "apps/fusion/copywriting/assets/tutorial-06-first-task.png",
+      "apps/fusion/copywriting/assets/tutorial-08-task-detail.png",
+      "apps/fusion/copywriting/assets/tutorial-10-board-current.png"
+    ]
   },
-  "tolerated_network_observations": [
-    "GET /api/_perf/dashboard-load returns 404 from upstream instrumentation endpoint; dashboard still renders and no console error event was emitted.",
-    "A terminal WebSocket close warning appeared when the headless browser process shut down after capture."
+  "checks": [
+    {
+      "name": "fresh_install_first_run",
+      "status": "pass",
+      "evidence": "Browser Use rendered the real LazyCat Fusion URL after delete-data reinstall and captured the first-run registration wizard."
+    },
+    {
+      "name": "project_registration",
+      "status": "pass",
+      "evidence": "Registered /project as LazyCat Fusion Demo after initializing a Git repository."
+    },
+    {
+      "name": "task_board",
+      "status": "pass",
+      "evidence": "Created task FN-001 from the board, verified board view, list view, and task detail modal."
+    },
+    {
+      "name": "api_smoke",
+      "status": "pass",
+      "evidence": "Verified /api/projects, /api/tasks, /api/git/status, terminal exec, and PTY create/delete."
+    },
+    {
+      "name": "openrouter_free_model_configuration",
+      "status": "pass",
+      "evidence": "Verified /api/models exposed 368 OpenRouter models, then set project and FN-001 task planning/execution/validator lanes to openrouter/qwen/qwen3-coder:free."
+    },
+    {
+      "name": "ai_planning_attempt",
+      "status": "blocked",
+      "evidence": "Specification rebuild reached the OpenRouter free model, but qwen/qwen3-coder:free returned 429 rate limiting before PROMPT.md was generated."
+    },
+    {
+      "name": "rate_limit_shutdown",
+      "status": "pass",
+      "evidence": "After recording the OpenRouter 429 behavior, set globalPause=true, enginePaused=true, and paused FN-001 to stop further automatic retries."
+    }
   ],
-  "screenshot": "dist/fusion-v0.9.1-20260430T032530Z/fusion-cdp.png",
+  "blocking_issues": [],
+  "limitations": [
+    "AI planning did not complete because OpenRouter returned 429 rate limiting for qwen/qwen3-coder:free; execution, review, and merge depend on a completed plan and were not exercised.",
+    "GitHub issue import and pull request creation were not exercised because no GitHub token was configured."
+  ],
   "artifact": {
     "release_tag": "fusion-v0.9.1-20260430T032530Z",
     "lpk_sha256": "3a04a63b425c55d2054fae574e365ff5f65d3e41d6218ceaac432d1a573f2d49",
-    "build_report_sha256": "ab3f19e86aeb53961cc7abf8ac3599c35be44bf2efdfa2f9ef7b255fe1544333",
     "image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:827789b07c1b5b59"
   }
 }
