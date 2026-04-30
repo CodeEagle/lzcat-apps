@@ -10,7 +10,7 @@
   "image_targets": [
     "fusion"
   ],
-  "migration_status": "in_progress",
+  "migration_status": "migrated",
   "official_image_registry": "",
   "precompiled_binary_url": "",
   "publish_to_store": false,

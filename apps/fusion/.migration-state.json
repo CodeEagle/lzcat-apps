@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "https://github.com/Runfusion/Fusion",
   "created_at": "2026-04-30T02:12:30.030762+00:00",
-  "updated_at": "2026-04-30T02:23:53.174382+00:00",
+  "updated_at": "2026-04-30T03:29:00.000000+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -23,7 +23,7 @@
       "risks": []
     },
     "version": {
-      "upstream": "",
+      "upstream": "v0.9.1",
       "normalized": "0.9.1"
     },
     "finalized": {
@@ -60,7 +60,7 @@
       "services": {
         "fusion": {
           "image": "registry.lazycat.cloud/placeholder/fusion:bootstrap",
-          "command": "sh -lc 'install -d -m 0755 /project /project/.fusion /project/.worktrees; install -d -m 0700 /home/node/.fusion /home/node/.ssh /home/node/.config /home/node/.cache /home/node/.local/share /home/node/.local/state; chown 1000:1000 /project /home/node; chown -R 1000:1000 /project/.fusion /project/.worktrees /home/node; exec gosu node node /opt/fusion/packages/cli/dist/bin.js dashboard --host 0.0.0.0 --port 4040 --no-auth'",
+          "command": "sh -lc 'install -d -o 1000 -g 1000 -m 0755 /project /project/.fusion /project/.worktrees; install -d -o 1000 -g 1000 -m 0700 /home/node/.fusion /home/node/.ssh; install -d -o 1000 -g 1000 -m 0755 /home/node/.config /home/node/.cache /home/node/.local/share /home/node/.local/state; exec gosu node node /opt/fusion/packages/cli/dist/bin.js dashboard --host 0.0.0.0 --port 4040 --no-auth'",
           "environment": [
             "NODE_ENV=production",
             "PORT=4040",
@@ -127,7 +127,8 @@
       "startup_notes": [
         "官方 Docker 入口为 fn dashboard，LazyCat 启动时绑定 0.0.0.0:4040 并关闭应用内 bearer token。",
         "持久化 /project 与 /home/node，分别保存项目 .fusion/.worktrees 与全局 provider/auth 设置。",
-        "使用 Dockerfile.template 覆盖上游 Dockerfile，修正旧包名过滤器和 dashboard planning runtime export。"
+        "使用 Dockerfile.template 覆盖上游 Dockerfile，修正旧包名过滤器、dashboard planning runtime export、typebox peer 依赖和 node-pty 解析。",
+        "运行时目录使用 install -d -o/-g 初始化，避免递归 chown 挂载目录导致启动阻塞。"
       ],
       "include_content": false,
       "ai_pod_service": "",
@@ -137,7 +138,7 @@
       "aipod": {},
       "usage": "",
       "icon_path": "/var/folders/j_/6_f1sp_s54bds4vqqhyx2flr0000gn/T/lzcat-full-migrate-uck3cakw/Fusion-main/packages/dashboard/app/public/icons/icon-512.png",
-      "source_version": "",
+      "source_version": "v0.9.1",
       "default_branch": ""
     },
     "registration": {
@@ -149,13 +150,13 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-30T02:22:30.439819+00:00",
+      "completed_at": "2026-04-30T02:37:59.971613+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-30T02:22:35.000124+00:00",
-      "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
+      "completed_at": "2026-04-30T02:38:20.919645+00:00",
+      "conclusion": "已采用 `upstream_with_target_template`：保留上游源码，使用 LazyCat 目标 Dockerfile.template 构建。"
     },
     "3": {
       "completed": true,
@@ -187,14 +188,32 @@
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-04-30T02:22:35.036481+00:00",
+      "completed_at": "2026-04-30T03:29:00.000000+00:00",
       "conclusion": "预检通过",
       "all_passed": true
     },
     "8": {
       "completed": true,
-      "completed_at": "2026-04-30T02:22:35.036862+00:00",
-      "conclusion": "validate-only 模式停止"
+      "completed_at": "2026-04-30T03:29:00.000000+00:00",
+      "conclusion": "GitHub workflow 25145584604 构建成功，发布 fusion-v0.9.1-20260430T032530Z",
+      "workflow_run": "https://github.com/CodeEagle/lzcat-apps/actions/runs/25145584604",
+      "artifact_release": "https://github.com/CodeEagle/lzcat-artifacts/releases/tag/fusion-v0.9.1-20260430T032530Z",
+      "lpk_sha256": "3a04a63b425c55d2054fae574e365ff5f65d3e41d6218ceaac432d1a573f2d49",
+      "image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:827789b07c1b5b59"
+    },
+    "9": {
+      "completed": true,
+      "completed_at": "2026-04-30T03:29:00.000000+00:00",
+      "conclusion": "LPK 已安装到 LazyCat，应用状态 healthy，/api/tasks 返回 200 []。",
+      "url": "https://fusion.rx79.heiyu.space",
+      "terminal_session_create_status": 201
+    },
+    "10": {
+      "completed": true,
+      "completed_at": "2026-04-30T03:29:00.000000+00:00",
+      "conclusion": "真实 Chrome/CDP 浏览器验收通过：Fusion 初始化向导渲染，/api/tasks 200，控制台无 error/exception，PTY 终端创建已修复。",
+      "screenshot": "dist/fusion-v0.9.1-20260430T032530Z/fusion-cdp.png",
+      "browser_acceptance": "apps/fusion/.browser-acceptance.json"
     }
   },
   "problems": [
@@ -208,5 +227,34 @@
       "resolved_at": "2026-04-30T02:23:53.174382+00:00"
     }
   ],
-  "verification": {}
+  "verification": {
+    "preflight": {
+      "passed": true
+    },
+    "local_container": {
+      "docker_build": "fusion-local-check:pty",
+      "node_pty_import": "pass",
+      "terminal_session_create": 201,
+      "api_tasks": 200
+    },
+    "github_workflow": {
+      "run_id": 25145584604,
+      "status": "success",
+      "release_tag": "fusion-v0.9.1-20260430T032530Z",
+      "lpk_sha256": "3a04a63b425c55d2054fae574e365ff5f65d3e41d6218ceaac432d1a573f2d49",
+      "image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:827789b07c1b5b59"
+    },
+    "lazycat_install": {
+      "status": "healthy",
+      "url": "https://fusion.rx79.heiyu.space",
+      "api_tasks": 200,
+      "terminal_session_create": 201
+    },
+    "browser_acceptance": {
+      "status": "pass",
+      "console_errors": 0,
+      "exceptions": 0,
+      "screenshot": "dist/fusion-v0.9.1-20260430T032530Z/fusion-cdp.png"
+    }
+  }
 }

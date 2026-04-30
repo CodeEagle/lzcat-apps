@@ -1,0 +1,34 @@
+{
+  "status": "pass",
+  "tested_at": "2026-04-30T03:29:00.000000+00:00",
+  "url": "https://fusion.rx79.heiyu.space/",
+  "tool": "Chrome headless via DevTools Protocol",
+  "note": "Browser Use navigation tool was not exposed in this session; acceptance used a real installed Chrome browser through CDP.",
+  "checks": {
+    "dashboard_rendered": true,
+    "title": "Fusion",
+    "root_child_count": 4,
+    "api_tasks": {
+      "status": 200,
+      "body": "[]"
+    },
+    "terminal_session_create": {
+      "status": 201,
+      "shell": "/bin/bash",
+      "cwd": "/project"
+    },
+    "console_errors": [],
+    "exceptions": []
+  },
+  "tolerated_network_observations": [
+    "GET /api/_perf/dashboard-load returns 404 from upstream instrumentation endpoint; dashboard still renders and no console error event was emitted.",
+    "A terminal WebSocket close warning appeared when the headless browser process shut down after capture."
+  ],
+  "screenshot": "dist/fusion-v0.9.1-20260430T032530Z/fusion-cdp.png",
+  "artifact": {
+    "release_tag": "fusion-v0.9.1-20260430T032530Z",
+    "lpk_sha256": "3a04a63b425c55d2054fae574e365ff5f65d3e41d6218ceaac432d1a573f2d49",
+    "build_report_sha256": "ab3f19e86aeb53961cc7abf8ac3599c35be44bf2efdfa2f9ef7b255fe1544333",
+    "image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:827789b07c1b5b59"
+  }
+}
