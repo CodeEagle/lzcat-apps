@@ -48,6 +48,7 @@
     "mercury-agent.json",
     "piclaw.json",
     "cc-connect.json",
-    "agent-runtime.json"
+    "agent-runtime.json",
+    "fusion.json"
   ]
 }

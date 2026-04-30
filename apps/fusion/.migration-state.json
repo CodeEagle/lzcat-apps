@@ -1,0 +1,212 @@
+{
+  "schema_version": 1,
+  "source_input": "https://github.com/Runfusion/Fusion",
+  "created_at": "2026-04-30T02:12:30.030762+00:00",
+  "updated_at": "2026-04-30T02:23:53.174382+00:00",
+  "context": {
+    "source": {
+      "kind": "github_repo",
+      "url": "https://github.com/Runfusion/Fusion",
+      "upstream_repo": "Runfusion/Fusion",
+      "homepage": "https://github.com/Runfusion/Fusion"
+    },
+    "environment": {
+      "gh_token_source": "GH_PAT",
+      "lzc_cli_token_source": "lzc-cli config get token",
+      "container_runtime": "docker",
+      "image_owner": ""
+    },
+    "route_decision": {
+      "route": "upstream_with_target_template",
+      "build_strategy": "upstream_with_target_template",
+      "check_strategy": "github_release",
+      "risks": []
+    },
+    "version": {
+      "upstream": "",
+      "normalized": "0.9.1"
+    },
+    "finalized": {
+      "slug": "fusion",
+      "project_name": "Fusion",
+      "description": "Multi-node AI coding agent orchestrator and task board",
+      "description_zh": "多节点 AI 编程智能体编排与任务看板",
+      "upstream_repo": "Runfusion/Fusion",
+      "homepage": "https://github.com/Runfusion/Fusion",
+      "license": "MIT",
+      "author": "Runfusion",
+      "version": "0.9.1",
+      "package": "fun.selfstudio.app.migration.fusion",
+      "min_os_version": "1.3.8",
+      "check_strategy": "github_release",
+      "build_strategy": "upstream_with_target_template",
+      "official_image_registry": "",
+      "precompiled_binary_url": "",
+      "dockerfile_type": "custom",
+      "dockerfile_path": "Dockerfile.template",
+      "build_context": ".",
+      "docker_platform": "linux/amd64",
+      "image_owner": "",
+      "overlay_paths": [],
+      "upstream_submodules": [],
+      "image_targets": [
+        "fusion"
+      ],
+      "dependencies": [],
+      "service_builds": [],
+      "build_args": {},
+      "service_cmd": [],
+      "service_port": 4040,
+      "services": {
+        "fusion": {
+          "image": "registry.lazycat.cloud/placeholder/fusion:bootstrap",
+          "command": "sh -lc 'install -d -m 0755 /project /project/.fusion /project/.worktrees; install -d -m 0700 /home/node/.fusion /home/node/.ssh /home/node/.config /home/node/.cache /home/node/.local/share /home/node/.local/state; chown 1000:1000 /project /home/node; chown -R 1000:1000 /project/.fusion /project/.worktrees /home/node; exec gosu node node /opt/fusion/packages/cli/dist/bin.js dashboard --host 0.0.0.0 --port 4040 --no-auth'",
+          "environment": [
+            "NODE_ENV=production",
+            "PORT=4040",
+            "HOME=/home/node",
+            "XDG_CONFIG_HOME=/home/node/.config",
+            "XDG_CACHE_HOME=/home/node/.cache",
+            "XDG_DATA_HOME=/home/node/.local/share",
+            "XDG_STATE_HOME=/home/node/.local/state",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "OPENROUTER_API_KEY",
+            "GITHUB_TOKEN"
+          ],
+          "binds": [
+            "/lzcapp/var/data/fusion/project:/project",
+            "/lzcapp/var/data/fusion/home:/home/node"
+          ],
+          "healthcheck": {
+            "test": [
+              "CMD-SHELL",
+              "node -e 'fetch(\"http://127.0.0.1:4040/api/tasks\").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'"
+            ],
+            "interval": "30s",
+            "timeout": "10s",
+            "retries": 5,
+            "start_period": "60s"
+          }
+        }
+      },
+      "application": {
+        "subdomain": "fusion",
+        "public_path": [
+          "/"
+        ],
+        "upstreams": [
+          {
+            "location": "/",
+            "backend": "http://fusion:4040/"
+          }
+        ],
+        "health_check": {
+          "test_url": "http://fusion:4040/api/tasks",
+          "start_period": "90s",
+          "timeout": "10s"
+        }
+      },
+      "env_vars": [
+        "NODE_ENV=production",
+        "PORT=4040",
+        "HOME=/home/node",
+        "XDG_CONFIG_HOME=/home/node/.config",
+        "XDG_CACHE_HOME=/home/node/.cache",
+        "XDG_DATA_HOME=/home/node/.local/share",
+        "XDG_STATE_HOME=/home/node/.local/state",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "OPENROUTER_API_KEY",
+        "GITHUB_TOKEN"
+      ],
+      "data_paths": [
+        "/project",
+        "/home/node"
+      ],
+      "startup_notes": [
+        "官方 Docker 入口为 fn dashboard，LazyCat 启动时绑定 0.0.0.0:4040 并关闭应用内 bearer token。",
+        "持久化 /project 与 /home/node，分别保存项目 .fusion/.worktrees 与全局 provider/auth 设置。",
+        "使用 Dockerfile.template 覆盖上游 Dockerfile，修正旧包名过滤器和 dashboard planning runtime export。"
+      ],
+      "include_content": false,
+      "ai_pod_service": "",
+      "ai_pod_service_name": "fusion",
+      "ai_pod_service_port": 4040,
+      "ai_pod_image": "registry.lazycat.cloud/placeholder/fusion-ai:bootstrap",
+      "aipod": {},
+      "usage": "",
+      "icon_path": "/var/folders/j_/6_f1sp_s54bds4vqqhyx2flr0000gn/T/lzcat-full-migrate-uck3cakw/Fusion-main/packages/dashboard/app/public/icons/icon-512.png",
+      "source_version": "",
+      "default_branch": ""
+    },
+    "registration": {
+      "slug": "fusion",
+      "monorepo_path": "apps/fusion",
+      "config_path": "registry/repos/fusion.json"
+    }
+  },
+  "steps": {
+    "1": {
+      "completed": true,
+      "completed_at": "2026-04-30T02:22:30.439819+00:00",
+      "conclusion": "已识别输入类型为 `github_repo`"
+    },
+    "2": {
+      "completed": true,
+      "completed_at": "2026-04-30T02:22:35.000124+00:00",
+      "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
+    },
+    "3": {
+      "completed": true,
+      "completed_at": "2026-04-30T02:12:39.428734+00:00",
+      "conclusion": "已完成 monorepo 注册"
+    },
+    "4": {
+      "completed": true,
+      "completed_at": "2026-04-30T02:12:39.465856+00:00",
+      "conclusion": "骨架文件已生成",
+      "files_written": [
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/fusion/lzc-manifest.yml",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/fusion/lzc-build.yml",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/fusion/README.md",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/fusion/UPSTREAM_DEPLOYMENT_CHECKLIST.md",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/apps/fusion/icon.png",
+        "/Volumes/ORICO/Development/Github/lzcat/lzcat-apps/registry/repos/fusion.json"
+      ]
+    },
+    "5": {
+      "completed": true,
+      "completed_at": "2026-04-30T02:12:39.466228+00:00",
+      "conclusion": "manifest 初稿已生成"
+    },
+    "6": {
+      "completed": true,
+      "completed_at": "2026-04-30T02:12:39.466409+00:00",
+      "conclusion": "剩余文件已补齐"
+    },
+    "7": {
+      "completed": true,
+      "completed_at": "2026-04-30T02:22:35.036481+00:00",
+      "conclusion": "预检通过",
+      "all_passed": true
+    },
+    "8": {
+      "completed": true,
+      "completed_at": "2026-04-30T02:22:35.036862+00:00",
+      "conclusion": "validate-only 模式停止"
+    }
+  },
+  "problems": [
+    {
+      "id": "p1",
+      "step": 7,
+      "description": "service fusion defines both command and setup_script; manifest contains backslash-escaped quotes inside deployment templates; use YAML single-quoted template strings instead of \\\"",
+      "category": "preflight",
+      "status": "resolved",
+      "created_at": "2026-04-30T02:21:45.757132+00:00",
+      "resolved_at": "2026-04-30T02:23:53.174382+00:00"
+    }
+  ],
+  "verification": {}
+}

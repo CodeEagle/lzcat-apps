@@ -1,0 +1,79 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "Runfusion/Fusion",
+  "fixes": {
+    "project_name": "Fusion",
+    "description": "Multi-node AI coding agent orchestrator and task board",
+    "description_zh": "多节点 AI 编程智能体编排与任务看板",
+    "homepage": "https://github.com/Runfusion/Fusion",
+    "license": "MIT",
+    "author": "Runfusion",
+    "package": "fun.selfstudio.app.migration.fusion",
+    "check_strategy": "github_release",
+    "build_strategy": "upstream_with_target_template",
+    "dockerfile_path": "Dockerfile.template",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "docker_platform": "linux/amd64",
+    "image_targets": [
+      "fusion"
+    ],
+    "service_port": 4040,
+    "services": {
+      "fusion": {
+        "image": "registry.lazycat.cloud/placeholder/fusion:bootstrap",
+        "command": "sh -lc 'install -d -m 0755 /project /project/.fusion /project/.worktrees; install -d -m 0700 /home/node/.fusion /home/node/.ssh /home/node/.config /home/node/.cache /home/node/.local/share /home/node/.local/state; chown 1000:1000 /project /home/node; chown -R 1000:1000 /project/.fusion /project/.worktrees /home/node; exec gosu node node /opt/fusion/packages/cli/dist/bin.js dashboard --host 0.0.0.0 --port 4040 --no-auth'",
+        "environment": [
+          "NODE_ENV=production",
+          "PORT=4040",
+          "HOME=/home/node",
+          "XDG_CONFIG_HOME=/home/node/.config",
+          "XDG_CACHE_HOME=/home/node/.cache",
+          "XDG_DATA_HOME=/home/node/.local/share",
+          "XDG_STATE_HOME=/home/node/.local/state",
+          "{{ if index .U \"openai_api_key\" }}OPENAI_API_KEY={{ index .U \"openai_api_key\" }}{{ else }}OPENAI_API_KEY={{ end }}",
+          "{{ if index .U \"anthropic_api_key\" }}ANTHROPIC_API_KEY={{ index .U \"anthropic_api_key\" }}{{ else }}ANTHROPIC_API_KEY={{ end }}",
+          "{{ if index .U \"openrouter_api_key\" }}OPENROUTER_API_KEY={{ index .U \"openrouter_api_key\" }}{{ else }}OPENROUTER_API_KEY={{ end }}",
+          "{{ if index .U \"github_token\" }}GITHUB_TOKEN={{ index .U \"github_token\" }}{{ else }}GITHUB_TOKEN={{ end }}"
+        ],
+        "binds": [
+          "/lzcapp/var/data/fusion/project:/project",
+          "/lzcapp/var/data/fusion/home:/home/node"
+        ],
+        "healthcheck": {
+          "test": [
+            "CMD-SHELL",
+            "node -e 'fetch(\"http://127.0.0.1:4040/api/tasks\").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'"
+          ],
+          "interval": "30s",
+          "timeout": "10s",
+          "retries": 5,
+          "start_period": "60s"
+        }
+      }
+    },
+    "application": {
+      "subdomain": "fusion",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://fusion:4040/"
+        }
+      ],
+      "health_check": {
+        "test_url": "http://fusion:4040/api/tasks",
+        "start_period": "90s",
+        "timeout": "10s"
+      }
+    },
+    "startup_notes": [
+      "官方 Docker 入口为 fn dashboard，LazyCat 启动时绑定 0.0.0.0:4040 并关闭应用内 bearer token。",
+      "持久化 /project 与 /home/node，分别保存项目 .fusion/.worktrees 与全局 provider/auth 设置。",
+      "使用 Dockerfile.template 覆盖上游 Dockerfile，修正旧包名过滤器和 dashboard planning runtime export。"
+    ],
+    "include_content": false
+  }
+}

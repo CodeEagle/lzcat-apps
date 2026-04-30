@@ -1,0 +1,25 @@
+params:
+  - id: openai_api_key
+    type: string
+    name: OpenAI API Key
+    description: Optional provider credential passed to Fusion as OPENAI_API_KEY. You can also configure providers later in Fusion.
+    default_value: ""
+    optional: true
+  - id: anthropic_api_key
+    type: string
+    name: Anthropic API Key
+    description: Optional provider credential passed to Fusion as ANTHROPIC_API_KEY.
+    default_value: ""
+    optional: true
+  - id: openrouter_api_key
+    type: string
+    name: OpenRouter API Key
+    description: Optional provider credential passed to Fusion as OPENROUTER_API_KEY.
+    default_value: ""
+    optional: true
+  - id: github_token
+    type: string
+    name: GitHub Token
+    description: Optional token for GitHub issue import and pull request workflows inside Fusion.
+    default_value: ""
+    optional: true
