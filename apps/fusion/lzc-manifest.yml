@@ -22,11 +22,10 @@ services:
   fusion:
     image: registry.lazycat.cloud/placeholder/fusion:bootstrap
     command: >-
-      sh -lc 'install -d -m 0755 /project /project/.fusion /project/.worktrees;
-      install -d -m 0700 /home/node/.fusion /home/node/.ssh /home/node/.config
+      sh -lc 'install -d -o 1000 -g 1000 -m 0755 /project /project/.fusion
+      /project/.worktrees; install -d -o 1000 -g 1000 -m 0700 /home/node/.fusion
+      /home/node/.ssh; install -d -o 1000 -g 1000 -m 0755 /home/node/.config
       /home/node/.cache /home/node/.local/share /home/node/.local/state;
-      chown 1000:1000 /project /home/node;
-      chown -R 1000:1000 /project/.fusion /project/.worktrees /home/node;
       exec gosu node node /opt/fusion/packages/cli/dist/bin.js dashboard
       --host 0.0.0.0 --port 4040 --no-auth'
     environment:
