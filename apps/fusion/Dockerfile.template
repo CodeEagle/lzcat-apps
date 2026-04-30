@@ -50,7 +50,10 @@ COPY . .
 
 RUN set -eux; \
   node -e "const fs=require('fs'); const p='packages/dashboard/package.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); if (j.exports && j.exports['./planning']) j.exports['./planning'].import='./dist/planning.js'; fs.writeFileSync(p, JSON.stringify(j, null, 2)+'\n');"; \
-  pnpm install --frozen-lockfile --prod --filter @runfusion/fusion...; \
+  # Keep selected workspace dev dependencies in the runtime image because the
+  # bundled CLI imports `typebox` at startup while upstream declares it outside
+  # production dependencies.
+  pnpm install --frozen-lockfile --filter @runfusion/fusion...; \
   mkdir -p node_modules/@sinclair; \
   cp -a node_modules/.pnpm/@sinclair+typebox@*/node_modules/@sinclair/typebox node_modules/@sinclair/typebox 2>/dev/null || true
 

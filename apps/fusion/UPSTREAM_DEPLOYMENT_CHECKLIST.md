@@ -53,6 +53,7 @@
 
 - 上游 Dockerfile 当前生产安装过滤器仍引用旧包名 `@gsxdsm/fusion`；LazyCat 模板改为 `@runfusion/fusion...`
 - 上游 dashboard `./planning` 子路径导出指向 TypeScript source；模板在构建和运行镜像中把 runtime import 修正为 `./dist/planning.js`
+- 上游 CLI 启动时会 import `typebox`，但当前包元数据未把它放入 production dependencies；runner 阶段保留选中 workspace 的 dev dependencies，避免启动时报 `ERR_MODULE_NOT_FOUND`
 - 构建方式为克隆上游 tag 后用 `Dockerfile.template` 覆盖根 Dockerfile，不直接修改上游仓库
 
 ## 最小可运行路径
