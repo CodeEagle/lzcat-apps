@@ -25,9 +25,27 @@ python3 scripts/prepare_store_submission.py <slug>
 
 它会阻止未通过 Browser Use 验收、缺少网页内截图 metadata 的应用进入上架准备阶段，并核对 `dist/<slug>.lpk` 内部 `manifest.yml` 的包名和版本。
 
-## 2. Playground 图文攻略
+## 2. Playground 图文攻略草稿
 
-如果本次还要提交 LazyCat Playground/Workshop 图文攻略，先把源稿和截图放在 `apps/<slug>/copywriting/`：
+攻略面向最终用户，不是迁移记录、测试记录或发布 checklist。生成或人工整理 `apps/<slug>/copywriting/tutorial.md` / `playground.md` 时按下面结构收敛：
+
+1. 标题和一句话概览：说清楚应用是什么、适合谁。
+2. 开始前准备：列出账号、provider、测试数据、示例仓库或持久化目录要求。
+3. 首次打开：放真实安装实例的主界面截图。
+4. 第一条核心任务：给一个可复现的小目标，说明好任务/好输入怎么写。
+5. 执行中和结果：至少补执行中状态、完成结果、详情页或日志页截图，不只截空状态。
+6. 设置与进阶：有 provider、runtime、插件、员工、外部服务时单独成节，说明适用场景和试跑建议。
+7. 使用心得和常见问题：把排障经验改写成用户可执行建议。
+
+公开攻略里不要出现这些内部文本：
+
+- `本次功能测试记录`、`验收记录`、`Browser Use 验收证据`
+- `截图/发布攻略时要注意什么`、提交审核提醒、发布安全边界
+- API key、GitHub token、私有仓库 URL、真实客户任务、回调 URL、日志密钥
+
+截图素材优先放在 `apps/<slug>/copywriting/assets/`；商店截图放在 `apps/<slug>/store/screenshots/`。同一张图可以复用，但攻略截图更应展示“怎么用”，商店截图更应展示“第一眼价值”。
+
+提交 LazyCat Playground/Workshop 图文攻略前，按下面要求处理：
 
 - 正文截图必须来自真实实例或真实后台页面，不使用 mock、旧图或伪造状态。
 - Agent/Runtime 类教程只写已经验证的链路；blocked run 要如实写出 DNS、repo、token 或权限阻塞。

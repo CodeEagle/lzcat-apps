@@ -115,62 +115,92 @@ def build_store_copy(slug: str, manifest: dict[str, Any], acceptance: dict[str, 
 def build_tutorial(slug: str, manifest: dict[str, Any], acceptance: dict[str, Any]) -> str:
     name = str(manifest.get("name", slug)).strip() or slug
     subdomain = str(manifest.get("application", {}).get("subdomain", slug)).strip() if isinstance(manifest.get("application"), dict) else slug
-    evidence = acceptance_evidence(acceptance)
+    description = manifest_description(manifest, "zh") or manifest_description(manifest, "en")
 
-    return f"""# {name} 使用教程
+    return f"""# {name} 懒猫微服使用攻略
 
-## 适用人群
+> 一句话概览：{description or f"{name} 已完成懒猫微服适配，适合在自己的设备上长期运行。"}
 
-适合希望在懒猫微服中本地运行 `{name}`，并通过浏览器完成核心工作流的用户。
+## 适合谁
 
-## 安装后第一步
+{name} 适合希望把开源应用放到懒猫微服里长期使用的人。它不是一次性的安装记录，而是一篇面向最终用户的上手攻略：先说明适用场景，再带用户完成第一条可验证的真实流程。
+
+如果只是想确认应用能打开，看首页就够了；如果要写公开攻略，需要继续覆盖核心操作、执行中状态、结果页、设置页或进阶能力。
+
+## 开始前先准备
 
 1. 在懒猫微服中安装应用。
 2. 打开 `https://{subdomain}.<你的盒子域名>/`。
-3. 确认页面不是空白页、平台错误页或 5xx 错误页。
+3. 准备应用核心流程需要的测试数据、示例任务或 provider 配置。
+4. 准备一组不含敏感信息的演示数据；后续截图只展示产品界面和示例状态。
 
-## 核心流程
+## 01 首次打开：先确认主界面
 
-1. 打开应用首页。
-2. 按页面上的主要输入区填写或上传内容。
-3. 执行主操作。
-4. 确认结果区域出现可用输出。
+打开应用后，先确认看到的是应用自己的主界面，而不是启动页、空白页、平台错误页或 5xx 错误页。
 
-## 验收记录
+这一段应配一张干净的主界面截图，截图只保留产品 UI 和无敏感信息的示例状态。
 
-{evidence}
+## 02 第一条任务：用一个小目标跑通流程
+
+第一条任务要小，目标要明确，最好能在几分钟内得到结果。写攻略时不要只说“输入内容并点击按钮”，要告诉用户什么样的输入更容易成功。
+
+建议覆盖：
+
+- 输入或创建示例任务。
+- 启动执行、转换、生成、分析或同步动作。
+- 观察执行中状态，而不只截最终结果。
+- 回到列表、看板或历史记录确认任务可追踪。
+
+## 03 结果页：确认产出真的可用
+
+公开攻略需要展示“做完之后用户能得到什么”。如果应用有详情页、日志页、预览页、导出文件或提交记录，这里应该补一张结果截图。
+
+截图说明要写成用户能理解的收益，例如“任务已进入 Done，详情页保留提交号和变更文件”。
+
+## 04 设置与进阶玩法
+
+如果应用有模型、账号、插件、runtime、外部服务或团队协作设置，应单独写一节。只说明设置入口、字段含义和推荐使用方式，不展示密钥、token、私有 URL 或真实账号。
+
+当应用支持多后端或多员工模式时，建议写清楚每个选项适合什么场景，并提醒用户先用小任务试跑。
+
+## 使用心得
+
+- 先用小任务验证配置、权限、持久化目录和结果回写，再交给它处理真实工作。
+- 截图要覆盖主界面、执行中、执行结果、详情/日志、设置/进阶能力，而不是只截空状态。
+- 把排障信息改写成用户能行动的建议，正文只保留对使用有帮助的结论。
 
 ## 常见问题
 
 - 如果页面打不开，先检查应用状态和容器日志。
-- 如果页面能打开但主流程失败，检查 Browser Use 记录里的 console/network 错误。
+- 如果页面能打开但主流程失败，先检查应用内错误提示、配置项和后台日志。
 - 如果功能需要外部账号、API key 或持久化目录，先在懒猫应用详情中补齐配置再重试。
-
-## 上架收益提示
-
-- 教程应配套截图或短视频，展示“安装后 1 分钟内完成第一件事”。
-- 每次迁移完成后都要补齐教程、验收证据和功能亮点，避免只上架一个技术包装。
 """
 
 
 def screenshot_references(app_root: Path, slug: str) -> list[str]:
-    screenshot_dir = app_root / "acceptance"
-    screenshots = sorted(screenshot_dir.glob("*.png")) if screenshot_dir.exists() else []
+    screenshot_sources = [
+        (app_root / "copywriting" / "assets", "assets"),
+        (app_root / "store" / "screenshots", "../store/screenshots"),
+        (app_root / "acceptance", "../acceptance"),
+    ]
+    screenshots: list[tuple[Path, str]] = []
+    for screenshot_dir, relative_prefix in screenshot_sources:
+        if screenshot_dir.exists():
+            screenshots.extend((path, relative_prefix) for path in sorted(screenshot_dir.glob("*.png")))
     if not screenshots:
         return [f"![应用界面](../acceptance/{slug}-home.png)"]
-    return [f"![{path.stem}](../acceptance/{path.name})" for path in screenshots[:5]]
+    return [f"![{path.stem}]({relative_prefix}/{path.name})" for path, relative_prefix in screenshots[:8]]
 
 
 def build_playground_guide(slug: str, manifest: dict[str, Any], acceptance: dict[str, Any], app_root: Path) -> str:
     name = str(manifest.get("name", slug)).strip() or slug
     homepage = str(manifest.get("homepage", "")).strip()
     description = manifest_description(manifest, "zh") or manifest_description(manifest, "en")
-    evidence = acceptance_evidence(acceptance)
     screenshots = screenshot_references(app_root, slug)
     first_image = screenshots[0]
     extra_images = "\n\n".join(screenshots[1:])
 
-    return f"""# 在懒猫微服上使用 {name}
+    return f"""# {name} 懒猫微服使用攻略
 
 {first_image}
 
@@ -184,20 +214,25 @@ def build_playground_guide(slug: str, manifest: dict[str, Any], acceptance: dict
 
 1. 在懒猫应用商店安装 `{name}`。
 2. 打开应用入口，等待首页完成加载。
-3. 按页面主流程输入或上传内容。
-4. 看到结果区出现有效输出后，就可以把它加入日常工作流。
+3. 准备一个不含敏感信息的示例输入、测试仓库或演示数据。
+4. 跑通第一条核心流程，确认能看到执行进度和最终结果。
 
 {extra_images}
 
-## 我们验证了什么
+## 上手路线
 
-{evidence}
+1. 先看主界面，确认核心导航和主要操作入口。
+2. 创建第一条小任务或第一份示例数据。
+3. 观察执行中状态，确认用户能理解当前进度。
+4. 查看结果、详情、日志或导出物。
+5. 再介绍设置、provider、插件、runtime 或高级协作方式。
 
-## 适合这些场景
+## 使用心得
 
 - 想把开源工具稳定放进自己的懒猫微服。
 - 希望应用、数据和日常入口都留在本地设备。
-- 需要一个已经经过 Browser Use 验收的可用版本。
+- 建议稳定复盘主流程，而不是只展示空状态或安装成功。
+- 进阶配置应先用小任务验证，避免一开始就接入真实客户数据或私有仓库。
 
 ## 上游信息
 

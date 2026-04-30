@@ -123,6 +123,33 @@ await tab.playwright.screenshot({ path: "apps/<app>/store/screenshots/01-overvie
 
 ### 4.3 Playground 图文攻略草稿
 
+用户要求发布攻略、教程或 Playground workshop 草稿时，攻略必须基于真实安装实例和功能验收结果，但正文不能写成测试记录或发布 checklist。
+
+攻略应覆盖：
+
+- 应用定位与适用人群：解释它解决什么问题，哪些用户值得安装。
+- 开始前准备：列出账号、provider、示例数据、仓库、持久化目录或外部服务要求。
+- 首次打开截图：只截真实产品界面，不截浏览器外框、系统桌面或启动错误页。
+- 核心小任务：用可复现的最小任务跑通主流程，说明输入怎么写、何时点击、怎么判断进度。
+- 执行中与结果截图：至少包含执行中状态、结果页、详情页或日志页之一；任务型 / agent 型应用必须补“执行中”和“完成结果”两类截图。
+- 设置与进阶玩法：有 provider、runtime、员工、插件、Webhook、外部 API 时单独成节，写清适用场景、配置入口和小任务试跑建议。
+- 使用心得：把排障经验改写成用户可执行建议，而不是贴日志或验收摘要。
+
+公开攻略禁止出现：
+
+- `本次功能测试记录`、`验收记录`、`Browser Use 验收证据` 这类内部小节标题
+- `截图/发布攻略时要注意什么`、提交审核提醒、安全确认流程等面向操作者的提示
+- API key、GitHub token、OAuth token、私有仓库 URL、真实客户任务、回调 URL、日志密钥或真实账号信息
+
+素材路径建议：
+
+- `apps/<app>/copywriting/assets/`：攻略正文图片，文件名按阅读顺序命名，例如 `tutorial-01-first-run.png`。
+- `apps/<app>/store/screenshots/`：商店截图，文件名按商店展示顺序命名，例如 `01-overview.png`。
+- `apps/<app>/copywriting/tutorial.md`：完整使用攻略。
+- `apps/<app>/copywriting/playground.md`：可直接贴到 LazyCat Playground workshop 的版本。
+
+`scripts/copywriter.py` 生成的是初稿，发布前必须人工把真实截图、demo 执行过程、结果页和心得补齐；如果生成稿含有测试记录、发布提醒或安全边界提示，必须移到内部 checklist，不得留在公开正文。
+
 当用户要求“写攻略”“补截图”“存到草稿箱”时，按这个顺序处理，避免把执行过程或未验证结果混进文章：
 
 1. 先完成真实实例验收，再写文章。截图必须来自可打开的应用实例、控制台或真实配置页面；没有实例时只能保留截图占位说明，不能伪造产品截图。

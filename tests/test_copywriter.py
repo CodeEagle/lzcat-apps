@@ -63,10 +63,29 @@ class CopywriterTest(unittest.TestCase):
 
         self.assertIn("Demo App", package["store_copy"])
         self.assertIn("收益素材清单", package["store_copy"])
-        self.assertIn("Primary workflow passed.", package["tutorial"])
-        self.assertIn("Primary workflow passed.", package["playground"])
+        self.assertIn("第一条任务", package["tutorial"])
+        self.assertIn("执行中", package["tutorial"])
+        self.assertIn("使用心得", package["playground"])
+        self.assertNotIn("验收记录", package["tutorial"])
+        self.assertNotIn("本次功能测试记录", package["tutorial"])
+        self.assertNotIn("上架收益提示", package["tutorial"])
+        self.assertNotIn("Browser Use", package["tutorial"])
+        self.assertNotIn("提交审核", package["tutorial"])
+        self.assertNotIn("本次功能测试记录", package["playground"])
+        self.assertNotIn("Browser Use", package["playground"])
+        self.assertNotIn("发布注意事项", package["playground"])
         self.assertIn("![应用界面]", package["playground"])
         self.assertIn("../acceptance/demo-home.png", package["playground"])
+
+    def test_playground_guide_prefers_copywriting_assets(self) -> None:
+        repo_root = self.make_repo_root()
+        assets_dir = repo_root / "apps" / "demo" / "copywriting" / "assets"
+        assets_dir.mkdir(parents=True)
+        (assets_dir / "tutorial-01-home.png").write_bytes(b"png")
+
+        package = build_copywriting_package(repo_root, "demo")
+
+        self.assertIn("assets/tutorial-01-home.png", package["playground"])
 
     def test_build_copywriting_package_blocks_without_acceptance(self) -> None:
         repo_root = self.make_repo_root()
