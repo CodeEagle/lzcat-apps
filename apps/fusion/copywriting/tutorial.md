@@ -101,6 +101,28 @@ Codex agent test: OK.
 
 ![Fusion 使用 Codex agent 跑通任务到 Done](assets/tutorial-11-codex-agent-done.png)
 
+为了把执行过程看得更清楚，又跑了一条截图 demo 任务 `FN-003`。任务要求 Codex 新建 `DEMO_EXECUTION.md`，并在 `README.md` 末尾追加：
+
+```text
+Codex screenshot demo: OK.
+```
+
+执行中可以看到任务从 Planning 进入 `In Progress`，卡片会显示当前 worktree、步骤进度、已变更文件数和运行耗时。
+
+![Codex demo 执行中](assets/tutorial-12-codex-executing.png)
+
+执行完成并自动合并后，任务进入 `Done`。这里可以快速确认任务 ID、摘要、模型标记和变更文件数。
+
+![Codex demo 完成后看板](assets/tutorial-13-codex-result-board.png)
+
+点击任务卡片进入详情页，`Definition` 会保留最终摘要、合并状态、提交号和变更统计。`FN-003` 最终生成提交 `f1a377c feat(FN-003): add demo execution artifact and verification checklist`，变更文件数为 2。
+
+![Codex demo 任务详情](assets/tutorial-14-codex-task-detail.png)
+
+`Logs` 页更适合排障和复盘。这里能看到 plan review、step 状态、验证说明和 `Task marked done by agent` 这类关键事件。
+
+![Codex demo 执行日志](assets/tutorial-15-codex-task-logs.png)
+
 这轮也暴露并修复了一个懒猫运行时坑：`/home/node` 是持久化挂载，容器启动时 owner 是 `root:root`。如果没有提前创建 `/home/node/.pi/agent/sessions` 并授权给 `node` 用户，planning 和 review 可以成功，但 executor 会在创建 pi-coding-agent session 目录时报：
 
 ```text
@@ -117,7 +139,30 @@ EACCES: permission denied, mkdir '/home/node/.pi/agent/sessions/...'
 
 远程 OAuth 也要注意：如果 OpenAI 授权页返回 `unknown_error`，不一定是浏览器拦截。更常见的原因是 OAuth client 对远程 redirect URI 校验失败。本次测试采用的是已登录 Codex CLI 的 OAuth 凭据导入到 Fusion 的方式。这里涉及 access token 和 refresh token，只建议在你信任的自有懒猫设备上操作，不要把 token 放进攻略截图、日志或仓库。
 
-## 05 GitHub：可选，但决定 Issue/PR 工作流
+## 05 进阶玩法：把 Hermes、OpenClaw、Paperclip 当作员工
+
+Fusion 不只是在 provider 之间切模型。Settings 里还有 Runtimes，可以把 Hermes、OpenClaw、Paperclip 连接成不同“员工”，再用任务模型、Routing 或节点路由决定某条任务交给谁做。
+
+![Fusion Settings 里的 Hermes Runtime](assets/tutorial-16-advanced-runtime-hermes.png)
+
+这三类员工的定位不同：
+
+- `Hermes`：调用容器内的 `hermes` CLI。适合已经在 Hermes 里配置好 provider、profile、技能和记忆的人，把 Fusion 任务转交给本地 Hermes agent 执行。需要先让 `hermes` 命令在 Fusion 容器的 PATH 里可用，并完成 Hermes 自己的登录或 provider 配置。
+- `OpenClaw`：调用容器内的 `openclaw` CLI。它走本地 agent JSON 执行路径，适合想引入另一套 agent 行为或思考模式时使用。首次运行可能会安装依赖或初始化环境，建议先用一个 README 级别的小任务试跑。
+- `Paperclip`：连接 Paperclip server 或 Paperclip CLI，把 Fusion 的任务转给 Paperclip 里的某个 agent。Paperclip 更像组织化员工系统，适合需要预算、审批、审计、company/agent 归属和长期目标管理的场景。
+
+实际配置路径：
+
+1. 打开 `Settings -> Runtimes`，分别进入 Hermes、OpenClaw、Paperclip。
+2. 按 runtime 要求填 binary path、profile、provider、API URL、API key、agent ID 或 company ID。
+3. 保存后去 agent / model / routing 相关页面，把任务 lane 或特定任务指向对应 runtime。
+4. 先用小任务确认连接、权限、worktree 和合并流程都正常，再让它处理真实代码。
+
+懒猫部署时要特别注意：这些 runtime 调用的是 Fusion 容器内能访问到的命令或 API，不是你电脑上的命令。截图里 Hermes 显示 `hermes not found on PATH`，说明入口已经识别，但当前容器还没安装 Hermes CLI。OpenClaw 也同理，需要把 CLI 放进镜像、挂载目录或旁路服务里；Paperclip 则要确保 Fusion 能访问 Paperclip API，并且 agent key 不要出现在截图和公开文档里。
+
+使用心得是：不要一开始就把所有员工都打开。先保留一个主执行者，再加一个专门做 review 或调研的员工；每增加一种 runtime，都用独立的小任务验证它的权限、输出格式和超时行为。这样出问题时能快速判断是模型、runtime、Git worktree 还是 Fusion workflow 本身的问题。
+
+## 06 GitHub：可选，但决定 Issue/PR 工作流
 
 GitHub 步骤用于解锁 Issue 导入、PR 状态跟踪和任务关联代码变更。
 
@@ -131,7 +176,7 @@ GitHub 步骤用于解锁 Issue 导入、PR 状态跟踪和任务关联代码变
 
 需要 GitHub 后再从 Settings 里补配置即可。
 
-## 06 看板：先理解任务生命周期
+## 07 看板：先理解任务生命周期
 
 跳过可选配置后，会进入主看板。
 
@@ -148,7 +193,7 @@ Fusion 的核心列：
 
 看板顶部如果出现 `No AI provider connected` 或 `GitHub not connected`，不是安装失败，只是提醒这些能力还没配置。
 
-## 07 第一条任务怎么写
+## 08 第一条任务怎么写
 
 在 Planning 列的输入框里写一个明确的小任务，然后按 Enter。
 
@@ -169,7 +214,7 @@ Fusion 的核心列：
 
 不建议一上来写“帮我优化项目”。更好的写法是“阅读 README 和 scripts 目录，给出 3 个可执行维护任务，并说明每个任务的验证命令”。
 
-## 08 列表视图：适合批量管理
+## 09 列表视图：适合批量管理
 
 任务多起来后，可以切到 List view。它会按生命周期分组，适合快速扫 ID、标题、状态、依赖和进度。
 
@@ -177,7 +222,7 @@ Fusion 的核心列：
 
 看板视图适合日常拖动，列表视图适合批量检查。任务多时，列表比看板更容易发现卡住的项。
 
-## 09 任务详情：看清执行合同
+## 10 任务详情：看清执行合同
 
 点击任务可以打开详情页。
 
@@ -194,7 +239,7 @@ Fusion 的核心列：
 
 真正让 Fusion 发挥价值的是 `PROMPT.md` 计划、workflow gate 和 review 记录。它适合处理“要被审查和合并的代码任务”，而不是只看一次性回答。
 
-## 10 建议配置
+## 11 建议配置
 
 配置 provider 后，优先处理这些设置：
 
@@ -241,10 +286,15 @@ Fusion 的正确用法不是“让 AI 直接接管整个仓库”，而是把任
 - 任务 `FN-002` 使用 `openai-codex/gpt-5.3-codex-spark` 完成 specification、spec review、执行、步骤 review、验证和自动合并。
 - `FN-002` 最终进入 `Done`，四个步骤均为 `done`。
 - `FN-002` 在 demo 仓库生成提交 `9509170 feat(FN-002): add codex smoke test marker to README`，只修改 `README.md` 一行。
+- 任务 `FN-003` 使用同一个 Codex 模型完成截图 demo，执行中进入 `In Progress`，完成后进入 `Done`。
+- `FN-003` 新建 `DEMO_EXECUTION.md`，并在 `README.md` 追加 `Codex screenshot demo: OK.`。
+- `FN-003` 在 demo 仓库生成提交 `f1a377c feat(FN-003): add demo execution artifact and verification checklist`，共修改 2 个文件。
+- 已补充 `FN-003` 的执行中看板、完成看板、任务详情和执行日志截图。
+- `GET /api/plugins/runtimes` 返回 Hermes、OpenClaw、Paperclip 三个 runtime，Settings 中也能看到对应连接入口。
 - 复测中发现 executor 需要 `/home/node/.pi/agent/sessions`，已在 `lzc-manifest.yml` 和 `Dockerfile.template` 里补齐预创建目录。
 - `GET /api/projects` 返回注册项目，状态为 `active`。
-- `GET /api/tasks` 返回任务 `FN-001` 和 `FN-002`。
-- `GET /api/git/status` 返回 `master` 分支；Codex 测试后 demo 仓库 HEAD 为 `9509170`。
+- `GET /api/tasks` 返回任务 `FN-001`、`FN-002` 和 `FN-003`。
+- `GET /api/git/status` 返回 `master` 分支；Codex 截图 demo 后 demo 仓库 HEAD 为 `f1a377c`。
 - 终端 exec 可运行 `pwd && git status --short`，返回 `/project`。
 - PTY 终端会话可创建并删除，shell 为 `/bin/bash`，cwd 为 `/project`。
 
@@ -254,6 +304,7 @@ Fusion 的正确用法不是“让 AI 直接接管整个仓库”，而是把任
 - OpenRouter key 后续还出现过 daily limit，免费模型只适合验证入口，不适合稳定跑完整 agent 流程。
 - `FN-001` 仍保持暂停，避免继续消耗 OpenRouter 免费额度。
 - GitHub Issue 导入和 PR 创建：本次没有填 GitHub Token。
+- Hermes/OpenClaw/Paperclip 的 Settings 入口和 runtime 清单已验证；实际员工连接没有完成，因为当前 Fusion 容器内尚未安装 Hermes/OpenClaw CLI，也没有配置 Paperclip server/agent key。
 
 ## 常见问题
 
