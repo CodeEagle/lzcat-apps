@@ -71,6 +71,7 @@ RUN node --input-type=module -e "import { createRequire } from 'node:module'; co
 
 RUN install -d -o node -g node -m 0755 /project \
   && install -d -o node -g node -m 0700 /home/node/.fusion /home/node/.ssh \
+    /home/node/.pi /home/node/.pi/agent /home/node/.pi/agent/sessions \
   && install -d -o node -g node -m 0755 /home/node/.config /home/node/.cache /home/node/.local/share /home/node/.local/state
 
 WORKDIR /project
@@ -80,4 +81,4 @@ EXPOSE 4040
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
   CMD node -e "fetch('http://127.0.0.1:4040/api/tasks').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
-CMD ["sh", "-lc", "install -d -o 1000 -g 1000 -m 0755 /project /project/.fusion /project/.worktrees; install -d -o 1000 -g 1000 -m 0700 /home/node/.fusion /home/node/.ssh; install -d -o 1000 -g 1000 -m 0755 /home/node/.config /home/node/.cache /home/node/.local/share /home/node/.local/state; exec gosu node node /opt/fusion/packages/cli/dist/bin.js dashboard --host 0.0.0.0 --port 4040 --no-auth"]
+CMD ["sh", "-lc", "install -d -o 1000 -g 1000 -m 0755 /project /project/.fusion /project/.worktrees; install -d -o 1000 -g 1000 -m 0700 /home/node/.fusion /home/node/.ssh /home/node/.pi /home/node/.pi/agent /home/node/.pi/agent/sessions; install -d -o 1000 -g 1000 -m 0755 /home/node/.config /home/node/.cache /home/node/.local/share /home/node/.local/state; exec gosu node node /opt/fusion/packages/cli/dist/bin.js dashboard --host 0.0.0.0 --port 4040 --no-auth"]

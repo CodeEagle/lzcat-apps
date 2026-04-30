@@ -83,7 +83,41 @@ openrouter/qwen/qwen3-coder:free
 - 降低并发，避免多个任务同时规划。
 - 点 `Stop AI engine` 暂停自动重试，避免免费额度一直被排队请求占用。
 
-## 04 GitHub：可选，但决定 Issue/PR 工作流
+## 04 Codex Subscription：更完整的 agent 测试路线
+
+如果你已经登录过本机 Codex CLI，也可以把 Fusion 的模型 lane 切到 `openai-codex`。本次复测使用的是：
+
+```text
+openai-codex/gpt-5.3-codex-spark
+```
+
+实测结论比 OpenRouter/free 更完整：Codex 能完成任务规格生成、规格 review、步骤 plan review、执行、验证和自动合并。测试任务 `FN-002` 只要求在 demo 项目的 `README.md` 末尾追加一行：
+
+```text
+Codex agent test: OK.
+```
+
+最终任务进入 `Done`，四个步骤全部完成，demo 仓库生成提交 `9509170 feat(FN-002): add codex smoke test marker to README`，只改了 `README.md` 一行。
+
+![Fusion 使用 Codex agent 跑通任务到 Done](assets/tutorial-11-codex-agent-done.png)
+
+这轮也暴露并修复了一个懒猫运行时坑：`/home/node` 是持久化挂载，容器启动时 owner 是 `root:root`。如果没有提前创建 `/home/node/.pi/agent/sessions` 并授权给 `node` 用户，planning 和 review 可以成功，但 executor 会在创建 pi-coding-agent session 目录时报：
+
+```text
+EACCES: permission denied, mkdir '/home/node/.pi/agent/sessions/...'
+```
+
+懒猫版已经在启动命令和镜像模板里补了这个目录。自己排障时，看到 executor 权限错误，优先检查这些目录：
+
+```text
+/home/node/.pi
+/home/node/.pi/agent
+/home/node/.pi/agent/sessions
+```
+
+远程 OAuth 也要注意：如果 OpenAI 授权页返回 `unknown_error`，不一定是浏览器拦截。更常见的原因是 OAuth client 对远程 redirect URI 校验失败。本次测试采用的是已登录 Codex CLI 的 OAuth 凭据导入到 Fusion 的方式。这里涉及 access token 和 refresh token，只建议在你信任的自有懒猫设备上操作，不要把 token 放进攻略截图、日志或仓库。
+
+## 05 GitHub：可选，但决定 Issue/PR 工作流
 
 GitHub 步骤用于解锁 Issue 导入、PR 状态跟踪和任务关联代码变更。
 
@@ -97,7 +131,7 @@ GitHub 步骤用于解锁 Issue 导入、PR 状态跟踪和任务关联代码变
 
 需要 GitHub 后再从 Settings 里补配置即可。
 
-## 05 看板：先理解任务生命周期
+## 06 看板：先理解任务生命周期
 
 跳过可选配置后，会进入主看板。
 
@@ -114,7 +148,7 @@ Fusion 的核心列：
 
 看板顶部如果出现 `No AI provider connected` 或 `GitHub not connected`，不是安装失败，只是提醒这些能力还没配置。
 
-## 06 第一条任务怎么写
+## 07 第一条任务怎么写
 
 在 Planning 列的输入框里写一个明确的小任务，然后按 Enter。
 
@@ -135,7 +169,7 @@ Fusion 的核心列：
 
 不建议一上来写“帮我优化项目”。更好的写法是“阅读 README 和 scripts 目录，给出 3 个可执行维护任务，并说明每个任务的验证命令”。
 
-## 07 列表视图：适合批量管理
+## 08 列表视图：适合批量管理
 
 任务多起来后，可以切到 List view。它会按生命周期分组，适合快速扫 ID、标题、状态、依赖和进度。
 
@@ -143,7 +177,7 @@ Fusion 的核心列：
 
 看板视图适合日常拖动，列表视图适合批量检查。任务多时，列表比看板更容易发现卡住的项。
 
-## 08 任务详情：看清执行合同
+## 09 任务详情：看清执行合同
 
 点击任务可以打开详情页。
 
@@ -160,7 +194,7 @@ Fusion 的核心列：
 
 真正让 Fusion 发挥价值的是 `PROMPT.md` 计划、workflow gate 和 review 记录。它适合处理“要被审查和合并的代码任务”，而不是只看一次性回答。
 
-## 09 建议配置
+## 10 建议配置
 
 配置 provider 后，优先处理这些设置：
 
@@ -186,6 +220,8 @@ Fusion 的正确用法不是“让 AI 直接接管整个仓库”，而是把任
 - 有测试的项目更适合 Fusion。测试命令越稳定，自动执行和评审越有意义。
 - 风险高的任务关闭自动合并，保留人工 review。
 - free 模型适合功能验证，不适合长时间无人值守执行。真正跑生产任务时，最好准备稳定模型和明确预算。
+- Codex provider 跑完整流程更顺，但也更能暴露真实运行时问题。只要 executor 进入 worktree，就要确保 HOME 下的 agent session、缓存和 SSH 目录都能被运行用户写入。
+- 第一次用新 provider 时，先跑 README 级别的小任务。它能验证 planning、review、execution、merge，又不会把风险扩到业务代码。
 
 ## 本次功能测试记录
 
@@ -200,17 +236,23 @@ Fusion 的正确用法不是“让 AI 直接接管整个仓库”，而是把任
 - 配置 OpenRouter 后，`/api/models` 能返回 368 个 OpenRouter 模型。
 - 项目默认模型和任务 `FN-001` 的 planning/execution/validator 模型均可设置为 `openrouter/qwen/qwen3-coder:free`。
 - 触发 `FN-001` 规格重建后，Fusion 日志显示已使用 `openrouter/qwen/qwen3-coder:free` 进入规划。
+- 导入 Codex OAuth 凭据后，`/api/auth/status` 返回 `openai-codex.authenticated=true`。
+- `/api/models` 返回 Codex 模型列表，包含 `gpt-5.3-codex-spark`、`gpt-5.4-mini`、`gpt-5.5` 等。
+- 任务 `FN-002` 使用 `openai-codex/gpt-5.3-codex-spark` 完成 specification、spec review、执行、步骤 review、验证和自动合并。
+- `FN-002` 最终进入 `Done`，四个步骤均为 `done`。
+- `FN-002` 在 demo 仓库生成提交 `9509170 feat(FN-002): add codex smoke test marker to README`，只修改 `README.md` 一行。
+- 复测中发现 executor 需要 `/home/node/.pi/agent/sessions`，已在 `lzc-manifest.yml` 和 `Dockerfile.template` 里补齐预创建目录。
 - `GET /api/projects` 返回注册项目，状态为 `active`。
-- `GET /api/tasks` 返回任务 `FN-001`。
-- `GET /api/git/status` 返回 `master` 分支和提交 `bbd6dcf`。
+- `GET /api/tasks` 返回任务 `FN-001` 和 `FN-002`。
+- `GET /api/git/status` 返回 `master` 分支；Codex 测试后 demo 仓库 HEAD 为 `9509170`。
 - 终端 exec 可运行 `pwd && git status --short`，返回 `/project`。
 - PTY 终端会话可创建并删除，shell 为 `/bin/bash`，cwd 为 `/project`。
 
 受限项：
 
 - AI 规划没有最终产出 `PROMPT.md`：OpenRouter 对 `qwen/qwen3-coder:free` 返回 429 限流，日志提示高峰期 free 模型限制为每分钟 8 次请求。
-- 代码执行、评审、合并：依赖规划产物，因上述限流没有继续推进。
-- 为避免继续重试，测试结束后已将 AI engine 暂停，并将 `FN-001` 暂停。
+- OpenRouter key 后续还出现过 daily limit，免费模型只适合验证入口，不适合稳定跑完整 agent 流程。
+- `FN-001` 仍保持暂停，避免继续消耗 OpenRouter 免费额度。
 - GitHub Issue 导入和 PR 创建：本次没有填 GitHub Token。
 
 ## 常见问题
@@ -234,6 +276,10 @@ Fusion 的正确用法不是“让 AI 直接接管整个仓库”，而是把任
 **OpenRouter/free 一直 Rate limited**
 
 先不要连续点重试。暂停 AI engine，等一段时间或换另一个 `:free` 模型；如果要稳定跑完整 planning/execution/review 流程，建议使用有明确额度的模型。
+
+**Codex 规划成功，但执行时报 `.pi/agent/sessions` 权限错误**
+
+检查 `/home/node/.pi/agent/sessions` 是否存在且归 `node:node` 所有。懒猫版已经在启动命令里预创建该目录；如果是旧包或手动迁移环境，补目录后重试任务即可。
 
 **截图/发布攻略时要注意什么**
 

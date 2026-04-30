@@ -25,8 +25,10 @@ Fusion dashboard bearer-token auth is disabled with `--no-auth`; access is expec
 ## Data
 
 - `/project`: user project workspace, `.fusion` project database, task files, and `.worktrees`
-- `/home/node`: global Fusion settings, provider auth files, SSH config, cache, and local runtime state
+- `/home/node`: global Fusion settings, provider auth files, SSH config, pi-coding-agent session files, cache, and local runtime state
 
 ## Runtime Notes
 
 Fusion needs a git repository inside `/project` for full worktree automation. The dashboard can still open without a repository and guide the user through first-run project setup.
+
+The startup command pre-creates `/home/node/.pi/agent/sessions` because `/home/node` is a LazyCat persistent mount owned by root at container start. Without this directory, the executor can plan successfully but fail when pi-coding-agent creates a session directory.
