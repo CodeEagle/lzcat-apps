@@ -121,7 +121,30 @@ await tab.playwright.screenshot({ path: "apps/<app>/store/screenshots/01-overvie
 
 如果 Browser Use 当前工具不支持直接写 `path`，先用工具返回的截图结果，再落盘到上述目录；最终汇报必须列出截图路径。
 
-### 4.3 懒猫商店创建与提交
+### 4.3 Playground 图文攻略草稿
+
+当用户要求“写攻略”“补截图”“存到草稿箱”时，按这个顺序处理，避免把执行过程或未验证结果混进文章：
+
+1. 先完成真实实例验收，再写文章。截图必须来自可打开的应用实例、控制台或真实配置页面；没有实例时只能保留截图占位说明，不能伪造产品截图。
+2. 文章源文件放在 `apps/<app>/copywriting/`，常用文件为 `store-copy.md`、`tutorial.md`、`playground.md`。截图源文件放在 `apps/<app>/copywriting/assets/`，文件名使用 `tutorial-01-login.png`、`tutorial-02-runtime.png` 这类稳定顺序。
+3. 如果教程包含 Agent、Runtime、CLI 或 demo，必须区分“链路已验证”和“业务任务已完成”。例如 Runtime online、Issue 已分配、run completed 可以写成已验证；DNS、repo checkout、token、权限等阻塞必须写成阻塞，不要把 blocked run 改写成成功案例。
+4. 使用测试账号、测试 workspace 和测试数据。文章、截图、日志里不得暴露 token、验证码、回调 URL 中的 JWT、邮箱、手机号、真实姓名、真实仓库私密路径、密钥或付款信息。
+5. 上传到 Playground/Workshop 前，先审一遍 Markdown：删除用户给 Codex 的指令、Codex 对指令的回复、调试口吻、内部 TODO、临时占位和“我正在处理”这类过程文本。可以用 `rg -n "指令|用户要求|我会|我先|保存草稿|token|JWT|callback|验证码" apps/<app>/copywriting` 做辅助检查，但最终仍要人工通读标题、正文、图片说明和 FAQ。
+6. 上传截图后，确认文章里的图片引用已经替换为平台返回的真实 URL，或确认平台编辑器已接收本地上传文件。不要只上传封面而漏掉正文截图。
+7. 补齐标题、分类和封面。标题应能独立说明文章对象和收益；分类选择与教程用途匹配。封面可以用品牌图或生成图，但正文产品截图仍必须来自真实实例。
+8. 在浏览器编辑器里如果滚动不到顶部或底部，先用 Browser Use 的 DOM locator、`Home`、`End`、滚轮和截图确认按钮位置；不要因为页面滚动异常就盲点保存或发布。
+9. 点击“存草稿”会把标题、正文、分类、封面和上传图片写入第三方平台；点击“发布”会进入公开发布链路。两者都应在动作前向用户确认，且“发布”必须单独确认。
+
+草稿提交前检查：
+
+- 标题已填写，且不是占位标题。
+- 正文不包含用户指令、助手回复、调试日志、密钥、验证码或未打码 token。
+- 图片数量与文章中截图说明一致，图片能在编辑器中正常显示。
+- 分类和封面已设置。
+- 文章真实说明了 demo 的成功范围和未解决阻塞。
+- 浏览器页面停在最终保存/发布动作前，已获得用户确认。
+
+### 4.4 懒猫商店创建与提交
 
 商店提交入口以当前 `lzc-cli` 为准；提交规则以官方文档为准：[发布自己的第一个应用](https://developer.lazycat.cloud/publish-app.html)、[应用上架审核指南](https://developer.lazycat.cloud/store-submission-guide.html)。
 
