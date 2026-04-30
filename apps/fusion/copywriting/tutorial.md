@@ -268,44 +268,6 @@ Fusion 的正确用法不是“让 AI 直接接管整个仓库”，而是把任
 - Codex provider 跑完整流程更顺，但也更能暴露真实运行时问题。只要 executor 进入 worktree，就要确保 HOME 下的 agent session、缓存和 SSH 目录都能被运行用户写入。
 - 第一次用新 provider 时，先跑 README 级别的小任务。它能验证 planning、review、execution、merge，又不会把风险扩到业务代码。
 
-## 本次功能测试记录
-
-测试时间：2026-04-30。
-
-已验证：
-
-- 删除数据后重新安装 `fusion-v0.9.1-20260430T032530Z`，应用状态为 `Installed`。
-- Browser Use 打开真实地址 `https://fusion.rx79.heiyu.space/`，完成首启截图。
-- `/project` 初始化 Git 仓库并注册为 `LazyCat Fusion Demo`。
-- 创建任务 `FN-001`，看板、列表视图和任务详情均可显示。
-- 配置 OpenRouter 后，`/api/models` 能返回 368 个 OpenRouter 模型。
-- 项目默认模型和任务 `FN-001` 的 planning/execution/validator 模型均可设置为 `openrouter/qwen/qwen3-coder:free`。
-- 触发 `FN-001` 规格重建后，Fusion 日志显示已使用 `openrouter/qwen/qwen3-coder:free` 进入规划。
-- 导入 Codex OAuth 凭据后，`/api/auth/status` 返回 `openai-codex.authenticated=true`。
-- `/api/models` 返回 Codex 模型列表，包含 `gpt-5.3-codex-spark`、`gpt-5.4-mini`、`gpt-5.5` 等。
-- 任务 `FN-002` 使用 `openai-codex/gpt-5.3-codex-spark` 完成 specification、spec review、执行、步骤 review、验证和自动合并。
-- `FN-002` 最终进入 `Done`，四个步骤均为 `done`。
-- `FN-002` 在 demo 仓库生成提交 `9509170 feat(FN-002): add codex smoke test marker to README`，只修改 `README.md` 一行。
-- 任务 `FN-003` 使用同一个 Codex 模型完成截图 demo，执行中进入 `In Progress`，完成后进入 `Done`。
-- `FN-003` 新建 `DEMO_EXECUTION.md`，并在 `README.md` 追加 `Codex screenshot demo: OK.`。
-- `FN-003` 在 demo 仓库生成提交 `f1a377c feat(FN-003): add demo execution artifact and verification checklist`，共修改 2 个文件。
-- 已补充 `FN-003` 的执行中看板、完成看板、任务详情和执行日志截图。
-- `GET /api/plugins/runtimes` 返回 Hermes、OpenClaw、Paperclip 三个 runtime，Settings 中也能看到对应连接入口。
-- 复测中发现 executor 需要 `/home/node/.pi/agent/sessions`，已在 `lzc-manifest.yml` 和 `Dockerfile.template` 里补齐预创建目录。
-- `GET /api/projects` 返回注册项目，状态为 `active`。
-- `GET /api/tasks` 返回任务 `FN-001`、`FN-002` 和 `FN-003`。
-- `GET /api/git/status` 返回 `master` 分支；Codex 截图 demo 后 demo 仓库 HEAD 为 `f1a377c`。
-- 终端 exec 可运行 `pwd && git status --short`，返回 `/project`。
-- PTY 终端会话可创建并删除，shell 为 `/bin/bash`，cwd 为 `/project`。
-
-受限项：
-
-- AI 规划没有最终产出 `PROMPT.md`：OpenRouter 对 `qwen/qwen3-coder:free` 返回 429 限流，日志提示高峰期 free 模型限制为每分钟 8 次请求。
-- OpenRouter key 后续还出现过 daily limit，免费模型只适合验证入口，不适合稳定跑完整 agent 流程。
-- `FN-001` 仍保持暂停，避免继续消耗 OpenRouter 免费额度。
-- GitHub Issue 导入和 PR 创建：本次没有填 GitHub Token。
-- Hermes/OpenClaw/Paperclip 的 Settings 入口和 runtime 清单已验证；实际员工连接没有完成，因为当前 Fusion 容器内尚未安装 Hermes/OpenClaw CLI，也没有配置 Paperclip server/agent key。
-
 ## 常见问题
 
 **提示 No AI provider connected**
