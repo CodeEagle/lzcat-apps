@@ -399,8 +399,7 @@ def _escape_graphql_string(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def ensure_field(project_id: str, label: str, data_type: str, options: tuple[str, ...]) -> dict[str, Any]:
-    """Create a field if it isn't already present. Returns the field node."""
+def create_field(project_id: str, label: str, data_type: str, options: tuple[str, ...]) -> dict[str, Any]:
     options_clause = ""
     if data_type == "SINGLE_SELECT":
         opt_lines = [
@@ -411,6 +410,79 @@ def ensure_field(project_id: str, label: str, data_type: str, options: tuple[str
     query = CREATE_FIELD_MUTATION_TEMPLATE.format(data_type=data_type, options_clause=options_clause)
     data = gh_graphql(query, {"projectId": project_id, "name": label})
     return data["createProjectV2Field"]["projectV2Field"]
+
+
+DELETE_FIELD_MUTATION = """
+mutation($fieldId: ID!) {
+  deleteProjectV2Field(input: { fieldId: $fieldId }) {
+    projectV2Field {
+      ... on ProjectV2Field { id }
+      ... on ProjectV2SingleSelectField { id }
+    }
+  }
+}
+"""
+
+UPDATE_FIELD_OPTIONS_MUTATION_TEMPLATE = """
+mutation($fieldId: ID!) {{
+  updateProjectV2Field(input: {{
+    fieldId: $fieldId,
+    singleSelectOptions: [{options}]
+  }}) {{
+    projectV2Field {{
+      ... on ProjectV2SingleSelectField {{ id name dataType options {{ id name }} }}
+    }}
+  }}
+}}
+"""
+
+
+def delete_field(field_id: str) -> None:
+    gh_graphql(DELETE_FIELD_MUTATION, {"fieldId": field_id})
+
+
+def update_single_select_options(field_id: str, options: tuple[str, ...]) -> dict[str, Any]:
+    opt_lines = [
+        f'{{name: "{_escape_graphql_string(opt)}", color: GRAY, description: ""}}'
+        for opt in options
+    ]
+    query = UPDATE_FIELD_OPTIONS_MUTATION_TEMPLATE.format(options=", ".join(opt_lines))
+    data = gh_graphql(query, {"fieldId": field_id})
+    return data["updateProjectV2Field"]["projectV2Field"]
+
+
+def field_options_match(node: dict[str, Any], expected: tuple[str, ...]) -> bool:
+    actual = {opt.get("name") for opt in (node.get("options") or []) if isinstance(opt, dict)}
+    return actual == set(expected)
+
+
+def ensure_field(
+    project_id: str,
+    existing: dict[str, Any] | None,
+    label: str,
+    data_type: str,
+    options: tuple[str, ...],
+) -> tuple[dict[str, Any], str]:
+    """Make `label` exist with the right shape. Returns (node, action) where
+    action is one of 'created' / 'recreated' / 'updated' / 'kept'.
+
+    GitHub's UI auto-creates a default Status field (Todo/In Progress/Done) on
+    every new Projects v2 board. The Status field is built-in and cannot be
+    deleted, but its options ARE mutable via updateProjectV2Field. For other
+    single-selects we keep the simpler delete-and-recreate path so options stay
+    in our declared order.
+    """
+    if existing is None:
+        return create_field(project_id, label, data_type, options), "created"
+    if existing.get("dataType") != data_type:
+        delete_field(existing["id"])
+        return create_field(project_id, label, data_type, options), "recreated"
+    if data_type == "SINGLE_SELECT" and not field_options_match(existing, options):
+        if label == "Status":
+            return update_single_select_options(existing["id"], options), "updated"
+        delete_field(existing["id"])
+        return create_field(project_id, label, data_type, options), "recreated"
+    return existing, "kept"
 
 
 def cache_field_node(node: dict[str, Any]) -> dict[str, Any]:
@@ -463,12 +535,19 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
 
     existing_fields = {f.get("name"): f for f in list_project_fields(project["id"])}
     created_fields: list[str] = []
+    recreated_fields: list[str] = []
+    updated_fields: list[str] = []
     for key, label, data_type, options in FIELD_SCHEMA:
-        node = existing_fields.get(label)
-        if node is None:
-            node = ensure_field(project["id"], label, data_type, options)
-            existing_fields[label] = node
+        node, action = ensure_field(
+            project["id"], existing_fields.get(label), label, data_type, options
+        )
+        existing_fields[label] = node
+        if action == "created":
             created_fields.append(label)
+        elif action == "recreated":
+            recreated_fields.append(label)
+        elif action == "updated":
+            updated_fields.append(label)
         cache["fields"][label] = cache_field_node(node)
 
     save_cache(repo_root, cache)
@@ -478,6 +557,8 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
         "project_title": project["title"],
         "created_project": created_project,
         "created_fields": created_fields,
+        "recreated_fields": recreated_fields,
+        "updated_fields": updated_fields,
         "fields": sorted(cache["fields"].keys()),
     }
     print(json.dumps(summary, indent=2, sort_keys=True))
@@ -540,13 +621,13 @@ mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $text: String!) {
 }
 """
 
-UPDATE_NUMBER_FIELD = """
-mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $number: Float!) {
-  updateProjectV2ItemFieldValue(input: {
+UPDATE_NUMBER_FIELD_TEMPLATE = """
+mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!) {{
+  updateProjectV2ItemFieldValue(input: {{
     projectId: $projectId, itemId: $itemId, fieldId: $fieldId,
-    value: { number: $number }
-  }) { projectV2Item { id } }
-}
+    value: {{ number: {number} }}
+  }}) {{ projectV2Item {{ id }} }}
+}}
 """
 
 UPDATE_DATE_FIELD = """
@@ -646,7 +727,13 @@ def set_field(
     if dtype == "TEXT":
         gh_graphql(UPDATE_TEXT_FIELD, {"projectId": project_id, "itemId": item_id, "fieldId": fid, "text": str(value)})
     elif dtype == "NUMBER":
-        gh_graphql(UPDATE_NUMBER_FIELD, {"projectId": project_id, "itemId": item_id, "fieldId": fid, "number": float(value)})
+        # Float values inlined into the query — gh's -F flag stringifies decimals
+        # in a way GraphQL rejects ("Variable $number of type Float! was provided invalid value").
+        number = float(value)
+        if number != number or number in (float("inf"), float("-inf")):
+            raise RuntimeError(f"Refusing to send non-finite number to '{label}': {number!r}")
+        query = UPDATE_NUMBER_FIELD_TEMPLATE.format(number=repr(number))
+        gh_graphql(query, {"projectId": project_id, "itemId": item_id, "fieldId": fid})
     elif dtype == "DATE":
         gh_graphql(UPDATE_DATE_FIELD, {"projectId": project_id, "itemId": item_id, "fieldId": fid, "date": str(value)})
     elif dtype == "SINGLE_SELECT":

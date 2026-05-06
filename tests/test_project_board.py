@@ -251,8 +251,105 @@ class BootstrapTest(unittest.TestCase):
             summary = json.loads(buf.getvalue())
             self.assertFalse(summary["created_project"])
             self.assertEqual(summary["created_fields"], [])
+            self.assertEqual(summary["recreated_fields"], [])
             cache = project_board.load_cache(root)
             self.assertEqual(cache["project"]["project_id"], "PVT_existing")
+
+    def test_bootstrap_updates_built_in_status_field_options(self) -> None:
+        # GitHub Projects v2 auto-create a Status field with Todo/In Progress/Done.
+        # Status is built-in (cannot delete), so bootstrap must mutate its options
+        # in place via updateProjectV2Field.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "project-config.json").write_text(
+                json.dumps({"project_board": {"owner": "CodeEagle", "project_number": 1}}),
+                encoding="utf-8",
+            )
+
+            existing = []
+            for key, label, dtype, options in project_board.FIELD_SCHEMA:
+                node = {"id": f"F_{key}", "name": label, "dataType": dtype}
+                if label == "Status":
+                    node["options"] = [
+                        {"id": "opt_todo", "name": "Todo"},
+                        {"id": "opt_in_progress", "name": "In Progress"},
+                        {"id": "opt_done", "name": "Done"},
+                    ]
+                elif dtype == "SINGLE_SELECT":
+                    node["options"] = [{"id": f"opt_{i}", "name": opt} for i, opt in enumerate(options)]
+                existing.append(node)
+
+            responses: list = [
+                {"user": {"id": "U_owner", "login": "CodeEagle"}},
+                {"user": {"projectsV2": {
+                    "pageInfo": {"hasNextPage": False, "endCursor": ""},
+                    "nodes": [{"id": "PVT_existing", "number": 1, "title": "Migration Queue", "closed": False}],
+                }}},
+                {"node": {"fields": {"pageInfo": {"hasNextPage": False, "endCursor": ""}, "nodes": existing}}},
+                {"updateProjectV2Field": {"projectV2Field": {
+                    "id": "F_status",
+                    "name": "Status",
+                    "dataType": "SINGLE_SELECT",
+                    "options": [{"id": f"opt_new_{i}", "name": n}
+                                for i, n in enumerate(["Inbox", "Approved", "In-Progress", "Browser-Test",
+                                                       "Awaiting-Human", "Published", "Blocked", "Filtered"])],
+                }}},
+            ]
+            fake = FakeRun(responses)
+            with patch.object(project_board.subprocess, "run", fake), redirect_stdout(io.StringIO()) as buf:
+                rc = project_board.cmd_bootstrap(_ns(root))
+            self.assertEqual(rc, 0)
+            summary = json.loads(buf.getvalue())
+            self.assertEqual(summary["updated_fields"], ["Status"])
+            self.assertEqual(summary["created_fields"], [])
+            self.assertEqual(summary["recreated_fields"], [])
+            cache = project_board.load_cache(root)
+            self.assertEqual(cache["fields"]["Status"]["options"]["Inbox"], "opt_new_0")
+
+    def test_bootstrap_recreates_custom_field_with_wrong_options(self) -> None:
+        # Custom single-select fields (e.g. Build Strategy) DO support deletion,
+        # so bootstrap delete-recreates them when options drift.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "project-config.json").write_text(
+                json.dumps({"project_board": {"owner": "CodeEagle", "project_number": 1}}),
+                encoding="utf-8",
+            )
+
+            existing = []
+            for key, label, dtype, options in project_board.FIELD_SCHEMA:
+                node = {"id": f"F_{key}", "name": label, "dataType": dtype}
+                if label == "Build Strategy":
+                    node["options"] = [{"id": "opt_legacy", "name": "legacy_only"}]
+                elif dtype == "SINGLE_SELECT":
+                    node["options"] = [{"id": f"opt_{i}", "name": opt} for i, opt in enumerate(options)]
+                existing.append(node)
+
+            responses: list = [
+                {"user": {"id": "U_owner", "login": "CodeEagle"}},
+                {"user": {"projectsV2": {
+                    "pageInfo": {"hasNextPage": False, "endCursor": ""},
+                    "nodes": [{"id": "PVT_existing", "number": 1, "title": "Migration Queue", "closed": False}],
+                }}},
+                {"node": {"fields": {"pageInfo": {"hasNextPage": False, "endCursor": ""}, "nodes": existing}}},
+                {"deleteProjectV2Field": {"projectV2Field": {"id": "F_build_strategy"}}},
+                {"createProjectV2Field": {"projectV2Field": {
+                    "id": "F_build_strategy_new",
+                    "name": "Build Strategy",
+                    "dataType": "SINGLE_SELECT",
+                    "options": [{"id": f"opt_{i}", "name": n} for i, n in enumerate([
+                        "official_image", "upstream_dockerfile", "target_repo_dockerfile",
+                        "upstream_with_target_template", "precompiled_binary",
+                    ])],
+                }}},
+            ]
+            fake = FakeRun(responses)
+            with patch.object(project_board.subprocess, "run", fake), redirect_stdout(io.StringIO()) as buf:
+                rc = project_board.cmd_bootstrap(_ns(root))
+            self.assertEqual(rc, 0)
+            summary = json.loads(buf.getvalue())
+            self.assertEqual(summary["recreated_fields"], ["Build Strategy"])
+            self.assertEqual(summary["updated_fields"], [])
 
 
     def test_lookup_owner_falls_back_to_organization(self) -> None:
