@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "app": "chatgpt-on-wechat-lazycat",
+  "source_version": "2.0.7",
+  "build_version": "2.0.7",
+  "head_sha": "0decb1680f14",
+  "build_recipe_hash": "adf5cea97f4177483f9ab4a879976d213b204cd89af7f34957386023a3e38913",
+  "updated_at": "2026-04-26T01:21:52.566179+00:00",
+  "images": {
+    "chatgpt-on-wechat": "registry.lazycat.cloud/invokerlaw/zhayujie/chatgpt-on-wechat:701252c267e3594e"
+  },
+  "source_images": {
+    "chatgpt-on-wechat": "docker.io/zhayujie/chatgpt-on-wechat:2.0.7"
+  },
+  "source_digests": {
+    "_primary": ""
+  },
+  "copy_image_events": [
+    {
+      "source_image": "docker.io/zhayujie/chatgpt-on-wechat:2.0.7",
+      "target_image": "registry.lazycat.cloud/invokerlaw/zhayujie/chatgpt-on-wechat:701252c267e3594e",
+      "elapsed_seconds": 114.523,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}
