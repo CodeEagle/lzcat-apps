@@ -55,7 +55,9 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # OAuth token (Pro/Max) — generate locally via `claude setup-token`
+          # then add to repo secrets as CLAUDE_CODE_OAUTH_TOKEN.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: |
             --max-turns 10
             --model claude-sonnet-4-6

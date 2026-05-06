@@ -43,8 +43,9 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_PAT }}
       GH_PAT: ${{ secrets.GH_PAT }}
       LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+      LZC_USR: ${{ secrets.LZC_USR }}
+      LZC_PWD: ${{ secrets.LZC_PWD }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       LAZYCAT_BOX_DOMAIN: ${{ secrets.LAZYCAT_BOX_DOMAIN }}
 
     steps:
@@ -73,6 +74,10 @@ jobs:
         continue-on-error: true
         run: |
           python3 scripts/project_board.py update "$SLUG" --status=In-Progress
+
+      - name: Resolve LazyCat CLI token (signin if missing/expired)
+        run: |
+          python3 scripts/lzc_token_refresh.py
 
       - name: Run one migration cycle
         id: cycle

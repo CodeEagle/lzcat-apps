@@ -155,7 +155,13 @@ def main() -> int:
     print(message)
 
     if args.publish_discord and stale:
-        _publish_discord(message)
+        try:
+            _publish_discord(message)
+        except RuntimeError as exc:
+            # Discord may be intentionally unconfigured (e.g. user said "skip
+            # Discord"). Surface the reason but don't fail the workflow — the
+            # markdown report is already on stdout for the operator to see.
+            print(f"sla_reminder: Discord publish skipped — {exc}", file=sys.stderr)
     return 0
 
 

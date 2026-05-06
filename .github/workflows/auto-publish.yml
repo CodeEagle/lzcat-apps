@@ -40,7 +40,10 @@ jobs:
       SLUG: ${{ inputs.slug }}
       GH_TOKEN: ${{ secrets.GH_PAT }}
       GH_PAT: ${{ secrets.GH_PAT }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
+      LZC_USR: ${{ secrets.LZC_USR }}
+      LZC_PWD: ${{ secrets.LZC_PWD }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
     steps:
       - name: Validate slug
@@ -63,6 +66,10 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve LazyCat CLI token (signin if missing/expired)
+        run: |
+          python3 scripts/lzc_token_refresh.py
 
       - name: Run copywriter
         continue-on-error: true   # copywriter is best-effort; submission step is authoritative
