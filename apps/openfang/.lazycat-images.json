@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "app": "openfang",
+  "source_version": "v0.6.0",
+  "build_version": "0.6.0",
+  "head_sha": "0decb1680f14",
+  "build_recipe_hash": "444ecf638c137e8b6aa4a09acf66895c61ba288f1c1ae87db28d98a8c0e5d122",
+  "updated_at": "2026-04-26T01:33:05.088891+00:00",
+  "images": {
+    "openfang": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:bd05df87d143f2cc"
+  },
+  "source_images": {
+    "openfang": "ghcr.io/codeeagle/lazycatimages:openfang_0decb1680f14"
+  },
+  "source_digests": {
+    "_primary": "sha256:862728d665077acf9cc0e45627464d33ab47fb1fe53d658db026a57f5ad537c2"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:openfang_0decb1680f14",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:bd05df87d143f2cc",
+      "elapsed_seconds": 24.421,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}

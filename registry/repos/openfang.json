@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "upstream_repo": "RightNow-AI/openfang",
+  "check_strategy": "github_release",
+  "build_strategy": "precompiled_binary",
+  "publish_to_store": false,
+  "official_image_registry": "",
+  "precompiled_binary_url": "https://github.com/RightNow-AI/openfang/releases/download/v$LATEST_VERSION/openfang-x86_64-unknown-linux-gnu.tar.gz",
+  "dockerfile_type": "simple",
+  "service_port": 4200,
+  "service_cmd": [
+    "openfang",
+    "start"
+  ],
+  "image_targets": [
+    "openfang"
+  ],
+  "dependencies": [],
+  "migration_status": "migrated"
+}
