@@ -1,0 +1,60 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.vibevoice
+version: 0.1.0
+min_os_version: 1.3.8
+name: VibeVoice
+description: Open-Source Frontier Voice AI
+license: MIT
+homepage: https://microsoft.github.io/VibeVoice/
+author: microsoft
+usage: 此应用需结合算力舱使用。
+aipod:
+  shortcut:
+    disable: false
+application:
+  subdomain: vibevoice
+  public_path:
+    - /
+  upstreams:
+    -
+      location: /
+      backend: http://gateway:80/
+services:
+  gateway:
+    image: registry.lazycat.cloud/placeholder/gateway:bootstrap
+    setup_script: |
+      cat <<'EOF' > /etc/caddy/Caddyfile
+      {
+              auto_https off
+              http_port 80
+              https_port 0
+      }
+      :80 {
+              handle {
+                      route {
+                              lzcaipod
+                              root * /lzcapp/pkg/content/ui/
+                              try_files {path} /index.html
+                              header Cache-Control "max-age=60, private, must-revalidate"
+                              file_server
+                      }
+              }
+      }
+      EOF
+      cat /etc/caddy/Caddyfile
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -f http://127.0.0.1:80/ >/dev/null || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 10
+locales:
+  en:
+    name: VibeVoice
+    description: Open-Source Frontier Voice AI
+    usage: 此应用需结合算力舱使用。
+  zh:
+    name: VibeVoice
+    description: （迁移初稿）VibeVoice 的懒猫微服 + 算力舱版本
+    usage: 此应用需结合算力舱使用。
