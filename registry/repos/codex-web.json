@@ -1,0 +1,19 @@
+{
+  "build_context": ".",
+  "build_strategy": "target_repo_dockerfile",
+  "check_strategy": "commit_sha",
+  "dependencies": [],
+  "docker_platform": "linux/amd64",
+  "dockerfile_path": "Dockerfile",
+  "dockerfile_type": "custom",
+  "enabled": true,
+  "image_targets": [
+    "codex-web"
+  ],
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "publish_to_store": false,
+  "service_cmd": [],
+  "service_port": 8214,
+  "upstream_repo": "0xcaff/codex-web"
+}
