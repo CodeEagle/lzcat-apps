@@ -103,7 +103,7 @@ def resolve_git_target_branch(env: dict[str, str], cwd: Path) -> str:
     if branch and branch != "HEAD":
         return branch
 
-    return "main"
+    return "template"
 
 
 def parse_int_env(env: dict[str, str], name: str, default: int) -> int:
@@ -1841,7 +1841,7 @@ def main() -> int:
             config=config,
             app_name=app_name,
             artifact_repo=args.artifact_repo,
-            branch="main",
+            branch="template",
             head_sha=head_sha,
             force_build=args.force_build,
             publish_to_store=publish_to_store,
