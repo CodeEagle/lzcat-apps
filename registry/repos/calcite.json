@@ -1,0 +1,22 @@
+{
+  "build_strategy": "official_image",
+  "check_strategy": "github_release",
+  "dependencies": [
+    {
+      "source_image": "eclipse-temurin:19",
+      "target_service": "generate-javadoc"
+    }
+  ],
+  "dockerfile_type": "custom",
+  "enabled": true,
+  "image_targets": [
+    "build-site",
+    "dev"
+  ],
+  "official_image_registry": "ruby",
+  "precompiled_binary_url": "",
+  "publish_to_store": false,
+  "service_cmd": [],
+  "service_port": 4000,
+  "upstream_repo": "apache/calcite"
+}

@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "source_input": "apache/calcite",
+  "created_at": "2026-04-26T08:39:14.563131+00:00",
+  "updated_at": "2026-04-26T08:39:57.219791+00:00",
+  "context": {
+    "source": {
+      "kind": "github_repo",
+      "url": "apache/calcite",
+      "upstream_repo": "apache/calcite",
+      "homepage": "https://github.com/apache/calcite"
+    },
+    "environment": {
+      "gh_token_source": "GH_TOKEN",
+      "lzc_cli_token_source": "lzc-cli config get token",
+      "container_runtime": "docker",
+      "image_owner": ""
+    },
+    "route_decision": {
+      "route": "official_image",
+      "build_strategy": "official_image",
+      "check_strategy": "github_release",
+      "risks": []
+    },
+    "version": {
+      "upstream": "",
+      "normalized": "1.23.0"
+    },
+    "finalized": {
+      "slug": "calcite",
+      "project_name": "calcite",
+      "description": "Apache Calcite",
+      "description_zh": "（迁移初稿）Calcite 的懒猫微服版本",
+      "upstream_repo": "apache/calcite",
+      "homepage": "https://calcite.apache.org/",
+      "license": "Apache-2.0",
+      "author": "apache",
+      "version": "1.23.0",
+      "package": "fun.selfstudio.app.migration.calcite",
+      "min_os_version": "1.3.8",
+      "check_strategy": "github_release",
+      "build_strategy": "official_image",
+      "official_image_registry": "ruby",
+      "precompiled_binary_url": "",
+      "dockerfile_type": "custom",
+      "dockerfile_path": "",
+      "build_context": ".",
+      "docker_platform": "",
+      "image_owner": "",
+      "overlay_paths": [],
+      "upstream_submodules": [],
+      "image_targets": [
+        "build-site",
+        "dev"
+      ],
+      "dependencies": [
+        {
+          "target_service": "generate-javadoc",
+          "source_image": "eclipse-temurin:19"
+        }
+      ],
+      "service_builds": [],
+      "build_args": {},
+      "service_cmd": [],
+      "service_port": 4000,
+      "services": {
+        "build-site": {
+          "image": "registry.lazycat.cloud/placeholder/calcite:build-site",
+          "binds": [
+            "/lzcapp/var/data/calcite/build-site/jekyll:/home/jekyll"
+          ],
+          "command": "sh -c \"rm -rf /home/jekyll/.bundle /home/jekyll/Gemfile.lock /home/jekyll/.jekyll-cache /home/target/ && apt-get update && apt-get install -y build-essential libssl-dev zlib1g-dev ruby-dev bundler wget && wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && chmod +x /usr/bin/yq && ./download-avatars.sh && bundle install && bundle exec jekyll build && chmod 777 ./*\""
+        },
+        "dev": {
+          "image": "registry.lazycat.cloud/placeholder/calcite:dev",
+          "binds": [
+            "/lzcapp/var/data/calcite/dev/root:/root"
+          ],
+          "command": "sh -c \"apt-get update && apt-get install -y build-essential libssl-dev zlib1g-dev ruby-dev bundler wget && wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && chmod +x /usr/bin/yq && ./download-avatars.sh && bundle install && bundle exec jekyll serve --host=0.0.0.0 --watch --force_polling\""
+        },
+        "generate-javadoc": {
+          "image": "registry.lazycat.cloud/placeholder/calcite:generate-javadoc",
+          "binds": [
+            "/lzcapp/var/data/calcite/generate-javadoc/calcite:/usr/src/calcite",
+            "/lzcapp/var/data/calcite/generate-javadoc/m2:/root/.m2"
+          ],
+          "command": "sh -c \"./gradlew javadocAggregate; rm -rf site/target/javadocAggregate; mkdir -p site/target; mv build/docs/javadocAggregate site/target\""
+        }
+      },
+      "application": {
+        "subdomain": "calcite",
+        "public_path": [
+          "/"
+        ],
+        "upstreams": [
+          {
+            "location": "/",
+            "backend": "http://dev:4000/"
+          }
+        ]
+      },
+      "env_vars": [],
+      "data_paths": [
+        {
+          "host": "/lzcapp/var/data/calcite/dev/root",
+          "container": "/root",
+          "description": "From compose service dev"
+        },
+        {
+          "host": "/lzcapp/var/data/calcite/build-site/jekyll",
+          "container": "/home/jekyll",
+          "description": "From compose service build-site"
+        },
+        {
+          "host": "/lzcapp/var/data/calcite/generate-javadoc/calcite",
+          "container": "/usr/src/calcite",
+          "description": "From compose service generate-javadoc"
+        },
+        {
+          "host": "/lzcapp/var/data/calcite/generate-javadoc/m2",
+          "container": "/root/.m2",
+          "description": "From compose service generate-javadoc"
+        }
+      ],
+      "startup_notes": [
+        "自动扫描到 compose 文件：site/docker-compose.yml",
+        "主服务推断为 `dev`，入口端口 `4000`。",
+        "依赖服务镜像已写入 dependencies，首次完整构建时会自动 copy-image。",
+        "未扫描到 env 示例文件",
+        "扫描到 README：README, README.md, README.md",
+        "扫描到上游图标：.idea/icon.png"
+      ],
+      "include_content": false,
+      "ai_pod_service": "",
+      "ai_pod_service_name": "calcite",
+      "ai_pod_service_port": 4000,
+      "ai_pod_image": "registry.lazycat.cloud/placeholder/calcite-ai:bootstrap",
+      "aipod": {},
+      "usage": "",
+      "icon_path": "/var/folders/5n/bml6r36s2pdgxhd9cncpbhg40000gn/T/lzcat-full-migrate-busofo9k/calcite-main/.idea/icon.png",
+      "source_version": "",
+      "default_branch": ""
+    },
+    "registration": {
+      "slug": "calcite",
+      "monorepo_path": "apps/calcite",
+      "config_path": "registry/repos/calcite.json"
+    }
+  },
+  "steps": {
+    "1": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:39:17.956706+00:00",
+      "conclusion": "已识别输入类型为 `github_repo`"
+    },
+    "2": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:39:22.401700+00:00",
+      "conclusion": "已自动推断构建路线为 `official_image`"
+    },
+    "3": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:39:22.402840+00:00",
+      "conclusion": "已完成 monorepo 注册"
+    },
+    "4": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:39:22.463268+00:00",
+      "conclusion": "骨架文件已生成",
+      "files_written": [
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-calcite/apps/calcite/lzc-manifest.yml",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-calcite/apps/calcite/lzc-build.yml",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-calcite/apps/calcite/README.md",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-calcite/apps/calcite/UPSTREAM_DEPLOYMENT_CHECKLIST.md",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-calcite/apps/calcite/icon.png",
+        "/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-calcite/registry/repos/calcite.json"
+      ]
+    },
+    "5": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:39:22.463906+00:00",
+      "conclusion": "manifest 初稿已生成"
+    },
+    "6": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:39:22.464259+00:00",
+      "conclusion": "剩余文件已补齐"
+    },
+    "7": {
+      "completed": true,
+      "completed_at": "2026-04-26T08:39:22.509068+00:00",
+      "conclusion": "预检通过",
+      "all_passed": true
+    }
+  },
+  "problems": [
+    {
+      "id": "p1",
+      "step": 8,
+      "description": "Updating files:  72% (2317/3218)\nUpdating files:  73% (2350/3218)\nUpdating files:  74% (2382/3218)\nUpdating files:  75% (2414/3218)\nUpdating files:  76% (2446/3218)\nUpdating files:  77% (2478/3218)\nUpdating files:  78% (2511/3218)\nUpdating files:  79% (2543/3218)\nUpdating files:  80% (2575/3218)\nUpdating files:  81% (2607/3218)\nUpdating files:  82% (2639/3218)\nUpdating files:  83% (2671/3218)\nUpdating files:  84% (2704/3218)\nUpdating files:  85% (2736/3218)\nUpdating files:  86% (2768/3218)\nUpdating files:  87% (2800/3218)\nUpdating files:  88% (2832/3218)\nUpdating files:  89% (2865/3218)\nUpdating files:  90% (2897/3218)\nUpdating files:  91% (2929/3218)\nUpdating files:  92% (2961/3218)\nUpdating files:  93% (2993/3218)\nUpdating files:  94% (3025/3218)\nUpdating files:  95% (3058/3218)\nUpdating files:  96% (3090/3218)\nUpdating files:  97% (3122/3218)\nUpdating files:  98% (3154/3218)\nUpdating files:  99% (3186/3218)\nUpdating files: 100% (3218/3218)\nUpdating files: 100% (3218/3218), done.\n[08:39:57] [calcite] Failure artifacts preserved at: /var/folders/5n/bml6r36s2pdgxhd9cncpbhg40000gn/T/lzcat-artifacts-_pkkarvr\nTraceback (most recent call last):\n  File \"/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-calcite/scripts/run_build.py\", line 2350, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-calcite/scripts/run_build.py\", line 2054, in main\n    target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name, dry_run=args.dry_run)\n  File \"/Users/lincoln/Develop/GitHub/lzcat/migration-workspaces/migration-calcite/scripts/run_build.py\", line 1662, in build_target_image\n    raise RuntimeError(\"No Dockerfile found in upstream repository\")\nRuntimeError: No Dockerfile found in upstream repository",
+      "category": "build",
+      "status": "open",
+      "created_at": "2026-04-26T08:39:57.219762+00:00"
+    }
+  ],
+  "verification": {}
+}

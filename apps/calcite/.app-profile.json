@@ -1,0 +1,96 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "apache/calcite",
+  "fixes": {
+    "project_name": "calcite",
+    "description": "Apache Calcite",
+    "description_zh": "（迁移初稿）Calcite 的懒猫微服版本",
+    "homepage": "https://calcite.apache.org/",
+    "license": "Apache-2.0",
+    "author": "apache",
+    "package": "fun.selfstudio.app.migration.calcite",
+    "check_strategy": "github_release",
+    "build_strategy": "official_image",
+    "official_image_registry": "ruby",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "image_targets": [
+      "build-site",
+      "dev"
+    ],
+    "dependencies": [
+      {
+        "target_service": "generate-javadoc",
+        "source_image": "eclipse-temurin:19"
+      }
+    ],
+    "service_port": 4000,
+    "services": {
+      "build-site": {
+        "image": "registry.lazycat.cloud/placeholder/calcite:build-site",
+        "binds": [
+          "/lzcapp/var/data/calcite/build-site/jekyll:/home/jekyll"
+        ],
+        "command": "sh -c \"rm -rf /home/jekyll/.bundle /home/jekyll/Gemfile.lock /home/jekyll/.jekyll-cache /home/target/ && apt-get update && apt-get install -y build-essential libssl-dev zlib1g-dev ruby-dev bundler wget && wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && chmod +x /usr/bin/yq && ./download-avatars.sh && bundle install && bundle exec jekyll build && chmod 777 ./*\""
+      },
+      "dev": {
+        "image": "registry.lazycat.cloud/placeholder/calcite:dev",
+        "binds": [
+          "/lzcapp/var/data/calcite/dev/root:/root"
+        ],
+        "command": "sh -c \"apt-get update && apt-get install -y build-essential libssl-dev zlib1g-dev ruby-dev bundler wget && wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && chmod +x /usr/bin/yq && ./download-avatars.sh && bundle install && bundle exec jekyll serve --host=0.0.0.0 --watch --force_polling\""
+      },
+      "generate-javadoc": {
+        "image": "registry.lazycat.cloud/placeholder/calcite:generate-javadoc",
+        "binds": [
+          "/lzcapp/var/data/calcite/generate-javadoc/calcite:/usr/src/calcite",
+          "/lzcapp/var/data/calcite/generate-javadoc/m2:/root/.m2"
+        ],
+        "command": "sh -c \"./gradlew javadocAggregate; rm -rf site/target/javadocAggregate; mkdir -p site/target; mv build/docs/javadocAggregate site/target\""
+      }
+    },
+    "application": {
+      "subdomain": "calcite",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://dev:4000/"
+        }
+      ]
+    },
+    "data_paths": [
+      {
+        "host": "/lzcapp/var/data/calcite/dev/root",
+        "container": "/root",
+        "description": "From compose service dev"
+      },
+      {
+        "host": "/lzcapp/var/data/calcite/build-site/jekyll",
+        "container": "/home/jekyll",
+        "description": "From compose service build-site"
+      },
+      {
+        "host": "/lzcapp/var/data/calcite/generate-javadoc/calcite",
+        "container": "/usr/src/calcite",
+        "description": "From compose service generate-javadoc"
+      },
+      {
+        "host": "/lzcapp/var/data/calcite/generate-javadoc/m2",
+        "container": "/root/.m2",
+        "description": "From compose service generate-javadoc"
+      }
+    ],
+    "startup_notes": [
+      "自动扫描到 compose 文件：site/docker-compose.yml",
+      "主服务推断为 `dev`，入口端口 `4000`。",
+      "依赖服务镜像已写入 dependencies，首次完整构建时会自动 copy-image。",
+      "未扫描到 env 示例文件",
+      "扫描到 README：README, README.md, README.md",
+      "扫描到上游图标：.idea/icon.png"
+    ],
+    "include_content": false
+  }
+}
