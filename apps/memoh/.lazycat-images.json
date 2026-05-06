@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "app": "memoh",
+  "source_version": "v0.7.3",
+  "build_version": "0.7.3",
+  "head_sha": "f8b96bfccc73",
+  "build_recipe_hash": "d9c686c8eaae904421b68f298123fcd617f2e16dd5ebde09bba7d2e70b08be17",
+  "updated_at": "2026-04-26T12:44:25.970950+00:00",
+  "images": {
+    "browser": "registry.lazycat.cloud/invokerlaw/memohai/browser:b59529fd359bb1cd",
+    "migrate": "registry.lazycat.cloud/invokerlaw/memohai/server:0c92089b20960801",
+    "postgres": "registry.lazycat.cloud/invokerlaw/library/postgres:0de8e42300318fbd",
+    "qdrant": "registry.lazycat.cloud/invokerlaw/qdrant/qdrant:6f8af64a619dda5e",
+    "server": "registry.lazycat.cloud/invokerlaw/memohai/server:0c92089b20960801",
+    "web": "registry.lazycat.cloud/invokerlaw/memohai/web:6305826c74882c85"
+  },
+  "source_images": {
+    "browser": "memohai/browser:0.7.3",
+    "migrate": "memohai/server:0.7.3",
+    "postgres": "postgres:18-alpine",
+    "qdrant": "qdrant/qdrant:latest",
+    "server": "memohai/server:0.7.3",
+    "web": "memohai/web:0.7.3"
+  },
+  "source_digests": {
+    "_primary": ""
+  },
+  "copy_image_events": [
+    {
+      "source_image": "memohai/web:0.7.3",
+      "target_image": "registry.lazycat.cloud/invokerlaw/memohai/web:6305826c74882c85",
+      "elapsed_seconds": 25.523,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    },
+    {
+      "source_image": "postgres:18-alpine",
+      "target_image": "registry.lazycat.cloud/invokerlaw/library/postgres:0de8e42300318fbd",
+      "elapsed_seconds": 0.0,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": true,
+      "service": "postgres",
+      "kind": "dependency"
+    },
+    {
+      "source_image": "memohai/server:0.7.3",
+      "target_image": "registry.lazycat.cloud/invokerlaw/memohai/server:0c92089b20960801",
+      "elapsed_seconds": 83.526,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "service": "migrate",
+      "kind": "dependency"
+    },
+    {
+      "source_image": "memohai/server:0.7.3",
+      "target_image": "registry.lazycat.cloud/invokerlaw/memohai/server:0c92089b20960801",
+      "elapsed_seconds": 0.0,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": true,
+      "service": "server",
+      "kind": "dependency"
+    },
+    {
+      "source_image": "qdrant/qdrant:latest",
+      "target_image": "registry.lazycat.cloud/invokerlaw/qdrant/qdrant:6f8af64a619dda5e",
+      "elapsed_seconds": 0.0,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": true,
+      "service": "qdrant",
+      "kind": "dependency"
+    },
+    {
+      "source_image": "memohai/browser:0.7.3",
+      "target_image": "registry.lazycat.cloud/invokerlaw/memohai/browser:b59529fd359bb1cd",
+      "elapsed_seconds": 103.547,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "service": "browser",
+      "kind": "dependency"
+    }
+  ]
+}

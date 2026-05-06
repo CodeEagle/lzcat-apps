@@ -1,0 +1,121 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.memoh
+version: '0.6.3'
+min_os_version: 1.3.8
+name: Memoh
+description: ✨ Self hosted, always-on AI agent platform run in containers. Create multiple bots with long memory, and connect them to Telegram, Discord, Feishu(Lark), Matrix, etc (like OpenClaw).
+license: AGPL-3.0
+homepage: https://docs.memoh.ai
+author: memohai
+application:
+  subdomain: memoh
+  public_path:
+    - /
+  upstreams:
+    -
+      location: /api/
+      backend: http://server:8080/
+    -
+      location: /
+      backend: http://web:8082/
+  health_check:
+    test_url: http://web:8082/health
+    start_period: 120s
+services:
+  postgres:
+    image: registry.lazycat.cloud/invokerlaw/library/postgres:0de8e42300318fbd
+    environment:
+      - POSTGRES_DB=memoh
+      - POSTGRES_USER=memoh
+      - POSTGRES_PASSWORD=memoh123
+    binds:
+      - /lzcapp/var/db/memoh/postgres:/var/lib/postgresql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U memoh
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  migrate:
+    image: registry.lazycat.cloud/invokerlaw/memohai/server:fbe606b354312cfb
+    depends_on:
+      - postgres
+    entrypoint: /bin/sh
+    command: /lzcapp/pkg/content/memoh-migrate.sh
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - test -f /tmp/migrate-ready
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  server:
+    image: registry.lazycat.cloud/invokerlaw/memohai/server:fbe606b354312cfb
+    depends_on:
+      - migrate
+      - qdrant
+    binds:
+      - /lzcapp/var/data/memoh/server/containerd:/var/lib/containerd
+      - /lzcapp/var/data/memoh/server/cni:/var/lib/cni
+      - /lzcapp/var/data/memoh/server/data:/opt/memoh/data
+    environment:
+      - CONTAINER_BACKEND=local
+    entrypoint: /bin/sh
+    command: /lzcapp/pkg/content/memoh-server.sh
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - nc -z server 8080 || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+  web:
+    image: registry.lazycat.cloud/invokerlaw/memohai/web:5bc16d9be156e2b1
+    depends_on:
+      - server
+    entrypoint: /bin/sh
+    command: >-
+      -lc 'printf %s IyEvYmluL3NoCnNldCAtZXUKY2F0ID4gL2V0Yy9uZ2lueC9jb25mLmQvZGVmYXVsdC5jb25mIDw8J0VPRicKc2VydmVyIHsKICAgIGxpc3RlbiA4MDgyOwogICAgc2VydmVyX25hbWUgXzsKICAgIHJvb3QgL3Vzci9zaGFyZS9uZ2lueC9odG1sOwogICAgaW5kZXggaW5kZXguaHRtbDsKCiAgICBsb2NhdGlvbiA9IC9oZWFsdGggewogICAgICAgIGFkZF9oZWFkZXIgQ29udGVudC1UeXBlIHRleHQvcGxhaW47CiAgICAgICAgcmV0dXJuIDIwMCAnb2snOwogICAgfQoKICAgIGxvY2F0aW9uIC8gewogICAgICAgIHRyeV9maWxlcyAkdXJpICR1cmkvIC9pbmRleC5odG1sOwogICAgfQp9CkVPRgpleGVjIG5naW54IC1nICdkYWVtb24gb2ZmOycK | base64 -d > /tmp/memoh-web.sh; chmod +x /tmp/memoh-web.sh; exec /tmp/memoh-web.sh'
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget --no-verbose --tries=1 --spider http://127.0.0.1:8082/health || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+  qdrant:
+    image: registry.lazycat.cloud/invokerlaw/qdrant/qdrant:6f8af64a619dda5e
+    binds:
+      - /lzcapp/var/data/memoh/qdrant/storage:/qdrant/storage
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - timeout 10s bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  browser:
+    image: registry.lazycat.cloud/invokerlaw/memohai/browser:cdecd259f0347b77
+    depends_on:
+      - server
+    environment:
+      - BROWSER_CORES=chromium,firefox
+    setup_script: sh /lzcapp/pkg/content/render-config.sh /config.toml
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -sI http://browser:8083/ >/dev/null || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+locales:
+  en:
+    name: Memoh
+    description: ✨ Self hosted, always-on AI agent platform run in containers. Create multiple bots with long memory, and connect them to Telegram, Discord, Feishu(Lark), Matrix, etc (like OpenClaw).
+  zh:
+    name: Memoh
+    description: （迁移初稿）Memoh 的懒猫微服版本
