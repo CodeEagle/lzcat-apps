@@ -236,7 +236,9 @@ Published to: `ghcr.io/codeeagle/lzcat-bb-browser:latest`
 **Automation rules** (set in Project UI):
 - New item with `Status=Inbox` not edited in 7 days → auto-set `Status=Filtered`
 - `Status=Approved` → triggers worker (via `project_board.py` poll)
-- `Status=Awaiting-Human` → notifies Discord `#migration-control`
+- `Status=Awaiting-Human` for 24h+ → Discord `#migration-control` ping (`auto-sla-reminder.yml`)
+- `AI Score >= 0.8` after `codex_discovery_reviewer` runs → bot auto-promotes Inbox → Approved
+- Slug in `registry/auto-migration/exclude-list.json` → filtered before reaching Inbox
 
 ## State machine ↔ Project Status mapping
 
@@ -338,14 +340,14 @@ Repo settings:
 
 | Phase | Scope | Time |
 |---|---|---|
-| **F1** | Build & publish `lzcat-migration-runner` image | 1d |
-| **F2** | Write `project_board.py` + GitHub Project setup | 1–2d |
-| **F3** | Wire `auto-discover.yml` (read-only — populates Inbox; no migrations yet) | 1d |
-| **F4** | Wire `auto-migrate-dispatcher.yml` + `auto-migrate-worker.yml`, gated to 1 slug | 2d |
-| **F5** | Build & publish `lzcat-bb-browser` image; wire `auto-verify.yml` | 2–3d |
-| **F6** | Wire `auto-publish.yml` (human-triggered only) | 1d |
-| **F7** | Raise dispatcher concurrency to 2; turn on cron | 1d |
-| **F8** | `auto-dashboard.yml` + Discord control plane wiring | 1d |
+| **F1** | `scripts/requirements.txt` + `migration-runner` Dockerfile + `build-images.yml` on `template`, image pushed to GHCR | 1d |
+| **F2** | `scripts/project_board.py` + GitHub Project + AI auto-approve threshold logic in `codex_discovery_reviewer.py` | 1–2d |
+| **F3** | `auto-discover.yml` on `template` (read-only — populates Inbox + AI score; no migrations yet) | 1d |
+| **F4** | `auto-migrate-dispatcher.yml` + `auto-migrate-worker.yml`, gated to 1 slug | 2d |
+| **F5** | `bb-browser` image + `auto-verify.yml` (browser hits public `*.lazycat.cloud` URL) | 2–3d |
+| **F6** | `auto-publish.yml` (human-triggered only) | 1d |
+| **F7** | Raise dispatcher concurrency to 2, turn on cron | 1d |
+| **F8** | `auto-dashboard.yml` + `auto-sla-reminder.yml` (24h ping) + Discord control plane | 1d |
 
 Total: ~10 working days from F1 to fully unattended.
 
@@ -360,22 +362,13 @@ Total: ~10 working days from F1 to fully unattended.
 | Wrong source-of-truth | Discord `/audit <slug>` | Restore from `archive/migration-<slug>-pre-reorg` (still exists) |
 | Branch protection block | push 403 | Workflow uses `GH_PAT`, not `GITHUB_TOKEN` |
 
-## Open questions for you to decide
+## Decisions (locked in 2026-05-06)
 
-1. **Approval gate**: do we want **AI auto-approve** (above an `AI Score`
-   threshold) for trusted source authors, or always require human click to
-   move `Inbox`→`Approved`? Suggest: human-only for first month, then
-   threshold-based.
-2. **Self-hosted runner vs GH-hosted**: `lzc-cli install` on a real LazyCat
-   box requires network reach. Do we have a self-hosted runner registered to
-   the box's network, or should the runner SSH into the box?
-3. **Concurrency**: starting at 2 parallel migrations matches `trigger-build.yml`
-   today; bump later?
-4. **`registry/dashboard/daily/*` data lifecycle**: keep all daily snapshots
-   forever, or rotate/keep last 30 days?
-5. **`waiting_for_human` SLA**: Discord ping after 4h? 24h? Auto-revert to
-   `Filtered` after a week of no action?
-6. **codex-web slug**: do we want it in the migration queue right away or
-   leave it as a manual demo?
-
-Once you answer these (or pick the suggested defaults), F1 image build can start.
+| # | Question | Decision |
+|---|---|---|
+| 1 | Approval gate | **AI auto-approve via Codex / Claude.** `codex_discovery_reviewer.py` already runs Codex (gpt-5.5) per candidate; we extend it to write `AI Score` and auto-promote `Inbox → Approved` when score ≥ threshold. Threshold starts at **0.8** (configurable). Below threshold stays `Inbox` for human click. Optional Claude pathway via Anthropic SDK as a redundant reviewer (vote-of-2). |
+| 2 | Runner | **GitHub-hosted** (`ubuntu-latest`). Implication: CI does build + lpk packaging + GHCR push, but `lzc-cli install` runs against the box's **public `*.lazycat.cloud` URL** — no need for self-hosted runner inside box network. Token is `LZC_CLI_TOKEN` repo secret. |
+| 3 | Concurrency | **2 parallel** (matches existing `trigger-build.yml`); raise later. |
+| 4 | Dashboard data | **Permanent retention** of `registry/dashboard/daily/*` (a few KB/day, no rotation). |
+| 5 | `Awaiting-Human` SLA | **24h Discord ping** to `#migration-control`. No auto-revert; items wait indefinitely until a human acts. |
+| 6 | `codex-web` slug | **Excluded** from queue — already submitted to App Store. Add to `registry/auto-migration/exclude-list.json`. |
