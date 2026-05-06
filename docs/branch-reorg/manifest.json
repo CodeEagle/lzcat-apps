@@ -1,0 +1,24 @@
+{
+  "from_main": [
+    "agent-runtime", "cc-connect", "piclaw",
+    "airflow", "autoclip", "better-ccflare", "cc-gateway",
+    "chatgpt-on-wechat-lazycat", "clirelay", "cmms", "copilot-api-plus",
+    "crucix", "cultivation-world-simulator", "cutia", "deer-flow",
+    "edit-banana", "fastclaw", "gitnexus", "goclaw", "hermes",
+    "higress", "htmly", "hucre", "jellyfish", "localai", "memoh",
+    "mercury-agent", "multica", "omniroute", "openfang", "openops",
+    "pandawiki", "paperclip", "remodex-relay", "shadmin", "shadowbroker",
+    "signoz", "storyboat-tts-gateway", "superplane", "taoyuan",
+    "tts-story", "vane", "vibevoice", "waoowaoo"
+  ],
+  "from_migration_branch": [
+    "agentsmesh", "calcite", "dvc", "hacktricks", "hifi",
+    "openrun", "markitdown", "paseo", "microsandbox"
+  ],
+  "from_special": {
+    "fusion": "origin/migrate/fusion",
+    "hermes-webui": "origin/migrate/hermes-webui",
+    "warp": "origin/migration-warp"
+  },
+  "skip": ["airi", "ebook2audiobook", "moltis"]
+}
