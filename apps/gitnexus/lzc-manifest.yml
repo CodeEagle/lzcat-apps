@@ -1,0 +1,41 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.gitnexus
+version: '1.5.3'
+min_os_version: 1.3.8
+name: GitNexus
+description: (LazyCat Auto-build) Zero-Server Code Intelligence Engine - Client-side knowledge graph creator with backend support
+license: PolyForm-Noncommercial
+homepage: https://github.com/abhigyanpatwari/GitNexus
+author: abhigyanpatwari
+application:
+  subdomain: gitnexus
+  public_path:
+    - /
+    - /api
+  upstreams:
+    - location: /
+      backend: http://gitnexus:8080/
+      disable_trim_location: true
+services:
+  gitnexus:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/gitnexus:2ee73aa0748dd154
+    environment:
+      - NODE_ENV=production
+      - HOME=/data
+      - GITNEXUS_REGISTRY_DIR=/data/gitnexus-registry
+    binds:
+      - /lzcapp/var/data:/data
+      - /lzcapp/var/data/gitnexus-registry:/data/gitnexus-registry
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+locales:
+  en:
+    name: GitNexus
+    description: (LazyCat Auto-build) Zero-Server Code Intelligence Engine
+  zh:
+    name: GitNexus
+    description: （懒猫微服自动构建）零服务器代码智能引擎

@@ -1,0 +1,70 @@
+{
+  "managed_by": "optimize_migration",
+  "generated_from_upstream": "abhigyanpatwari/GitNexus",
+  "pinned": true,
+  "fixes": {
+    "build_strategy": "target_repo_dockerfile",
+    "check_strategy": "github_release",
+    "official_image_registry": "",
+    "dockerfile_path": "Dockerfile",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "service_port": 8080,
+    "service_cmd": [],
+    "image_targets": [
+      "gitnexus"
+    ],
+    "dependencies": [],
+    "precompiled_binary_url": "",
+    "service_builds": [],
+    "build_args": {},
+    "docker_platform": "",
+    "project_name": "GitNexus",
+    "description": "(LazyCat Auto-build) Zero-Server Code Intelligence Engine - Client-side knowledge graph creator with backend support",
+    "license": "PolyForm-Noncommercial",
+    "homepage": "https://github.com/abhigyanpatwari/GitNexus",
+    "author": "abhigyanpatwari",
+    "description_zh": "（懒猫微服自动构建）零服务器代码智能引擎",
+    "application": {
+      "subdomain": "gitnexus",
+      "public_path": [
+        "/",
+        "/api"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://gitnexus:8080/",
+          "disable_trim_location": true
+        }
+      ]
+    },
+    "services": {
+      "gitnexus": {
+        "image": "registry.lazycat.cloud/invokerlaw/codeeagle/gitnexus:2ee73aa0748dd154",
+        "environment": [
+          "NODE_ENV=production",
+          "HOME=/data",
+          "GITNEXUS_REGISTRY_DIR=/data/gitnexus-registry"
+        ],
+        "binds": [
+          "/lzcapp/var/data:/data",
+          "/lzcapp/var/data/gitnexus-registry:/data/gitnexus-registry"
+        ],
+        "healthcheck": {
+          "test": [
+            "CMD",
+            "curl",
+            "-f",
+            "http://localhost:8080/"
+          ],
+          "interval": "10s",
+          "timeout": "5s",
+          "retries": 3,
+          "start_period": "30s"
+        }
+      }
+    },
+    "include_content": false
+  }
+}

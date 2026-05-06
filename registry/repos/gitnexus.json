@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "upstream_repo": "abhigyanpatwari/GitNexus",
+  "check_strategy": "github_release",
+  "build_strategy": "target_repo_dockerfile",
+  "publish_to_store": false,
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "custom",
+  "dockerfile_path": "Dockerfile",
+  "build_context": ".",
+  "service_port": 8080,
+  "service_cmd": [],
+  "image_targets": [
+    "gitnexus"
+  ],
+  "dependencies": [],
+  "migration_status": "migrated"
+}
