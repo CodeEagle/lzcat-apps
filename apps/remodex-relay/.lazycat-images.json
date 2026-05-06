@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "app": "remodex-relay",
+  "source_version": "773c093",
+  "build_version": "1.0.4",
+  "head_sha": "aabec0805797",
+  "build_recipe_hash": "ef8596006f86e6e98da8f53a2558ffc4f6c9ba8d8ff2dd8becd8f5998d80aef4",
+  "updated_at": "2026-04-14T01:04:53.851431+00:00",
+  "images": {
+    "remodex-relay": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:c658ac27fb9e4f6e"
+  },
+  "source_images": {
+    "remodex-relay": "ghcr.io/codeeagle/lazycatimages:remodexRelay_aabec0805797"
+  },
+  "source_digests": {
+    "_primary": "sha256:fdb50ce651150e39ee413493ce38b7b4985768c46db657d10ee72a42e2170bcd"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:remodexRelay_aabec0805797",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:c658ac27fb9e4f6e",
+      "elapsed_seconds": 29.102,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}
