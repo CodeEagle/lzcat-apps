@@ -66,6 +66,10 @@ jobs:
       GH_PAT: ${{ secrets.GH_PAT }}
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       LAZYCAT_BOX_DOMAIN: ${{ secrets.LAZYCAT_BOX_DOMAIN }}
+      # Container runs as root; Claude refuses --dangerously-skip-permissions
+      # under root unless IS_SANDBOX=1 is set. CI is a disposable runner
+      # behind GitHub's sandboxing → safe to assert.
+      IS_SANDBOX: "1"
 
     steps:
       - name: Checkout template
