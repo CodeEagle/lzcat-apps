@@ -5,16 +5,17 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import urllib.error
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 try:
-    from .discord_migration_notifier import DiscordClient
+    from .discord_migration_notifier import DiscordClient, split_discord_message
     from .project_config import load_project_config
 except ImportError:  # pragma: no cover - direct script execution
-    from discord_migration_notifier import DiscordClient
+    from discord_migration_notifier import DiscordClient, split_discord_message
     from project_config import load_project_config
 
 
@@ -33,6 +34,17 @@ def read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
 
 def state_counts(items: list[dict[str, Any]], key: str) -> dict[str, int]:
     return dict(sorted(Counter(str(item.get(key, "")).strip() or "unknown" for item in items).items()))
+
+
+def publication_status_counts(items: list[dict[str, Any]]) -> dict[str, int]:
+    return dict(
+        sorted(
+            Counter(
+                str(item.get("publication_status") or item.get("status") or "").strip() or "unknown"
+                for item in items
+            ).items()
+        )
+    )
 
 
 def build_top_candidates(candidates: list[dict[str, Any]], *, limit: int = 8) -> list[dict[str, Any]]:
@@ -90,7 +102,7 @@ def build_daily_summary(repo_root: Path, *, report_date: str, now: str | None = 
         "date": report_date,
         "generated_at": now,
         "queue": {"total": len(items), "state_counts": state_counts(items, "state")},
-        "publication": {"total": len(app_rows), "status_counts": state_counts(app_rows, "status")},
+        "publication": {"total": len(app_rows), "status_counts": publication_status_counts(app_rows)},
         "local_agent": {"total": len(local_candidates), "status_counts": state_counts(local_candidates, "status")},
         "top_candidates": build_top_candidates(local_candidates),
         "waiting_for_human": waiting,
@@ -177,18 +189,34 @@ def write_daily_summary(repo_root: Path, summary: dict[str, Any]) -> dict[str, P
     return {"daily_json": daily_json, "daily_markdown": daily_markdown, "latest_json": latest_json, "latest_markdown": latest_markdown}
 
 
-def publish_dashboard_to_discord(repo_root: Path, markdown: str, *, token: str, guild_id: str, category_id: str, channel_name: str) -> dict[str, str]:
-    client = DiscordClient(token)
+def publish_dashboard_to_discord(
+    repo_root: Path,
+    markdown: str,
+    *,
+    token: str,
+    guild_id: str,
+    category_id: str,
+    channel_name: str,
+    client: Any | None = None,
+) -> dict[str, str]:
+    client = client or DiscordClient(token)
     channel = client.ensure_text_channel(guild_id, category_id, channel_name, topic="LazyCat auto-migration daily dashboard")
     channel_id = str(channel.get("id", "")).strip()
     state_path = repo_root / "registry" / "dashboard" / "discord-state.json"
     state = read_json(state_path, {})
     message_id = str(state.get("message_id", "")).strip()
-    content = markdown[:1980]
+    chunks = split_discord_message(markdown, limit=1900)
     if message_id and state.get("channel_id") == channel_id:
-        message = client.edit_message(channel_id, message_id, content)
+        try:
+            message = client.edit_message(channel_id, message_id, chunks[0] if chunks else "")
+        except urllib.error.HTTPError as exc:
+            if exc.code not in {403, 404}:
+                raise
+            message = client.send_message(channel_id, chunks[0] if chunks else "")
     else:
-        message = client.send_message(channel_id, content)
+        message = client.send_message(channel_id, chunks[0] if chunks else "")
+    for chunk in chunks[1:]:
+        client.send_message(channel_id, chunk)
     next_state = {"channel_id": channel_id, "message_id": str(message.get("id", message_id)).strip()}
     state_path.parent.mkdir(parents=True, exist_ok=True)
     state_path.write_text(json.dumps(next_state, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")

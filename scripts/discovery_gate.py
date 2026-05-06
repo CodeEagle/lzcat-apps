@@ -8,7 +8,7 @@ except ImportError:  # pragma: no cover - direct script execution
     from publication_status import normalize_repo
 
 
-FILTERED_CANDIDATE_STATUSES = {"already_migrated", "excluded"}
+FILTERED_CANDIDATE_STATUSES = {"already_migrated", "already_migrated_by_other", "excluded"}
 MIGRATED_PUBLICATION_STATUSES = {"published", "migrated"}
 RECONCILABLE_STATES = {
     "ready",
@@ -79,7 +79,11 @@ def _publication_match(item: dict[str, Any], publication_index: dict[str, dict[s
 
 def _mark_filtered(item: dict[str, Any], *, now: str, reason: str, last_error: str) -> None:
     item["state"] = "filtered_out"
-    item["candidate_status"] = "already_migrated" if reason in {"published_upstream", "candidate_already_migrated"} else "excluded"
+    item["candidate_status"] = (
+        "already_migrated_by_other"
+        if reason in {"published_upstream", "candidate_already_migrated", "candidate_already_migrated_by_other"}
+        else "excluded"
+    )
     item["last_error"] = last_error
     item["filtered_reason"] = reason
     item["updated_at"] = now
@@ -92,6 +96,7 @@ def _mark_discovery_review(item: dict[str, Any], *, now: str) -> None:
     source = str(item.get("source") or candidate.get("full_name") or "").strip()
     repo_url = str(candidate.get("repo_url", "")).strip()
     reason = str(candidate.get("status_reason") or "Needs AI discovery review").strip()
+    store_hit_lines = _store_hit_prompt_lines(candidate)
     item["state"] = "discovery_review"
     item["candidate_status"] = "needs_review"
     item["discovery_review"] = {
@@ -102,10 +107,28 @@ def _mark_discovery_review(item: dict[str, Any], *, now: str) -> None:
             f"\n上游：{source}"
             f"\n仓库：{repo_url}"
             f"\n发现原因：{reason}"
-            "\n请判断：migrate / skip / needs_human，并给出证据。"
+            + ("\n" + "\n".join(store_hit_lines) if store_hit_lines else "")
+            + "\n请判断：migrate / skip / needs_human，并给出证据。"
         ),
     }
     item["updated_at"] = now
+
+
+def _store_hit_prompt_lines(candidate: dict[str, Any]) -> list[str]:
+    hits = candidate.get("lazycat_hits")
+    if not isinstance(hits, list) or not hits:
+        return []
+    lines = [
+        "懒猫商店搜索命中：",
+        "请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。",
+    ]
+    for hit in hits[:5]:
+        if not isinstance(hit, dict):
+            continue
+        label = str(hit.get("raw_label", "")).strip()
+        detail_url = str(hit.get("detail_url", "")).strip()
+        lines.append(f"- {label} {detail_url}".strip())
+    return lines
 
 
 def reconcile_queue_items(
@@ -121,16 +144,17 @@ def reconcile_queue_items(
             continue
 
         status = _candidate_status(item)
-        if status == "already_migrated":
-            if state == "filtered_out" and item.get("filtered_reason") == "candidate_already_migrated":
+        if status in {"already_migrated", "already_migrated_by_other"}:
+            reason = "candidate_already_migrated_by_other" if status == "already_migrated_by_other" else "candidate_already_migrated"
+            if state == "filtered_out" and item.get("filtered_reason") == reason:
                 continue
             _mark_filtered(
                 item,
                 now=now,
-                reason="candidate_already_migrated",
+                reason=reason,
                 last_error=_candidate_reason(item) or "Candidate is already migrated according to discovery evidence.",
             )
-            changes.append({"id": str(item.get("id", "")).strip(), "status": "filtered_out", "reason": "candidate_already_migrated"})
+            changes.append({"id": str(item.get("id", "")).strip(), "status": "filtered_out", "reason": reason})
             continue
         if status == "excluded":
             if state == "filtered_out" and item.get("filtered_reason") == "candidate_excluded":

@@ -51,6 +51,9 @@ class CodexControlConfig:
     dashboard_session_max_input_tokens: int = 500000
     bot_user_id: str = ""
     mention_role_ids: tuple[str, ...] = ()
+    cti_home: str = ""
+    secret_admin_channel_id: str = ""
+    secret_admin_user_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -149,5 +152,8 @@ def load_project_config(repo_root: Path) -> ProjectConfig:
             ),
             bot_user_id=str(codex_control.get("bot_user_id", "")).strip(),
             mention_role_ids=_as_str_tuple(codex_control.get("mention_role_ids")),
+            cti_home=str(codex_control.get("cti_home", "")).strip(),
+            secret_admin_channel_id=str(codex_control.get("secret_admin_channel_id", "")).strip(),
+            secret_admin_user_ids=_as_str_tuple(codex_control.get("secret_admin_user_ids")),
         ),
     )
