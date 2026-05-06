@@ -1,0 +1,57 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.edit-banana
+version: '1.0.5'
+min_os_version: 1.3.8
+name: Edit Banana
+description: (LazyCat Auto-build) Convert static diagrams into editable DrawIO files with SAM3 and OCR
+license: AGPL-3.0
+homepage: https://github.com/BIT-DataLab/Edit-Banana
+author: BIT-DataLab
+application:
+  subdomain: edit-banana
+  public_path:
+    - /
+  upstreams:
+    - location: /
+      backend: http://edit-banana:8000/
+services:
+  edit-banana:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/edit-banana:cd48c04306a4b227
+    environment:
+      - PORT=8000
+      - BIND=0.0.0.0
+      - BEHIND_PROXY=true
+      - NO_TLS=true
+      - OUTPUT_DIR=/app/output
+      - SAM3_CHECKPOINT_PATH=/app/models/sam3.pt
+      - SAM3_CHECKPOINT_URL=https://www.modelscope.cn/models/facebook/sam3/resolve/master/sam3.pt
+      - SAM3_BPE_PATH=/app/models/bpe_simple_vocab_16e6.txt.gz
+      - SAM3_BPE_URL=https://raw.githubusercontent.com/openai/CLIP/main/clip/bpe_simple_vocab_16e6.txt.gz
+      - SAM3_DEVICE=cpu
+      - MULTIMODAL_MODE=api
+      - MULTIMODAL_API_KEY=
+      - MULTIMODAL_BASE_URL=
+      - MULTIMODAL_MODEL=
+      - MULTIMODAL_LOCAL_BASE_URL=http://localhost:11434/v1
+      - MULTIMODAL_LOCAL_API_KEY=ollama
+      - MULTIMODAL_LOCAL_MODEL=
+      - MULTIMODAL_FORCE_VLM_OCR=false
+      - MULTIMODAL_MAX_TOKENS=4000
+      - MULTIMODAL_TIMEOUT=60
+      - MULTIMODAL_CA_CERT_PATH=
+      - MULTIMODAL_PROXY=
+    binds:
+      - /lzcapp/var/config:/app/config
+      - /lzcapp/var/models:/app/models
+      - /lzcapp/var/output:/app/output
+    setup_script: |
+      mkdir -p /app/config
+      mkdir -p /app/models
+      mkdir -p /app/output
+locales:
+  en:
+    name: Edit Banana
+    description: (LazyCat Auto-build) Convert static diagrams into editable DrawIO files with SAM3 and OCR
+  zh:
+    name: Edit Banana
+    description: （懒猫微服自动构建）使用 SAM3 与 OCR 将静态图转换为可编辑的 DrawIO 文件

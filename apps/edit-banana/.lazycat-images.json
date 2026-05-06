@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "app": "edit-banana",
+  "source_version": "527e9ca",
+  "build_version": "1.0.8",
+  "head_sha": "0decb1680f14",
+  "build_recipe_hash": "c9a3114e3e26f80b60b4084dcd12a5720709f281253391a880cf031bfc01222c",
+  "updated_at": "2026-04-26T01:26:54.809427+00:00",
+  "images": {
+    "edit-banana": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:6d405fc472c113b9"
+  },
+  "source_images": {
+    "edit-banana": "ghcr.io/codeeagle/lazycatimages:editBanana_0decb1680f14"
+  },
+  "source_digests": {
+    "_primary": "sha256:4604ed51f2ec3e76dfaa0bddaed35dc603de138c310e5525af58536bee90a2b0"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:editBanana_0decb1680f14",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:6d405fc472c113b9",
+      "elapsed_seconds": 144.09,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}
