@@ -48,6 +48,7 @@ class AutoMigrationServiceTest(unittest.TestCase):
             box_domain="",
             developer_url="",
             max_migrations_per_cycle=1,
+            max_discovery_reviews_per_cycle=1,
             commit_scaffold=False,
             resume=False,
             enable_codex_worker=False,

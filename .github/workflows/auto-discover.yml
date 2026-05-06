@@ -86,11 +86,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Run discovery + triage cycle (no migrations)
+        timeout-minutes: 25
         run: |
           set -euo pipefail
           ARGS=(
             --once
             --max-migrations-per-cycle 0
+            --max-discovery-reviews-per-cycle 20
             --no-env-file
             --disable-local-agent
             --disable-discord

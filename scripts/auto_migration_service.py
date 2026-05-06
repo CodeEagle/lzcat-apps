@@ -81,6 +81,7 @@ class ServiceConfig:
     box_domain: str = ""
     developer_url: str = ""
     max_migrations_per_cycle: int = 1
+    max_discovery_reviews_per_cycle: int = 1
     commit_scaffold: bool = False
     resume: bool = False
     enable_codex_worker: bool = False
@@ -993,20 +994,33 @@ def advance_discovery_reviewer(
 ) -> list[dict[str, Any]]:
     if not config.enable_codex_worker:
         return []
-    item = select_next_discovery_review_item(queue, max_attempts=max(1, config.max_codex_attempts))
-    if not item:
-        return []
-
-    item_id = str(item.get("id", ""))
-    command = build_codex_discovery_review_command(config, item)
-    result = runner(command)
-    status = ""
-    if result.returncode == 0:
-        status = merge_discovery_review_from_disk(config, queue, item_id, returncode=result.returncode, now=now)
-    if not status:
-        status = "review_failed" if result.returncode != 0 else "review_no_update"
-        update_item_discovery_review_result(queue, item_id, status=status, returncode=result.returncode, now=now)
-    return [{"id": item_id, "status": status, "returncode": result.returncode}]
+    budget = max(1, getattr(config, "max_discovery_reviews_per_cycle", 1) or 1)
+    results: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    while len(results) < budget:
+        item = select_next_discovery_review_item(queue, max_attempts=max(1, config.max_codex_attempts))
+        if not item:
+            break
+        item_id = str(item.get("id", ""))
+        if item_id in seen_ids:
+            # Reviewer didn't advance the item out of discovery_review state;
+            # break to avoid an infinite loop on a stuck candidate.
+            break
+        seen_ids.add(item_id)
+        command = build_codex_discovery_review_command(config, item)
+        result = runner(command)
+        status = ""
+        if result.returncode == 0:
+            status = merge_discovery_review_from_disk(
+                config, queue, item_id, returncode=result.returncode, now=now
+            )
+        if not status:
+            status = "review_failed" if result.returncode != 0 else "review_no_update"
+            update_item_discovery_review_result(
+                queue, item_id, status=status, returncode=result.returncode, now=now
+            )
+        results.append({"id": item_id, "status": status, "returncode": result.returncode})
+    return results
 
 
 def advance_codex_worker(
@@ -1301,7 +1315,11 @@ def run_cycle(
         summary["migration"] = {"status": "dry_run"}
         return summary
 
-    for _ in range(max(1, config.max_migrations_per_cycle)):
+    if config.max_migrations_per_cycle <= 0:
+        summary["migration"] = {"status": "skipped_per_cycle_cap"}
+        return summary
+
+    for _ in range(config.max_migrations_per_cycle):
         selected = select_next_ready_item(queue)
         if not selected:
             break
@@ -1418,6 +1436,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--box-domain", default="")
     parser.add_argument("--developer-url", default="")
     parser.add_argument("--max-migrations-per-cycle", type=int, default=1)
+    parser.add_argument(
+        "--max-discovery-reviews-per-cycle",
+        type=int,
+        default=1,
+        help="Cap the number of codex/claude discovery review invocations per cycle (default 1).",
+    )
     parser.add_argument("--commit-scaffold", action="store_true")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--enable-codex-worker", action="store_true")
@@ -1482,7 +1506,8 @@ def build_config(args: argparse.Namespace) -> ServiceConfig:
         functional_check=args.functional_check,
         box_domain=args.box_domain,
         developer_url=developer_url,
-        max_migrations_per_cycle=max(1, args.max_migrations_per_cycle),
+        max_migrations_per_cycle=max(0, args.max_migrations_per_cycle),
+        max_discovery_reviews_per_cycle=max(1, args.max_discovery_reviews_per_cycle),
         commit_scaffold=args.commit_scaffold,
         resume=args.resume,
         enable_codex_worker=args.enable_codex_worker,
