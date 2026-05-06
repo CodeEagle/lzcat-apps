@@ -46,6 +46,8 @@ jobs:
       GH_PAT: ${{ secrets.GH_PAT }}
       LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
       LAZYCAT_BOX_DOMAIN: ${{ secrets.LAZYCAT_BOX_DOMAIN }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      IS_SANDBOX: "1"
 
     steps:
       - name: Validate slug
@@ -111,7 +113,13 @@ jobs:
           python3 scripts/functional_checker.py "$SLUG" \
             --box-domain "$LAZYCAT_BOX_DOMAIN"
 
-      - name: Map check status -> Project Status
+      - name: AI verify review (Claude)
+        id: review
+        continue-on-error: true   # never block the workflow on the reviewer; map status step has fallbacks
+        run: |
+          python3 scripts/claude_verify_reviewer.py "$SLUG"
+
+      - name: Map check + AI verdict -> Project Status
         if: always()
         id: post
         run: |
@@ -126,15 +134,40 @@ jobs:
           print(payload.get("browser_acceptance_status", "browser_pending"))
           PY
           )"
-          case "$status" in
-            browser_pass)    project_status="Awaiting-Human" ;;   # human releases to publish
-            browser_failed)  project_status="Awaiting-Human" ;;   # human triages
-            browser_pending) project_status="Awaiting-Human" ;;   # awaiting agent results
-            *)               project_status="Blocked" ;;
+          ai="$(python3 - <<'PY'
+          import json, os, pathlib, sys
+          slug = os.environ["SLUG"]
+          p = pathlib.Path(f"apps/{slug}/.claude-verify-review.json")
+          if not p.exists():
+              print("missing||0"); sys.exit(0)
+          d = json.loads(p.read_text())
+          print(f"{d.get('verdict','missing')}||{d.get('score', 0)}")
+          PY
+          )"
+          ai_verdict="${ai%%||*}"
+          ai_score="${ai##*||}"
+          case "$ai_verdict" in
+            pass)         project_status="Awaiting-Human" ;;   # AI says ship; human still clicks Publish
+            fail)         project_status="Blocked" ;;
+            needs_human)  project_status="Awaiting-Human" ;;
+            *)
+              # AI review missing/errored — fall back to mechanical mapping.
+              case "$status" in
+                browser_pass|browser_failed|browser_pending) project_status="Awaiting-Human" ;;
+                *) project_status="Blocked" ;;
+              esac
+              ;;
           esac
-          echo "browser_status=$status"           >> "$GITHUB_OUTPUT"
-          echo "project_status=$project_status"   >> "$GITHUB_OUTPUT"
-          python3 scripts/project_board.py update "$SLUG" --status="$project_status"
+          {
+            echo "browser_status=$status"
+            echo "ai_verdict=$ai_verdict"
+            echo "ai_score=$ai_score"
+            echo "project_status=$project_status"
+          } >> "$GITHUB_OUTPUT"
+          echo "Slug=$SLUG  browser=$status  ai=$ai_verdict@$ai_score -> $project_status"
+          python3 scripts/project_board.py update "$SLUG" \
+            --status="$project_status" \
+            --field="Failures=ai=${ai_verdict}@${ai_score}; browser=${status}"
 
       - name: Commit verification artifacts
         if: always()
@@ -143,6 +176,7 @@ jobs:
           ART=(
             "apps/${SLUG}/.browser-acceptance-plan.json"
             "apps/${SLUG}/.functional-check.json"
+            "apps/${SLUG}/.claude-verify-review.json"
             "apps/${SLUG}/acceptance/"
           )
           for path in "${ART[@]}"; do
