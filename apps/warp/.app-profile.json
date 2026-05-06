@@ -1,0 +1,25 @@
+{
+  "managed_by": "manual-after-full_migrate",
+  "generated_from_upstream": "warpdotdev/warp",
+  "fixes": {
+    "project_name": "Warp",
+    "description": "Unofficial LazyCat noVNC wrapper for the Warp agentic development environment",
+    "description_zh": "Warp agentic development environment 的非官方懒猫 noVNC 桌面封装",
+    "license": "AGPL-3.0-or-later AND MIT",
+    "homepage": "https://github.com/warpdotdev/warp",
+    "author": "warpdotdev",
+    "build_strategy": "target_repo_dockerfile",
+    "check_strategy": "commit_sha",
+    "docker_platform": "linux/amd64",
+    "dockerfile_path": "Dockerfile",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "service_port": 8080,
+    "image_targets": [
+      "warp"
+    ],
+    "build_args": {
+      "WARP_DEB_VERSION": "0.2026.04.27.15.32.stable.02"
+    }
+  }
+}
