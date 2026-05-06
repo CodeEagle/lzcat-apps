@@ -3,23 +3,23 @@
   "app": "codex-web",
   "source_version": "3bbefc1",
   "build_version": "0.1.2",
-  "head_sha": "ac95e202b664",
+  "head_sha": "e98479babce6",
   "build_recipe_hash": "42bee93bf9ff060e4fdde2c4ab076835f4e5c45bd0f007dd25aa9555fc18fc98",
-  "updated_at": "2026-05-06T07:13:25.909650+00:00",
+  "updated_at": "2026-05-06T07:39:38.838196+00:00",
   "images": {
-    "codex-web": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:29fdf1ccd4059bd8"
+    "codex-web": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:949557cb53a4dfd9"
   },
   "source_images": {
-    "codex-web": "ghcr.io/codeeagle/lazycatimages:codexWeb_ac95e202b664"
+    "codex-web": "ghcr.io/codeeagle/lazycatimages:codexWeb_e98479babce6"
   },
   "source_digests": {
-    "_primary": "sha256:c05ab740e8e078e700a1b01978828348b98bb2a42c4e0fc95f8fbe7a33e5921c"
+    "_primary": "sha256:324f27a414cf18eb0b005d89dc347716d5ad054d5a4ffb2f3b6946661da5589c"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:codexWeb_ac95e202b664",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:29fdf1ccd4059bd8",
-      "elapsed_seconds": 113.135,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:codexWeb_e98479babce6",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:949557cb53a4dfd9",
+      "elapsed_seconds": 115.385,
       "saw_waiting": false,
       "saw_upload_started": false,
       "reused_existing": false,
