@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "app": "codex-web",
+  "source_version": "3bbefc1",
+  "build_version": "0.1.2",
+  "head_sha": "2e2da31534b6",
+  "build_recipe_hash": "42bee93bf9ff060e4fdde2c4ab076835f4e5c45bd0f007dd25aa9555fc18fc98",
+  "updated_at": "2026-05-06T06:48:22.050372+00:00",
+  "images": {
+    "codex-web": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:a35af33c5fd94683"
+  },
+  "source_images": {
+    "codex-web": "ghcr.io/codeeagle/lazycatimages:codexWeb_2e2da31534b6"
+  },
+  "source_digests": {
+    "_primary": "sha256:575173bb896912ca01d48202492ba75c204b1c31f5dca48961015a4c0e24db43"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:codexWeb_2e2da31534b6",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:a35af33c5fd94683",
+      "elapsed_seconds": 114.477,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}
