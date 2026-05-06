@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.discovery_gate import reconcile_queue_items
+from scripts.discovery_gate import load_exclude_slugs, reconcile_queue_items
 
 
 class DiscoveryGateTest(unittest.TestCase):
@@ -161,6 +163,68 @@ class DiscoveryGateTest(unittest.TestCase):
 
         self.assertEqual(changes, [{"id": "github:owner/demo", "status": "discovery_review", "reason": "needs_ai_review"}])
         self.assertIn("判断是否值得迁移", queue["items"][0]["discovery_review"]["prompt"])
+
+
+    def test_excludes_slug_from_exclude_list(self) -> None:
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/codex-web",
+                    "source": "owner/codex-web",
+                    "slug": "codex-web",
+                    "state": "ready",
+                    "candidate_status": "portable",
+                    "candidate": {"full_name": "owner/codex-web", "repo_url": "https://github.com/owner/codex-web"},
+                }
+            ]
+        }
+
+        changes = reconcile_queue_items(
+            queue,
+            publication_index={},
+            now="2026-05-06T10:00:00Z",
+            exclude_slugs={"codex-web"},
+        )
+
+        self.assertEqual(changes, [{"id": "github:owner/codex-web", "status": "filtered_out", "reason": "slug_excluded"}])
+        item = queue["items"][0]
+        self.assertEqual(item["state"], "filtered_out")
+        self.assertEqual(item["filtered_reason"], "slug_excluded")
+        self.assertIn("exclude-list.json", item["last_error"])
+
+    def test_excluded_slug_already_filtered_is_idempotent(self) -> None:
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/codex-web",
+                    "slug": "codex-web",
+                    "state": "filtered_out",
+                    "candidate_status": "excluded",
+                    "filtered_reason": "slug_excluded",
+                }
+            ]
+        }
+
+        changes = reconcile_queue_items(
+            queue,
+            publication_index={},
+            now="2026-05-06T10:00:00Z",
+            exclude_slugs={"codex-web"},
+        )
+
+        self.assertEqual(changes, [])
+
+    def test_load_exclude_slugs_reads_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "registry" / "auto-migration" / "exclude-list.json"
+            target.parent.mkdir(parents=True)
+            target.write_text(json.dumps({"slugs": ["codex-web", "  spaced  ", ""]}), encoding="utf-8")
+            self.assertEqual(load_exclude_slugs(root), {"codex-web", "spaced"})
+
+    def test_load_exclude_slugs_missing_returns_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(load_exclude_slugs(Path(tmp)), set())
 
 
 if __name__ == "__main__":

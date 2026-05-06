@@ -14,7 +14,14 @@
     "codex_worker_model": "gpt-5.5",
     "desktop_screenshots_required": 2,
     "mobile_screenshots_required": 3,
-    "playground_required": true
+    "playground_required": true,
+    "auto_approve_score_threshold": 0.8
+  },
+  "project_board": {
+    "owner": "CodeEagle",
+    "repo": "lzcat-apps",
+    "project_title": "Migration Queue",
+    "project_number": 4
   },
   "discord": {
     "enabled": true,

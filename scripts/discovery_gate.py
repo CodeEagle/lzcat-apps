@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 try:
@@ -19,6 +21,19 @@ RECONCILABLE_STATES = {
     "waiting_for_human",
     "discovery_review",
 }
+
+EXCLUDE_LIST_PATH = "registry/auto-migration/exclude-list.json"
+
+
+def load_exclude_slugs(repo_root: Path) -> set[str]:
+    path = repo_root / EXCLUDE_LIST_PATH
+    if not path.exists():
+        return set()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    raw = payload.get("slugs") if isinstance(payload, dict) else None
+    if not isinstance(raw, list):
+        return set()
+    return {str(s).strip() for s in raw if str(s).strip()}
 
 
 def _items(queue: dict[str, Any]) -> list[dict[str, Any]]:
@@ -136,11 +151,26 @@ def reconcile_queue_items(
     *,
     publication_index: dict[str, dict[str, Any]],
     now: str,
+    exclude_slugs: set[str] | None = None,
 ) -> list[dict[str, str]]:
+    excluded = exclude_slugs or set()
     changes: list[dict[str, str]] = []
     for item in _items(queue):
         state = str(item.get("state", "")).strip()
         if state not in RECONCILABLE_STATES:
+            continue
+
+        slug = str(item.get("slug", "")).strip()
+        if slug and slug in excluded:
+            if state == "filtered_out" and item.get("filtered_reason") == "slug_excluded":
+                continue
+            _mark_filtered(
+                item,
+                now=now,
+                reason="slug_excluded",
+                last_error=f"Slug {slug!r} is in registry/auto-migration/exclude-list.json",
+            )
+            changes.append({"id": str(item.get("id", "")).strip(), "status": "filtered_out", "reason": "slug_excluded"})
             continue
 
         status = _candidate_status(item)

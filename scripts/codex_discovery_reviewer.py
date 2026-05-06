@@ -115,15 +115,24 @@ LazyCat app-store search review:
 Required queue update:
 - Open and update this queue file: {queue_path}
 - Find the item whose `id` is `{item.get("id", "")}`.
+- For every decision, additionally write a numeric `discovery_review.score`
+  in the closed interval [0.0, 1.0] reflecting your confidence that this is a
+  worthwhile, deployable LazyCat candidate. Calibration:
+    * 0.90+   highly confident migrate (clearly a self-hosted app, not yet on store)
+    * 0.80    threshold for AI auto-approve (project_board.py promotes Inbox → Approved)
+    * 0.50    50/50 — prefer `needs_human`
+    * 0.20-   confidently skip (library, list, already migrated, not deployable)
+  The score MUST be a JSON number (not a string).
 - For `migrate`, set `state` to `ready`, clear `last_error` and `filtered_reason`, and write:
   `discovery_review.status = "migrate"`, `discovery_review.reviewed_at`, `discovery_review.reviewer = "codex"`,
-  `discovery_review.reason`, and `discovery_review.evidence` as a short list.
+  `discovery_review.reason`, `discovery_review.evidence` as a short list, and `discovery_review.score`.
 - For `skip`, set `state` to `filtered_out`, set `filtered_reason` to `ai_discovery_skip`, set `last_error` to a concise reason, and write:
   `discovery_review.status = "skip"`, `discovery_review.reviewed_at`, `discovery_review.reviewer = "codex"`,
-  `discovery_review.reason`, and `discovery_review.evidence`.
+  `discovery_review.reason`, `discovery_review.evidence`, and `discovery_review.score`.
 - For `needs_human`, set `state` to `waiting_for_human` and write:
   `human_request.kind = "discovery_review"`, `human_request.question`, `human_request.options`,
-  `human_request.context`, `human_request.created_at`, plus `discovery_review.status = "needs_human"`.
+  `human_request.context`, `human_request.created_at`, plus `discovery_review.status = "needs_human"`
+  and `discovery_review.score`.
 - If the item already has `human_response`, use that answer as user input and continue the decision.
 - Preserve unrelated queue items and unrelated fields on this item.
 

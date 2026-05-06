@@ -15,7 +15,7 @@ from typing import Any, Callable
 
 try:
     from .auto_migrate import infer_slug_from_source
-    from .discovery_gate import reconcile_queue_items
+    from .discovery_gate import load_exclude_slugs, reconcile_queue_items
     from .discord_human_replies import apply_human_replies
     from .discord_local_agent_commands import LocalAgentCommandConfig, process_local_agent_commands
     from .discord_migration_notifier import DiscordClient, MigrationDiscordNotifier
@@ -25,7 +25,7 @@ try:
     from .project_config import load_project_config
 except ImportError:  # pragma: no cover - direct script execution
     from auto_migrate import infer_slug_from_source
-    from discovery_gate import reconcile_queue_items
+    from discovery_gate import load_exclude_slugs, reconcile_queue_items
     from discord_human_replies import apply_human_replies
     from discord_local_agent_commands import LocalAgentCommandConfig, process_local_agent_commands
     from discord_migration_notifier import DiscordClient, MigrationDiscordNotifier
@@ -966,7 +966,12 @@ def run_discovery_gate(
     now: str,
     discord_notifier: Any | None,
 ) -> list[dict[str, str]]:
-    results = reconcile_queue_items(queue, publication_index=load_publication_index(config.repo_root), now=now)
+    results = reconcile_queue_items(
+        queue,
+        publication_index=load_publication_index(config.repo_root),
+        now=now,
+        exclude_slugs=load_exclude_slugs(config.repo_root),
+    )
     for result in results:
         publish_discord_update(
             config,

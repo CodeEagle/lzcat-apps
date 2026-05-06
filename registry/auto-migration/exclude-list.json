@@ -1,0 +1,6 @@
+{
+  "$comment": "Slugs in this list are filtered out before reaching Inbox by both scripts/discovery_gate.py and scripts/project_board.py sync. Add a slug here when the upstream is already in App Store review or otherwise must not be auto-migrated.",
+  "slugs": [
+    "codex-web"
+  ]
+}
