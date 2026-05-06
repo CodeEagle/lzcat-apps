@@ -23,26 +23,15 @@ See `manifest.json`. Three buckets:
 
 ## Cutover plan (Phase E)
 
-Run only after the staged branches have been reviewed.
+Steps 1 and 2 ran from the agent session; step 3 (deletions) was blocked by
+the sandbox proxy and must be finished locally with `finish_cutover.sh`.
 
-```bash
-# 1. Force-push template = template-clean
-git push origin template-clean:template --force
-
-# 2. Rename each staged/migration/<slug> -> migration/<slug>
-for br in $(git ls-remote --heads origin 'staged/migration/*' | awk '{print $2}' | sed 's|refs/heads/||'); do
-  slug="${br#staged/migration/}"
-  git push origin "$br:refs/heads/migration/$slug" --force
-  git push origin --delete "$br"
-done
-
-# 3. Delete obsolete branches
-git push origin --delete migrate/fusion migrate/hermes-webui migration-warp migrate/fix-rebase-conflict
-
-# 4. Switch default branch to "template" in GitHub Settings -> Branches
-# 5. Delete main
-git push origin --delete main
-```
+| # | Action | Status |
+|---|---|---|
+| 1 | Force-push `template` = `template-clean` | DONE |
+| 2 | Force-push each `staged/migration/<slug>` → `migration/<slug>` | DONE (57 branches) |
+| 3 | Switch default branch to `template` in GitHub Settings → Branches | TODO (run `finish_cutover.sh` step 1, requires `gh auth`) |
+| 4 | Delete `migrate/fusion`, `migrate/hermes-webui`, `migration-warp`, `migrate/fix-rebase-conflict`, `template-clean`, all `staged/migration/*`, and `main` | TODO (run `finish_cutover.sh`) |
 
 ## Rollback (any time before or after cutover)
 
