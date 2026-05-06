@@ -88,6 +88,24 @@ def sh(
     return result.stdout.strip() if capture else ""
 
 
+def resolve_git_target_branch(env: dict[str, str], cwd: Path) -> str:
+    """Resolve the branch that should receive workflow-generated build metadata."""
+    for key in ("GITHUB_HEAD_REF", "GITHUB_REF_NAME"):
+        branch = env.get(key, "").strip()
+        if branch and branch != "HEAD" and not branch.startswith("refs/"):
+            return branch
+
+    ref = env.get("GITHUB_REF", "").strip()
+    if ref.startswith("refs/heads/"):
+        return ref[len("refs/heads/") :]
+
+    branch = sh(["git", "branch", "--show-current"], cwd=cwd, env=env, check=False).strip()
+    if branch and branch != "HEAD":
+        return branch
+
+    return "main"
+
+
 def parse_int_env(env: dict[str, str], name: str, default: int) -> int:
     raw = str(env.get(name, "")).strip()
     if not raw:
@@ -2290,8 +2308,10 @@ def main() -> int:
                     log(f"[{app_name}] Working tree is dirty; skipping git pull/push")
                 else:
                     try:
-                        sh(["git", "pull", "--rebase", "--autostash", "origin", "main"], cwd=lzcat_apps_root, env=env)
-                        sh(["git", "push", "origin", "HEAD:main"], cwd=lzcat_apps_root, env=env)
+                        target_branch = resolve_git_target_branch(env, lzcat_apps_root)
+                        log(f"[{app_name}] Rebase/push target branch: {target_branch}")
+                        sh(["git", "pull", "--rebase", "--autostash", "origin", target_branch], cwd=lzcat_apps_root, env=env)
+                        sh(["git", "push", "origin", f"HEAD:{target_branch}"], cwd=lzcat_apps_root, env=env)
                     except Exception as e:
                         log(f"[{app_name}] Warning: git pull/push failed: {e}. Skipping push to avoid failing build.")
         report["status"] = "success"
