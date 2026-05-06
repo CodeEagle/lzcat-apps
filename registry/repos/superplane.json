@@ -1,0 +1,26 @@
+{
+  "enabled": true,
+  "upstream_repo": "superplanehq/superplane",
+  "check_strategy": "github_release",
+  "build_strategy": "official_image",
+  "publish_to_store": false,
+  "official_image_registry": "ghcr.io/superplanehq/superplane",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "simple",
+  "service_port": 8000,
+  "service_cmd": [],
+  "image_targets": [
+    "superplane"
+  ],
+  "dependencies": [
+    {
+      "target_service": "postgres",
+      "source_image": "postgres:17.5"
+    },
+    {
+      "target_service": "rabbitmq",
+      "source_image": "rabbitmq:3.8.17-management-alpine"
+    }
+  ],
+  "migration_status": "migrated"
+}

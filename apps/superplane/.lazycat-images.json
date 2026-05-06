@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "app": "superplane",
+  "source_version": "v0.17.0",
+  "build_version": "0.17.0",
+  "head_sha": "0decb1680f14",
+  "build_recipe_hash": "9147bdf08257a672656e22f72b0ccc2e8a5d09ea9bb82677ca0721f8db433060",
+  "updated_at": "2026-04-26T01:38:09.573024+00:00",
+  "images": {
+    "postgres": "registry.lazycat.cloud/invokerlaw/library/postgres:f717350ad016d704",
+    "rabbitmq": "registry.lazycat.cloud/invokerlaw/library/rabbitmq:54d1ac3a8d70a82d",
+    "superplane": "registry.lazycat.cloud/invokerlaw/superplanehq/superplane:e7306674c1237114"
+  },
+  "source_images": {
+    "postgres": "postgres:17.5",
+    "rabbitmq": "rabbitmq:3.8.17-management-alpine",
+    "superplane": "ghcr.io/superplanehq/superplane:v0.17.0"
+  },
+  "source_digests": {
+    "_primary": ""
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/superplanehq/superplane:v0.17.0",
+      "target_image": "registry.lazycat.cloud/invokerlaw/superplanehq/superplane:e7306674c1237114",
+      "elapsed_seconds": 93.166,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    },
+    {
+      "source_image": "postgres:17.5",
+      "target_image": "registry.lazycat.cloud/invokerlaw/library/postgres:f717350ad016d704",
+      "elapsed_seconds": 0.0,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": true,
+      "service": "postgres",
+      "kind": "dependency"
+    },
+    {
+      "source_image": "rabbitmq:3.8.17-management-alpine",
+      "target_image": "registry.lazycat.cloud/invokerlaw/library/rabbitmq:54d1ac3a8d70a82d",
+      "elapsed_seconds": 0.0,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": true,
+      "service": "rabbitmq",
+      "kind": "dependency"
+    }
+  ]
+}
