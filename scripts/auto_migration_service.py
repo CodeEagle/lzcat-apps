@@ -38,7 +38,9 @@ except ImportError:  # pragma: no cover - direct script execution
 DEFAULT_CANDIDATE_SNAPSHOT = "registry/candidates/latest.json"
 DEFAULT_QUEUE_PATH = "registry/auto-migration/queue.json"
 DEFAULT_DISCOVERY_LOG_DIR = "registry/auto-migration/logs/discovery-runs"
-FILTERED_CANDIDATE_STATUSES = {"already_migrated", "excluded", "in_progress"}
+DEFAULT_LOCAL_AGENT_STORE_SEARCH_CACHE = "registry/auto-migration/local-agent-store-search-cache.json"
+DEFAULT_LOCAL_AGENT_STORE_SEARCH_TTL_SECONDS = 24 * 60 * 60
+FILTERED_CANDIDATE_STATUSES = {"already_migrated", "already_migrated_by_other", "excluded", "in_progress"}
 PROTECTED_STATES = {
     "scaffolded",
     "build_failed",
@@ -93,6 +95,7 @@ class ServiceConfig:
     local_agent_enabled: bool = False
     local_agent_path: Path = Path("")
     local_agent_snapshot_path: Path = Path("")
+    local_agent_store_search_ttl_seconds: int = DEFAULT_LOCAL_AGENT_STORE_SEARCH_TTL_SECONDS
 
 
 CommandRunner = Callable[[list[str]], CommandResult]
@@ -180,6 +183,13 @@ def candidate_slug(candidate: dict[str, Any]) -> str:
 
 def candidate_state(candidate: dict[str, Any]) -> str:
     status = str(candidate.get("status", "")).strip().lower()
+    if candidate.get("discovery_source") == "local_agent":
+        if status == "portable":
+            return "local_agent_pending_decision"
+        if status == "needs_review":
+            if candidate.get("lazycat_hits") or isinstance(candidate.get("ai_store_review"), dict):
+                return "discovery_review"
+            return "local_agent_needs_decision"
     if status == "portable":
         return "ready"
     if status == "needs_review":
@@ -498,11 +508,25 @@ def import_local_agent_snapshot(config: ServiceConfig, *, now: str) -> tuple[dic
     if not snapshot_path.is_absolute():
         snapshot_path = config.repo_root / snapshot_path
     try:
-        snapshot = write_local_agent_snapshot(config.local_agent_path, snapshot_path, now=now)
+        snapshot = write_local_agent_snapshot(
+            config.local_agent_path,
+            snapshot_path,
+            now=now,
+            enable_store_search=config.enable_codex_worker,
+            store_search_cache_path=config.repo_root / DEFAULT_LOCAL_AGENT_STORE_SEARCH_CACHE,
+            store_search_limit=config.scan_limit,
+            store_search_ttl_seconds=config.local_agent_store_search_ttl_seconds,
+        )
     except Exception as exc:  # pragma: no cover - exact filesystem/JSON failure varies.
         return {"candidates": []}, {"status": "failed", "error": str(exc)}
     candidates = snapshot.get("candidates") if isinstance(snapshot.get("candidates"), list) else []
-    return snapshot, {"status": "imported", "candidate_count": len(candidates), "snapshot_path": str(snapshot_path)}
+    meta = snapshot.get("meta") if isinstance(snapshot.get("meta"), dict) else {}
+    return snapshot, {
+        "status": "imported",
+        "candidate_count": len(candidates),
+        "snapshot_path": str(snapshot_path),
+        "store_search_review": meta.get("store_search_review", {}),
+    }
 
 
 def migration_success_state(config: ServiceConfig) -> str:
@@ -528,6 +552,23 @@ def functional_check_state(repo_root: Path, slug: str) -> str:
 
 def functional_check_state_for_item(config: ServiceConfig, item: dict[str, Any]) -> str:
     return functional_check_state(item_repo_root(config, item), str(item.get("slug", "")))
+
+
+def completed_migration_state_for_item(config: ServiceConfig, item: dict[str, Any]) -> str:
+    slug = str(item.get("slug", "")).strip()
+    if not slug:
+        return ""
+    state_path = item_repo_root(config, item) / "apps" / slug / ".migration-state.json"
+    if not state_path.exists():
+        return ""
+    payload = read_json(state_path, {})
+    steps = payload.get("steps") if isinstance(payload.get("steps"), dict) else {}
+    step_10 = steps.get("10") if isinstance(steps.get("10"), dict) else {}
+    if not step_10.get("completed"):
+        return ""
+    if config.enable_build_install and config.functional_check:
+        return "browser_pending"
+    return migration_success_state(config)
 
 
 def advance_post_acceptance(
@@ -972,10 +1013,13 @@ def advance_codex_worker(
     ):
         return [{"id": item.get("id", ""), "status": "waiting_for_human", "returncode": result.returncode}]
     status = "ready" if result.returncode == 0 else "codex_failed"
-    if result.returncode == 0 and config.functional_check:
-        functional_state = functional_check_state_for_item(config, item)
+    if result.returncode == 0:
+        functional_state = functional_check_state_for_item(config, item) if config.functional_check else ""
+        completed_state = completed_migration_state_for_item(config, item)
         if functional_state in {"browser_pending", "browser_failed", "browser_passed"}:
             status = functional_state
+        elif completed_state:
+            status = completed_state
     update_item_codex_result(
         queue,
         str(item.get("id", "")),
@@ -1044,6 +1088,25 @@ def run_cycle(
                     )
                 except Exception as exc:  # pragma: no cover - exact Discord/network exception varies.
                     summary["local_agent_commands"] = [{"status": "failed", "error": str(exc)}]
+    local_agent_snapshot, local_agent_summary = import_local_agent_snapshot(config, now=now)
+    summary["local_agent"] = local_agent_summary
+    append_service_event(
+        config,
+        now=now,
+        stage="local_agent_import",
+        inputs={"enabled": config.local_agent_enabled, "path": str(config.local_agent_path)},
+        outputs=local_agent_summary,
+        decision={"status": str(local_agent_summary.get("status", ""))},
+        evidence=[
+            f"candidate_count={local_agent_summary.get('candidate_count', 0)}",
+            f"store_search={local_agent_summary.get('store_search_review', {})}",
+        ],
+    )
+    early_local_agent_candidates = (
+        local_agent_snapshot.get("candidates") if isinstance(local_agent_snapshot.get("candidates"), list) else []
+    )
+    if early_local_agent_candidates:
+        queue = upsert_candidates(queue, early_local_agent_candidates, now=now)
     summary["discovery_gate"] = run_discovery_gate(config, queue, now=now, discord_notifier=discord_notifier)
     append_service_event(
         config,
@@ -1137,17 +1200,6 @@ def run_cycle(
             summary["migration"] = {"status": "scout_failed", "returncode": result.returncode}
             return summary
 
-    local_agent_snapshot, local_agent_summary = import_local_agent_snapshot(config, now=now)
-    summary["local_agent"] = local_agent_summary
-    append_service_event(
-        config,
-        now=now,
-        stage="local_agent_import",
-        inputs={"enabled": config.local_agent_enabled, "path": str(config.local_agent_path)},
-        outputs=local_agent_summary,
-        decision={"status": str(local_agent_summary.get("status", ""))},
-        evidence=[f"candidate_count={local_agent_summary.get('candidate_count', 0)}"],
-    )
     snapshot = load_candidate_snapshot(config.repo_root, config.candidate_snapshot)
     candidates = snapshot.get("candidates") if isinstance(snapshot.get("candidates"), list) else []
     local_agent_candidates = (
@@ -1330,6 +1382,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--enable-codex-worker", action="store_true")
     parser.add_argument("--max-codex-attempts", type=int, default=1)
+    parser.add_argument(
+        "--local-agent-store-search-ttl-hours",
+        type=float,
+        default=24.0,
+        help="Refresh cached LazyCat store search results for LocalAgent candidates after this many hours.",
+    )
     return parser.parse_args()
 
 
@@ -1391,6 +1449,10 @@ def build_config(args: argparse.Namespace) -> ServiceConfig:
         local_agent_enabled=project_config.local_agent.enabled,
         local_agent_path=local_agent_path,
         local_agent_snapshot_path=local_agent_snapshot_path,
+        local_agent_store_search_ttl_seconds=max(
+            0,
+            int(float(getattr(args, "local_agent_store_search_ttl_hours", 24.0)) * 60 * 60),
+        ),
     )
 
 

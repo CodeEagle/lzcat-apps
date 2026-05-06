@@ -377,7 +377,7 @@ class AutoMigrationServiceTest(unittest.TestCase):
         queue = json.loads((repo_root / "registry" / "auto-migration" / "queue.json").read_text(encoding="utf-8"))
         self.assertEqual(queue["items"][0]["state"], "filtered_out")
 
-    def test_run_cycle_merges_local_agent_candidates_before_selecting(self) -> None:
+    def test_run_cycle_merges_local_agent_candidates_but_waits_for_button_decision(self) -> None:
         repo_root = self.make_repo_root()
         local_agent_root = repo_root / "LocalAgent"
         (local_agent_root / "data").mkdir(parents=True)
@@ -417,9 +417,139 @@ class AutoMigrationServiceTest(unittest.TestCase):
         )
 
         self.assertEqual(summary["local_agent"]["status"], "imported")
-        self.assertEqual(summary["selected"], "github:owner/localapp")
+        self.assertIsNone(summary["selected"])
         queue = json.loads((repo_root / "registry" / "auto-migration" / "queue.json").read_text(encoding="utf-8"))
         self.assertEqual(queue["items"][0]["candidate"]["discovery_source"], "local_agent")
+        self.assertEqual(queue["items"][0]["state"], "local_agent_pending_decision")
+
+    def test_upsert_routes_local_agent_store_hits_to_discovery_review(self) -> None:
+        queue = {"items": []}
+        candidates = [
+            {
+                "full_name": "paperclipai/paperclip",
+                "repo": "paperclip",
+                "repo_url": "https://github.com/paperclipai/paperclip",
+                "status": "needs_review",
+                "status_reason": "LazyCat app-store search returned matches; AI discovery review required.",
+                "discovery_source": "local_agent",
+                "lazycat_hits": [
+                    {
+                        "raw_label": "Paperclip AI",
+                        "detail_url": "https://lazycat.cloud/appstore/detail/fun.selfstudio.app.paperclip",
+                    }
+                ],
+                "ai_store_review": {"status": "pending", "source": "lazycat_store_search"},
+            }
+        ]
+
+        updated = upsert_candidates(queue, candidates, now="2026-04-26T00:00:00Z")
+
+        self.assertEqual(updated["items"][0]["state"], "discovery_review")
+        self.assertEqual(updated["items"][0]["candidate_status"], "needs_review")
+
+    def test_run_cycle_periodically_refreshes_local_agent_store_search_cache(self) -> None:
+        repo_root = self.make_repo_root()
+        local_agent_root = repo_root / "LocalAgent"
+        (local_agent_root / "data").mkdir(parents=True)
+        (local_agent_root / "data" / "state.json").write_text(
+            json.dumps(
+                {
+                    "projects": {
+                        "owner/localapp": {
+                            "full_name": "owner/localapp",
+                            "repo": "localapp",
+                            "repo_url": "https://github.com/owner/localapp",
+                            "status": "portable",
+                            "description": "Found by LocalAgent",
+                        }
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (repo_root / "registry" / "candidates").mkdir(parents=True)
+        (repo_root / "registry" / "candidates" / "latest.json").write_text(json.dumps({"candidates": []}) + "\n", encoding="utf-8")
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "github:owner/localapp",
+                            "source": "owner/localapp",
+                            "slug": "localapp",
+                            "state": "ready",
+                            "candidate_status": "portable",
+                            "candidate": {
+                                "full_name": "owner/localapp",
+                                "repo": "localapp",
+                                "status": "portable",
+                                "discovery_source": "local_agent",
+                            },
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        cache_path = repo_root / "registry" / "auto-migration" / "local-agent-store-search-cache.json"
+        cache_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": {
+                        "github:owner/localapp": {
+                            "reviewed_at": "2026-04-25T00:00:00Z",
+                            "search_result": {
+                                "status": "portable",
+                                "reason": "No matching app found in LazyCat app store search.",
+                                "searches": [{"term": "localapp"}],
+                                "hits": [],
+                                "errors": [],
+                            },
+                        }
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        def searcher(repo: dict[str, object]) -> dict[str, object]:
+            return {
+                "status": "needs_review",
+                "reason": "LazyCat app-store search returned matches; AI discovery review required.",
+                "searches": [{"term": "localapp"}],
+                "hits": [{"raw_label": "Local App", "detail_url": "https://lazycat.cloud/appstore/detail/localapp"}],
+                "errors": [],
+            }
+
+        with patch("scripts.local_agent_bridge.default_store_searcher", side_effect=searcher):
+            summary = run_cycle(
+                ServiceConfig(
+                    repo_root=repo_root,
+                    queue_path=queue_path,
+                    skip_status_sync=True,
+                    skip_scout=True,
+                    dry_run=True,
+                    enable_codex_worker=True,
+                    local_agent_enabled=True,
+                    local_agent_path=local_agent_root,
+                    local_agent_snapshot_path=repo_root / "registry" / "candidates" / "local-agent-latest.json",
+                    local_agent_store_search_ttl_seconds=3600,
+                ),
+                runner=lambda command: CommandResult(returncode=0),
+                now="2026-04-26T11:00:01Z",
+            )
+
+        self.assertEqual(summary["local_agent"]["store_search_review"]["refreshed"], 1)
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["state"], "discovery_review")
+        self.assertEqual(queue["items"][0]["candidate"]["lazycat_hits"][0]["raw_label"], "Local App")
 
     def test_run_cycle_publishes_discord_update_for_migration_state(self) -> None:
         repo_root = self.make_repo_root()
@@ -1108,6 +1238,63 @@ class AutoMigrationServiceTest(unittest.TestCase):
         self.assertEqual(queue["items"][0]["state"], "ready")
         self.assertEqual(queue["items"][0]["codex"]["attempts"], 1)
         self.assertEqual(queue["items"][0]["codex"]["session_id"], "11111111-2222-3333-4444-555555555555")
+
+    def test_codex_worker_completed_install_moves_to_browser_pending(self) -> None:
+        repo_root = self.make_repo_root()
+        workspace_path = repo_root / "workspaces" / "migration-demo"
+        app_dir = workspace_path / "apps" / "demo"
+        app_dir.mkdir(parents=True)
+        (app_dir / ".migration-state.json").write_text(
+            json.dumps({"steps": {"10": {"completed": True}}}) + "\n",
+            encoding="utf-8",
+        )
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True)
+        queue_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "items": [
+                        {
+                            "id": "github:owner/demo",
+                            "source": "owner/demo",
+                            "slug": "demo",
+                            "state": "build_failed",
+                            "workspace_path": str(workspace_path),
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        def runner(command: list[str]) -> CommandResult:
+            if command[:2] == ["python3", "scripts/codex_migration_worker.py"]:
+                return CommandResult(
+                    returncode=0,
+                    stdout=json.dumps({"status": "completed", "returncode": 0, "task_dir": str(repo_root / "tasks")}),
+                )
+            return CommandResult(returncode=0)
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=queue_path,
+                skip_status_sync=True,
+                skip_scout=True,
+                enable_codex_worker=True,
+                enable_build_install=True,
+                functional_check=True,
+                box_domain="box.example.test",
+            ),
+            runner=runner,
+            now="2026-04-26T00:00:00Z",
+        )
+
+        self.assertEqual(summary["codex_worker"][0]["status"], "browser_pending")
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["state"], "browser_pending")
 
     def test_codex_worker_command_passes_existing_session_id_in_item_json(self) -> None:
         repo_root = self.make_repo_root()

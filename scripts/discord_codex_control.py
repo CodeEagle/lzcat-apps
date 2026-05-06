@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import socket
 import ssl
@@ -38,7 +39,10 @@ try:
     )
     from .discord_local_agent_commands import (
         LocalAgentCommandConfig,
+        command_channel_name as local_agent_command_channel_name,
         handle_command_text as handle_local_agent_command_text,
+        local_agent_candidate_id,
+        local_agent_candidate_slug,
     )
     from .migration_workspace import build_worktree_command, migration_branch_name, migration_workspace_path, normalize_slug
     from .project_config import load_project_config
@@ -57,7 +61,10 @@ except ImportError:  # pragma: no cover - direct script execution
     )
     from discord_local_agent_commands import (
         LocalAgentCommandConfig,
+        command_channel_name as local_agent_command_channel_name,
         handle_command_text as handle_local_agent_command_text,
+        local_agent_candidate_id,
+        local_agent_candidate_slug,
     )
     from migration_workspace import build_worktree_command, migration_branch_name, migration_workspace_path, normalize_slug
     from project_config import load_project_config
@@ -84,8 +91,18 @@ CONTROL_CHANNEL_NAME = "migration-control"
 CONTROL_ONLY_SUFFIXES = {"control", "dashboard", "local-agent", "codex-control"}
 DASHBOARD_CHANNEL_NAME = "dashboard"
 INTERACTION_APPLICATION_COMMAND = 2
+INTERACTION_MESSAGE_COMPONENT = 3
 INTERACTION_RESPONSE_CHANNEL_MESSAGE_WITH_SOURCE = 4
 INTERACTION_RESPONSE_DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE = 5
+INTERACTION_RESPONSE_UPDATE_MESSAGE = 7
+INTERACTION_RESPONSE_EPHEMERAL_FLAG = 1 << 6
+SECRET_CONFIG_KEYS = (
+    "CTI_DISCORD_BOT_TOKEN",
+    "CTI_DISCORD_ALLOWED_CHANNELS",
+    "CTI_DISCORD_ALLOWED_USERS",
+    "CTI_DISCORD_ALLOWED_GUILDS",
+)
+SECRET_SAFE_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9_@%+=:,./-]+$")
 
 CodexRunner = Callable[["CodexControlTask"], "CodexControlRunResult"]
 ProgressCallback = Callable[["CodexControlTask", str, float, str], None]
@@ -110,6 +127,9 @@ class CodexControlConfig:
     dashboard_reasoning_effort: str = "xhigh"
     dashboard_session_max_input_tokens: int = 500000
     execute: bool = True
+    cti_home: Path = Path("")
+    secret_admin_channel_id: str = ""
+    secret_admin_user_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -117,6 +137,18 @@ class ParsedCommand:
     kind: str
     instruction: str = ""
     image_paths: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class SecretCommand:
+    action: str
+    key: str = ""
+    value: str = ""
+
+
+@dataclass(frozen=True)
+class BridgeCommand:
+    action: str
 
 
 @dataclass(frozen=True)
@@ -136,6 +168,9 @@ class CommandResult:
     reply: str = ""
     delete_channel_id: str = ""
     session_id: str = ""
+
+
+BridgeRestarter = Callable[["CodexControlConfig"], CommandResult]
 
 
 @dataclass(frozen=True)
@@ -373,6 +408,48 @@ def codex_command_catalog() -> list[dict[str, Any]]:
                 }
             ],
         },
+        {
+            "name": "secret",
+            "description": "管理 Codex-to-IM Discord bridge 敏感配置",
+            "options": [
+                {
+                    "type": 1,
+                    "name": "set",
+                    "description": "写入允许的 Discord bridge 配置项",
+                    "options": [
+                        {
+                            "type": 3,
+                            "name": "key",
+                            "description": "允许写入的配置键",
+                            "required": True,
+                            "choices": [{"name": key, "value": key} for key in SECRET_CONFIG_KEYS],
+                        },
+                        {
+                            "type": 3,
+                            "name": "value",
+                            "description": "配置值；回复和日志中只会显示 masked 值",
+                            "required": True,
+                        },
+                    ],
+                },
+                {
+                    "type": 1,
+                    "name": "show",
+                    "description": "显示允许配置项的 masked 状态",
+                },
+            ],
+        },
+        {
+            "name": "bridge",
+            "description": "管理 LazyCat Discord Codex bridge",
+            "options": [
+                {
+                    "type": 1,
+                    "name": "restart",
+                    "description": "手动重启 Discord Codex gateway，让配置变更生效",
+                },
+            ],
+        },
     ]
 
 
@@ -567,11 +644,19 @@ def ensure_context_workdir(context: ChannelContext, config: CodexControlConfig) 
 def channel_context(channel: dict[str, Any], config: CodexControlConfig, items: list[dict[str, Any]]) -> ChannelContext | None:
     if channel.get("type") != DISCORD_GUILD_TEXT_TYPE:
         return None
-    if config.category_id and channel.get("parent_id") != config.category_id:
-        return None
     channel_id = str(channel.get("id", "")).strip()
     channel_name = str(channel.get("name", "")).strip()
     if not channel_id or not channel_name:
+        return None
+    if _secret_admin_channel_id(config) and channel_id == _secret_admin_channel_id(config):
+        return ChannelContext(
+            channel_id=channel_id,
+            channel_name=channel_name,
+            scope="secret_admin",
+            workdir=config.repo_root,
+            implicit_codex=False,
+        )
+    if config.category_id and channel.get("parent_id") != config.category_id:
         return None
     if normalize_slug(channel_name) == normalize_slug(config.control_channel):
         return ChannelContext(
@@ -591,6 +676,15 @@ def channel_context(channel: dict[str, Any], config: CodexControlConfig, items: 
             slug=DASHBOARD_CHANNEL_NAME,
             workdir=config.repo_root,
             implicit_codex=True,
+        )
+    if normalize_slug(channel_name) == normalize_slug(local_agent_command_channel_name(config.channel_prefix)):
+        return ChannelContext(
+            channel_id=channel_id,
+            channel_name=channel_name,
+            scope="local_agent",
+            slug="local-agent",
+            workdir=config.repo_root,
+            implicit_codex=False,
         )
     slug = slug_from_channel_name(channel_name, config)
     if not slug:
@@ -702,6 +796,296 @@ def _interaction_option_map(options: Any) -> dict[str, str]:
     return values
 
 
+class SecretConfigError(ValueError):
+    pass
+
+
+def _csv_tuple(value: str) -> tuple[str, ...]:
+    return tuple(part.strip() for part in value.split(",") if part.strip())
+
+
+def _secret_admin_user_ids(config: CodexControlConfig) -> tuple[str, ...]:
+    values: list[str] = list(config.secret_admin_user_ids)
+    values.extend(_csv_tuple(os.environ.get("LZCAT_CODEX_SECRET_ADMIN_USERS", "")))
+    values.extend(_csv_tuple(os.environ.get("LZCAT_CODEX_SECRET_ADMIN_USER_IDS", "")))
+    return tuple(dict.fromkeys(value for value in values if value))
+
+
+def _secret_admin_channel_id(config: CodexControlConfig) -> str:
+    return (
+        config.secret_admin_channel_id.strip()
+        or os.environ.get("LZCAT_CODEX_SECRET_ADMIN_CHANNEL_ID", "").strip()
+        or os.environ.get("LZCAT_CODEX_SECRET_ADMIN_CHANNEL", "").strip()
+    )
+
+
+def _interaction_user_id(interaction: dict[str, Any]) -> str:
+    member = interaction.get("member") if isinstance(interaction.get("member"), dict) else {}
+    member_user = member.get("user") if isinstance(member.get("user"), dict) else {}
+    user = interaction.get("user") if isinstance(interaction.get("user"), dict) else {}
+    return str(member_user.get("id") or user.get("id") or "").strip()
+
+
+def _interaction_subcommand_options(interaction: dict[str, Any]) -> tuple[str, dict[str, str]]:
+    data = interaction.get("data") if isinstance(interaction.get("data"), dict) else {}
+    options = data.get("options") if isinstance(data.get("options"), list) else []
+    for option in options:
+        if not isinstance(option, dict):
+            continue
+        if option.get("type") != 1:
+            continue
+        name = str(option.get("name", "")).strip().lower()
+        if name:
+            return name, _interaction_option_map(option.get("options"))
+    return "", {}
+
+
+def parse_secret_interaction(interaction: dict[str, Any]) -> SecretCommand | None:
+    if interaction.get("type") != INTERACTION_APPLICATION_COMMAND:
+        return None
+    data = interaction.get("data") if isinstance(interaction.get("data"), dict) else {}
+    if str(data.get("name", "")).strip().lower() != "secret":
+        return None
+    subcommand, options = _interaction_subcommand_options(interaction)
+    if subcommand == "set":
+        return SecretCommand("set", key=options.get("key", "").strip().upper(), value=options.get("value", ""))
+    if subcommand == "show":
+        return SecretCommand("show")
+    return SecretCommand("unknown")
+
+
+def parse_bridge_interaction(interaction: dict[str, Any]) -> BridgeCommand | None:
+    if interaction.get("type") != INTERACTION_APPLICATION_COMMAND:
+        return None
+    data = interaction.get("data") if isinstance(interaction.get("data"), dict) else {}
+    if str(data.get("name", "")).strip().lower() != "bridge":
+        return None
+    subcommand, _ = _interaction_subcommand_options(interaction)
+    if subcommand == "restart":
+        return BridgeCommand("restart")
+    return BridgeCommand("unknown")
+
+
+def is_secret_interaction_authorized(
+    config: CodexControlConfig,
+    context: ChannelContext,
+    interaction: dict[str, Any],
+) -> bool:
+    interaction_guild_id = str(interaction.get("guild_id", "")).strip()
+    if config.guild_id and interaction_guild_id and interaction_guild_id != config.guild_id:
+        return False
+
+    admin_channel_id = _secret_admin_channel_id(config)
+    if admin_channel_id:
+        channel_allowed = context.channel_id == admin_channel_id
+    else:
+        channel_allowed = context.scope == "control" and normalize_slug(context.channel_name) == normalize_slug(
+            config.control_channel
+        )
+    if not channel_allowed:
+        return False
+
+    user_id = _interaction_user_id(interaction)
+    admin_user_ids = set(_secret_admin_user_ids(config))
+    return bool(user_id and user_id in admin_user_ids)
+
+
+def mask_secret_value(value: str) -> str:
+    if not value:
+        return "<unset>"
+    if len(value) <= 8:
+        return "<set>"
+    return f"{value[:4]}...{value[-4:]}"
+
+
+def _env_config_value(raw: str) -> str:
+    text = raw.strip()
+    if not text:
+        return ""
+    try:
+        parts = shlex.split(text, comments=False, posix=True)
+    except ValueError:
+        return text.strip("\"'")
+    if len(parts) == 1:
+        return parts[0]
+    return text.strip("\"'")
+
+
+def _render_env_config_value(value: str) -> str:
+    if SECRET_SAFE_VALUE_PATTERN.fullmatch(value):
+        return value
+    return shlex.quote(value)
+
+
+def _resolve_cti_home(config: CodexControlConfig) -> Path:
+    configured_home = config.cti_home if has_path(config.cti_home) else Path("")
+    if has_path(configured_home):
+        home = Path(configured_home).expanduser()
+    else:
+        env_home = os.environ.get("CTI_HOME", "").strip()
+        if env_home:
+            home = Path(env_home).expanduser()
+        else:
+            agenthub_home = os.environ.get("AGENTHUB_HOME", "").strip()
+            if agenthub_home:
+                home = Path(agenthub_home).expanduser() / "codex-to-im"
+            else:
+                home = Path("/Users/lincoln/Develop/GitHub/AgentHub/.agenthub/codex-to-im")
+    resolved_home = home.resolve()
+    repo_root = config.repo_root.expanduser().resolve()
+    if resolved_home == repo_root or is_relative_to(resolved_home, repo_root):
+        raise SecretConfigError("CTI home must be outside the repository")
+    return resolved_home
+
+
+def _cti_config_path(config: CodexControlConfig) -> Path:
+    return _resolve_cti_home(config) / "config.env"
+
+
+def _validate_secret_key(key: str) -> str:
+    normalized = key.strip().upper()
+    if normalized not in SECRET_CONFIG_KEYS:
+        raise SecretConfigError(f"Unsupported key: {normalized or '<empty>'}")
+    return normalized
+
+
+def _validate_secret_value(value: str) -> str:
+    if not value:
+        raise SecretConfigError("Value is required")
+    if any(char in value for char in ("\x00", "\r", "\n")):
+        raise SecretConfigError("Value contains unsupported characters")
+    return value
+
+
+def read_cti_secret_values(config: CodexControlConfig) -> dict[str, str]:
+    path = _cti_config_path(config)
+    if not path.exists():
+        return {}
+    values: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, raw_value = stripped.split("=", 1)
+        key = key.strip()
+        if key in SECRET_CONFIG_KEYS:
+            values[key] = _env_config_value(raw_value)
+    return values
+
+
+def write_cti_secret_value(config: CodexControlConfig, key: str, value: str) -> Path:
+    normalized_key = _validate_secret_key(key)
+    normalized_value = _validate_secret_value(value)
+    target = _cti_config_path(config)
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    existing_lines = target.read_text(encoding="utf-8").splitlines() if target.exists() else []
+    rendered_line = f"{normalized_key}={_render_env_config_value(normalized_value)}"
+    next_lines: list[str] = []
+    replaced = False
+    for line in existing_lines:
+        stripped = line.strip()
+        line_key = stripped.split("=", 1)[0].strip() if "=" in stripped else ""
+        if line_key == normalized_key:
+            if not replaced:
+                next_lines.append(rendered_line)
+                replaced = True
+            continue
+        next_lines.append(line)
+    if not replaced:
+        next_lines.append(rendered_line)
+
+    tmp = target.with_name(f".{target.name}.tmp-{os.getpid()}")
+    tmp.write_text("\n".join(next_lines) + "\n", encoding="utf-8")
+    tmp.chmod(0o600)
+    tmp.replace(target)
+    target.chmod(0o600)
+    return target
+
+
+def format_secret_show_reply(config: CodexControlConfig) -> str:
+    values = read_cti_secret_values(config)
+    lines = ["Codex-to-IM Discord bridge 配置："]
+    for key in SECRET_CONFIG_KEYS:
+        lines.append(f"- `{key}`: {mask_secret_value(values.get(key, ''))}")
+    return "\n".join(lines)
+
+
+def handle_secret_command(
+    command: SecretCommand,
+    context: ChannelContext,
+    config: CodexControlConfig,
+    interaction: dict[str, Any],
+) -> CommandResult:
+    if not is_secret_interaction_authorized(config, context, interaction):
+        return CommandResult("secret_unauthorized", "无权限：请在指定管理频道中由白名单管理员执行。")
+    if command.action == "show":
+        try:
+            return CommandResult("secret_show", format_secret_show_reply(config))
+        except SecretConfigError as exc:
+            return CommandResult("secret_failed", f"读取失败：{exc}")
+        except OSError:
+            return CommandResult("secret_failed", "读取失败：无法访问配置文件。")
+    if command.action != "set":
+        return CommandResult("secret_invalid_command", "用法：`/secret set <key> <value>` 或 `/secret show`。")
+    try:
+        key = _validate_secret_key(command.key)
+    except SecretConfigError:
+        allowed = ", ".join(f"`{allowed_key}`" for allowed_key in SECRET_CONFIG_KEYS)
+        return CommandResult("secret_invalid_key", f"非法 key。允许：{allowed}")
+    try:
+        value = _validate_secret_value(command.value)
+        write_cti_secret_value(config, key, value)
+    except SecretConfigError as exc:
+        return CommandResult("secret_invalid_value", f"写入失败：{exc}")
+    except OSError:
+        return CommandResult("secret_failed", "写入失败：无法更新配置文件。")
+    masked_value = mask_secret_value(value)
+    return CommandResult("secret_set", f"`{key}` 已写入：{masked_value}\n需要重启 bridge 后生效：`/bridge restart`。")
+
+
+def restart_discord_control_gateway(config: CodexControlConfig) -> CommandResult:
+    label = os.environ.get("LZCAT_CODEX_CONTROL_LAUNCHD_LABEL", "cloud.lazycat.discord-codex-control").strip()
+    if not label:
+        return CommandResult("bridge_restart_failed", "重启失败：LaunchAgent label 为空。")
+    command = "\n".join(
+        [
+            "sleep 1",
+            " ".join(
+                [
+                    "launchctl",
+                    "kickstart",
+                    "-k",
+                    shlex.quote(f"gui/{os.getuid()}/{label}"),
+                ]
+            ),
+        ]
+    )
+    subprocess.Popen(
+        ["/bin/sh", "-c", command],
+        env=os.environ.copy(),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    return CommandResult("bridge_restart_scheduled", f"bridge 重启已安排：`{label}` 会在几秒内重启。")
+
+
+def handle_bridge_command(
+    command: BridgeCommand,
+    context: ChannelContext,
+    config: CodexControlConfig,
+    interaction: dict[str, Any],
+    *,
+    bridge_restarter: BridgeRestarter = restart_discord_control_gateway,
+) -> CommandResult:
+    if not is_secret_interaction_authorized(config, context, interaction):
+        return CommandResult("bridge_unauthorized", "无权限：请在指定管理频道中由白名单管理员执行。")
+    if command.action != "restart":
+        return CommandResult("bridge_invalid_command", "用法：`/bridge restart`。")
+    return bridge_restarter(config)
+
+
 def parse_interaction_command(interaction: dict[str, Any]) -> ParsedCommand | None:
     if interaction.get("type") != INTERACTION_APPLICATION_COMMAND:
         return None
@@ -795,6 +1179,11 @@ def parse_channel_message(
     config: CodexControlConfig,
     context: ChannelContext,
 ) -> ParsedCommand | None:
+    if context.scope == "secret_admin":
+        return None
+    if context.scope == "local_agent":
+        parsed = parse_control_message(message, config)
+        return parsed if parsed and parsed.kind == "local_agent" else None
     parsed = parse_control_message(message, config)
     if parsed:
         return parsed
@@ -847,6 +1236,7 @@ def build_help_reply() -> str:
             "`/retry [focus]` 或 `!retry` 让 Codex 接着当前失败继续处理",
             "`/filter-close [reason]` 或 `!filter-close` 把当前 repo 加入过滤名单并清理频道/worktree/branch/痕迹",
             "`/local-agent command:<命令>` 或 `!la <命令>` 执行 LocalAgent status/import/queue/find",
+            "`/bridge restart` 在 secret 管理频道手动重启 Discord Codex gateway",
             "直接发图片或语音附件时，会先识别内容再交给 Codex；可配合文字说明一起发。",
             "`/help` 或 `@Bot <需求>` 也可以直接唤起 Codex",
             "`#dashboard` / `#migration-control` 里的普通文本会默认直接交给 Codex，不需要每次 @",
@@ -2272,13 +2662,16 @@ def register_guild_slash_commands(config: CodexControlConfig, client: DiscordCli
     return client.bulk_overwrite_guild_application_commands(application_id, config.guild_id, codex_command_catalog())
 
 
-def _interaction_callback_message(content: str) -> dict[str, object]:
+def _interaction_callback_message(content: str, *, ephemeral: bool = False) -> dict[str, object]:
+    data: dict[str, object] = {
+        "content": truncate_reply(content),
+        "allowed_mentions": {"parse": []},
+    }
+    if ephemeral:
+        data["flags"] = INTERACTION_RESPONSE_EPHEMERAL_FLAG
     return {
         "type": INTERACTION_RESPONSE_CHANNEL_MESSAGE_WITH_SOURCE,
-        "data": {
-            "content": truncate_reply(content),
-            "allowed_mentions": {"parse": []},
-        },
+        "data": data,
     }
 
 
@@ -2286,6 +2679,87 @@ def _interaction_deferred_response() -> dict[str, object]:
     return {
         "type": INTERACTION_RESPONSE_DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
     }
+
+
+LOCAL_AGENT_DECISION_ACTIONS: dict[str, tuple[str, str, str]] = {
+    "queue": ("ready", "local_agent_decision_queued", "已加入待移植队列"),
+    "review": ("discovery_review", "local_agent_decision_review", "已进入发现复核"),
+    "defer": ("local_agent_deferred", "local_agent_decision_deferred", "已暂缓"),
+    "exclude": ("filtered_out", "local_agent_decision_excluded", "已排除"),
+}
+
+
+def _interaction_update_message(content: str) -> dict[str, object]:
+    return {
+        "type": INTERACTION_RESPONSE_UPDATE_MESSAGE,
+        "data": {
+            "content": truncate_reply(content),
+            "components": [],
+            "allowed_mentions": {"parse": []},
+        },
+    }
+
+
+def handle_local_agent_decision_interaction(
+    config: CodexControlConfig,
+    interaction: dict[str, Any],
+    *,
+    now: str | None = None,
+) -> CommandResult | None:
+    if interaction.get("type") != INTERACTION_MESSAGE_COMPONENT:
+        return None
+    data = interaction.get("data") if isinstance(interaction.get("data"), dict) else {}
+    custom_id = str(data.get("custom_id", "")).strip()
+    parts = custom_id.split(":")
+    if len(parts) != 3 or parts[0] != "la":
+        return None
+    action, token = parts[1], parts[2]
+    if action not in LOCAL_AGENT_DECISION_ACTIONS or not token:
+        return CommandResult("local_agent_decision_invalid", "无法识别这个 LocalAgent 决策按钮。")
+
+    local_config = build_local_agent_command_config(config)
+    state_path = resolve_path(config.repo_root, local_config.state_path)
+    state = read_json(state_path, {})
+    decision_tokens = state.get("decision_tokens") if isinstance(state.get("decision_tokens"), dict) else {}
+    item_id = str(decision_tokens.get(token, "")).strip()
+    if not item_id:
+        return CommandResult("local_agent_decision_unknown", "这个 LocalAgent 决策已经过期，请重新发布候选卡片。")
+
+    queue_path = resolve_path(config.repo_root, local_config.queue_path)
+    queue = read_json(queue_path, {"schema_version": 1, "items": []})
+    items = queue.get("items") if isinstance(queue.get("items"), list) else []
+    target = next((item for item in items if isinstance(item, dict) and str(item.get("id", "")).strip() == item_id), None)
+    if target is None:
+        snapshot_path = resolve_path(config.repo_root, local_config.snapshot_path)
+        snapshot = read_json(snapshot_path, {"candidates": []})
+        candidates = snapshot.get("candidates") if isinstance(snapshot.get("candidates"), list) else []
+        candidate = next(
+            (
+                item
+                for item in candidates
+                if isinstance(item, dict) and local_agent_candidate_id(item) == item_id
+            ),
+            None,
+        )
+        if candidate is None:
+            return CommandResult("local_agent_decision_missing_item", f"queue.json 中找不到 `{item_id}`。")
+        if not isinstance(queue.get("items"), list):
+            queue["items"] = []
+            items = queue["items"]
+        source = str(candidate.get("full_name") or candidate.get("repo_url") or item_id.removeprefix("github:")).strip()
+        target = {
+            "id": item_id,
+            "source": source,
+            "slug": local_agent_candidate_slug(candidate),
+            "candidate": candidate,
+        }
+        items.append(target)
+
+    new_state, status, message = LOCAL_AGENT_DECISION_ACTIONS[action]
+    target["state"] = new_state
+    target["ops_note"] = f"local_agent_decision:{action}:{now or utc_now_iso()}"
+    write_json(queue_path, queue)
+    return CommandResult(status, f"{message}：`{item_id}`。")
 
 
 def handle_gateway_interaction_create(
@@ -2296,6 +2770,7 @@ def handle_gateway_interaction_create(
     *,
     runner: CodexRunner = run_codex_control_task,
     dashboard_conversation: DashboardConversationRunner = default_dashboard_conversation,
+    bridge_restarter: BridgeRestarter = restart_discord_control_gateway,
     now: str | None = None,
 ) -> dict[str, str]:
     channel_id = str(interaction.get("channel_id", "")).strip()
@@ -2304,9 +2779,89 @@ def handle_gateway_interaction_create(
     application_id = str(interaction.get("application_id", "")).strip()
     if not channel_id or not interaction_id or not interaction_token or not application_id:
         return {"channel_id": channel_id, "message_id": interaction_id, "status": "ignored"}
+    secret_command = parse_secret_interaction(interaction)
+    bridge_command = parse_bridge_interaction(interaction)
     context = contexts_by_channel_id.get(channel_id)
+    if (secret_command or bridge_command) and not context:
+        try:
+            client.create_interaction_response(
+                interaction_id,
+                interaction_token,
+                _interaction_callback_message("无权限：请在指定管理频道中由白名单管理员执行。", ephemeral=True),
+            )
+        except Exception:  # pragma: no cover - exact HTTP exception type varies.
+            status = "bridge_unauthorized_reply_failed" if bridge_command else "secret_unauthorized_reply_failed"
+            return {"channel_id": channel_id, "message_id": interaction_id, "status": status}
+        status = "bridge_unauthorized" if bridge_command else "secret_unauthorized"
+        return {"channel_id": channel_id, "message_id": interaction_id, "status": status}
     if not context:
         return {"channel_id": channel_id, "message_id": interaction_id, "status": "unknown_channel"}
+    local_agent_decision = handle_local_agent_decision_interaction(config, interaction, now=now)
+    if local_agent_decision:
+        try:
+            client.create_interaction_response(
+                interaction_id,
+                interaction_token,
+                _interaction_update_message(local_agent_decision.reply),
+            )
+        except Exception:  # pragma: no cover - exact HTTP exception type varies.
+            return {
+                "channel_id": channel_id,
+                "message_id": interaction_id,
+                "status": f"{local_agent_decision.status}_reply_failed",
+            }
+        return {"channel_id": channel_id, "message_id": interaction_id, "status": local_agent_decision.status}
+    if secret_command:
+        result = handle_secret_command(secret_command, context, config, interaction)
+        try:
+            client.create_interaction_response(
+                interaction_id,
+                interaction_token,
+                _interaction_callback_message(result.reply, ephemeral=True),
+            )
+        except Exception:  # pragma: no cover - exact HTTP exception type varies.
+            return {
+                "channel_id": channel_id,
+                "message_id": interaction_id,
+                "status": f"{result.status}_reply_failed",
+            }
+        entry = {"channel_id": channel_id, "message_id": interaction_id, "status": result.status}
+        return entry
+    if bridge_command:
+        result = handle_bridge_command(
+            bridge_command,
+            context,
+            config,
+            interaction,
+            bridge_restarter=bridge_restarter,
+        )
+        try:
+            client.create_interaction_response(
+                interaction_id,
+                interaction_token,
+                _interaction_callback_message(result.reply, ephemeral=True),
+            )
+        except Exception:  # pragma: no cover - exact HTTP exception type varies.
+            return {
+                "channel_id": channel_id,
+                "message_id": interaction_id,
+                "status": f"{result.status}_reply_failed",
+            }
+        return {"channel_id": channel_id, "message_id": interaction_id, "status": result.status}
+    if context.scope == "secret_admin":
+        try:
+            client.create_interaction_response(
+                interaction_id,
+                interaction_token,
+                _interaction_callback_message("这个频道只允许执行 `/secret`。", ephemeral=True),
+            )
+        except Exception:  # pragma: no cover - exact HTTP exception type varies.
+            return {
+                "channel_id": channel_id,
+                "message_id": interaction_id,
+                "status": "secret_channel_restricted_reply_failed",
+            }
+        return {"channel_id": channel_id, "message_id": interaction_id, "status": "secret_channel_restricted"}
     parsed = parse_interaction_command(interaction)
     if not parsed:
         return {"channel_id": channel_id, "message_id": interaction_id, "status": "ignored"}
@@ -2879,6 +3434,19 @@ def config_from_project(repo_root: Path, *, execute: bool = True) -> CodexContro
     task_root = Path(project_config.codex_control.task_root).expanduser()
     if not task_root.is_absolute():
         task_root = repo_root / task_root
+    cti_home = Path(project_config.codex_control.cti_home).expanduser() if project_config.codex_control.cti_home else Path("")
+    secret_admin_user_ids = tuple(
+        dict.fromkeys(
+            list(project_config.codex_control.secret_admin_user_ids)
+            + list(_csv_tuple(os.environ.get("LZCAT_CODEX_SECRET_ADMIN_USERS", "")))
+            + list(_csv_tuple(os.environ.get("LZCAT_CODEX_SECRET_ADMIN_USER_IDS", "")))
+        )
+    )
+    secret_admin_channel_id = (
+        project_config.codex_control.secret_admin_channel_id
+        or os.environ.get("LZCAT_CODEX_SECRET_ADMIN_CHANNEL_ID", "").strip()
+        or os.environ.get("LZCAT_CODEX_SECRET_ADMIN_CHANNEL", "").strip()
+    )
     return CodexControlConfig(
         repo_root=repo_root,
         queue_path=repo_root / DEFAULT_QUEUE_PATH,
@@ -2896,6 +3464,9 @@ def config_from_project(repo_root: Path, *, execute: bool = True) -> CodexContro
         dashboard_reasoning_effort=project_config.codex_control.dashboard_reasoning_effort,
         dashboard_session_max_input_tokens=project_config.codex_control.dashboard_session_max_input_tokens,
         execute=execute,
+        cti_home=cti_home,
+        secret_admin_channel_id=secret_admin_channel_id,
+        secret_admin_user_ids=secret_admin_user_ids,
     )
 
 
@@ -2928,9 +3499,15 @@ def main() -> int:
         raise SystemExit("discord.guild_id is required in project-config.json")
     client = DiscordClient(token)
     if args.sync_slash_commands:
-        application_id = str(args.application_id).strip() or config.bot_user_id
+        application_id = (
+            str(args.application_id).strip()
+            or os.environ.get("LZCAT_CODEX_DISCORD_APPLICATION_ID", "").strip()
+            or config.bot_user_id
+        )
         if not application_id:
-            raise SystemExit("--application-id or codex_control.bot_user_id is required to register slash commands")
+            raise SystemExit(
+                "--application-id, LZCAT_CODEX_DISCORD_APPLICATION_ID, or codex_control.bot_user_id is required to register slash commands"
+            )
         registered = register_guild_slash_commands(config, client, application_id=application_id)
         print(json.dumps({"slash_commands": registered}, ensure_ascii=False, indent=2, sort_keys=True))
         return 0

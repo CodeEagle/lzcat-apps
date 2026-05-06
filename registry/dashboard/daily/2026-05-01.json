@@ -1,0 +1,317 @@
+{
+  "date": "2026-05-01",
+  "failed_items": [
+    {
+      "last_error": "auto_migrate exited 1",
+      "slug": "helix",
+      "source": "helixml/helix",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "nodewarden",
+      "source": "shuaiplus/nodewarden",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "hifi",
+      "source": "sachinsenal0x64/hifi",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "airbyte",
+      "source": "airbytehq/airbyte",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "openrun",
+      "source": "openrundev/openrun",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "easylist",
+      "source": "easylist/easylist",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "hallelujahim",
+      "source": "dongyuwei/hallelujahIM",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "auto_migrate exited 1",
+      "slug": "systeminformer",
+      "source": "winsiderss/systeminformer",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "labelme",
+      "source": "wkentaro/labelme",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "cvelistv5",
+      "source": "CVEProject/cvelistV5",
+      "state": "build_failed"
+    }
+  ],
+  "generated_at": "2026-05-01T01:30:02Z",
+  "local_agent": {
+    "status_counts": {
+      "already_migrated_by_other": 308,
+      "excluded": 256,
+      "needs_review": 227,
+      "portable": 373
+    },
+    "total": 1164
+  },
+  "publication": {
+    "status_counts": {
+      "in_progress": 16,
+      "local_only": 2,
+      "migrated": 3,
+      "published": 23
+    },
+    "total": 44
+  },
+  "queue": {
+    "state_counts": {
+      "blocked": 1,
+      "browser_pending": 41,
+      "build_failed": 31,
+      "copy_ready": 1,
+      "discovery_review": 647,
+      "filtered_out": 697,
+      "publish_ready": 1,
+      "ready": 574,
+      "waiting_for_human": 29
+    },
+    "total": 2022
+  },
+  "reward_opportunities": [
+    "完成可上架应用的开发者后台提交",
+    "为每个上架应用补齐 Playground 图文攻略",
+    "补齐桌面 2 张、手机 3 张网页内截图",
+    "把成功经验回写 template 分支提高下一次移植收益"
+  ],
+  "top_candidates": [
+    {
+      "description": "Warp is an agentic development environment, born out of the terminal.",
+      "full_name": "warpdotdev/warp",
+      "repo_url": "https://github.com/warpdotdev/warp",
+      "stars_today": 8262,
+      "status": "needs_review",
+      "total_stars": 48785
+    },
+    {
+      "description": "A complete AI agency at your fingertips - From frontend wizards to Reddit community ninjas, from whimsy injectors to reality checkers. Each agent is a specialized expert with personality, processes, and proven deliverables.",
+      "full_name": "msitarzewski/agency-agents",
+      "repo_url": "https://github.com/msitarzewski/agency-agents",
+      "stars_today": 4297,
+      "status": "needs_review",
+      "total_stars": 15597
+    },
+    {
+      "description": "A Simple and Universal Swarm Intelligence Engine, Predicting Anything. 简洁通用的群体智能引擎，预测万物",
+      "full_name": "666ghj/MiroFish",
+      "repo_url": "https://github.com/666ghj/MiroFish",
+      "stars_today": 2222,
+      "status": "portable",
+      "total_stars": 9766
+    },
+    {
+      "description": "The design language that makes your AI harness better at design.",
+      "full_name": "pbakaus/impeccable",
+      "repo_url": "https://github.com/pbakaus/impeccable",
+      "stars_today": 1291,
+      "status": "portable",
+      "total_stars": 2494
+    },
+    {
+      "description": "Useful tool to track location or mobile number",
+      "full_name": "HunxByts/GhostTrack",
+      "repo_url": "https://github.com/HunxByts/GhostTrack",
+      "stars_today": 830,
+      "status": "portable",
+      "total_stars": 12101
+    },
+    {
+      "description": "Coding Agent Harness",
+      "full_name": "1jehuang/jcode",
+      "repo_url": "https://github.com/1jehuang/jcode",
+      "stars_today": 670,
+      "status": "portable",
+      "total_stars": 1823
+    },
+    {
+      "description": "Unofficial Python API for Google NotebookLM",
+      "full_name": "teng-lin/notebooklm-py",
+      "repo_url": "https://github.com/teng-lin/notebooklm-py",
+      "stars_today": 457,
+      "status": "needs_review",
+      "total_stars": 3969
+    },
+    {
+      "description": "The best ChatGPT that $100 can buy.",
+      "full_name": "karpathy/nanochat",
+      "repo_url": "https://github.com/karpathy/nanochat",
+      "stars_today": 332,
+      "status": "portable",
+      "total_stars": 45195
+    }
+  ],
+  "waiting_for_human": [
+    {
+      "question": "treeverse/dvc 被识别为原生 CLI/SDK 项目，不是提供 HTTP 入口的 LazyCat Web 微服。是否要将该候选标记为跳过，而不是继续保留当前的 Web 微服迁移初稿？",
+      "slug": "dvc",
+      "source": "treeverse/dvc"
+    },
+    {
+      "question": "The Calcite build failure is fixed and a local LPK was generated, but install/reinstall acceptance cannot run because this worker shell does not have LZC_CLI_TOKEN. Should the worker be rerun with LazyCat install credentials, or should acceptance be deferred?",
+      "slug": "calcite",
+      "source": "apache/calcite"
+    },
+    {
+      "question": "XboxDownload is a native .NET/Avalonia desktop/network utility rather than a web service. Should this queue item be excluded, or should migration attempt a custom noVNC desktop wrapper despite the extra product and networking risk?",
+      "slug": "xboxdownload",
+      "source": "skydevil88/XboxDownload"
+    },
+    {
+      "question": "Camoufox appears to be a browser build/automation SDK rather than a self-contained HTTP web app for LazyCat. How should this queue item proceed?",
+      "slug": "camoufox",
+      "source": "daijro/camoufox"
+    },
+    {
+      "question": "Should wild-linker/wild be skipped as a non-web CLI tool, or should there be a special developer-tool packaging direction for it?",
+      "slug": "wild",
+      "source": "wild-linker/wild"
+    },
+    {
+      "question": "CMake does not expose a self-hosted web service. Should this queue item be skipped as non-deployable, or should humans define a special product scope such as a web terminal/toolbox package?",
+      "slug": "cmake",
+      "source": "Kitware/CMake"
+    },
+    {
+      "question": "NixOS/nixpkgs appears to be the Nix package collection and NixOS source tree, not a standalone HTTP web service. How should this candidate be handled?",
+      "slug": "nixpkgs",
+      "source": "NixOS/nixpkgs"
+    },
+    {
+      "question": "rocksdanister/lively is a Windows WinUI desktop wallpaper/screensaver app, not a web service. How should this queue item be handled?",
+      "slug": "lively",
+      "source": "rocksdanister/lively"
+    },
+    {
+      "question": "community-scripts/ProxmoxVE is a Proxmox helper-script catalog rather than a runnable web app. Should this queue item be skipped, or should a specific service script from the catalog be selected for a separate LazyCat migration?",
+      "slug": "proxmoxve",
+      "source": "community-scripts/ProxmoxVE"
+    },
+    {
+      "question": "Unsloth migration is blocked because unslothai/unsloth appears to be the Python SDK/CLI repo, while the candidate description mentions Unsloth Studio as a web UI. Which upstream/product should be migrated?",
+      "slug": "unsloth",
+      "source": "unslothai/unsloth"
+    },
+    {
+      "question": "Docker Hub is returning HTTP 429 for the Go builder image golang:1.24-bookworm during MCPJungle build verification. Please provide Docker Hub credentials for this worker, confirm we should wait for the anonymous rate limit to reset, or approve a specific trusted Go builder mirror/base image.",
+      "slug": "mcpjungle",
+      "source": "mcpjungle/MCPJungle"
+    },
+    {
+      "question": "The migration script now recognizes and generates the Impeccable Bun static-site app, and preflight passes, but Docker build is blocked by Docker Hub unauthenticated pull rate limits while resolving base images such as nginx:1.27-alpine. Please provide Docker Hub authentication for the build environment or clear the pull-rate limit, then rerun the migration.",
+      "slug": "impeccable",
+      "source": "pbakaus/impeccable"
+    },
+    {
+      "question": "Win11Debloat is a Windows PowerShell/registry automation tool rather than a web service LazyCat can host directly. Should this candidate be skipped, or should a human define a custom LazyCat wrapper/listing concept?",
+      "slug": "win11debloat",
+      "source": "Raphire/Win11Debloat"
+    },
+    {
+      "question": "The SRS migration now uses the official image and passes local dry-run packaging, but full reinstall is blocked because `lzc-cli appstore copy-image` prompts for LazyCat login. Please provide/refresh non-interactive LazyCat CLI credentials for this worker, or approve continuing only with dry-run validation.",
+      "slug": "srs",
+      "source": "ossrs/srs"
+    },
+    {
+      "question": "Chatwoot needs a build-platform decision. The local ARM Colima host can start Docker now, but linux/amd64 Alpine/Ruby native-extension compilation repeatedly segfaults under QEMU while building Nokogiri. Which path should the migration worker use?",
+      "slug": "chatwoot",
+      "source": "chatwoot/chatwoot"
+    },
+    {
+      "question": "The Ente build failure is fixed, but lzc-cli appstore copy-image is prompting for LazyCat login and cannot continue unattended. Please refresh/provide valid LazyCat CLI credentials for this worker, then resume the queue item.",
+      "slug": "ente",
+      "source": "ente-io/ente"
+    },
+    {
+      "question": "The Typesense migration now selects the correct official image, but lzc-cli appstore copy-image prompts for a LazyCat login username. Please provide/refresh valid lzc-cli App Store credentials on this worker so copy-image can run non-interactively, then resume the queue item.",
+      "slug": "typesense",
+      "source": "typesense/typesense"
+    },
+    {
+      "question": "The Zulip migration now reaches LazyCat appstore copy-image using the official image ghcr.io/zulip/zulip-server:12.0-0, but lzc-cli is not authenticated and prompts for a LazyCat login username. Please authenticate lzc-cli for appstore copy-image or provide the required credentials/session setup.",
+      "slug": "zulip",
+      "source": "zulip/zulip"
+    },
+    {
+      "question": "Tasmota is ESP8266/ESP32 firmware with a device Web UI, not a self-hosted HTTP service. How should this queue item be handled?",
+      "slug": "tasmota",
+      "source": "arendst/Tasmota"
+    },
+    {
+      "question": "The mediamtx migration now builds and pushes the GHCR image, but `lzc-cli appstore copy-image` prompts for a LazyCat login in the unattended worker. Please provide/refresh non-interactive LazyCat appstore credentials for this workspace, then rerun the worker.",
+      "slug": "mediamtx",
+      "source": "bluenviron/mediamtx"
+    },
+    {
+      "question": "The Flarum image now builds and pushes to GHCR, but `copy-image` prompts for LazyCat login. Please provide or refresh LazyCat registry credentials for this worker environment, then rerun the queue item.",
+      "slug": "flarum",
+      "source": "flarum/flarum"
+    },
+    {
+      "question": "Mail-in-a-Box appears to be a whole-host Ubuntu mail-server appliance rather than a portable LazyCat container app. How should this queue item be handled?",
+      "slug": "mailinabox",
+      "source": "mail-in-a-box/mailinabox"
+    },
+    {
+      "question": "The Druid migration cannot continue because lzc-cli appstore commands request interactive login even though a token string exists. Please refresh LazyCat CLI/appstore credentials for unattended copy-image/install operations, or provide a valid LZC_CLI_TOKEN.",
+      "slug": "druid",
+      "source": "apache/druid"
+    },
+    {
+      "question": "LazyCat copy-image for diaspora reached an interactive login prompt. Please refresh/provide unattended lzc-cli credentials for this worker, then rerun the migration.",
+      "slug": "diaspora",
+      "source": "diaspora/diaspora"
+    },
+    {
+      "question": "The Automatisch migration now builds and pushes its images, but `lzc-cli appstore copy-image` prompts for LazyCat login. Please refresh/provide valid LazyCat CLI credentials for this worker, or choose build-only verification.",
+      "slug": "automatisch",
+      "source": "automatisch/automatisch"
+    },
+    {
+      "question": "The Stalwart migration now uses the public official image stalwartlabs/stalwart:v0.16.2, but lzc-cli appstore copy-image prompts for login instead of using a valid LazyCat token. Please provide or refresh LazyCat CLI credentials for this worker, then reply when lzc-cli appstore copy-image can run non-interactively.",
+      "slug": "stalwart",
+      "source": "stalwartlabs/stalwart"
+    },
+    {
+      "question": "The rybbit build automation has been fixed for the copy-image output parsing issue, but this worker cannot rerun the full reinstall path because lzc-cli appstore commands prompt for LazyCat login. Please refresh/provide non-interactive LazyCat CLI credentials for this worker, then resume the queue item.",
+      "slug": "rybbit",
+      "source": "rybbit-io/rybbit"
+    },
+    {
+      "question": "The Manticore Search migration now reaches LazyCat copy-image using the official image docker.io/manticoresearch/manticore:25.0.0, but lzc-cli prompts for a login username. Please provide/refresh valid LazyCat appstore credentials for this environment, or confirm that this item should only be validated without copy-image/install.",
+      "slug": "manticoresearch",
+      "source": "manticoresoftware/manticoresearch"
+    },
+    {
+      "question": "The Datasette image now builds and pushes, but lzc-cli appstore copy-image prompts for LazyCat login credentials. Please authenticate lzc-cli for this machine/session or provide the expected non-interactive credential setup so the worker can continue copy-image, packaging, install, and functional verification.",
+      "slug": "datasette",
+      "source": "simonw/datasette"
+    }
+  ]
+}

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -16,8 +18,16 @@ DISCORD_API_BASE = "https://discord.com/api/v10"
 DISCORD_GUILD_TEXT_TYPE = 0
 MAX_DISCORD_MESSAGE_LENGTH = 2000
 MAX_DISCORD_TOPIC_LENGTH = 1024
+MAX_DISCORD_CHANNEL_NAME_LENGTH = 100
 
 DiscordTransport = Callable[[str, str, dict[str, object] | None], object]
+
+
+def split_discord_message(content: str, *, limit: int = MAX_DISCORD_MESSAGE_LENGTH) -> list[str]:
+    if not content:
+        return []
+    chunk_size = max(1, limit)
+    return [content[index : index + chunk_size] for index in range(0, len(content), chunk_size)]
 
 
 def channel_name_for_slug(slug: str, *, prefix: str = "migration") -> str:
@@ -26,7 +36,28 @@ def channel_name_for_slug(slug: str, *, prefix: str = "migration") -> str:
     if "/" in slug_value:
         slug_value = slug_value.rsplit("/", 1)[-1]
     normalized_slug = normalize_slug(slug_value)
-    return f"{normalized_prefix}-{normalized_slug}"
+    channel_name = f"{normalized_prefix}-{normalized_slug}"
+    return channel_name[:MAX_DISCORD_CHANNEL_NAME_LENGTH].rstrip("-") or normalized_prefix[:MAX_DISCORD_CHANNEL_NAME_LENGTH]
+
+
+def _retry_after_seconds(exc: urllib.error.HTTPError) -> float:
+    retry_after = str(exc.headers.get("Retry-After", "")).strip()
+    try:
+        if retry_after:
+            return max(0.0, float(retry_after))
+    except ValueError:
+        pass
+    try:
+        body = exc.read().decode("utf-8", errors="replace")
+        payload = json.loads(body) if body else {}
+    except (OSError, json.JSONDecodeError):
+        return 1.0
+    if isinstance(payload, dict):
+        try:
+            return max(0.0, float(payload.get("retry_after") or 1.0))
+        except (TypeError, ValueError):
+            return 1.0
+    return 1.0
 
 
 def _candidate_description(item: dict[str, Any]) -> str:
@@ -106,6 +137,7 @@ class DiscordClient:
     token: str
     api_base: str = DISCORD_API_BASE
     transport: DiscordTransport | None = None
+    max_retries: int = 2
 
     def request_json(self, method: str, route: str, payload: dict[str, object] | None = None) -> object:
         if self.transport:
@@ -122,8 +154,17 @@ class DiscordClient:
                 "User-Agent": "lzcat-auto-migration/1.0",
             },
         )
-        with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 - Discord API endpoint.
-            response_body = response.read()
+        attempts = max(1, self.max_retries + 1)
+        response_body = b""
+        for attempt in range(attempts):
+            try:
+                with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 - Discord API endpoint.
+                    response_body = response.read()
+                break
+            except urllib.error.HTTPError as exc:
+                if exc.code != 429 or attempt >= attempts - 1:
+                    raise
+                time.sleep(min(_retry_after_seconds(exc), 5.0))
         if not response_body:
             return {}
         return json.loads(response_body.decode("utf-8"))
@@ -154,12 +195,17 @@ class DiscordClient:
             raise ValueError("Discord create guild channel response is not an object")
         return response
 
-    def send_message(self, channel_id: str, content: str) -> dict[str, Any]:
-        response = self.request_json(
-            "POST",
-            f"/channels/{channel_id}/messages",
-            {"content": content, "allowed_mentions": {"parse": []}},
-        )
+    def send_message(
+        self,
+        channel_id: str,
+        content: str,
+        *,
+        components: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, object] = {"content": content, "allowed_mentions": {"parse": []}}
+        if components is not None:
+            payload["components"] = components
+        response = self.request_json("POST", f"/channels/{channel_id}/messages", payload)
         if not isinstance(response, dict):
             raise ValueError("Discord send message response is not an object")
         return response
@@ -167,12 +213,18 @@ class DiscordClient:
     def add_reaction(self, channel_id: str, message_id: str, emoji: str) -> None:
         self.request_json("PUT", f"/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me")
 
-    def edit_message(self, channel_id: str, message_id: str, content: str) -> dict[str, Any]:
-        response = self.request_json(
-            "PATCH",
-            f"/channels/{channel_id}/messages/{message_id}",
-            {"content": content, "allowed_mentions": {"parse": []}},
-        )
+    def edit_message(
+        self,
+        channel_id: str,
+        message_id: str,
+        content: str,
+        *,
+        components: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, object] = {"content": content, "allowed_mentions": {"parse": []}}
+        if components is not None:
+            payload["components"] = components
+        response = self.request_json("PATCH", f"/channels/{channel_id}/messages/{message_id}", payload)
         if not isinstance(response, dict):
             raise ValueError("Discord edit message response is not an object")
         return response
@@ -259,7 +311,12 @@ class MigrationDiscordNotifier:
         message_id = str(discord_state.get("message_id", "")).strip()
         existing_channel_id = str(discord_state.get("channel_id", "")).strip()
         if message_id and existing_channel_id == channel_id:
-            message = self.client.edit_message(channel_id, message_id, content)
+            try:
+                message = self.client.edit_message(channel_id, message_id, content)
+            except urllib.error.HTTPError as exc:
+                if exc.code not in {403, 404}:
+                    raise
+                message = self.client.send_message(channel_id, content)
         else:
             message = self.client.send_message(channel_id, content)
 

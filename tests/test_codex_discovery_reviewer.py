@@ -44,6 +44,35 @@ class CodexDiscoveryReviewerTest(unittest.TestCase):
         self.assertIn("discovery_review", prompt)
         self.assertIn("developer", prompt)
 
+    def test_build_codex_prompt_includes_store_search_hit_contract(self) -> None:
+        repo_root = self.make_repo_root()
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        item = {
+            "id": "local-agent:paperclipai/paperclip",
+            "source": "paperclipai/paperclip",
+            "slug": "paperclip",
+            "state": "discovery_review",
+            "candidate": {
+                "status": "needs_review",
+                "lazycat_hits": [
+                    {
+                        "raw_label": "Paperclip AI",
+                        "detail_url": "https://lazycat.cloud/appstore/paperclip",
+                        "reason": "name match",
+                    }
+                ],
+                "ai_store_review": {"status": "pending", "source": "lazycat_store_search"},
+            },
+        }
+
+        prompt = build_codex_prompt(repo_root, queue_path, item)
+
+        self.assertIn("LazyCat app-store search hits", prompt)
+        self.assertIn("Paperclip AI", prompt)
+        self.assertIn("https://lazycat.cloud/appstore/paperclip", prompt)
+        self.assertIn("choose `needs_human`; do not guess", prompt)
+        self.assertIn("choose `skip` and cite the hit", prompt)
+
     def test_build_codex_command_uses_noninteractive_exec(self) -> None:
         repo_root = self.make_repo_root()
         config = DiscoveryReviewerConfig(

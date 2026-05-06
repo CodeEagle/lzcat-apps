@@ -16,6 +16,7 @@ from scripts.discord_codex_control import (
     CodexControlConfig,
     CodexControlRunResult,
     CodexControlTask,
+    CommandResult,
     DashboardConversationResult,
     DashboardConversationTurn,
     DashboardConversationWorker,
@@ -41,8 +42,10 @@ from scripts.discord_codex_control import (
     process_codex_control_commands,
     register_guild_slash_commands,
     run_codex_control_task,
+    _resolve_cti_home,
 )
 from scripts.discord_migration_notifier import DiscordClient
+from scripts.discord_local_agent_commands import decision_token_for_item_id
 
 
 class DiscordCodexControlTest(unittest.TestCase):
@@ -72,7 +75,15 @@ class DiscordCodexControlTest(unittest.TestCase):
         queue_path.write_text(json.dumps({"schema_version": 1, "items": [item]}) + "\n", encoding="utf-8")
         return queue_path
 
-    def make_config(self, repo_root: Path, *, workspace_root: Path | None = None) -> CodexControlConfig:
+    def make_config(
+        self,
+        repo_root: Path,
+        *,
+        workspace_root: Path | None = None,
+        cti_home: Path | None = None,
+        secret_admin_channel_id: str = "",
+        secret_admin_user_ids: tuple[str, ...] = (),
+    ) -> CodexControlConfig:
         return CodexControlConfig(
             repo_root=repo_root,
             queue_path=repo_root / "registry" / "auto-migration" / "queue.json",
@@ -87,6 +98,9 @@ class DiscordCodexControlTest(unittest.TestCase):
             model="gpt-5.5",
             dashboard_model="gpt-5.5",
             dashboard_reasoning_effort="xhigh",
+            cti_home=cti_home or Path(""),
+            secret_admin_channel_id=secret_admin_channel_id,
+            secret_admin_user_ids=secret_admin_user_ids,
         )
 
     def test_parse_direct_and_mention_commands(self) -> None:
@@ -119,6 +133,24 @@ class DiscordCodexControlTest(unittest.TestCase):
                 os.environ["LZCAT_CODEX_DISABLE_DASHBOARD"] = old_value
 
         self.assertIsNone(context)
+
+    def test_local_agent_channel_context_allows_only_local_agent_commands(self) -> None:
+        repo_root = self.make_repo_root()
+        config = self.make_config(repo_root)
+        context = channel_context(
+            {"id": "local-agent-1", "name": "migration-local-agent", "type": 0, "parent_id": "category-1"},
+            config,
+            [],
+        )
+
+        self.assertIsNotNone(context)
+        assert context is not None
+        self.assertEqual(context.scope, "local_agent")
+        self.assertFalse(context.implicit_codex)
+        self.assertIsNone(parse_channel_message({"id": "1", "content": "随便聊一句"}, config, context))
+        self.assertIsNone(parse_channel_message({"id": "2", "content": "!codex 开始迁移"}, config, context))
+        parsed = parse_channel_message({"id": "3", "content": "!la status"}, config, context)
+        self.assertEqual(parsed, ParsedCommand("local_agent", "!la status"))
 
     def test_parse_slash_interaction_commands(self) -> None:
         self.assertEqual(
@@ -157,6 +189,34 @@ class DiscordCodexControlTest(unittest.TestCase):
 
         self.assertEqual(result, [{"id": "cmd-1", "name": "status"}])
         self.assertEqual(events, [("PUT", "/applications/app-1/guilds/guild-1/commands", codex_command_catalog())])
+        self.assertIn("bridge", [str(command.get("name", "")) for command in codex_command_catalog()])
+
+    def test_cti_home_defaults_to_agenthub_home_and_ignores_lzcat_home_env(self) -> None:
+        repo_root = self.make_repo_root()
+        config = self.make_config(repo_root)
+        old_home = os.environ.get("CTI_HOME")
+        old_agenthub_home = os.environ.get("AGENTHUB_HOME")
+        old_lzcat_home = os.environ.get("CTI_LZCAT_HOME")
+        os.environ.pop("CTI_HOME", None)
+        os.environ.pop("AGENTHUB_HOME", None)
+        os.environ["CTI_LZCAT_HOME"] = "/tmp/legacy-lzcat-home"
+        try:
+            resolved = _resolve_cti_home(config)
+        finally:
+            if old_home is None:
+                os.environ.pop("CTI_HOME", None)
+            else:
+                os.environ["CTI_HOME"] = old_home
+            if old_agenthub_home is None:
+                os.environ.pop("AGENTHUB_HOME", None)
+            else:
+                os.environ["AGENTHUB_HOME"] = old_agenthub_home
+            if old_lzcat_home is None:
+                os.environ.pop("CTI_LZCAT_HOME", None)
+            else:
+                os.environ["CTI_LZCAT_HOME"] = old_lzcat_home
+
+        self.assertEqual(resolved, Path("/Users/lincoln/Develop/GitHub/AgentHub/.agenthub/codex-to-im").resolve())
 
     def test_parse_empty_role_mention_as_content_unavailable(self) -> None:
         repo_root = self.make_repo_root()
@@ -889,6 +949,465 @@ class DiscordCodexControlTest(unittest.TestCase):
         self.assertEqual(result, {"channel_id": "dashboard-1", "message_id": "900", "status": "status"})
         self.assertEqual(len(replies), 1)
         self.assertIn("Codex Dashboard 状态", replies[0])
+
+    def test_secret_set_writes_allowed_key_to_temp_home_with_masked_ephemeral_reply(self) -> None:
+        repo_root = self.make_repo_root()
+        cti_home = Path(tempfile.mkdtemp(prefix="discord-secret-home-"))
+        config = self.make_config(repo_root, cti_home=cti_home, secret_admin_user_ids=("admin-1",))
+        context = ChannelContext(
+            channel_id="control-1",
+            channel_name="migration-control",
+            scope="control",
+            workdir=repo_root,
+        )
+        secret_value = "fake-token-abc123456789xyz"
+        events: list[tuple[str, str, dict[str, object] | None]] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            events.append((method, route, payload))
+            if method == "POST" and route == "/interactions/910/token-910/callback":
+                assert payload is not None
+                self.assertNotIn(secret_value, json.dumps(payload, ensure_ascii=False))
+                return {}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        result = handle_gateway_interaction_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"control-1": context},
+            {
+                "id": "910",
+                "application_id": "app-1",
+                "channel_id": "control-1",
+                "guild_id": "guild-1",
+                "token": "token-910",
+                "type": 2,
+                "member": {"user": {"id": "admin-1"}},
+                "data": {
+                    "name": "secret",
+                    "options": [
+                        {
+                            "type": 1,
+                            "name": "set",
+                            "options": [
+                                {"name": "key", "value": "CTI_DISCORD_BOT_TOKEN"},
+                                {"name": "value", "value": secret_value},
+                            ],
+                        }
+                    ],
+                },
+            },
+            runner=lambda task: (_ for _ in ()).throw(AssertionError(f"secret reached Codex prompt: {task.prompt}")),
+            now="2026-04-26T10:00:00Z",
+        )
+
+        config_path = cti_home / "config.env"
+        reply_payload = events[0][2] or {}
+        reply_data = reply_payload.get("data") if isinstance(reply_payload.get("data"), dict) else {}
+        reply_content = str(reply_data.get("content", ""))
+        self.assertEqual(result, {"channel_id": "control-1", "message_id": "910", "status": "secret_set"})
+        self.assertEqual(reply_data.get("flags"), 64)
+        self.assertIn("CTI_DISCORD_BOT_TOKEN", reply_content)
+        self.assertIn("重启", reply_content)
+        self.assertNotIn(secret_value, reply_content)
+        self.assertIn("fake", reply_content)
+        self.assertIn("9xyz", reply_content)
+        self.assertTrue(config_path.exists())
+        self.assertEqual(config_path.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(config_path.parent, cti_home)
+        self.assertIn(f"CTI_DISCORD_BOT_TOKEN={secret_value}", config_path.read_text(encoding="utf-8"))
+        self.assertNotIn(secret_value, json.dumps(result, ensure_ascii=False))
+
+    def test_secret_set_rejects_invalid_key_without_leaking_value_or_writing(self) -> None:
+        repo_root = self.make_repo_root()
+        cti_home = Path(tempfile.mkdtemp(prefix="discord-secret-home-"))
+        config = self.make_config(repo_root, cti_home=cti_home, secret_admin_user_ids=("admin-1",))
+        context = ChannelContext(
+            channel_id="control-1",
+            channel_name="migration-control",
+            scope="control",
+            workdir=repo_root,
+        )
+        rejected_value = "fake-disallowed-secret-value"
+        replies: list[str] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "POST" and route == "/interactions/911/token-911/callback":
+                assert payload is not None
+                replies.append(json.dumps(payload, ensure_ascii=False))
+                return {}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        result = handle_gateway_interaction_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"control-1": context},
+            {
+                "id": "911",
+                "application_id": "app-1",
+                "channel_id": "control-1",
+                "guild_id": "guild-1",
+                "token": "token-911",
+                "type": 2,
+                "member": {"user": {"id": "admin-1"}},
+                "data": {
+                    "name": "secret",
+                    "options": [
+                        {
+                            "type": 1,
+                            "name": "set",
+                            "options": [
+                                {"name": "key", "value": "CTI_NOT_ALLOWED"},
+                                {"name": "value", "value": rejected_value},
+                            ],
+                        }
+                    ],
+                },
+            },
+            runner=lambda task: (_ for _ in ()).throw(AssertionError(f"secret reached Codex prompt: {task.prompt}")),
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(result, {"channel_id": "control-1", "message_id": "911", "status": "secret_invalid_key"})
+        self.assertFalse((cti_home / "config.env").exists())
+        self.assertEqual(len(replies), 1)
+        self.assertNotIn(rejected_value, replies[0])
+        self.assertIn('"flags": 64', replies[0])
+
+    def test_secret_show_masks_existing_values(self) -> None:
+        repo_root = self.make_repo_root()
+        cti_home = Path(tempfile.mkdtemp(prefix="discord-secret-home-"))
+        cti_home.mkdir(parents=True, exist_ok=True)
+        (cti_home / "config.env").write_text(
+            "\n".join(
+                [
+                    "CTI_DISCORD_BOT_TOKEN=fake-token-for-show-123456",
+                    "CTI_DISCORD_ALLOWED_USERS=admin-1,admin-2",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (cti_home / "config.env").chmod(0o600)
+        config = self.make_config(repo_root, cti_home=cti_home, secret_admin_user_ids=("admin-1",))
+        context = ChannelContext(
+            channel_id="control-1",
+            channel_name="migration-control",
+            scope="control",
+            workdir=repo_root,
+        )
+        replies: list[dict[str, object]] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "POST" and route == "/interactions/912/token-912/callback":
+                assert payload is not None
+                replies.append(payload)
+                return {}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        result = handle_gateway_interaction_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"control-1": context},
+            {
+                "id": "912",
+                "application_id": "app-1",
+                "channel_id": "control-1",
+                "guild_id": "guild-1",
+                "token": "token-912",
+                "type": 2,
+                "member": {"user": {"id": "admin-1"}},
+                "data": {"name": "secret", "options": [{"type": 1, "name": "show"}]},
+            },
+            runner=lambda task: (_ for _ in ()).throw(AssertionError(f"secret reached Codex prompt: {task.prompt}")),
+            now="2026-04-26T10:00:00Z",
+        )
+
+        reply_data = (replies[0].get("data") or {}) if replies else {}
+        reply_content = str(reply_data.get("content", ""))
+        self.assertEqual(result, {"channel_id": "control-1", "message_id": "912", "status": "secret_show"})
+        self.assertEqual(reply_data.get("flags"), 64)
+        self.assertIn("CTI_DISCORD_BOT_TOKEN", reply_content)
+        self.assertIn("CTI_DISCORD_ALLOWED_USERS", reply_content)
+        self.assertNotIn("fake-token-for-show-123456", reply_content)
+        self.assertNotIn("admin-1,admin-2", reply_content)
+        self.assertIn("fake", reply_content)
+        self.assertIn("3456", reply_content)
+
+    def test_secret_command_requires_control_channel_and_admin_user(self) -> None:
+        repo_root = self.make_repo_root()
+        cti_home = Path(tempfile.mkdtemp(prefix="discord-secret-home-"))
+        config = self.make_config(repo_root, cti_home=cti_home, secret_admin_user_ids=("admin-1",))
+        migration_context = ChannelContext(
+            channel_id="piclaw-1",
+            channel_name="migration-piclaw",
+            scope="migration",
+            slug="piclaw",
+            workdir=repo_root,
+        )
+        control_context = ChannelContext(
+            channel_id="control-1",
+            channel_name="migration-control",
+            scope="control",
+            workdir=repo_root,
+        )
+        replies: list[str] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "POST" and route in {
+                "/interactions/913/token-913/callback",
+                "/interactions/914/token-914/callback",
+            }:
+                assert payload is not None
+                replies.append(json.dumps(payload, ensure_ascii=False))
+                return {}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        base_interaction = {
+            "application_id": "app-1",
+            "guild_id": "guild-1",
+            "type": 2,
+            "data": {"name": "secret", "options": [{"type": 1, "name": "show"}]},
+        }
+        wrong_channel_result = handle_gateway_interaction_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"piclaw-1": migration_context},
+            {
+                **base_interaction,
+                "id": "913",
+                "channel_id": "piclaw-1",
+                "token": "token-913",
+                "member": {"user": {"id": "admin-1"}},
+            },
+            now="2026-04-26T10:00:00Z",
+        )
+        wrong_user_result = handle_gateway_interaction_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"control-1": control_context},
+            {
+                **base_interaction,
+                "id": "914",
+                "channel_id": "control-1",
+                "token": "token-914",
+                "member": {"user": {"id": "not-admin"}},
+            },
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(wrong_channel_result["status"], "secret_unauthorized")
+        self.assertEqual(wrong_user_result["status"], "secret_unauthorized")
+        self.assertFalse((cti_home / "config.env").exists())
+        self.assertEqual(len(replies), 2)
+        self.assertTrue(all('"flags": 64' in reply for reply in replies))
+
+    def test_secret_admin_channel_is_discovered_without_implicit_codex(self) -> None:
+        repo_root = self.make_repo_root()
+        cti_home = Path(tempfile.mkdtemp(prefix="discord-secret-home-"))
+        config = self.make_config(
+            repo_root,
+            cti_home=cti_home,
+            secret_admin_channel_id="secret-1",
+            secret_admin_user_ids=("admin-1",),
+        )
+        context = channel_context(
+            {"id": "secret-1", "name": "migration-secrets", "type": 0, "parent_id": "private-category"},
+            config,
+            [],
+        )
+
+        self.assertIsNotNone(context)
+        assert context is not None
+        self.assertEqual(context.scope, "secret_admin")
+        self.assertFalse(context.implicit_codex)
+        self.assertIsNone(
+            parse_channel_message(
+                {"content": "CTI_DISCORD_BOT_TOKEN=should-not-enter-codex", "author": {"id": "admin-1"}},
+                config,
+                context,
+            )
+        )
+        self.assertIsNone(
+            parse_channel_message(
+                {"content": "!codex read this secret", "author": {"id": "admin-1"}},
+                config,
+                context,
+            )
+        )
+
+        replies: list[dict[str, object]] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "POST" and route in {
+                "/interactions/915/token-915/callback",
+                "/interactions/916/token-916/callback",
+            }:
+                assert payload is not None
+                replies.append(payload)
+                return {}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        result = handle_gateway_interaction_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"secret-1": context},
+            {
+                "id": "915",
+                "application_id": "app-1",
+                "channel_id": "secret-1",
+                "guild_id": "guild-1",
+                "token": "token-915",
+                "type": 2,
+                "member": {"user": {"id": "admin-1"}},
+                "data": {"name": "secret", "options": [{"type": 1, "name": "show"}]},
+            },
+            runner=lambda task: (_ for _ in ()).throw(AssertionError(f"secret reached Codex prompt: {task.prompt}")),
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(result, {"channel_id": "secret-1", "message_id": "915", "status": "secret_show"})
+        self.assertEqual((replies[0].get("data") or {}).get("flags"), 64)
+
+        blocked_result = handle_gateway_interaction_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"secret-1": context},
+            {
+                "id": "916",
+                "application_id": "app-1",
+                "channel_id": "secret-1",
+                "guild_id": "guild-1",
+                "token": "token-916",
+                "type": 2,
+                "member": {"user": {"id": "admin-1"}},
+                "data": {"name": "codex", "options": [{"name": "task", "value": "read this secret"}]},
+            },
+            runner=lambda task: (_ for _ in ()).throw(AssertionError(f"non-secret reached Codex prompt: {task.prompt}")),
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(blocked_result["status"], "secret_channel_restricted")
+
+    def test_bridge_restart_is_admin_only_and_does_not_reach_codex(self) -> None:
+        repo_root = self.make_repo_root()
+        config = self.make_config(
+            repo_root,
+            secret_admin_channel_id="secret-1",
+            secret_admin_user_ids=("admin-1",),
+        )
+        context = ChannelContext(
+            channel_id="secret-1",
+            channel_name="migration-secrets",
+            scope="secret_admin",
+            workdir=repo_root,
+            implicit_codex=False,
+        )
+        replies: list[dict[str, object]] = []
+        restarts: list[CodexControlConfig] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "POST" and route == "/interactions/917/token-917/callback":
+                assert payload is not None
+                replies.append(payload)
+                return {}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        def bridge_restarter(restart_config: CodexControlConfig) -> CommandResult:
+            restarts.append(restart_config)
+            return CommandResult("bridge_restart_scheduled", "Bridge restart scheduled.")
+
+        result = handle_gateway_interaction_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"secret-1": context},
+            {
+                "id": "917",
+                "application_id": "app-1",
+                "channel_id": "secret-1",
+                "guild_id": "guild-1",
+                "token": "token-917",
+                "type": 2,
+                "member": {"user": {"id": "admin-1"}},
+                "data": {"name": "bridge", "options": [{"type": 1, "name": "restart"}]},
+            },
+            runner=lambda task: (_ for _ in ()).throw(AssertionError(f"bridge restart reached Codex prompt: {task.prompt}")),
+            bridge_restarter=bridge_restarter,
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(result, {"channel_id": "secret-1", "message_id": "917", "status": "bridge_restart_scheduled"})
+        self.assertEqual(restarts, [config])
+        self.assertEqual((replies[0].get("data") or {}).get("flags"), 64)
+        self.assertIn("Bridge restart scheduled", str((replies[0].get("data") or {}).get("content", "")))
+
+    def test_gateway_routes_local_agent_button_to_queue_decision(self) -> None:
+        repo_root = self.make_repo_root()
+        snapshot_path = repo_root / "registry" / "candidates" / "local-agent-latest.json"
+        snapshot_path.parent.mkdir(parents=True)
+        snapshot_path.write_text(
+            json.dumps(
+                {
+                    "candidates": [
+                        {
+                            "full_name": "owner/demo",
+                            "repo": "demo",
+                            "repo_url": "https://github.com/owner/demo",
+                            "description": "Demo app",
+                            "status": "portable",
+                            "discovery_source": "local_agent",
+                        }
+                    ]
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        state_path = repo_root / "registry" / "auto-migration" / "discord-local-agent-commands.json"
+        item_id = "github:owner/demo"
+        token = decision_token_for_item_id(item_id)
+        state_path.parent.mkdir(parents=True)
+        state_path.write_text(json.dumps({"decision_tokens": {token: item_id}}) + "\n", encoding="utf-8")
+        config = self.make_config(repo_root, secret_admin_user_ids=("admin-1",))
+        context = ChannelContext(
+            channel_id="local-agent-1",
+            channel_name="migration-local-agent",
+            scope="local_agent",
+            workdir=repo_root,
+            implicit_codex=False,
+        )
+        replies: list[dict[str, object]] = []
+
+        def transport(method: str, route: str, payload: dict[str, object] | None = None) -> object:
+            if method == "POST" and route == "/interactions/918/token-918/callback":
+                assert payload is not None
+                replies.append(payload)
+                return {}
+            raise AssertionError(f"unexpected Discord call {method} {route}")
+
+        result = handle_gateway_interaction_create(
+            config,
+            DiscordClient("token", transport=transport),
+            {"local-agent-1": context},
+            {
+                "id": "918",
+                "application_id": "app-1",
+                "channel_id": "local-agent-1",
+                "guild_id": "guild-1",
+                "token": "token-918",
+                "type": 3,
+                "member": {"user": {"id": "admin-1"}},
+                "data": {"custom_id": f"la:queue:{token}"},
+            },
+            runner=lambda task: (_ for _ in ()).throw(AssertionError(f"local-agent button reached Codex prompt: {task.prompt}")),
+            now="2026-04-26T10:00:00Z",
+        )
+
+        self.assertEqual(result, {"channel_id": "local-agent-1", "message_id": "918", "status": "local_agent_decision_queued"})
+        self.assertEqual(replies[0]["type"], 7)
+        self.assertIn("已加入待移植", str((replies[0].get("data") or {}).get("content", "")))
+        queue = json.loads((repo_root / "registry" / "auto-migration" / "queue.json").read_text(encoding="utf-8"))
+        self.assertEqual(queue["items"][0]["state"], "ready")
 
     def test_process_migration_channel_runs_codex_with_worktree_context(self) -> None:
         repo_root = self.make_repo_root()

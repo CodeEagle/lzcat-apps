@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "source_input": "https://github.com/0xcaff/codex-web",
+  "created_at": "2026-05-06T00:22:43.151383+00:00",
+  "updated_at": "2026-05-06T02:26:22.089281+00:00",
+  "context": {
+    "source": {
+      "kind": "github_repo",
+      "url": "https://github.com/0xcaff/codex-web",
+      "upstream_repo": "0xcaff/codex-web",
+      "homepage": "https://github.com/0xcaff/codex-web"
+    },
+    "environment": {
+      "gh_token_source": "GH_PAT",
+      "lzc_cli_token_source": "lzc-cli config get token",
+      "container_runtime": "docker",
+      "image_owner": ""
+    },
+    "route_decision": {
+      "route": "target_repo_dockerfile",
+      "build_strategy": "target_repo_dockerfile",
+      "check_strategy": "commit_sha",
+      "risks": []
+    },
+    "version": {
+      "upstream": "",
+      "normalized": "0.1.0"
+    },
+    "finalized": {
+      "slug": "codex-web",
+      "project_name": "codex-web",
+      "description": "a browser frontend for codex desktop, running on a machine you control",
+      "description_zh": "（迁移初稿）codex-web 的懒猫微服前端版本",
+      "upstream_repo": "0xcaff/codex-web",
+      "homepage": "https://github.com/0xcaff/codex-web",
+      "license": "",
+      "author": "0xcaff",
+      "version": "0.1.0",
+      "package": "fun.selfstudio.app.migration.codex-web",
+      "min_os_version": "1.3.8",
+      "check_strategy": "commit_sha",
+      "build_strategy": "target_repo_dockerfile",
+      "official_image_registry": "",
+      "precompiled_binary_url": "",
+      "dockerfile_type": "custom",
+      "dockerfile_path": "Dockerfile",
+      "build_context": ".",
+      "docker_platform": "",
+      "image_owner": "",
+      "overlay_paths": [],
+      "upstream_submodules": [],
+      "image_targets": [
+        "codex-web-web"
+      ],
+      "dependencies": [],
+      "service_builds": [],
+      "build_args": {},
+      "service_cmd": [],
+      "service_port": 80,
+      "services": {
+        "codex-web-web": {
+          "image": "registry.lazycat.cloud/placeholder/codex-web:bootstrap"
+        }
+      },
+      "application": {
+        "subdomain": "codex-web",
+        "public_path": [
+          "/"
+        ],
+        "upstreams": [
+          {
+            "location": "/",
+            "backend": "http://codex-web-web:80/"
+          }
+        ]
+      },
+      "env_vars": [],
+      "data_paths": [],
+      "startup_notes": [
+        "检测到前端应用目录 `.` 使用静态站构建，可按 nginx 托管产物封装。",
+        "构建目录：`.`；安装根目录：`.`。",
+        "自动推断构建命令：`npm run build`。",
+        "运行时按静态站处理，由 nginx 托管构建产物目录。",
+        "未扫描到 env 示例文件",
+        "扫描到 README：README.md"
+      ],
+      "include_content": false,
+      "ai_pod_service": "",
+      "ai_pod_service_name": "codex-web",
+      "ai_pod_service_port": 80,
+      "ai_pod_image": "registry.lazycat.cloud/placeholder/codex-web-ai:bootstrap",
+      "aipod": {},
+      "usage": "",
+      "icon_path": "",
+      "source_version": "",
+      "default_branch": ""
+    },
+    "registration": {
+      "slug": "codex-web",
+      "monorepo_path": "apps/codex-web",
+      "config_path": "registry/repos/codex-web.json"
+    }
+  },
+  "steps": {
+    "1": {
+      "completed": true,
+      "completed_at": "2026-05-06T02:26:18.883780+00:00",
+      "conclusion": "已识别输入类型为 `github_repo`"
+    },
+    "2": {
+      "completed": true,
+      "completed_at": "2026-05-06T02:26:22.024328+00:00",
+      "conclusion": "已自动推断构建路线为 `target_repo_dockerfile`"
+    },
+    "3": {
+      "completed": true,
+      "completed_at": "2026-05-06T00:22:46.969196+00:00",
+      "conclusion": "已完成 monorepo 注册"
+    },
+    "4": {
+      "completed": true,
+      "completed_at": "2026-05-06T00:22:47.033611+00:00",
+      "conclusion": "骨架文件已生成",
+      "files_written": [
+        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/codex-web/lzc-manifest.yml",
+        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/codex-web/lzc-build.yml",
+        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/codex-web/README.md",
+        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/codex-web/UPSTREAM_DEPLOYMENT_CHECKLIST.md",
+        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/codex-web/icon.png",
+        "/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/registry/repos/codex-web.json"
+      ]
+    },
+    "5": {
+      "completed": true,
+      "completed_at": "2026-05-06T00:22:47.034086+00:00",
+      "conclusion": "manifest 初稿已生成"
+    },
+    "6": {
+      "completed": true,
+      "completed_at": "2026-05-06T00:22:47.034377+00:00",
+      "conclusion": "剩余文件已补齐"
+    },
+    "7": {
+      "completed": true,
+      "completed_at": "2026-05-06T02:26:22.088714+00:00",
+      "conclusion": "预检通过",
+      "all_passed": true
+    },
+    "8": {
+      "completed": true,
+      "completed_at": "2026-05-06T02:26:22.089277+00:00",
+      "conclusion": "validate-only 模式停止"
+    },
+    "9": {
+      "completed": true,
+      "completed_at": "2026-05-06T00:34:32.291822+00:00",
+      "conclusion": "lpk 已验证",
+      "lpk_sha256": "34f8a65e29e2db881a27921c17651f3e5c6b43de4a45caaf90ab393ea99c8740",
+      "lpk_size_bytes": 1016
+    },
+    "10": {
+      "completed": true,
+      "completed_at": "2026-05-06T00:34:32.292060+00:00",
+      "conclusion": "验收完成",
+      "pending_backports": []
+    }
+  },
+  "problems": [
+    {
+      "id": "p1",
+      "step": 7,
+      "description": "configured dockerfile_path points to a placeholder Dockerfile: /Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/apps/codex-web/Dockerfile; replace it with a real upstream build before installing or submitting",
+      "category": "preflight",
+      "status": "open",
+      "created_at": "2026-05-06T00:22:47.080156+00:00"
+    },
+    {
+      "id": "p2",
+      "step": 8,
+      "description": "#7 63.59 Setting up liberror-perl (0.17029-2) ...\n#7 63.60 Setting up git (1:2.39.5-0+deb12u3) ...\n#7 63.69 Processing triggers for libc-bin (2.36-9+deb12u13) ...\n#7 63.74 Errors were encountered while processing:\n#7 63.74  ca-certificates\n#7 63.79 E: Sub-process /usr/bin/dpkg returned an error code (1)\n#7 ERROR: process \"/bin/sh -c apt-get update && apt-get install -y --no-install-recommends     bash     ca-certificates     curl     git     openssh-client     tini     && rm -rf /var/lib/apt/lists/*     && npm install -g --omit=dev --no-audit --no-fund \\\"@openai/codex@${CODEX_CLI_VERSION}\\\"\" did not complete successfully: exit code: 100\n#6 [builder 1/6] FROM docker.io/library/node:22-bookworm@sha256:9059d9d7db987b86299e052ff6630cd95e5a770336967c21110e53289a877433\n#6 sha256:2933ecab0f11302fd71f29aa83ad2904683246f7a8320ad0dc3a60b23f05fee9 148.90MB / 211.55MB 107.6s\n#6 ...\n#8 [builder 2/6] WORKDIR /usr/src/app\n#8 CANCELED\n------\n > [runner 2/4] RUN apt-get update && apt-get install -y --no-install-recommends     bash     ca-certificates     curl     git     openssh-client     tini     && rm -rf /var/lib/apt/lists/*     && npm install -g --omit=dev --no-audit --no-fund \"@openai/codex@0.126.0-alpha.15\":\n63.01 Setting up libgdbm-compat4:amd64 (1.23-3) ...\n63.02 Setting up libcurl4:amd64 (7.88.1-10+deb12u14) ...\n63.02 Setting up curl (7.88.1-10+deb12u14) ...\n63.03 Setting up libperl5.36:amd64 (5.36.0-7+deb12u3) ...\n63.03 Setting up openssh-client (1:9.2p1-2+deb12u9) ...\n63.47 Setting up libcurl3-gnutls:amd64 (7.88.1-10+deb12u14) ...\n63.47 Setting up perl (5.36.0-7+deb12u3) ...\n63.59 Setting up liberror-perl (0.17029-2) ...\n63.60 Setting up git (1:2.39.5-0+deb12u3) ...\nSub-process /usr/bin/dpkg returned an error code (1)\n------\nDockerfile:41\n--------------------\n  40 |\n  41 | >>> RUN apt-get update && apt-get install -y --no-install-recommends \\\n  42 | >>>     bash \\\n  43 | >>>     ca-certificates \\\n  44 | >>>     curl \\\n  45 | >>>     git \\\n  46 | >>>     openssh-client \\\n  47 | >>>     tini \\\n  48 | >>>     && rm -rf /var/lib/apt/lists/* \\\n  49 | >>>     && npm install -g --omit=dev --no-audit --no-fund \"@openai/codex@${CODEX_CLI_VERSION}\"\n  50 |\n--------------------\nERROR: failed to build: failed to solve: process \"/bin/sh -c apt-get update && apt-get install -y --no-install-recommends     bash     ca-certificates     curl     git     openssh-client     tini     && rm -rf /var/lib/apt/lists/*     && npm install -g --omit=dev --no-audit --no-fund \\\"@openai/codex@${CODEX_CLI_VERSION}\\\"\" did not complete successfully: exit code: 100",
+      "category": "build",
+      "status": "open",
+      "created_at": "2026-05-06T00:29:16.639802+00:00"
+    },
+    {
+      "id": "p3",
+      "step": 8,
+      "description": "bba7366a523c: Waiting\n539f12fec8ec: Waiting\nff86ea2e5edc: Waiting\n539f12fec8ec: Layer already exists\nff86ea2e5edc: Layer already exists\n82dd35b9bc5d: Layer already exists\ne1243d5f7276: Waiting\n62ae0cfd5800: Waiting\n89a430b38b49: Waiting\n640592a25cbc: Waiting\nbba7366a523c: Layer already exists\n62ae0cfd5800: Waiting\n89a430b38b49: Waiting\n62ae0cfd5800: Waiting\n89a430b38b49: Waiting\n640592a25cbc: Pushed\n89a430b38b49: Pushed\n[00:37:03] [heartbeat] docker push ghcr.io/codeeagle/lazycatimages:codexWeb_35047e8aff1f still running after 60s (idle=57s, 44399 01:00   0.1  0.1 S    docker push ghcr.io/codeeagle/lazycatimages:codexWeb_35047e8aff1f)\ne1243d5f7276: Pushed\n[00:38:04] [heartbeat] docker push ghcr.io/codeeagle/lazycatimages:codexWeb_35047e8aff1f still running after 120s (idle=8s, 44399 02:01   0.1  0.1 S    docker push ghcr.io/codeeagle/lazycatimages:codexWeb_35047e8aff1f)\n62ae0cfd5800: Pushed\ncodexWeb_35047e8aff1f: digest: sha256:f0b023af014954f706f62918c4cd4dbcafe10062d4ec114dd4aba822e0d00591 size: 856\n[00:38:52] [codex-web] Phase: copy_image\n[00:38:54] Copying image to LazyCat registry: ghcr.io/codeeagle/lazycatimages:codexWeb_35047e8aff1f\n? Please enter your login username\u001b[36G\n\u001b[?25hLogin failed, User force closed the prompt with 0 null\n? Please enter your login username\u001b[36G[00:38:55] [codex-web] Failure artifacts preserved at: /var/folders/5n/bml6r36s2pdgxhd9cncpbhg40000gn/T/lzcat-artifacts-b3cpatf_\nTraceback (most recent call last):\n  File \"/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/scripts/run_build.py\", line 2350, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/scripts/run_build.py\", line 2090, in main\n    accelerated_url, copy_event = copy_image_to_lazycat(target_image, env)\n                                  ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\n  File \"/Users/lincoln/Develop/GitHub/lzcat/lzcat-apps/scripts/run_build.py\", line 1109, in copy_image_to_lazycat\n    raise last_error\nRuntimeError: Failed to extract LazyCat image from output:\n? Please enter your login username\nLogin failed, User force closed the prompt with 0 null\n? Please enter your login username",
+      "category": "build",
+      "status": "open",
+      "created_at": "2026-05-06T00:38:55.818772+00:00"
+    }
+  ],
+  "verification": {}
+}

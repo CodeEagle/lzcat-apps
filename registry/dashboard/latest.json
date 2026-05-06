@@ -1,0 +1,593 @@
+{
+  "date": "2026-05-03",
+  "failed_items": [
+    {
+      "last_error": "auto_migrate exited 1",
+      "slug": "helix",
+      "source": "helixml/helix",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "nodewarden",
+      "source": "shuaiplus/nodewarden",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "hifi",
+      "source": "sachinsenal0x64/hifi",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "airbyte",
+      "source": "airbytehq/airbyte",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "openrun",
+      "source": "openrundev/openrun",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "easylist",
+      "source": "easylist/easylist",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "hallelujahim",
+      "source": "dongyuwei/hallelujahIM",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "auto_migrate exited 1",
+      "slug": "systeminformer",
+      "source": "winsiderss/systeminformer",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "labelme",
+      "source": "wkentaro/labelme",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "cvelistv5",
+      "source": "CVEProject/cvelistV5",
+      "state": "build_failed"
+    }
+  ],
+  "generated_at": "2026-05-03T01:30:01Z",
+  "local_agent": {
+    "status_counts": {
+      "already_migrated_by_other": 318,
+      "excluded": 294,
+      "needs_review": 268,
+      "portable": 415
+    },
+    "total": 1295
+  },
+  "publication": {
+    "status_counts": {
+      "in_progress": 16,
+      "local_only": 2,
+      "migrated": 3,
+      "published": 23
+    },
+    "total": 44
+  },
+  "queue": {
+    "state_counts": {
+      "blocked": 1,
+      "browser_pending": 43,
+      "build_failed": 30,
+      "copy_ready": 1,
+      "discovery_review": 775,
+      "filtered_out": 774,
+      "local_agent_pending_decision": 278,
+      "publish_ready": 1,
+      "ready": 379,
+      "waiting_for_human": 84
+    },
+    "total": 2366
+  },
+  "reward_opportunities": [
+    "完成可上架应用的开发者后台提交",
+    "为每个上架应用补齐 Playground 图文攻略",
+    "补齐桌面 2 张、手机 3 张网页内截图",
+    "把成功经验回写 template 分支提高下一次移植收益"
+  ],
+  "top_candidates": [
+    {
+      "description": "Warp is an agentic development environment, born out of the terminal.",
+      "full_name": "warpdotdev/warp",
+      "repo_url": "https://github.com/warpdotdev/warp",
+      "stars_today": 8262,
+      "status": "needs_review",
+      "total_stars": 48785
+    },
+    {
+      "description": "A complete AI agency at your fingertips - From frontend wizards to Reddit community ninjas, from whimsy injectors to reality checkers. Each agent is a specialized expert with personality, processes, and proven deliverables.",
+      "full_name": "msitarzewski/agency-agents",
+      "repo_url": "https://github.com/msitarzewski/agency-agents",
+      "stars_today": 4297,
+      "status": "needs_review",
+      "total_stars": 15597
+    },
+    {
+      "description": "A Simple and Universal Swarm Intelligence Engine, Predicting Anything. 简洁通用的群体智能引擎，预测万物",
+      "full_name": "666ghj/MiroFish",
+      "repo_url": "https://github.com/666ghj/MiroFish",
+      "stars_today": 2222,
+      "status": "portable",
+      "total_stars": 9766
+    },
+    {
+      "description": "The design language that makes your AI harness better at design.",
+      "full_name": "pbakaus/impeccable",
+      "repo_url": "https://github.com/pbakaus/impeccable",
+      "stars_today": 1291,
+      "status": "portable",
+      "total_stars": 2494
+    },
+    {
+      "description": "Useful tool to track location or mobile number",
+      "full_name": "HunxByts/GhostTrack",
+      "repo_url": "https://github.com/HunxByts/GhostTrack",
+      "stars_today": 830,
+      "status": "portable",
+      "total_stars": 12101
+    },
+    {
+      "description": "Coding Agent Harness",
+      "full_name": "1jehuang/jcode",
+      "repo_url": "https://github.com/1jehuang/jcode",
+      "stars_today": 670,
+      "status": "portable",
+      "total_stars": 1823
+    },
+    {
+      "description": "Unofficial Python API for Google NotebookLM",
+      "full_name": "teng-lin/notebooklm-py",
+      "repo_url": "https://github.com/teng-lin/notebooklm-py",
+      "stars_today": 457,
+      "status": "needs_review",
+      "total_stars": 3969
+    },
+    {
+      "description": "The best ChatGPT that $100 can buy.",
+      "full_name": "karpathy/nanochat",
+      "repo_url": "https://github.com/karpathy/nanochat",
+      "stars_today": 332,
+      "status": "portable",
+      "total_stars": 45195
+    }
+  ],
+  "waiting_for_human": [
+    {
+      "question": "treeverse/dvc 被识别为原生 CLI/SDK 项目，不是提供 HTTP 入口的 LazyCat Web 微服。是否要将该候选标记为跳过，而不是继续保留当前的 Web 微服迁移初稿？",
+      "slug": "dvc",
+      "source": "treeverse/dvc"
+    },
+    {
+      "question": "The Calcite build failure is fixed and a local LPK was generated, but install/reinstall acceptance cannot run because this worker shell does not have LZC_CLI_TOKEN. Should the worker be rerun with LazyCat install credentials, or should acceptance be deferred?",
+      "slug": "calcite",
+      "source": "apache/calcite"
+    },
+    {
+      "question": "XboxDownload is a native .NET/Avalonia desktop/network utility rather than a web service. Should this queue item be excluded, or should migration attempt a custom noVNC desktop wrapper despite the extra product and networking risk?",
+      "slug": "xboxdownload",
+      "source": "skydevil88/XboxDownload"
+    },
+    {
+      "question": "Camoufox appears to be a browser build/automation SDK rather than a self-contained HTTP web app for LazyCat. How should this queue item proceed?",
+      "slug": "camoufox",
+      "source": "daijro/camoufox"
+    },
+    {
+      "question": "Should bakito/adguardhome-sync be migrated as a separate LazyCat app even though AdGuard Home and AdGuard Home DOH are already listed in the LazyCat app store? The upstream is a companion sync service that requires configured origin/replica AdGuard Home instances and credentials, not the core AdGuard Home app itself.",
+      "slug": "adguardhome-sync",
+      "source": "bakito/adguardhome-sync"
+    },
+    {
+      "question": "Should wild-linker/wild be skipped as a non-web CLI tool, or should there be a special developer-tool packaging direction for it?",
+      "slug": "wild",
+      "source": "wild-linker/wild"
+    },
+    {
+      "question": "CMake does not expose a self-hosted web service. Should this queue item be skipped as non-deployable, or should humans define a special product scope such as a web terminal/toolbox package?",
+      "slug": "cmake",
+      "source": "Kitware/CMake"
+    },
+    {
+      "question": "NixOS/nixpkgs appears to be the Nix package collection and NixOS source tree, not a standalone HTTP web service. How should this candidate be handled?",
+      "slug": "nixpkgs",
+      "source": "NixOS/nixpkgs"
+    },
+    {
+      "question": "rocksdanister/lively is a Windows WinUI desktop wallpaper/screensaver app, not a web service. How should this queue item be handled?",
+      "slug": "lively",
+      "source": "rocksdanister/lively"
+    },
+    {
+      "question": "community-scripts/ProxmoxVE is a Proxmox helper-script catalog rather than a runnable web app. Should this queue item be skipped, or should a specific service script from the catalog be selected for a separate LazyCat migration?",
+      "slug": "proxmoxve",
+      "source": "community-scripts/ProxmoxVE"
+    },
+    {
+      "question": "Unsloth migration is blocked because unslothai/unsloth appears to be the Python SDK/CLI repo, while the candidate description mentions Unsloth Studio as a web UI. Which upstream/product should be migrated?",
+      "slug": "unsloth",
+      "source": "unslothai/unsloth"
+    },
+    {
+      "question": "Docker Hub is returning HTTP 429 for the Go builder image golang:1.24-bookworm during MCPJungle build verification. Please provide Docker Hub credentials for this worker, confirm we should wait for the anonymous rate limit to reset, or approve a specific trusted Go builder mirror/base image.",
+      "slug": "mcpjungle",
+      "source": "mcpjungle/MCPJungle"
+    },
+    {
+      "question": "The migration script now recognizes and generates the Impeccable Bun static-site app, and preflight passes, but Docker build is blocked by Docker Hub unauthenticated pull rate limits while resolving base images such as nginx:1.27-alpine. Please provide Docker Hub authentication for the build environment or clear the pull-rate limit, then rerun the migration.",
+      "slug": "impeccable",
+      "source": "pbakaus/impeccable"
+    },
+    {
+      "question": "Win11Debloat is a Windows PowerShell/registry automation tool rather than a web service LazyCat can host directly. Should this candidate be skipped, or should a human define a custom LazyCat wrapper/listing concept?",
+      "slug": "win11debloat",
+      "source": "Raphire/Win11Debloat"
+    },
+    {
+      "question": "The SRS migration now uses the official image and passes local dry-run packaging, but full reinstall is blocked because `lzc-cli appstore copy-image` prompts for LazyCat login. Please provide/refresh non-interactive LazyCat CLI credentials for this worker, or approve continuing only with dry-run validation.",
+      "slug": "srs",
+      "source": "ossrs/srs"
+    },
+    {
+      "question": "Chatwoot needs a build-platform decision. The local ARM Colima host can start Docker now, but linux/amd64 Alpine/Ruby native-extension compilation repeatedly segfaults under QEMU while building Nokogiri. Which path should the migration worker use?",
+      "slug": "chatwoot",
+      "source": "chatwoot/chatwoot"
+    },
+    {
+      "question": "The Ente build failure is fixed, but lzc-cli appstore copy-image is prompting for LazyCat login and cannot continue unattended. Please refresh/provide valid LazyCat CLI credentials for this worker, then resume the queue item.",
+      "slug": "ente",
+      "source": "ente-io/ente"
+    },
+    {
+      "question": "The Typesense migration now selects the correct official image, but lzc-cli appstore copy-image prompts for a LazyCat login username. Please provide/refresh valid lzc-cli App Store credentials on this worker so copy-image can run non-interactively, then resume the queue item.",
+      "slug": "typesense",
+      "source": "typesense/typesense"
+    },
+    {
+      "question": "The Zulip migration now reaches LazyCat appstore copy-image using the official image ghcr.io/zulip/zulip-server:12.0-0, but lzc-cli is not authenticated and prompts for a LazyCat login username. Please authenticate lzc-cli for appstore copy-image or provide the required credentials/session setup.",
+      "slug": "zulip",
+      "source": "zulip/zulip"
+    },
+    {
+      "question": "Tasmota is ESP8266/ESP32 firmware with a device Web UI, not a self-hosted HTTP service. How should this queue item be handled?",
+      "slug": "tasmota",
+      "source": "arendst/Tasmota"
+    },
+    {
+      "question": "The mediamtx migration now builds and pushes the GHCR image, but `lzc-cli appstore copy-image` prompts for a LazyCat login in the unattended worker. Please provide/refresh non-interactive LazyCat appstore credentials for this workspace, then rerun the worker.",
+      "slug": "mediamtx",
+      "source": "bluenviron/mediamtx"
+    },
+    {
+      "question": "The Flarum image now builds and pushes to GHCR, but `copy-image` prompts for LazyCat login. Please provide or refresh LazyCat registry credentials for this worker environment, then rerun the queue item.",
+      "slug": "flarum",
+      "source": "flarum/flarum"
+    },
+    {
+      "question": "Mail-in-a-Box appears to be a whole-host Ubuntu mail-server appliance rather than a portable LazyCat container app. How should this queue item be handled?",
+      "slug": "mailinabox",
+      "source": "mail-in-a-box/mailinabox"
+    },
+    {
+      "question": "The Druid migration cannot continue because lzc-cli appstore commands request interactive login even though a token string exists. Please refresh LazyCat CLI/appstore credentials for unattended copy-image/install operations, or provide a valid LZC_CLI_TOKEN.",
+      "slug": "druid",
+      "source": "apache/druid"
+    },
+    {
+      "question": "LazyCat copy-image for diaspora reached an interactive login prompt. Please refresh/provide unattended lzc-cli credentials for this worker, then rerun the migration.",
+      "slug": "diaspora",
+      "source": "diaspora/diaspora"
+    },
+    {
+      "question": "The Automatisch migration now builds and pushes its images, but `lzc-cli appstore copy-image` prompts for LazyCat login. Please refresh/provide valid LazyCat CLI credentials for this worker, or choose build-only verification.",
+      "slug": "automatisch",
+      "source": "automatisch/automatisch"
+    },
+    {
+      "question": "The Stalwart migration now uses the public official image stalwartlabs/stalwart:v0.16.2, but lzc-cli appstore copy-image prompts for login instead of using a valid LazyCat token. Please provide or refresh LazyCat CLI credentials for this worker, then reply when lzc-cli appstore copy-image can run non-interactively.",
+      "slug": "stalwart",
+      "source": "stalwartlabs/stalwart"
+    },
+    {
+      "question": "The rybbit build automation has been fixed for the copy-image output parsing issue, but this worker cannot rerun the full reinstall path because lzc-cli appstore commands prompt for LazyCat login. Please refresh/provide non-interactive LazyCat CLI credentials for this worker, then resume the queue item.",
+      "slug": "rybbit",
+      "source": "rybbit-io/rybbit"
+    },
+    {
+      "question": "The Manticore Search migration now reaches LazyCat copy-image using the official image docker.io/manticoresearch/manticore:25.0.0, but lzc-cli prompts for a login username. Please provide/refresh valid LazyCat appstore credentials for this environment, or confirm that this item should only be validated without copy-image/install.",
+      "slug": "manticoresearch",
+      "source": "manticoresoftware/manticoresearch"
+    },
+    {
+      "question": "The Datasette image now builds and pushes, but lzc-cli appstore copy-image prompts for LazyCat login credentials. Please authenticate lzc-cli for this machine/session or provide the expected non-interactive credential setup so the worker can continue copy-image, packaging, install, and functional verification.",
+      "slug": "datasette",
+      "source": "simonw/datasette"
+    },
+    {
+      "question": "The migration now reaches the real LazyCat copy-image step, but lzc-cli prompts for an interactive login username instead of using usable appstore credentials. Please refresh/authenticate lzc-cli credentials for appstore copy-image on the migration machine, then tell the worker to resume.",
+      "slug": "umbrel",
+      "source": "getumbrel/umbrel"
+    },
+    {
+      "question": "LazyCat copy-image is prompting for an interactive login while copying tykio/tyk-gateway:v5.11.1-alpha2. Please provide or refresh non-interactive LazyCat appstore credentials for this worker so it can run lzc-cli appstore copy-image without a username prompt.",
+      "slug": "tyk",
+      "source": "TykTechnologies/tyk"
+    },
+    {
+      "question": "The imgproxy migration now passes preflight and selects the official image ghcr.io/imgproxy/imgproxy:v3.31.3, but `lzc-cli appstore copy-image` prompts for a LazyCat login username and fails in unattended mode. Please refresh/provide valid LazyCat CLI credentials for this worker, then rerun the migration.",
+      "slug": "imgproxy",
+      "source": "imgproxy/imgproxy"
+    },
+    {
+      "question": "Seerr now builds successfully, but the migration flow is blocked at `lzc-cli appstore copy-image` because `lzc-cli` prompts for LazyCat login credentials. Please provide/refresh valid LazyCat CLI credentials for this worker, or confirm that copy-image/install verification should be skipped for now.",
+      "slug": "seerr",
+      "source": "seerr-team/seerr"
+    },
+    {
+      "question": "LazyCat appstore copy-image is prompting for login credentials. Please refresh/provide LazyCat developer-console or lzc-cli appstore credentials so the worker can copy ghcr.io/thumbor/thumbor:latest into the LazyCat registry and continue install verification.",
+      "slug": "thumbor",
+      "source": "thumbor/thumbor"
+    },
+    {
+      "question": "LazyCat CLI copy-image is blocked by an interactive login prompt. Please refresh the LazyCat developer/appstore credentials for this machine/session so `lzc-cli appstore my-images` and `lzc-cli appstore copy-image bunkerity/bunkerweb:1.6.9` run non-interactively.",
+      "slug": "bunkerweb",
+      "source": "bunkerity/bunkerweb"
+    },
+    {
+      "question": "lzc-cli prompted for LazyCat login while copying docker.io/jvmilazz0/kavita:0.9.0. Please provide/restore valid LazyCat CLI credentials for this worker, or authorize rerunning with a usable LZC_CLI_TOKEN.",
+      "slug": "kavita",
+      "source": "Kareadita/Kavita"
+    },
+    {
+      "question": "Please provide or export LZC_CLI_TOKEN for the LazyCat box so the worker can run install and functional verification for centrifugo.",
+      "slug": "centrifugo",
+      "source": "centrifugal/centrifugo"
+    },
+    {
+      "question": "The Evershop Docker image now builds and pushes to GHCR, but LazyCat copy-image cannot continue because lzc-cli is not logged in or its token is invalid. Please refresh LazyCat CLI credentials for this machine/session, then rerun the migration worker.",
+      "slug": "evershop",
+      "source": "evershopcommerce/evershop"
+    },
+    {
+      "question": "BrowserOS is a desktop-native Chromium fork with macOS/Windows/Linux installers. Its Bun MCP server requires a separate running BrowserOS/Chromium CDP endpoint, so an automatic LazyCat web-service migration would either package only a helper server or require a custom remote-browser wrapper. How should this candidate proceed?",
+      "slug": "browseros",
+      "source": "browseros-ai/BrowserOS"
+    },
+    {
+      "question": "Please log in to LazyCat CLI on the migration host so image cache lookup and copy-image can run non-interactively, then resume the lago migration.",
+      "slug": "lago",
+      "source": "getlago/lago"
+    },
+    {
+      "question": "The PandaWiki migration now passes preflight and builds/pushes the app image, but lzc-cli appstore copy-image opens an interactive login prompt. Please refresh LazyCat appstore credentials for this machine/session so lzc-cli appstore my-images and copy-image run non-interactively.",
+      "slug": "pandawiki",
+      "source": "chaitin/PandaWiki"
+    },
+    {
+      "question": "The runtipi Docker build now succeeds and pushes ghcr.io/codeeagle/lazycatimages:runtipi_35047e8aff1f, but LazyCat copy-image is prompting for lzc-cli login. Please refresh/provide valid LazyCat CLI credentials for this worker so it can continue copy-image, package, install, and functional verification.",
+      "slug": "runtipi",
+      "source": "runtipi/runtipi"
+    },
+    {
+      "question": "Berty upstream is primarily a React Native mobile messaging app plus CLI/daemon binaries. The only selected compose file was a Watchtower infra updater mounting docker.sock, and the root Dockerfile builds a CLI with no confirmed HTTP Web UI. Should this candidate be skipped, or is there a specific web/self-hosted Berty deployment target we should package for LazyCat?",
+      "slug": "berty",
+      "source": "berty/berty"
+    },
+    {
+      "question": "BigBlueButton upstream does not expose a simple self-contained Docker/Compose deployment for LazyCat. The only detected compose file is a PostgreSQL helper under bbb-common-web, and the detected Dockerfile is a LibreOffice helper image. Should this queue item be skipped, or should a human provide an approved custom deployment topology for a full BigBlueButton package?",
+      "slug": "bigbluebutton",
+      "source": "bigbluebutton/bigbluebutton"
+    },
+    {
+      "question": "The TiddlyWiki5 migration now builds and pushes the Docker image, but `lzc-cli appstore copy-image` opens an interactive LazyCat login prompt. Please provide or refresh non-interactive LazyCat appstore credentials for this worker, then rerun the migration from the copy-image/build step.",
+      "slug": "tiddlywiki5",
+      "source": "TiddlyWiki/TiddlyWiki5"
+    },
+    {
+      "question": "Mopidy now builds and produces dist/mopidy.lpk, but install/functional acceptance could not run because LZC_CLI_TOKEN is unavailable. How should the worker proceed?",
+      "slug": "mopidy",
+      "source": "mopidy/mopidy"
+    },
+    {
+      "question": "ROMM migration build passed the previous uv/rq-scheduler failure and pushed ghcr.io/codeeagle/lazycatimages:rommRommDev_35047e8aff1f, but lzc-cli appstore copy-image prompted for a LazyCat login username. Please refresh/provide the LazyCat appstore login/token on this worker so copy-image can run unattended.",
+      "slug": "romm",
+      "source": "rommapp/romm"
+    },
+    {
+      "question": "The Sylius migration now reaches LazyCat copy-image, but lzc-cli prompts for appstore login. Please refresh/provide valid LazyCat appstore credentials for this worker, then requeue the item.",
+      "slug": "sylius",
+      "source": "Sylius/Sylius"
+    },
+    {
+      "question": "The Maltrail Docker build now succeeds, but lzc-cli prompts for a LazyCat login username during appstore copy-image. Please provide/refresh non-interactive LazyCat credentials for this worker so it can copy ghcr.io/codeeagle/lazycatimages:maltrailServer_35047e8aff1f into the LazyCat registry.",
+      "slug": "maltrail",
+      "source": "stamparm/maltrail"
+    },
+    {
+      "question": "The OpenCart source images now build successfully, but lzc-cli copy-image prompts for LazyCat login and fails in unattended mode. Please provide or refresh the LazyCat developer-console/registry login needed for lzc-cli copy-image, then rerun the migration.",
+      "slug": "opencart",
+      "source": "opencart/opencart"
+    },
+    {
+      "question": "The Snapcast migration now builds and pushes the GHCR image, but `lzc-cli appstore copy-image` prompts for LazyCat login credentials. Please authenticate lzc-cli on the worker host or provide the required LazyCat appstore credentials/token so the copy-image step can continue.",
+      "slug": "snapcast",
+      "source": "snapcast/snapcast"
+    },
+    {
+      "question": "The BTCPayServer image now builds and pushes, but `lzc-cli appstore copy-image` prompts for interactive LazyCat login. Please refresh/provide valid LazyCat CLI credentials for unattended `copy-image`, then rerun the migration worker.",
+      "slug": "btcpayserver",
+      "source": "btcpayserver/btcpayserver"
+    },
+    {
+      "question": "LazyCat image copy now reaches lzc-cli, but lzc-cli is not authenticated in this unattended worker. Please provide/restore valid LazyCat CLI credentials for copy-image/install, or confirm that this queue item should only run build/preflight without LazyCat copy/install.",
+      "slug": "newsblur",
+      "source": "samuelclay/NewsBlur"
+    },
+    {
+      "question": "LazyCat copy-image for Adminer reached `lzc-cli appstore copy-image docker.io/library/adminer:5.4.2`, but lzc-cli prompted for login credentials. Please authenticate LazyCat CLI or provide the credential/session setup this worker should use, then resume the queue item.",
+      "slug": "adminer",
+      "source": "vrana/adminer"
+    },
+    {
+      "question": "Please refresh LazyCat developer-console/lzc-cli credentials for this machine so `lzc-cli appstore copy-image ghcr.io/mailu/nginx:2024.06.50` can run non-interactively, then reply when credentials are ready.",
+      "slug": "mailu",
+      "source": "Mailu/Mailu"
+    },
+    {
+      "question": "OnionShare is a CLI/Qt desktop app with Snap/Flatpak packaging and no standard Docker/compose HTTP admin UI. Which migration route should we take?",
+      "slug": "onionshare",
+      "source": "onionshare/onionshare"
+    },
+    {
+      "question": "Lura is a Go framework/library, not a directly deployable LazyCat web service. How should this queue item proceed?",
+      "slug": "lura",
+      "source": "luraproject/lura"
+    },
+    {
+      "question": "Please refresh/provide LazyCat developer CLI authentication for this workspace so `lzc-cli appstore copy-image` can run unattended. The HumHub scaffold now passes preflight, but image copy stops at an interactive login prompt.",
+      "slug": "humhub",
+      "source": "humhub/humhub"
+    },
+    {
+      "question": "OpenMediaVault upstream explicitly says it cannot be used within a container and needs exclusive control of the Debian host OS. Should this queue item be filtered out as not portable, or should a human define a different LazyCat product scope such as a documentation/launcher package?",
+      "slug": "openmediavault",
+      "source": "openmediavault/openmediavault"
+    },
+    {
+      "question": "GraphHopper migration now builds, but the reinstall step needs LazyCat registry/login credentials for image copy. Please provide credentials or run/confirm login for the LazyCat CLI on this machine, then resume the queue item.",
+      "slug": "graphhopper",
+      "source": "graphhopper/graphhopper"
+    },
+    {
+      "question": "The DocumentServer migration reaches LazyCat copy-image, but lzc-cli appstore commands are not authenticated in this environment. Please refresh/provide LazyCat appstore credentials so `lzc-cli appstore my-images` and `lzc-cli appstore copy-image docker.io/onlyoffice/documentserver:9.3.1` run non-interactively.",
+      "slug": "documentserver",
+      "source": "ONLYOFFICE/DocumentServer"
+    },
+    {
+      "question": "The evcc migration build reached LazyCat image copy, but `lzc-cli appstore copy-image` is prompting for an interactive login and fails in unattended mode. Please provide/refresh non-interactive LazyCat CLI credentials for this worker, or confirm that this queue item should be retried in build-only mode without install/copy acceptance.",
+      "slug": "evcc",
+      "source": "evcc-io/evcc"
+    },
+    {
+      "question": "Komga migration reached LazyCat copy-image, but lzc-cli is not authenticated in this unattended workspace. Please authenticate lzc-cli or provide the required LazyCat appstore credentials/token for this worker, then requeue/resume the item.",
+      "slug": "komga",
+      "source": "gotson/komga"
+    },
+    {
+      "question": "The LessPass migration now builds and pushes its Docker image, but lzc-cli appstore copy-image prompts for LazyCat login credentials. Please authenticate lzc-cli for appstore copy-image on this machine/session, or provide the required LazyCat CLI token setup.",
+      "slug": "lesspass",
+      "source": "lesspass/lesspass"
+    },
+    {
+      "question": "DietPi appears to be an operating-system distribution for managing services, not a directly deployable self-hosted web app. Should this queue item be excluded, or is there a specific DietPi service/wrapper you want migrated?",
+      "slug": "dietpi",
+      "source": "MichaIng/DietPi"
+    },
+    {
+      "question": "The maddy image build now succeeds, but lzc-cli appstore copy-image prompts for LazyCat login and cannot continue unattended. Please refresh/provide valid LazyCat developer-console credentials or an lzc-cli token on this machine, then resume the queue item.",
+      "slug": "maddy",
+      "source": "foxcpp/maddy"
+    },
+    {
+      "question": "The Yapit build now succeeds and pushes ghcr.io/codeeagle/lazycatimages:yapitFrontend_35047e8aff1f, but LazyCat image copy is blocked because lzc-cli is not logged in and prompts for a username. Please refresh/provide LazyCat developer-console CLI credentials for this workspace, then resume the queue item.",
+      "slug": "yapit",
+      "source": "yapit-tts/yapit"
+    },
+    {
+      "question": "LazyCat image copy for station8 is blocked because lzc-cli prompted for an interactive login during copy-image. Please refresh/provide valid LazyCat CLI credentials for this machine, then rerun the migration worker.",
+      "slug": "station8",
+      "source": "Drakula5000/station8"
+    },
+    {
+      "question": "The Eurohouse migration now reaches image build and GHCR push, but `lzc-cli appstore copy-image` prompts for LazyCat login in the unattended worker. Please refresh/provide a valid LazyCat appstore login session or credentials for this worker, then rerun the migration from the copy-image/build step.",
+      "slug": "eurohouse",
+      "source": "eurohouse/eurohouse"
+    },
+    {
+      "question": "LazyCat appstore credentials are not currently usable for noninteractive copy-image/install. Please run `lzc-cli login` on the migration host or refresh the appstore credentials, then confirm that `lzc-cli appstore my-images` completes without prompting.",
+      "slug": "showpilot",
+      "source": "ShowPilotFPP/ShowPilot"
+    },
+    {
+      "question": "The Sidix build failure is fixed and both service images build/push, but LazyCat copy-image now prompts for lzc-cli login. Please refresh/provide LazyCat CLI credentials for the migration worker so copy-image can run non-interactively.",
+      "slug": "sidix",
+      "source": "fahmiwol/sidix"
+    },
+    {
+      "question": "binaryn3xus/HomeOps is a Kubernetes/GitOps home-infrastructure repository, not a single runnable app. Which scope should the migration worker use?",
+      "slug": "homeops",
+      "source": "binaryn3xus/HomeOps"
+    },
+    {
+      "question": "The Nodyx migration now builds successfully, but the next step needs LazyCat registry credentials. Please authenticate the LazyCat CLI on this machine or provide the required login so the worker can run copy-image/install checks.",
+      "slug": "nodyx",
+      "source": "Pokled/nodyx"
+    },
+    {
+      "question": "The OpenMonetis migration build now succeeds and the image was pushed to GHCR, but LazyCat copy-image stops because lzc-cli is not logged in and prompts for a username. Please provide or restore valid LazyCat developer-console/lzc-cli credentials on this machine so the worker can continue copy-image, packaging, install, and functional checks.",
+      "slug": "openmonetis",
+      "source": "felipegcoutinho/openmonetis"
+    },
+    {
+      "question": "Please refresh the LazyCat CLI login/token on the migration worker so `lzc-cli appstore my-images` runs noninteractively, then resume houndarr migration.",
+      "slug": "houndarr",
+      "source": "av1155/houndarr"
+    },
+    {
+      "question": "The unattended Openinary migration is blocked because lzc-cli prompts for LazyCat appstore login during image copy. Please refresh LazyCat CLI credentials for this worker host or provide a valid LZC_CLI_TOKEN, then rerun the migration.",
+      "slug": "openinary",
+      "source": "openinary/openinary"
+    },
+    {
+      "question": "The NexusPanel migration build now completes, but the unattended runner cannot continue because LazyCat appstore commands prompt for login. Please provide a valid LazyCat appstore login/token for this machine or confirm that this queue item should only run dry-run build mode until credentials are refreshed.",
+      "slug": "nexuspanel",
+      "source": "Ashutoshop1/NexusPanel"
+    },
+    {
+      "question": "The Glorbo migration now reaches the LazyCat copy-image step, but lzc-cli prompts for an interactive login username and cannot continue unattended. Please provide or refresh LazyCat developer CLI credentials for this worker, then rerun the migration.",
+      "slug": "glorbo",
+      "source": "foobarto/glorbo"
+    },
+    {
+      "question": "Please provide or refresh non-interactive LazyCat credentials for lzc-cli so the worker can run appstore copy-image and continue Kukeon packaging/install verification.",
+      "slug": "kukeon",
+      "source": "eminwux/kukeon"
+    },
+    {
+      "question": "Please log in or refresh LazyCat CLI credentials on the migration host so lzc-cli appstore copy-image can run non-interactively, then rerun the ResumeAI migration.",
+      "slug": "resumeai",
+      "source": "Doomish77/ResumeAI"
+    },
+    {
+      "question": "The TrustView migration now builds and pushes the image, but `lzc-cli` prompts for a LazyCat login during copy-image. Please provide or refresh non-interactive LazyCat credentials for this worker.",
+      "slug": "trustview",
+      "source": "canon2k5/trustview"
+    },
+    {
+      "question": "The botstreet migration now builds and pushes the Docker image, but `lzc-cli appstore copy-image` prompts for LazyCat login. Please log in/configure lzc-cli credentials for the appstore copy-image step, then resume the worker.",
+      "slug": "botstreet",
+      "source": "fresh-afterdeck17/botstreet"
+    },
+    {
+      "question": "The Sailbox migration is blocked at LazyCat appstore image copy because lzc-cli appstore commands are prompting for an interactive developer login in this unattended worker. Please refresh or provide valid LazyCat appstore/developer credentials for lzc-cli, then ask Codex to resume this queue item.",
+      "slug": "sailbox",
+      "source": "wilddogsouthcarolina320/sailbox"
+    }
+  ]
+}

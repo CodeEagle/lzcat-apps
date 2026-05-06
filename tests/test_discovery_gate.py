@@ -41,7 +41,7 @@ class DiscoveryGateTest(unittest.TestCase):
         self.assertEqual(changes, [{"id": "github:owner/demo", "status": "filtered_out", "reason": "published_upstream"}])
         item = queue["items"][0]
         self.assertEqual(item["state"], "filtered_out")
-        self.assertEqual(item["candidate_status"], "already_migrated")
+        self.assertEqual(item["candidate_status"], "already_migrated_by_other")
         self.assertIn("Published app", item["last_error"])
 
     def test_filters_protected_item_when_latest_candidate_is_already_migrated(self) -> None:
@@ -89,6 +89,37 @@ class DiscoveryGateTest(unittest.TestCase):
         self.assertEqual(item["state"], "discovery_review")
         self.assertIn("判断是否值得迁移", item["discovery_review"]["prompt"])
         self.assertEqual(item["discovery_review"]["created_at"], "2026-04-26T10:00:00Z")
+
+    def test_discovery_review_prompt_includes_lazycat_store_search_hits(self) -> None:
+        queue = {
+            "items": [
+                {
+                    "id": "github:paperclipai/paperclip",
+                    "source": "paperclipai/paperclip",
+                    "slug": "paperclip",
+                    "state": "discovery_review",
+                    "candidate_status": "needs_review",
+                    "candidate": {
+                        "full_name": "paperclipai/paperclip",
+                        "repo_url": "https://github.com/paperclipai/paperclip",
+                        "status_reason": "LazyCat app-store search returned matches; AI discovery review required.",
+                        "lazycat_hits": [
+                            {
+                                "raw_label": "Paperclip AI",
+                                "detail_url": "https://lazycat.cloud/appstore/detail/fun.selfstudio.app.paperclip",
+                            }
+                        ],
+                    },
+                }
+            ]
+        }
+
+        changes = reconcile_queue_items(queue, publication_index={}, now="2026-04-26T10:00:00Z")
+
+        self.assertEqual(changes, [{"id": "github:paperclipai/paperclip", "status": "discovery_review", "reason": "needs_ai_review"}])
+        prompt = queue["items"][0]["discovery_review"]["prompt"]
+        self.assertIn("懒猫商店搜索命中", prompt)
+        self.assertIn("Paperclip AI", prompt)
 
     def test_keeps_ai_skipped_item_filtered_when_candidate_still_needs_review(self) -> None:
         queue = {

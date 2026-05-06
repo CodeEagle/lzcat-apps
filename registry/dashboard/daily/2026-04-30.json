@@ -1,0 +1,264 @@
+{
+  "date": "2026-04-30",
+  "failed_items": [
+    {
+      "last_error": "auto_migrate exited 1",
+      "slug": "helix",
+      "source": "helixml/helix",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "nodewarden",
+      "source": "shuaiplus/nodewarden",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "hifi",
+      "source": "sachinsenal0x64/hifi",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "airbyte",
+      "source": "airbytehq/airbyte",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "openrun",
+      "source": "openrundev/openrun",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "easylist",
+      "source": "easylist/easylist",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "hallelujahim",
+      "source": "dongyuwei/hallelujahIM",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "auto_migrate exited 1",
+      "slug": "systeminformer",
+      "source": "winsiderss/systeminformer",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "labelme",
+      "source": "wkentaro/labelme",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "codex worker exited 1",
+      "slug": "cvelistv5",
+      "source": "CVEProject/cvelistV5",
+      "state": "build_failed"
+    }
+  ],
+  "generated_at": "2026-04-30T01:30:03Z",
+  "local_agent": {
+    "status_counts": {
+      "already_migrated_by_other": 288,
+      "excluded": 199,
+      "needs_review": 178,
+      "portable": 300
+    },
+    "total": 965
+  },
+  "publication": {
+    "status_counts": {
+      "unknown": 44
+    },
+    "total": 44
+  },
+  "queue": {
+    "state_counts": {
+      "blocked": 1,
+      "browser_pending": 40,
+      "build_failed": 19,
+      "copy_ready": 1,
+      "discovery_review": 542,
+      "filtered_out": 617,
+      "publish_ready": 1,
+      "ready": 484,
+      "waiting_for_human": 19
+    },
+    "total": 1724
+  },
+  "reward_opportunities": [
+    "完成可上架应用的开发者后台提交",
+    "为每个上架应用补齐 Playground 图文攻略",
+    "补齐桌面 2 张、手机 3 张网页内截图",
+    "把成功经验回写 template 分支提高下一次移植收益"
+  ],
+  "top_candidates": [
+    {
+      "description": "A complete AI agency at your fingertips - From frontend wizards to Reddit community ninjas, from whimsy injectors to reality checkers. Each agent is a specialized expert with personality, processes, and proven deliverables.",
+      "full_name": "msitarzewski/agency-agents",
+      "repo_url": "https://github.com/msitarzewski/agency-agents",
+      "stars_today": 4297,
+      "status": "needs_review",
+      "total_stars": 15597
+    },
+    {
+      "description": "A Simple and Universal Swarm Intelligence Engine, Predicting Anything. 简洁通用的群体智能引擎，预测万物",
+      "full_name": "666ghj/MiroFish",
+      "repo_url": "https://github.com/666ghj/MiroFish",
+      "stars_today": 2222,
+      "status": "portable",
+      "total_stars": 9766
+    },
+    {
+      "description": "The design language that makes your AI harness better at design.",
+      "full_name": "pbakaus/impeccable",
+      "repo_url": "https://github.com/pbakaus/impeccable",
+      "stars_today": 1291,
+      "status": "portable",
+      "total_stars": 2494
+    },
+    {
+      "description": "Unofficial Python API for Google NotebookLM",
+      "full_name": "teng-lin/notebooklm-py",
+      "repo_url": "https://github.com/teng-lin/notebooklm-py",
+      "stars_today": 457,
+      "status": "needs_review",
+      "total_stars": 3969
+    },
+    {
+      "description": "The best ChatGPT that $100 can buy.",
+      "full_name": "karpathy/nanochat",
+      "repo_url": "https://github.com/karpathy/nanochat",
+      "stars_today": 332,
+      "status": "portable",
+      "total_stars": 45195
+    },
+    {
+      "description": "An AI Hedge Fund Team",
+      "full_name": "virattt/ai-hedge-fund",
+      "repo_url": "https://github.com/virattt/ai-hedge-fund",
+      "stars_today": 275,
+      "status": "needs_review",
+      "total_stars": 46966
+    },
+    {
+      "description": "A simple, lightweight PowerShell script that allows you to remove pre-installed apps, disable telemetry, as well as perform various other changes to declutter and customize your Windows experience. Win11Debloat works for both Windows 10 and Windows 11.",
+      "full_name": "Raphire/Win11Debloat",
+      "repo_url": "https://github.com/Raphire/Win11Debloat",
+      "stars_today": 104,
+      "status": "portable",
+      "total_stars": 40924
+    },
+    {
+      "description": "Grab your own sweet-looking '.is-a.dev' subdomain.",
+      "full_name": "is-a-dev/register",
+      "repo_url": "https://github.com/is-a-dev/register",
+      "stars_today": 10,
+      "status": "needs_review",
+      "total_stars": 9907
+    }
+  ],
+  "waiting_for_human": [
+    {
+      "question": "treeverse/dvc 被识别为原生 CLI/SDK 项目，不是提供 HTTP 入口的 LazyCat Web 微服。是否要将该候选标记为跳过，而不是继续保留当前的 Web 微服迁移初稿？",
+      "slug": "dvc",
+      "source": "treeverse/dvc"
+    },
+    {
+      "question": "The Calcite build failure is fixed and a local LPK was generated, but install/reinstall acceptance cannot run because this worker shell does not have LZC_CLI_TOKEN. Should the worker be rerun with LazyCat install credentials, or should acceptance be deferred?",
+      "slug": "calcite",
+      "source": "apache/calcite"
+    },
+    {
+      "question": "XboxDownload is a native .NET/Avalonia desktop/network utility rather than a web service. Should this queue item be excluded, or should migration attempt a custom noVNC desktop wrapper despite the extra product and networking risk?",
+      "slug": "xboxdownload",
+      "source": "skydevil88/XboxDownload"
+    },
+    {
+      "question": "Camoufox appears to be a browser build/automation SDK rather than a self-contained HTTP web app for LazyCat. How should this queue item proceed?",
+      "slug": "camoufox",
+      "source": "daijro/camoufox"
+    },
+    {
+      "question": "Should wild-linker/wild be skipped as a non-web CLI tool, or should there be a special developer-tool packaging direction for it?",
+      "slug": "wild",
+      "source": "wild-linker/wild"
+    },
+    {
+      "question": "CMake does not expose a self-hosted web service. Should this queue item be skipped as non-deployable, or should humans define a special product scope such as a web terminal/toolbox package?",
+      "slug": "cmake",
+      "source": "Kitware/CMake"
+    },
+    {
+      "question": "NixOS/nixpkgs appears to be the Nix package collection and NixOS source tree, not a standalone HTTP web service. How should this candidate be handled?",
+      "slug": "nixpkgs",
+      "source": "NixOS/nixpkgs"
+    },
+    {
+      "question": "rocksdanister/lively is a Windows WinUI desktop wallpaper/screensaver app, not a web service. How should this queue item be handled?",
+      "slug": "lively",
+      "source": "rocksdanister/lively"
+    },
+    {
+      "question": "community-scripts/ProxmoxVE is a Proxmox helper-script catalog rather than a runnable web app. Should this queue item be skipped, or should a specific service script from the catalog be selected for a separate LazyCat migration?",
+      "slug": "proxmoxve",
+      "source": "community-scripts/ProxmoxVE"
+    },
+    {
+      "question": "Unsloth migration is blocked because unslothai/unsloth appears to be the Python SDK/CLI repo, while the candidate description mentions Unsloth Studio as a web UI. Which upstream/product should be migrated?",
+      "slug": "unsloth",
+      "source": "unslothai/unsloth"
+    },
+    {
+      "question": "Docker Hub is returning HTTP 429 for the Go builder image golang:1.24-bookworm during MCPJungle build verification. Please provide Docker Hub credentials for this worker, confirm we should wait for the anonymous rate limit to reset, or approve a specific trusted Go builder mirror/base image.",
+      "slug": "mcpjungle",
+      "source": "mcpjungle/MCPJungle"
+    },
+    {
+      "question": "The migration script now recognizes and generates the Impeccable Bun static-site app, and preflight passes, but Docker build is blocked by Docker Hub unauthenticated pull rate limits while resolving base images such as nginx:1.27-alpine. Please provide Docker Hub authentication for the build environment or clear the pull-rate limit, then rerun the migration.",
+      "slug": "impeccable",
+      "source": "pbakaus/impeccable"
+    },
+    {
+      "question": "Win11Debloat is a Windows PowerShell/registry automation tool rather than a web service LazyCat can host directly. Should this candidate be skipped, or should a human define a custom LazyCat wrapper/listing concept?",
+      "slug": "win11debloat",
+      "source": "Raphire/Win11Debloat"
+    },
+    {
+      "question": "The SRS migration now uses the official image and passes local dry-run packaging, but full reinstall is blocked because `lzc-cli appstore copy-image` prompts for LazyCat login. Please provide/refresh non-interactive LazyCat CLI credentials for this worker, or approve continuing only with dry-run validation.",
+      "slug": "srs",
+      "source": "ossrs/srs"
+    },
+    {
+      "question": "Chatwoot needs a build-platform decision. The local ARM Colima host can start Docker now, but linux/amd64 Alpine/Ruby native-extension compilation repeatedly segfaults under QEMU while building Nokogiri. Which path should the migration worker use?",
+      "slug": "chatwoot",
+      "source": "chatwoot/chatwoot"
+    },
+    {
+      "question": "The Ente build failure is fixed, but lzc-cli appstore copy-image is prompting for LazyCat login and cannot continue unattended. Please refresh/provide valid LazyCat CLI credentials for this worker, then resume the queue item.",
+      "slug": "ente",
+      "source": "ente-io/ente"
+    },
+    {
+      "question": "The Typesense migration now selects the correct official image, but lzc-cli appstore copy-image prompts for a LazyCat login username. Please provide/refresh valid lzc-cli App Store credentials on this worker so copy-image can run non-interactively, then resume the queue item.",
+      "slug": "typesense",
+      "source": "typesense/typesense"
+    },
+    {
+      "question": "The Zulip migration now reaches LazyCat appstore copy-image using the official image ghcr.io/zulip/zulip-server:12.0-0, but lzc-cli is not authenticated and prompts for a LazyCat login username. Please authenticate lzc-cli for appstore copy-image or provide the required credentials/session setup.",
+      "slug": "zulip",
+      "source": "zulip/zulip"
+    },
+    {
+      "question": "Tasmota is ESP8266/ESP32 firmware with a device Web UI, not a self-hosted HTTP service. How should this queue item be handled?",
+      "slug": "tasmota",
+      "source": "arendst/Tasmota"
+    }
+  ]
+}

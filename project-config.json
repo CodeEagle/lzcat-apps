@@ -23,7 +23,7 @@
     "channel_prefix": "migration"
   },
   "local_agent": {
-    "enabled": true,
+    "enabled": false,
     "path": "/Users/lincoln/Develop/GitHub/LocalAgent",
     "snapshot_path": "registry/candidates/local-agent-latest.json"
   },
@@ -39,6 +39,10 @@
     "bot_user_id": "1497941153608241192",
     "mention_role_ids": [
       "1497955235149250643"
+    ],
+    "secret_admin_channel_id": "1498539657351266467",
+    "secret_admin_user_ids": [
+      "841116875605934080"
     ]
   }
 }

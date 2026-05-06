@@ -47,6 +47,39 @@ def read_text_if_exists(path: Path, *, max_chars: int = 12000) -> str:
     return text[-max_chars:]
 
 
+def lazycat_store_search_guidance(item: dict[str, Any]) -> str:
+    candidate = item.get("candidate") if isinstance(item.get("candidate"), dict) else {}
+    hits = candidate.get("lazycat_hits") or item.get("lazycat_hits")
+    if not isinstance(hits, list) or not hits:
+        search = candidate.get("lazycat_store_search") if isinstance(candidate.get("lazycat_store_search"), dict) else {}
+        search_hits = search.get("hits")
+        hits = search_hits if isinstance(search_hits, list) else []
+
+    if not hits:
+        return (
+            "No LazyCat app-store search hits are attached to this queue item. "
+            "Do not infer that an app is already published unless local publication data or explicit evidence says so."
+        )
+
+    lines = [
+        "This queue item includes LazyCat app-store search hits. Treat these hits as first-class evidence.",
+        "If a hit is clearly the same product/app as the upstream repo, choose `skip` and cite the hit.",
+        "If the match is ambiguous, weak, or depends on ownership/listing judgment, choose `needs_human`; do not guess.",
+        "Do not choose `migrate` while an unresolved store hit could represent an already published app.",
+        "LazyCat app-store search hits:",
+    ]
+    for hit in hits[:5]:
+        if not isinstance(hit, dict):
+            continue
+        label = str(hit.get("raw_label") or hit.get("label") or "").strip()
+        url = str(hit.get("detail_url") or hit.get("url") or "").strip()
+        reason = str(hit.get("reason") or "").strip()
+        parts = [part for part in [label, url, reason] if part]
+        if parts:
+            lines.append(f"- {' | '.join(parts)}")
+    return "\n".join(lines)
+
+
 def build_codex_prompt(
     repo_root: Path,
     queue_path: Path,
@@ -61,6 +94,7 @@ def build_codex_prompt(
         repo_root / "registry" / "candidates" / "local-agent-latest.json",
         max_chars=12000,
     )
+    store_search_guidance = lazycat_store_search_guidance(item)
 
     return f"""You are a Codex discovery reviewer for the LazyCat lzcat-apps auto-migration pipeline.
 
@@ -74,6 +108,9 @@ Decision rules:
 - `migrate`: the upstream appears to be a deployable self-hosted app or service, is not already published in this LazyCat app set, and has enough deployment evidence to attempt migration.
 - `skip`: it is already migrated/published, is a library/list/documentation/data-only repository, lacks deployable app evidence, or is otherwise not worth migrating.
 - `needs_human`: the decision depends on product/listing ownership, ambiguous app-store match, licensing risk, credentials, or a judgment call that should be asked in Discord.
+
+LazyCat app-store search review:
+{store_search_guidance}
 
 Required queue update:
 - Open and update this queue file: {queue_path}
