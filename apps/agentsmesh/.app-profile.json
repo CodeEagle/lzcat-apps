@@ -1,0 +1,679 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "AgentsMesh/AgentsMesh",
+  "fixes": {
+    "project_name": "AgentsMesh",
+    "description": "The AI Agent Workforce Platform — where teams scale beyond headcount",
+    "description_zh": "（迁移初稿）Agentsmesh 的懒猫微服版本",
+    "homepage": "https://agentsmesh.ai",
+    "author": "AgentsMesh",
+    "package": "fun.selfstudio.app.migration.agentsmesh",
+    "check_strategy": "github_release",
+    "build_strategy": "upstream_dockerfile",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "docker_platform": "linux/amd64",
+    "image_targets": [
+      "relay"
+    ],
+    "dependencies": [
+      {
+        "target_service": "backend",
+        "source_image": "agentsmesh/backend:${VERSION:-latest}"
+      },
+      {
+        "target_service": "web-admin",
+        "source_image": "agentsmesh/web-admin:${VERSION:-latest}"
+      },
+      {
+        "target_service": "web",
+        "source_image": "agentsmesh/web:${VERSION:-latest}"
+      },
+      {
+        "target_service": "minio",
+        "source_image": "pgsty/minio:latest"
+      },
+      {
+        "target_service": "postgres",
+        "source_image": "postgres:16-alpine"
+      },
+      {
+        "target_service": "redis",
+        "source_image": "redis:7-alpine"
+      },
+      {
+        "target_service": "traefik",
+        "source_image": "traefik:v3.2"
+      }
+    ],
+    "service_builds": [
+      {
+        "target_service": "relay",
+        "build_strategy": "upstream_dockerfile",
+        "source_dockerfile_path": "relay/Dockerfile",
+        "build_context": "relay",
+        "build_args": {},
+        "image_name": "agentsmesh-relay"
+      }
+    ],
+    "service_port": 80,
+    "services": {
+      "backend": {
+        "image": "registry.lazycat.cloud/placeholder/agentsmesh:backend",
+        "environment": [
+          "PRIMARY_DOMAIN",
+          "USE_HTTPS=false",
+          "DB_HOST=postgres",
+          "DB_PORT=5432",
+          "DB_USER=agentsmesh",
+          "DB_PASSWORD",
+          "DB_NAME=agentsmesh",
+          "DB_SSLMODE=disable",
+          "REDIS_URL=redis://redis:6379",
+          "JWT_SECRET",
+          "INTERNAL_API_SECRET",
+          "SERVER_ADDRESS=:8080",
+          "DEBUG=false",
+          "CORS_ALLOWED_ORIGINS=*",
+          "LOG_LEVEL=info",
+          "LOG_FORMAT=json",
+          "LOG_FILE=/dev/stdout",
+          "EMAIL_PROVIDER=console",
+          "STORAGE_ENDPOINT=minio:9000",
+          "STORAGE_PUBLIC_ENDPOINT=${SERVER_HOST}:${MINIO_API_PORT:-9000}",
+          "STORAGE_REGION=us-east-1",
+          "STORAGE_BUCKET=agentsmesh",
+          "STORAGE_ACCESS_KEY=minioadmin",
+          "STORAGE_SECRET_KEY=__CHANGE_ME__",
+          "STORAGE_USE_SSL=false",
+          "STORAGE_USE_PATH_STYLE=true",
+          "STORAGE_MAX_FILE_SIZE=10",
+          "STORAGE_ALLOWED_TYPES=image/jpeg,image/png,image/gif,image/webp,application/pdf",
+          "PKI_CA_CERT_FILE=/app/ssl/ca.crt",
+          "PKI_CA_KEY_FILE=/app/ssl/ca.key",
+          "PKI_VALIDITY_DAYS=365",
+          "GRPC_ADDRESS=:9090",
+          "GRPC_PUBLIC_ENDPOINT=grpc://${SERVER_HOST}:${GRPC_PORT:-9443}",
+          "ADMIN_ENABLED=true"
+        ],
+        "depends_on": [
+          "postgres",
+          "redis"
+        ],
+        "healthcheck": {
+          "test": [
+            "CMD",
+            "wget",
+            "--no-verbose",
+            "--tries=1",
+            "--spider",
+            "http://localhost:8080/health"
+          ],
+          "interval": "30s",
+          "timeout": "3s",
+          "retries": 3,
+          "start_period": "30s"
+        }
+      },
+      "minio": {
+        "image": "registry.lazycat.cloud/placeholder/agentsmesh:minio",
+        "environment": [
+          "MINIO_ROOT_USER=minioadmin",
+          "MINIO_ROOT_PASSWORD",
+          "MINIO_API_CORS_ALLOW_ORIGIN=*"
+        ],
+        "binds": [
+          "/lzcapp/var/data/agentsmesh/minio:/data"
+        ],
+        "command": "server /data --console-address \":9001\"",
+        "healthcheck": {
+          "test": [
+            "CMD",
+            "mc",
+            "ready",
+            "local"
+          ],
+          "interval": "10s",
+          "timeout": "5s",
+          "retries": 5
+        }
+      },
+      "postgres": {
+        "image": "registry.lazycat.cloud/placeholder/agentsmesh:postgres",
+        "environment": [
+          "POSTGRES_USER=agentsmesh",
+          "POSTGRES_PASSWORD=__CHANGE_ME__",
+          "POSTGRES_DB=agentsmesh"
+        ],
+        "binds": [
+          "/lzcapp/var/db/agentsmesh/postgres:/var/lib/postgresql/data"
+        ],
+        "healthcheck": {
+          "test": [
+            "CMD-SHELL",
+            "pg_isready -U agentsmesh"
+          ],
+          "interval": "10s",
+          "timeout": "5s",
+          "retries": 5
+        }
+      },
+      "redis": {
+        "image": "registry.lazycat.cloud/placeholder/agentsmesh:redis",
+        "binds": [
+          "/lzcapp/var/data/agentsmesh/redis:/data"
+        ],
+        "command": "redis-server --appendonly yes",
+        "healthcheck": {
+          "test": [
+            "CMD",
+            "redis-cli",
+            "ping"
+          ],
+          "interval": "10s",
+          "timeout": "5s",
+          "retries": 5
+        }
+      },
+      "relay": {
+        "image": "registry.lazycat.cloud/placeholder/agentsmesh:relay",
+        "environment": [
+          "SERVER_ADDRESS=:8090",
+          "WS_READ_BUFFER_SIZE=4096",
+          "WS_WRITE_BUFFER_SIZE=4096",
+          "JWT_SECRET",
+          "BACKEND_URL=http://backend:8080",
+          "INTERNAL_API_SECRET",
+          "RELAY_ID=selfhost-relay-1",
+          "RELAY_REGION=local",
+          "RELAY_CAPACITY=1000",
+          "PRIMARY_DOMAIN",
+          "USE_HTTPS=false",
+          "SESSION_KEEP_ALIVE_DURATION=30s",
+          "DEBUG=false"
+        ],
+        "depends_on": [
+          "backend"
+        ],
+        "healthcheck": {
+          "test": [
+            "CMD",
+            "wget",
+            "--no-verbose",
+            "--tries=1",
+            "--spider",
+            "http://localhost:8090/health"
+          ],
+          "interval": "30s",
+          "timeout": "3s",
+          "retries": 3,
+          "start_period": "10s"
+        }
+      },
+      "traefik": {
+        "image": "registry.lazycat.cloud/placeholder/agentsmesh:traefik",
+        "binds": [
+          "/lzcapp/pkg/content/traefik.yml:/etc/traefik/traefik.yml"
+        ],
+        "depends_on": [
+          "backend"
+        ],
+        "setup_script": "mkdir -p /etc/traefik\ncp /lzcapp/pkg/content/traefik.yml /etc/traefik/traefik.yml\n"
+      },
+      "web": {
+        "image": "registry.lazycat.cloud/placeholder/agentsmesh:web",
+        "environment": [
+          "NODE_ENV=production",
+          "PRIMARY_DOMAIN",
+          "USE_HTTPS=false",
+          "POSTHOG_KEY=",
+          "POSTHOG_HOST="
+        ],
+        "depends_on": [
+          "backend"
+        ],
+        "healthcheck": {
+          "test": [
+            "CMD",
+            "curl",
+            "-f",
+            "http://localhost:3000/"
+          ],
+          "interval": "30s",
+          "timeout": "10s",
+          "retries": 3,
+          "start_period": "30s"
+        }
+      },
+      "web-admin": {
+        "image": "registry.lazycat.cloud/placeholder/agentsmesh:web-admin",
+        "environment": [
+          "NODE_ENV=production",
+          "PRIMARY_DOMAIN",
+          "USE_HTTPS=false"
+        ],
+        "depends_on": [
+          "backend"
+        ],
+        "healthcheck": {
+          "test": [
+            "CMD",
+            "curl",
+            "-f",
+            "http://localhost:3001/admin"
+          ],
+          "interval": "30s",
+          "timeout": "10s",
+          "retries": 3,
+          "start_period": "30s"
+        }
+      }
+    },
+    "application": {
+      "subdomain": "agentsmesh",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/minio/",
+          "backend": "http://minio:9001/"
+        },
+        {
+          "location": "/",
+          "backend": "http://traefik:80/"
+        }
+      ]
+    },
+    "env_vars": [
+      {
+        "name": "POSTGRES_USER",
+        "description": "From compose service postgres",
+        "required": false,
+        "value": "agentsmesh"
+      },
+      {
+        "name": "POSTGRES_PASSWORD",
+        "description": "From compose service postgres",
+        "required": false,
+        "source_name": "DB_PASSWORD",
+        "value": "__CHANGE_ME__"
+      },
+      {
+        "name": "POSTGRES_DB",
+        "description": "From compose service postgres",
+        "required": false,
+        "value": "agentsmesh"
+      },
+      {
+        "name": "MINIO_ROOT_USER",
+        "description": "From compose service minio",
+        "required": false,
+        "value": "minioadmin"
+      },
+      {
+        "name": "MINIO_ROOT_PASSWORD",
+        "description": "From compose service minio",
+        "required": false,
+        "value": "__CHANGE_ME__"
+      },
+      {
+        "name": "MINIO_API_CORS_ALLOW_ORIGIN",
+        "description": "From compose service minio",
+        "required": false,
+        "value": "*"
+      },
+      {
+        "name": "PRIMARY_DOMAIN",
+        "description": "From compose service relay",
+        "required": false,
+        "value": "_PRIMARY_DOMAIN_"
+      },
+      {
+        "name": "USE_HTTPS",
+        "description": "From compose service relay",
+        "required": false,
+        "value": "false"
+      },
+      {
+        "name": "DB_HOST",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "postgres"
+      },
+      {
+        "name": "DB_PORT",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "5432"
+      },
+      {
+        "name": "DB_USER",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "agentsmesh"
+      },
+      {
+        "name": "DB_PASSWORD",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "__CHANGE_ME__"
+      },
+      {
+        "name": "DB_NAME",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "agentsmesh"
+      },
+      {
+        "name": "DB_SSLMODE",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "disable"
+      },
+      {
+        "name": "REDIS_URL",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "redis://redis:6379"
+      },
+      {
+        "name": "JWT_SECRET",
+        "description": "From compose service relay",
+        "required": false,
+        "value": "__CHANGE_ME__"
+      },
+      {
+        "name": "INTERNAL_API_SECRET",
+        "description": "From compose service relay",
+        "required": false,
+        "value": "__CHANGE_ME__"
+      },
+      {
+        "name": "SERVER_ADDRESS",
+        "description": "From compose service relay",
+        "required": false,
+        "value": ":8090"
+      },
+      {
+        "name": "DEBUG",
+        "description": "From compose service relay",
+        "required": false,
+        "value": "false"
+      },
+      {
+        "name": "CORS_ALLOWED_ORIGINS",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "*"
+      },
+      {
+        "name": "LOG_LEVEL",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "info"
+      },
+      {
+        "name": "LOG_FORMAT",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "json"
+      },
+      {
+        "name": "LOG_FILE",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "/dev/stdout"
+      },
+      {
+        "name": "EMAIL_PROVIDER",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "console"
+      },
+      {
+        "name": "STORAGE_ENDPOINT",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "minio:9000"
+      },
+      {
+        "name": "STORAGE_PUBLIC_ENDPOINT",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "${SERVER_HOST}:${MINIO_API_PORT:-9000}"
+      },
+      {
+        "name": "STORAGE_REGION",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "us-east-1"
+      },
+      {
+        "name": "STORAGE_BUCKET",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "agentsmesh"
+      },
+      {
+        "name": "STORAGE_ACCESS_KEY",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "minioadmin"
+      },
+      {
+        "name": "STORAGE_SECRET_KEY",
+        "description": "From compose service backend",
+        "required": false,
+        "source_name": "MINIO_ROOT_PASSWORD",
+        "value": "__CHANGE_ME__"
+      },
+      {
+        "name": "STORAGE_USE_SSL",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "false"
+      },
+      {
+        "name": "STORAGE_USE_PATH_STYLE",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "true"
+      },
+      {
+        "name": "STORAGE_MAX_FILE_SIZE",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "10"
+      },
+      {
+        "name": "STORAGE_ALLOWED_TYPES",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "image/jpeg,image/png,image/gif,image/webp,application/pdf"
+      },
+      {
+        "name": "PKI_CA_CERT_FILE",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "/app/ssl/ca.crt"
+      },
+      {
+        "name": "PKI_CA_KEY_FILE",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "/app/ssl/ca.key"
+      },
+      {
+        "name": "PKI_VALIDITY_DAYS",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "365"
+      },
+      {
+        "name": "GRPC_ADDRESS",
+        "description": "From compose service backend",
+        "required": false,
+        "value": ":9090"
+      },
+      {
+        "name": "GRPC_PUBLIC_ENDPOINT",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "grpc://${SERVER_HOST}:${GRPC_PORT:-9443}"
+      },
+      {
+        "name": "ADMIN_ENABLED",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "true"
+      },
+      {
+        "name": "NODE_ENV",
+        "description": "From compose service web-admin",
+        "required": false,
+        "value": "production"
+      },
+      {
+        "name": "WS_READ_BUFFER_SIZE",
+        "description": "From compose service relay",
+        "required": false,
+        "value": "4096"
+      },
+      {
+        "name": "WS_WRITE_BUFFER_SIZE",
+        "description": "From compose service relay",
+        "required": false,
+        "value": "4096"
+      },
+      {
+        "name": "BACKEND_URL",
+        "description": "From compose service relay",
+        "required": false,
+        "value": "http://backend:8080"
+      },
+      {
+        "name": "RELAY_ID",
+        "description": "From compose service relay",
+        "required": false,
+        "value": "selfhost-relay-1"
+      },
+      {
+        "name": "RELAY_REGION",
+        "description": "From compose service relay",
+        "required": false,
+        "value": "local"
+      },
+      {
+        "name": "RELAY_CAPACITY",
+        "description": "From compose service relay",
+        "required": false,
+        "value": "1000"
+      },
+      {
+        "name": "SESSION_KEEP_ALIVE_DURATION",
+        "description": "From compose service relay",
+        "required": false,
+        "value": "30s"
+      },
+      {
+        "name": "JWT_EXPIRATION_HOURS",
+        "description": "From .env.example",
+        "required": false,
+        "value": "24"
+      },
+      {
+        "name": "DEPLOYMENT_TYPE",
+        "description": "From .env.example",
+        "required": false,
+        "value": "global"
+      },
+      {
+        "name": "ALIPAY_SANDBOX",
+        "description": "From .env.example",
+        "required": false,
+        "value": "false"
+      },
+      {
+        "name": "WECHAT_SANDBOX",
+        "description": "From .env.example",
+        "required": false,
+        "value": "false"
+      },
+      {
+        "name": "NEXT_PUBLIC_GITLAB_SSO_URL",
+        "description": "From .env.example",
+        "required": false,
+        "value": "https://gitlab.com"
+      },
+      {
+        "name": "SERVER_HOST",
+        "description": "From .env.example",
+        "required": false,
+        "value": "__SERVER_HOST__"
+      },
+      {
+        "name": "HTTP_PORT",
+        "description": "From .env.example",
+        "required": false,
+        "value": "80"
+      },
+      {
+        "name": "GRPC_PORT",
+        "description": "From .env.example",
+        "required": false,
+        "value": "9443"
+      },
+      {
+        "name": "VERSION",
+        "description": "From .env.example",
+        "required": false,
+        "value": "latest"
+      },
+      {
+        "name": "COMPOSE_PROJECT_NAME",
+        "description": "From .env.example",
+        "required": false,
+        "value": "agentsmesh"
+      },
+      {
+        "name": "MINIO_CONSOLE_PORT",
+        "description": "From .env.example",
+        "required": false,
+        "value": "9001"
+      },
+      {
+        "name": "MINIO_API_PORT",
+        "description": "From .env.example",
+        "required": false,
+        "value": "9000"
+      }
+    ],
+    "data_paths": [
+      {
+        "host": "/lzcapp/var/db/agentsmesh/postgres",
+        "container": "/var/lib/postgresql/data",
+        "description": "From compose service postgres"
+      },
+      {
+        "host": "/lzcapp/var/data/agentsmesh/redis",
+        "container": "/data",
+        "description": "From compose service redis"
+      },
+      {
+        "host": "/lzcapp/var/data/agentsmesh/minio",
+        "container": "/data",
+        "description": "From compose service minio"
+      }
+    ],
+    "startup_notes": [
+      "自动扫描到 compose 文件：deploy/selfhost/docker-compose.yml",
+      "主服务推断为 `traefik`，入口端口 `80`。",
+      "依赖服务镜像已写入 dependencies，首次完整构建时会自动 copy-image。",
+      "扫描到 env 示例文件：.env.example, .env.example, .env.example",
+      "扫描到 README：README.md, README.md, README.md",
+      "扫描到上游图标：web/public/icons/icon-512.png"
+    ],
+    "include_content": true
+  }
+}
