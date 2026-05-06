@@ -766,13 +766,21 @@
         "total_stars": 1
       },
       "candidate_status": "portable",
+      "codex": {
+        "attempts": 1,
+        "last_returncode": 1,
+        "last_run_at": "2026-05-06T17:46:47Z",
+        "last_status": "codex_failed",
+        "last_task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260506T174650Z-github-jsierra87-engram",
+        "session_id": "545d7ebb-0a3d-4b78-8fcc-5a675fcf603a"
+      },
       "created_at": "2026-05-06T17:24:31Z",
       "id": "github:jsierra87/engram",
-      "last_error": "auto_migrate exited 1",
+      "last_error": "claude repair worker exited 1",
       "slug": "engram",
       "source": "jsierra87/engram",
       "state": "build_failed",
-      "updated_at": "2026-05-06T17:34:32Z",
+      "updated_at": "2026-05-06T17:46:47Z",
       "workspace_path": "/__w/lzcat-apps/lzcat-apps/../migration-workspaces/migration-engram"
     },
     {
@@ -1199,15 +1207,20 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "last_returncode": 1,
+        "last_run_at": "2026-05-06T17:46:47Z",
+        "last_status": "review_failed",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：Sidiral/agent-telegram-bot\n仓库：https://github.com/Sidiral/agent-telegram-bot\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- mermaid-live-editor Edit, preview and share mermaid flowcharts 33 https://lazycat.cloud/appstore/detail/io.zeroc.app.mermaid\n- Hello-Java-Sec Java Security_javasec Range 4 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.javasec\n- yt-dlp-web video download tool 80 https://lazycat.cloud/appstore/detail/wcloud.gblw.app.yt-dlp-web\n- PeiQi-WIKI-Book Knowledge base for cybersecurity practitioners 5 https://lazycat.cloud/appstore/detail/wcloud.gblw.app.peiqi\n- local-content-share This is a simple self-managed application for sharing text fragments and files across any device on the local network. It also includes a notepad that can be used to take rough notes. 3 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.contentshare\n请判断：migrate / skip / needs_human，并给出证据。",
         "status": "pending"
       },
       "id": "github:sidiral/agent-telegram-bot",
+      "last_error": "claude discovery reviewer exited 1",
       "slug": "agent-telegram-bot",
       "source": "Sidiral/agent-telegram-bot",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 1,
@@ -1253,7 +1266,8 @@
       "workspace_path": "/__w/lzcat-apps/lzcat-apps/../migration-workspaces/migration-insightd"
     },
     {
-      "attempts": 0,
+      "attempts": 1,
+      "branch": "migration/pressyard",
       "candidate": {
         "description": "Create local WordPress setups with isolated containers, automatic installs, and project-based hostnames for easy development and testing.",
         "external_signal": "",
@@ -1286,10 +1300,12 @@
       "candidate_status": "portable",
       "created_at": "2026-05-06T17:24:31Z",
       "id": "github:codemasters999/pressyard",
+      "last_error": "auto_migrate exited 1",
       "slug": "pressyard",
       "source": "CodeMasters999/PressYard",
-      "state": "ready",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "state": "build_failed",
+      "updated_at": "2026-05-06T17:46:47Z",
+      "workspace_path": "/__w/lzcat-apps/lzcat-apps/../migration-workspaces/migration-pressyard"
     },
     {
       "attempts": 0,
@@ -2811,7 +2827,7 @@
       "slug": "showpilot",
       "source": "ShowPilotFPP/ShowPilot",
       "state": "ready",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -3355,7 +3371,7 @@
       "slug": "minerva",
       "source": "the-farshad/Minerva",
       "state": "ready",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -3785,7 +3801,7 @@
       "slug": "tg-webapp-proxy",
       "source": "kamzy01/TG-WebApp-Proxy",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -4022,7 +4038,7 @@
       "slug": "core",
       "source": "infinito-nexus/core",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -4456,7 +4472,7 @@
       "slug": "biblioteca-aurea",
       "source": "felipe-frc/biblioteca-aurea",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -4882,7 +4898,7 @@
       "slug": "mydeck-console",
       "source": "NateEaton/mydeck-console",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -4921,7 +4937,7 @@
       "slug": "dnsfilterapp",
       "source": "rutob42/dnsFilterApp",
       "state": "ready",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -5327,7 +5343,7 @@
       "slug": "org-web-adapter",
       "source": "bym-ok/Org-Web-Adapter",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -5366,7 +5382,7 @@
       "slug": "qdphone",
       "source": "nduongg110/QDPhone",
       "state": "ready",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -5413,7 +5429,7 @@
       "slug": "snippetbox",
       "source": "theolujay/snippetbox",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -5452,7 +5468,7 @@
       "slug": "webappexperimental26",
       "source": "gladiola/WebAppExperimental26",
       "state": "ready",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -5492,7 +5508,7 @@
       "slug": "retraction-watch-mcp",
       "source": "handsomeZR-netizen/retraction-watch-mcp",
       "state": "filtered_out",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -5541,7 +5557,7 @@
       "slug": "backapp",
       "source": "Royer234/BackApp",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -5795,7 +5811,7 @@
       "slug": "rsc_detector",
       "source": "VISHUKS/RSC_Detector",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -5834,7 +5850,7 @@
       "slug": "dev3000",
       "source": "vercel-labs/dev3000",
       "state": "ready",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -6079,7 +6095,7 @@
       "slug": "unc-virtual-score-server",
       "source": "furrymayo/unc-virtual-score-server",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -6513,7 +6529,7 @@
       "slug": "cloudify-serverless-app",
       "source": "Anorak064/cloudify-serverless-app",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -6560,7 +6576,7 @@
       "slug": "divkit",
       "source": "divkit/divkit",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -8888,7 +8904,7 @@
       "slug": "measure",
       "source": "measure-sh/measure",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -9302,7 +9318,7 @@
       "slug": "ei-todolistsenaclesson",
       "source": "paraplegic-upperavon116/ei-ToDoListSenacLesson",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -9351,7 +9367,7 @@
       "slug": "lumen",
       "source": "cyeinfpro/Lumen",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -9761,7 +9777,7 @@
       "slug": "smart-homelab",
       "source": "Hans-peterplagiaristic194/smart-homelab",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -10177,7 +10193,7 @@
       "slug": "cosmos-server",
       "source": "azukaar/Cosmos-Server",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -10603,7 +10619,7 @@
       "slug": "open-forge",
       "source": "zhangqi444/open-forge",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -10643,7 +10659,7 @@
       "slug": "hyperdx",
       "source": "hyperdxio/hyperdx",
       "state": "filtered_out",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -10683,7 +10699,7 @@
       "slug": "shareflow-kvm",
       "source": "straight-scalar733/shareflow-kvm",
       "state": "filtered_out",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -10961,7 +10977,7 @@
       "slug": "xc_vm",
       "source": "Vateron-Media/XC_VM",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -11000,7 +11016,7 @@
       "slug": "istota",
       "source": "istota-project/istota",
       "state": "ready",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -11053,7 +11069,7 @@
       "slug": "trek",
       "source": "Kakashi-Your-Death/TREK",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -11295,7 +11311,7 @@
       "slug": "osv-ui",
       "source": "virginiadiom2000-ai/osv-ui",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -11709,7 +11725,7 @@
       "slug": "family-book",
       "source": "jdpangilinan02/family-book",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -11748,7 +11764,7 @@
       "slug": "personalforge",
       "source": "Vijay1731/personalforge",
       "state": "ready",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -11801,7 +11817,7 @@
       "slug": "drift",
       "source": "lungenemptynester200/drift",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -12231,7 +12247,7 @@
       "slug": "planwiki-app",
       "source": "Ibradl3673/planwiki-app",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -12665,7 +12681,7 @@
       "slug": "vless-xhttp",
       "source": "motoneuronrijstafel442/vless-xhttp",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -12705,7 +12721,7 @@
       "slug": "nexterm",
       "source": "Apaturairispolymath361/nexterm",
       "state": "filtered_out",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -12744,7 +12760,7 @@
       "slug": "siliao",
       "source": "Eroseleafgrowth612/siliao",
       "state": "ready",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -13078,7 +13094,7 @@
       "slug": "qwen3.5-vision.cpp",
       "source": "Ruchiso9603/Qwen3.5-Vision.cpp",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -13510,7 +13526,7 @@
       "slug": "claude-wake-up",
       "source": "geraldinaunfeathered821/claude-wake-up",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -13936,7 +13952,7 @@
       "slug": "dynamo-shield",
       "source": "seejanm9990/dynamo-shield",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -14354,7 +14370,7 @@
       "slug": "kaseki-agent",
       "source": "CyanAutomation/kaseki-agent",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -14776,7 +14792,7 @@
       "slug": "options-strike-calculator",
       "source": "cobriensr/Options-Strike-Calculator",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -14857,7 +14873,7 @@
       "slug": "portfolio",
       "source": "conor3618/portfolio",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -15094,7 +15110,7 @@
       "slug": "php",
       "source": "likesistemas/php",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -15133,7 +15149,7 @@
       "slug": "taskqueuemini",
       "source": "emircanozdemirdev/TaskQueueMini",
       "state": "ready",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -15547,7 +15563,7 @@
       "slug": "server-setup",
       "source": "IGuidoo/server-setup",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -15586,7 +15602,7 @@
       "slug": "taskflow",
       "source": "MrRedstoneY/TaskFlow",
       "state": "ready",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -15625,7 +15641,7 @@
       "slug": "jesuscastromtz",
       "source": "jesuscastromtz/jesuscastromtz",
       "state": "ready",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -15664,7 +15680,7 @@
       "slug": "wilsonnjoroge",
       "source": "wilsonnjoroge/wilsonnjoroge",
       "state": "ready",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     },
     {
       "attempts": 0,
@@ -15901,12 +15917,12 @@
       "slug": "platform",
       "source": "Mediwyz/platform",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T17:42:53Z"
+      "updated_at": "2026-05-06T17:46:47Z"
     }
   ],
   "meta": {
     "created_at": "2026-05-06T17:22:58Z",
-    "updated_at": "2026-05-06T17:42:53Z"
+    "updated_at": "2026-05-06T17:46:47Z"
   },
   "schema_version": 1
 }
