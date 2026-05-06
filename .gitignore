@@ -6,10 +6,19 @@ scripts/.env.local
 **/.lzc-cli-build*/
 artifacts/
 dist/
-registry/candidates/
-registry/status/
+# registry/* — most contents are run-scoped artifacts (logs, codex tasks,
+# Discord queues, browser screenshots). The ! re-includes below pin the
+# canonical state files that workflows commit back to template so the next
+# cycle picks up where the previous one left off.
+registry/candidates/*
+!registry/candidates/latest.json
+!registry/candidates/local-agent-latest.json
+registry/status/*
+!registry/status/local-publication-status.json
+!registry/status/developer-apps.json
 registry/auto-migration/*
 !registry/auto-migration/exclude-list.json
+!registry/auto-migration/queue.json
 apps/*/upstream/
 apps/*/.browser-acceptance-plan.json
 apps/*/.functional-check.json

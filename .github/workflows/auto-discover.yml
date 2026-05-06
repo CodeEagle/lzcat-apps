@@ -1,0 +1,139 @@
+# Phase F3 — read-only Inbox population.
+#
+# Every 30 min:
+#   1. Run scripts/auto_migration_service.py --once with --max-migrations-per-cycle 0
+#      so scout / discovery_gate / (optional) codex_discovery_reviewer all run but
+#      no migration ever advances past `ready`.
+#   2. Bootstrap the GitHub Project (idempotent — exits in O(1) once cached).
+#   3. Sync registry/auto-migration/queue.json → Project items. AI auto-approve
+#      runs as part of sync: items whose discovery_review.score crosses
+#      project-config.json::migration.auto_approve_score_threshold flip
+#      Inbox → Approved automatically.
+#   4. Commit canonical state (queue.json, candidate snapshots) back to
+#      template so the next cycle isn't a cold start.
+#
+# F4+ workflows will read the Approved column to dispatch migrations. Until
+# F4 lands, this workflow is the entire automation surface.
+#
+# Codex note: scripts/codex_discovery_reviewer.py shells out to the `codex`
+# CLI which is NOT yet installed in lzcat-migration-runner (only `claude` is).
+# Until the runner image picks up `codex`, leave `enable_codex` off — items
+# stay in Inbox without an AI score and need a human click. See HANDOFF.
+
+name: Auto-Discover
+
+on:
+  schedule:
+    - cron: "0,30 * * * *"   # every 30 minutes
+  workflow_dispatch:
+    inputs:
+      skip_status_sync:
+        description: "Skip the LazyCat App Store status sync"
+        type: boolean
+        default: false
+      skip_scout:
+        description: "Skip scout (GitHub trending / Awesome / r.jina.ai)"
+        type: boolean
+        default: false
+      enable_codex:
+        description: "Run codex_discovery_reviewer (requires codex CLI in runner image)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write          # commit queue/candidate refresh back to template
+  pull-requests: write     # for cross-references in commit messages
+  issues: write            # for waiting_for_human follow-ups
+
+concurrency:
+  group: auto-discover
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    name: discover-and-sync
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/codeeagle/lzcat-migration-runner:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GH_PAT }}
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GH_PAT }}
+      GH_PAT: ${{ secrets.GH_PAT }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+      LAZYCAT_BOX_DOMAIN: ${{ secrets.LAZYCAT_BOX_DOMAIN }}
+
+    steps:
+      - name: Checkout template
+        uses: actions/checkout@v4
+        with:
+          ref: template
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Configure git author
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run discovery + triage cycle (no migrations)
+        run: |
+          set -euo pipefail
+          ARGS=(
+            --once
+            --max-migrations-per-cycle 0
+            --no-env-file
+            --disable-local-agent
+            --disable-discord
+          )
+          if [ "${{ inputs.skip_status_sync }}" = "true" ]; then ARGS+=(--skip-status-sync); fi
+          if [ "${{ inputs.skip_scout }}" = "true" ]; then ARGS+=(--skip-scout); fi
+          if [ "${{ inputs.enable_codex }}" = "true" ]; then ARGS+=(--enable-codex-worker); fi
+          python3 scripts/auto_migration_service.py "${ARGS[@]}"
+
+      - name: Bootstrap project board (idempotent)
+        run: python3 scripts/project_board.py bootstrap
+
+      - name: Sync queue → GitHub Project
+        run: python3 scripts/project_board.py sync
+
+      - name: Commit canonical state back to template
+        run: |
+          set -euo pipefail
+          # State files we persist across cycles (paths re-included in .gitignore).
+          STATE_PATHS=(
+            registry/candidates/latest.json
+            registry/candidates/local-agent-latest.json
+            registry/auto-migration/queue.json
+            registry/auto-migration/exclude-list.json
+            registry/status/local-publication-status.json
+            registry/status/developer-apps.json
+          )
+          for path in "${STATE_PATHS[@]}"; do
+            if [ -e "$path" ]; then
+              git add "$path"
+            fi
+          done
+
+          if git diff --cached --quiet; then
+            echo "auto-discover: no state changes this cycle"
+            exit 0
+          fi
+
+          git commit -m "chore(auto-discover): refresh queue + candidates $(date -u +%Y-%m-%dT%H:%MZ)"
+
+          # Branch protection on template requires retry-on-race.
+          for attempt in 1 2 3 4; do
+            if git pull --rebase --autostash origin template && git push origin template; then
+              echo "auto-discover: pushed on attempt $attempt"
+              exit 0
+            fi
+            sleep $((2 ** attempt))
+          done
+          echo "auto-discover: push failed after 4 attempts" >&2
+          exit 1
