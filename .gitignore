@@ -18,3 +18,7 @@ apps/*/acceptance/
 .acc/archive/
 optimize_full_migration_test/
 optimize_full_migration/
+
+# Claude Code per-developer settings (tokens, local permissions, env vars).
+# Each developer keeps their own copy; never commit.
+.claude/settings.local.json
