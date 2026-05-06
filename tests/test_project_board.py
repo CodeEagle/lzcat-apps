@@ -363,6 +363,59 @@ class BootstrapTest(unittest.TestCase):
         self.assertEqual(owner, {"id": "O_org", "type": "organization", "login": "ExampleOrg"})
 
 
+class BuildItemIndexTest(unittest.TestCase):
+    def test_build_item_index_keys_by_slug(self) -> None:
+        items = [
+            _item_node("PVTI_a", {"Slug": "alpha", "Status": {"name": "Inbox"}}),
+            _item_node("PVTI_b", {"Slug": "bravo", "Status": {"name": "Approved"}}),
+            # Item without Slug field — should be skipped.
+            _item_node("PVTI_x", {"Status": {"name": "Inbox"}}),
+        ]
+        fake = FakeRun([_items_page(items)])
+        with patch.object(project_board.subprocess, "run", fake):
+            index = project_board._build_item_index("PVT_xx")
+        self.assertEqual(set(index.keys()), {"alpha", "bravo"})
+        node, flat = index["alpha"]
+        self.assertEqual(node["id"], "PVTI_a")
+        self.assertEqual(flat["Slug"], "alpha")
+
+    def test_sync_calls_list_project_items_only_once_for_many_queue_entries(self) -> None:
+        # Performance regression guard: 50 queue items should result in exactly
+        # one paginated _build_item_index call, not 50 lookups.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _seed_cache(root)
+            (root / "registry" / "auto-migration").mkdir(parents=True, exist_ok=True)
+            (root / "registry" / "auto-migration" / "queue.json").write_text(
+                json.dumps({"items": [
+                    {"id": f"github:demo/{i}", "slug": f"slug-{i}", "state": "ready",
+                     "candidate": {"repo_url": f"https://github.com/demo/{i}"}}
+                    for i in range(50)
+                ]}),
+                encoding="utf-8",
+            )
+            (root / "project-config.json").write_text(
+                json.dumps({"project_board": {"owner": "CodeEagle", "project_number": 1}}),
+                encoding="utf-8",
+            )
+
+            responses: list = [_items_page([])]   # one and only list call
+            # 50 slugs * (add_item + Slug + Status=Inbox + Upstream) = 200 mutations
+            for _ in range(50):
+                responses.append({"addProjectV2DraftIssue": {"projectItem": {"id": "PVTI_x"}}})
+                responses.extend([
+                    {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_x"}}}
+                ] * 3)
+
+            fake = FakeRun(responses)
+            buf = io.StringIO()
+            with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+                rc = project_board.cmd_sync(_ns(root))
+            self.assertEqual(rc, 0)
+            list_calls = sum(1 for c in fake.calls if any("PROJECT_ITEMS_BY_SLUG" in p or "items(first:" in p for p in c))
+            self.assertLessEqual(list_calls, 1, f"sync triggered {list_calls} list-items calls")
+
+
 class SyncTest(unittest.TestCase):
     def _setup(self, queue: dict, *, exclude: list[str] | None = None, threshold: float | None = None) -> Path:
         root = Path(tempfile.mkdtemp(prefix="pb-sync-"))

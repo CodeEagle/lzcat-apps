@@ -773,6 +773,23 @@ def _ensure_item(project_id: str, slug: str) -> tuple[str, dict[str, Any], bool]
     return item_id, {}, True
 
 
+def _build_item_index(project_id: str) -> dict[str, tuple[dict[str, Any], dict[str, Any]]]:
+    """One-shot fetch of every Project item, keyed by Slug field text.
+
+    `cmd_sync` previously called `find_item_by_slug` per queue entry, which
+    walks the entire item list (paginated) on every invocation — O(N²) when
+    queue and board are both large. This helper does the walk once so sync
+    stays linear in queue size.
+    """
+    out: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
+    for node in list_project_items(project_id):
+        flat = _item_field_map(node)
+        slug = str(flat.get("Slug") or "").strip()
+        if slug and slug not in out:
+            out[slug] = (node, flat)
+    return out
+
+
 def cmd_sync(args: argparse.Namespace) -> int:
     repo_root, cache, project_id = _load_for_command(args)
     project_config = load_project_config(repo_root)
@@ -780,6 +797,11 @@ def cmd_sync(args: argparse.Namespace) -> int:
     exclude = load_exclude_slugs(repo_root)
     queue = load_queue(repo_root)
     items = [i for i in queue.get("items", []) if isinstance(i, dict)]
+
+    # Single fetch up-front; everything below is in-memory lookup. Newly-added
+    # items get folded into the index as we create them, so duplicate slugs in
+    # queue.json don't trigger duplicate creates.
+    index = _build_item_index(project_id)
 
     summary: dict[str, list[str]] = {
         "created": [],
@@ -796,24 +818,38 @@ def cmd_sync(args: argparse.Namespace) -> int:
             continue
 
         if slug in exclude:
-            node, _ = find_item_by_slug(project_id, slug)
-            if node is None:
+            existing = index.get(slug)
+            if existing is None:
                 summary["filtered_excluded"].append(slug)
                 continue
+            node, _ = existing
             set_field(project_id, node["id"], cache, "Status", "Filtered")
             summary["filtered_excluded"].append(slug)
             continue
 
-        item_id, flat, created = _ensure_item(project_id, slug)
+        existing = index.get(slug)
+        if existing is None:
+            item_id = add_item(project_id, slug)
+            flat: dict[str, Any] = {}
+            created = True
+        else:
+            node, flat = existing
+            item_id = node["id"]
+            created = False
+
         if created:
             summary["created"].append(slug)
             set_field(project_id, item_id, cache, "Slug", slug)
             set_field(project_id, item_id, cache, "Status", "Inbox")
             flat = {"Slug": slug, "Status": {"name": "Inbox"}}
+            # Cache the freshly-created node so a duplicate slug downstream
+            # in this same sync resolves to the same item.
+            index[slug] = ({"id": item_id}, flat)
 
         upstream = queue_item_upstream(item)
         if upstream and flat.get("Upstream") != upstream:
             set_field(project_id, item_id, cache, "Upstream", upstream)
+            flat["Upstream"] = upstream
         strategy = queue_item_strategy(item)
         if strategy:
             current_strategy = flat.get("Build Strategy")
@@ -821,6 +857,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
             if current_name != strategy:
                 try:
                     set_field(project_id, item_id, cache, "Build Strategy", strategy)
+                    flat["Build Strategy"] = {"name": strategy}
                 except RuntimeError:
                     # Unknown strategy option — ignore rather than blocking sync.
                     pass
@@ -828,6 +865,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
         score = queue_item_score(item)
         if score is not None and flat.get("AI Score") != score:
             set_field(project_id, item_id, cache, "AI Score", score)
+            flat["AI Score"] = score
 
         current_status = flat.get("Status")
         current_status_name = (
@@ -839,6 +877,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
             and current_status_name not in ({"Approved"} | TERMINAL_STATUSES | {"In-Progress", "Browser-Test", "Awaiting-Human"})
         ):
             set_field(project_id, item_id, cache, "Status", "Approved")
+            flat["Status"] = {"name": "Approved"}
             summary["approved"].append(slug)
         elif not created:
             summary["updated"].append(slug)
