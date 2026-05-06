@@ -1,0 +1,102 @@
+{
+  "managed_by": "optimize_migration",
+  "generated_from_upstream": "moeru-ai/airi",
+  "pinned": true,
+  "fixes": {
+    "build_strategy": "upstream_with_target_template",
+    "check_strategy": "github_release",
+    "official_image_registry": "",
+    "dockerfile_path": "Dockerfile",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "overlay_paths": [
+      "lazycat"
+    ],
+    "service_port": 8080,
+    "service_cmd": [],
+    "image_targets": [
+      "airi"
+    ],
+    "dependencies": [],
+    "precompiled_binary_url": "",
+    "service_builds": [],
+    "build_args": {},
+    "docker_platform": "",
+    "project_name": "AIRI",
+    "description": "(LazyCat Auto-build) Self-hosted AI companion with web UI, auth, and PostgreSQL-backed server",
+    "license": "MIT",
+    "homepage": "https://airi.moeru.ai/docs/",
+    "author": "Moeru AI Project AIRI Team",
+    "description_zh": "（懒猫微服自动构建）自托管 AI 陪伴应用，包含 Web 前端、认证与 PostgreSQL 服务端",
+    "application": {
+      "subdomain": "airi",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://airi:8080/"
+        }
+      ],
+      "health_check": {
+        "test_url": "http://airi:8080/health"
+      }
+    },
+    "services": {
+      "airi": {
+        "image": "registry.lazycat.cloud/invokerlaw/codeeagle/airi:70bd410bc7049f6c",
+        "depends_on": [
+          "postgres"
+        ],
+        "environment": [
+          "DATABASE_URL=postgresql://airi:airi@postgres:5432/airi",
+          "API_SERVER_URL=https://${LAZYCAT_APP_DOMAIN}",
+          "BETTER_AUTH_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-better-auth",
+          "AUTH_GOOGLE_CLIENT_ID=change-me",
+          "AUTH_GOOGLE_CLIENT_SECRET=change-me",
+          "AUTH_GITHUB_CLIENT_ID=change-me",
+          "AUTH_GITHUB_CLIENT_SECRET=change-me",
+          "NODE_ENV=production"
+        ],
+        "binds": [
+          "/lzcapp/var/log/airi:/var/log/airi"
+        ],
+        "healthcheck": {
+          "test": [
+            "CMD-SHELL",
+            "curl -fsS http://127.0.0.1:8080/health >/dev/null || exit 1"
+          ],
+          "interval": "30s",
+          "timeout": "10s",
+          "retries": 5,
+          "start_period": "90s"
+        }
+      },
+      "postgres": {
+        "image": "registry.lazycat.cloud/invokerlaw/tensorchord/vchord-postgres:9c991c715b94f6c0",
+        "environment": [
+          "POSTGRES_USER=airi",
+          "POSTGRES_PASSWORD=airi",
+          "POSTGRES_DB=airi"
+        ],
+        "binds": [
+          "/lzcapp/var/db/airi/postgres:/var/lib/postgresql",
+          "/lzcapp/var/db/airi/init:/lzcapp/var/db/airi/init"
+        ],
+        "setup_script": "mkdir -p /lzcapp/var/db/airi/init\nINIT_SQL=\"/lzcapp/var/db/airi/init/init.sql\"\necho \"CREATE EXTENSION vchord CASCADE;\" > \"$INIT_SQL\"\nmkdir -p /docker-entrypoint-initdb.d\ncp \"$INIT_SQL\" /docker-entrypoint-initdb.d/init.sql\n",
+        "healthcheck": {
+          "test": [
+            "CMD-SHELL",
+            "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"
+          ],
+          "interval": "10s",
+          "timeout": "5s",
+          "retries": 10,
+          "start_period": "30s"
+        }
+      }
+    },
+    "include_content": false
+  }
+}
