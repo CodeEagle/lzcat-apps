@@ -1,0 +1,35 @@
+application:
+  public_path:
+    - /
+  subdomain: agent-runtime
+  upstreams:
+    -
+      backend: http://agent-runtime:8080/
+      location: /
+author: CodeEagle
+description: Portable multi-tenant CLI agent runtime for shared agent CLI tools
+homepage: https://github.com/CodeEagle/agent-runtime
+locales:
+  en:
+    description: Portable multi-tenant CLI agent runtime for shared agent CLI tools
+    name: agent-runtime
+  zh:
+    description: （迁移初稿）Agent Runtime 的懒猫微服版本
+    name: agent-runtime
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+name: agent-runtime
+package: fun.selfstudio.app.migration.agent-runtime
+services:
+  agent-runtime:
+    binds:
+      - /lzcapp/var/data/agent-runtime/agent-runtime:/data
+    healthcheck:
+      interval: 30s
+      retries: 5
+      test:
+        - CMD-SHELL
+        - wget -qO- http://127.0.0.1:8080/api/health >/dev/null || exit 1
+      timeout: 10s
+    image: registry.lazycat.cloud/placeholder/agent-runtime:bootstrap
+version: 0.1.0
