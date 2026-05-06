@@ -2006,15 +2006,32 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "Total stars: 2 (0 today) — very poor quality/traction signal",
+          "Store search for \"asya-chat-ui\" and \"asya chat ui\" returns 48 generic results; none match this specific product (no conflict, but no demand signal either)",
+          "One-API (129 downloads) already provides OpenAI-compatible multi-model routing in the store",
+          "Open WebUI + Ollama (678 downloads) and lobe-chat (153 downloads) already serve the LLM chat UI niche",
+          "No Docker Hub presence or release artifacts noted; upstream is Python-only with 2 stars suggesting early/abandoned state"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-06T22:15:24Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：expruff/asya-chat-ui\n仓库：https://github.com/expruff/asya-chat-ui\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- Duck-UI DuckDB's Web Interaction Tool 3 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.duck-ui\n- dbt-ui A modern Web user interface for dbt-core projects. 1 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.dbtui\n- yt-dlp UI The yt-dlp UI is a lightweight, self-managed browser interface that provides easy-to-use download management for yt‑dlp. It uses fast Rust backend drivers to support centralized management of playlists, archives and downloaded albums, avoiding the cumbersome command line, while retaining the powerful options of yt‑dlp. 25 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.yt-dlp-ui\n- ChatGPT-on-WeChat CowAgent is a super AI assistant based on a large model that can proactively think and plan tasks, operate computers and external resources, create and execute Skills, have long-term memory and continue to grow 10 https://lazycat.cloud/appstore/detail/com.selfstudio.chatgpt-on-wechat\n- yt-dlp Web UI The modern Web interface of the high-performance video download tool yt-dlp supports downloading videos from hundreds of platforms such as YouTube and Bilibili, and provides format selection, download queue management and live broadcast monitoring functions. 37 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.xiao.yt-dlp-webui\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "Extremely low traction (2 GitHub stars) and functionally redundant with multiple well-adopted LazyCat store apps covering LLM chat and model routing.",
+        "reviewed_at": "2026-05-06T22:03:00Z",
+        "reviewer": "claude",
+        "score": 0.2,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:expruff/asya-chat-ui",
+      "last_error": "Only 2 GitHub stars; functionally redundant with well-adopted store apps (One-API, Open WebUI+Ollama, lobe-chat) that already cover model routing and LLM chat use cases.",
       "slug": "asya-chat-ui",
       "source": "expruff/asya-chat-ui",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 1,
@@ -2058,7 +2075,7 @@
       "workspace_path": "/__w/lzcat-apps/lzcat-apps/../migration-workspaces/migration-heym"
     },
     {
-      "attempts": 1,
+      "attempts": 2,
       "branch": "migration/moltnet",
       "candidate": {
         "description": "Self-hostable chat network for AI agents. Pre-built bridges for Claude Code, Codex, and the Claws. Rooms, DMs, history. No Slack bots, no Matrix, no glue code.",
@@ -2090,13 +2107,21 @@
         "total_stars": 14
       },
       "candidate_status": "portable",
+      "codex": {
+        "attempts": 1,
+        "last_returncode": 0,
+        "last_run_at": "2026-05-06T22:15:24Z",
+        "last_status": "ready",
+        "last_task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260506T221637Z-github-noopolis-moltnet",
+        "session_id": "d0f7cd9c-16cd-4822-ae1a-de3cd5aebb81"
+      },
       "created_at": "2026-05-06T17:24:31Z",
       "id": "github:noopolis/moltnet",
-      "last_error": "auto_migrate exited 1",
+      "last_error": "auto_migrate exited 2",
       "slug": "moltnet",
       "source": "noopolis/moltnet",
       "state": "build_failed",
-      "updated_at": "2026-05-06T19:33:26Z",
+      "updated_at": "2026-05-06T22:15:24Z",
       "workspace_path": "/__w/lzcat-apps/lzcat-apps/../migration-workspaces/migration-moltnet"
     },
     {
@@ -3826,7 +3851,7 @@
       "slug": "tg-webapp-proxy",
       "source": "kamzy01/TG-WebApp-Proxy",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -4063,7 +4088,7 @@
       "slug": "core",
       "source": "infinito-nexus/core",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -4923,7 +4948,7 @@
       "slug": "mydeck-console",
       "source": "NateEaton/mydeck-console",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -4962,7 +4987,7 @@
       "slug": "dnsfilterapp",
       "source": "rutob42/dnsFilterApp",
       "state": "ready",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -5368,7 +5393,7 @@
       "slug": "org-web-adapter",
       "source": "bym-ok/Org-Web-Adapter",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -5451,7 +5476,7 @@
       "slug": "snippetbox",
       "source": "theolujay/snippetbox",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -5579,7 +5604,7 @@
       "slug": "backapp",
       "source": "Royer234/BackApp",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -5833,7 +5858,7 @@
       "slug": "rsc_detector",
       "source": "VISHUKS/RSC_Detector",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -6551,7 +6576,7 @@
       "slug": "cloudify-serverless-app",
       "source": "Anorak064/cloudify-serverless-app",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -13083,7 +13108,7 @@
       "slug": "qwen3.5-vision.cpp",
       "source": "Ruchiso9603/Qwen3.5-Vision.cpp",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -13515,7 +13540,7 @@
       "slug": "claude-wake-up",
       "source": "geraldinaunfeathered821/claude-wake-up",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -13941,7 +13966,7 @@
       "slug": "dynamo-shield",
       "source": "seejanm9990/dynamo-shield",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -16588,7 +16613,7 @@
       "slug": "findajob",
       "source": "brockamer/findajob",
       "state": "ready",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -19979,7 +20004,7 @@
       "slug": "cem",
       "source": "bennypowers/cem",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -24431,7 +24456,7 @@
       "slug": "streamwebapp",
       "source": "math0898/StreamWebApp",
       "state": "ready",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -28932,7 +28957,7 @@
       "slug": "taskperformancetracker-project",
       "source": "kartik16466/TaskPerformanceTracker-Project",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -29366,7 +29391,7 @@
       "slug": "next-app-i18n-starter",
       "source": "S0vers/next-app-i18n-starter",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -29608,7 +29633,7 @@
       "slug": "ssw-rs",
       "source": "rikibbot/ssw-rs",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -29647,7 +29672,7 @@
       "slug": "cloudbase",
       "source": "Tonioot/cloudbase",
       "state": "ready",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -29686,7 +29711,7 @@
       "slug": "codeharborai",
       "source": "MontaCoder/CodeHarborAI",
       "state": "ready",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -30108,7 +30133,7 @@
       "slug": "dandi-archive",
       "source": "dandi/dandi-archive",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -33288,7 +33313,7 @@
       "slug": "infinite-adventure-engine",
       "source": "Harto1622/infinite-adventure-engine",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -33722,7 +33747,7 @@
       "slug": "gemini-file---uri-demo",
       "source": "jeannepunctilious742/gemini-file---uri-demo",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -34156,7 +34181,7 @@
       "slug": "agentic-fleet-hub",
       "source": "UrsushoribilisMusic/agentic-fleet-hub",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -34195,7 +34220,7 @@
       "slug": "papercortex",
       "source": "chetanmorey1/PaperCortex",
       "state": "ready",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -34237,7 +34262,7 @@
       "slug": "bsv-wallet-cli",
       "source": "Hala6135/bsv-wallet-cli",
       "state": "filtered_out",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -34276,7 +34301,7 @@
       "slug": "keygate",
       "source": "masseuseherpetology481/keygate",
       "state": "ready",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -34315,7 +34340,7 @@
       "slug": "hermithost",
       "source": "10Legs/hermithost",
       "state": "ready",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -34354,7 +34379,7 @@
       "slug": "dalston",
       "source": "ssarunic/dalston",
       "state": "ready",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -34393,7 +34418,7 @@
       "slug": "helix",
       "source": "helixml/helix",
       "state": "ready",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -34434,7 +34459,7 @@
       "slug": "appwrite",
       "source": "appwrite/appwrite",
       "state": "ready",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -34474,7 +34499,7 @@
       "slug": "floppyguard",
       "source": "floppy007/floppyguard",
       "state": "filtered_out",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -34908,7 +34933,7 @@
       "slug": "cassette-account-password-manager",
       "source": "Zenithazz/Cassette-Account-Password-Manager",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -35342,7 +35367,7 @@
       "slug": "n8n-ollama-social-content",
       "source": "cilkaformulary471/n8n-ollama-social-content",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -35772,7 +35797,7 @@
       "slug": "rag-system-pgvector",
       "source": "fruitful-lure791/rag-system-pgvector",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -36206,7 +36231,7 @@
       "slug": "smart-routing-butler-for-openclaws",
       "source": "mukeshk3272/Smart-Routing-Butler-for-OpenClaws",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -36632,7 +36657,7 @@
       "slug": "n8n-ai-workflows",
       "source": "Vanillapfalz374/n8n-ai-workflows",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -36697,7 +36722,7 @@
       "slug": "hopp",
       "source": "gethopp/hopp",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -37123,7 +37148,7 @@
       "slug": "sure-aio",
       "source": "Koseji5566/sure-aio",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -37557,7 +37582,7 @@
       "slug": "am-agi",
       "source": "pollexpitchshot449/am-agi",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -37991,7 +38016,7 @@
       "slug": "kody-ai-python-workspace",
       "source": "Danil1ch/kody-ai-python-workspace",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -38112,7 +38137,7 @@
       "slug": "comp",
       "source": "trycompai/comp",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -38546,7 +38571,7 @@
       "slug": "ai-sources-project",
       "source": "patricktran2911/AI-Sources-Project",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -38788,7 +38813,7 @@
       "slug": "chat-gh",
       "source": "tiagomds76-lgtm/Chat-GH",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -38827,7 +38852,7 @@
       "slug": "swiftdeploy",
       "source": "nielvid/swiftdeploy",
       "state": "ready",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -38889,7 +38914,7 @@
       "slug": "nahla_metawie_couture",
       "source": "Ou4y/nahla_metawie_couture",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -38928,7 +38953,7 @@
       "slug": "dotfiles",
       "source": "dnl1/dotfiles",
       "state": "ready",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -39354,7 +39379,7 @@
       "slug": "big-bear-universal-apps",
       "source": "bigbeartechworld/big-bear-universal-apps",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -39393,7 +39418,7 @@
       "slug": "ignisai",
       "source": "Chrisjuarez/IgnisAI",
       "state": "ready",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     },
     {
       "attempts": 0,
@@ -39827,12 +39852,12 @@
       "slug": "castafiore-headless",
       "source": "cstaelen/castafiore-headless",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T21:49:23Z"
+      "updated_at": "2026-05-06T22:15:24Z"
     }
   ],
   "meta": {
     "created_at": "2026-05-06T17:22:58Z",
-    "updated_at": "2026-05-06T21:49:23Z"
+    "updated_at": "2026-05-06T22:15:24Z"
   },
   "schema_version": 1
 }
