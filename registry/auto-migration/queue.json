@@ -2356,18 +2356,35 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "Primary language is YAML — entirely Kubernetes manifests and Flux GitOps configs",
+          "Description confirms: 'HomeOps driven by Kubernetes, and Gitops via Flux' — personal infrastructure-as-code, not a standalone app",
+          "No Docker image, no service to package; repo IS the infrastructure config",
+          "None of the 48 LazyCat store search hits correspond to this repo",
+          "Not deployable as an LPK — no application entry point"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-06T22:55:35Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：joryirving/home-ops\n仓库：https://github.com/joryirving/home-ops\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- OpsDec OpsDec is a modern, self-hosted media server monitoring and statistics platform. Inspired by Tautulli, it supports multiple server access such as Plex, Emby, Audiobook shelf, and Sapppho. It provides real-time session monitoring, complete playback history, user portraits and comprehensive data statistics, and features a beautiful dark interface and mobile friendly experience, helping you master the movie-watching and listening behavior of your family or team in a lighter way. 4 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.opsdec\n- RTOps-Platform RTOps is a single-file, local-first Red Team Action Platform that helps you plan, execute, and report on Red Team drills. 2 https://lazycat.cloud/appstore/detail/app.tx1ee.rtops-platform\n- Orion Ops Orion Ops is a one-stop automated operation and maintenance and automated deployment platform that provides core functions such as build release, environment isolation, online terminals, file management, machine monitoring and batch operations, helping users simplify operation and maintenance processes and improve deployment efficiency. 2 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.xiao.orion-ops\n- mermaid-live-editor Edit, preview and share mermaid flowcharts 33 https://lazycat.cloud/appstore/detail/io.zeroc.app.mermaid\n- Hello-Java-Sec Java Security_javasec Range 4 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.javasec\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "Personal homelab Kubernetes/Flux GitOps configuration repository — not a deployable application. Written entirely in YAML manifests; repo is infrastructure-as-code, not a packagable service.",
+        "reviewed_at": "2026-05-06T22:54:00Z",
+        "reviewer": "claude",
+        "score": 0.05,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:joryirving/home-ops",
+      "last_error": "Not a deployable app: personal Kubernetes/Flux homelab config repo (YAML-only, no service or Docker image to package)",
       "slug": "home-ops",
       "source": "joryirving/home-ops",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
-      "attempts": 1,
+      "attempts": 2,
       "branch": "migration/resumeai",
       "candidate": {
         "description": "Generate ATS-friendly resumes quickly using AI for tailored content, keyword optimization, and real-time editing with customizable templates.",
@@ -2399,13 +2416,21 @@
         "total_stars": 0
       },
       "candidate_status": "portable",
+      "codex": {
+        "attempts": 1,
+        "last_returncode": 0,
+        "last_run_at": "2026-05-06T22:55:35Z",
+        "last_status": "ready",
+        "last_task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260506T225643Z-github-doomish77-resumeai",
+        "session_id": "1227c4d4-b5f3-421c-bdd0-a2cfa9b05059"
+      },
       "created_at": "2026-05-06T17:24:31Z",
       "id": "github:doomish77/resumeai",
-      "last_error": "auto_migrate exited 1",
+      "last_error": "auto_migrate exited 2",
       "slug": "resumeai",
       "source": "Doomish77/ResumeAI",
       "state": "build_failed",
-      "updated_at": "2026-05-06T21:24:25Z",
+      "updated_at": "2026-05-06T22:55:35Z",
       "workspace_path": "/__w/lzcat-apps/lzcat-apps/../migration-workspaces/migration-resumeai"
     },
     {
@@ -2876,7 +2901,7 @@
       "slug": "showpilot",
       "source": "ShowPilotFPP/ShowPilot",
       "state": "scaffolded",
-      "updated_at": "2026-05-06T22:47:27Z",
+      "updated_at": "2026-05-06T22:55:35Z",
       "workspace_path": "/__w/lzcat-apps/lzcat-apps/../migration-workspaces/migration-showpilot"
     },
     {
@@ -3669,7 +3694,7 @@
       "slug": "tg-webapp-proxy",
       "source": "kamzy01/TG-WebApp-Proxy",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -3906,7 +3931,7 @@
       "slug": "core",
       "source": "infinito-nexus/core",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -4805,7 +4830,7 @@
       "slug": "dnsfilterapp",
       "source": "rutob42/dnsFilterApp",
       "state": "ready",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -4858,7 +4883,7 @@
       "slug": "org-web-adapter",
       "source": "bym-ok/Org-Web-Adapter",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -4941,7 +4966,7 @@
       "slug": "snippetbox",
       "source": "theolujay/snippetbox",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -5069,7 +5094,7 @@
       "slug": "backapp",
       "source": "Royer234/BackApp",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -5131,7 +5156,7 @@
       "slug": "rsc_detector",
       "source": "VISHUKS/RSC_Detector",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -5849,7 +5874,7 @@
       "slug": "cloudify-serverless-app",
       "source": "Anorak064/cloudify-serverless-app",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -5893,7 +5918,7 @@
       "slug": "divkit",
       "source": "divkit/divkit",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -9719,7 +9744,7 @@
       "slug": "open-forge",
       "source": "zhangqi444/open-forge",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -12194,7 +12219,7 @@
       "slug": "qwen3.5-vision.cpp",
       "source": "Ruchiso9603/Qwen3.5-Vision.cpp",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -12624,7 +12649,7 @@
       "slug": "claude-wake-up",
       "source": "geraldinaunfeathered821/claude-wake-up",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -13050,7 +13075,7 @@
       "slug": "dynamo-shield",
       "source": "seejanm9990/dynamo-shield",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -18802,7 +18827,7 @@
       "slug": "remotex",
       "source": "Misreadingrhinotracheitis1012/RemoteX",
       "state": "ready",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -19039,7 +19064,7 @@
       "slug": "dark",
       "source": "Active-tachometer477/dark",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -21536,7 +21561,7 @@
       "slug": "agentx",
       "source": "anis-marrouchi/agentx",
       "state": "ready",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -27868,7 +27893,7 @@
       "slug": "taskperformancetracker-project",
       "source": "kartik16466/TaskPerformanceTracker-Project",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -28302,7 +28327,7 @@
       "slug": "next-app-i18n-starter",
       "source": "S0vers/next-app-i18n-starter",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -28732,7 +28757,7 @@
       "slug": "ssw-rs",
       "source": "rikibbot/ssw-rs",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -39385,7 +39410,7 @@
       "slug": "claude-code-aws-gateway",
       "source": "antkawam/claude-code-aws-gateway",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -39438,7 +39463,7 @@
       "slug": "lynx",
       "source": "Alex11x/lynx",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -39477,7 +39502,7 @@
       "slug": "eyeris",
       "source": "vonhex/Eyeris",
       "state": "ready",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -39516,7 +39541,7 @@
       "slug": "deployer",
       "source": "hra42/deployer",
       "state": "ready",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -39934,7 +39959,7 @@
       "slug": "agent-bus",
       "source": "haveagoodday1205-png/agent-bus",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -39973,7 +39998,7 @@
       "slug": "convstack",
       "source": "convstack/convstack",
       "state": "ready",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -40028,7 +40053,7 @@
       "slug": "onyx",
       "source": "onyx-dot-app/onyx",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -40077,7 +40102,7 @@
       "slug": "openregex",
       "source": "SunneV/OpenRegex",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -40119,7 +40144,7 @@
       "slug": "firezone",
       "source": "firezone/firezone",
       "state": "filtered_out",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -40158,7 +40183,7 @@
       "slug": "firebat",
       "source": "JRs-Master/firebat",
       "state": "ready",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -40197,7 +40222,7 @@
       "slug": "nostrgator",
       "source": "kenya12345678/NostrGator",
       "state": "ready",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -40609,7 +40634,7 @@
       "slug": "yt-dlp",
       "source": "AngellyR/yt-dlp",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -40648,7 +40673,7 @@
       "slug": "kalos",
       "source": "georgebuilds/kalos",
       "state": "ready",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -40758,7 +40783,7 @@
       "slug": "convert_cbz",
       "source": "Hackathon23124/convert_cbz",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -41172,7 +41197,7 @@
       "slug": "pocket-archive",
       "source": "sanpan003-lab/pocket-archive",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -41409,7 +41434,7 @@
       "slug": "share",
       "source": "Luzifer/share",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -41534,7 +41559,7 @@
       "slug": "invoice",
       "source": "rossaddison/invoice",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -41948,7 +41973,7 @@
       "slug": "graph-notes",
       "source": "oof-baroomf/graph-notes",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -42378,7 +42403,7 @@
       "slug": "rust-servers-services-apps",
       "source": "sharipovr/rust-servers-services-apps",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -42804,7 +42829,7 @@
       "slug": "docker-media-stack",
       "source": "guillaumedsde/docker-media-stack",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -42869,7 +42894,7 @@
       "slug": "n8n",
       "source": "lufel112/n8n",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -43303,7 +43328,7 @@
       "slug": "fullstack-ai-chatbot",
       "source": "Bernard-Mokoana/FullStack-AI-Chatbot",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -43733,7 +43758,7 @@
       "slug": "argentum-engine",
       "source": "wingedsheep/argentum-engine",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -43970,7 +43995,7 @@
       "slug": "mparsonsche1859.github.io",
       "source": "mparsonsche1859/mparsonsche1859.github.io",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -44376,7 +44401,7 @@
       "slug": "browser-agent",
       "source": "inference-gateway/browser-agent",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -44806,7 +44831,7 @@
       "slug": "workvision-guardian-public",
       "source": "HumaSatti/workvision-guardian-public",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -45240,7 +45265,7 @@
       "slug": "store-mas-server",
       "source": "kingkeysshop-ai/store-mas-server",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -45279,7 +45304,7 @@
       "slug": "arzuparreta",
       "source": "Arzuparreta/Arzuparreta",
       "state": "ready",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -45318,7 +45343,7 @@
       "slug": "hikari",
       "source": "bradmb/hikari",
       "state": "ready",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     },
     {
       "attempts": 0,
@@ -45752,12 +45777,12 @@
       "slug": "stock-agent-bot",
       "source": "berkoniv8/stock-agent-bot",
       "state": "discovery_review",
-      "updated_at": "2026-05-06T22:47:27Z"
+      "updated_at": "2026-05-06T22:55:35Z"
     }
   ],
   "meta": {
     "created_at": "2026-05-06T17:22:58Z",
-    "updated_at": "2026-05-06T22:47:27Z"
+    "updated_at": "2026-05-06T22:55:35Z"
   },
   "schema_version": 1
 }
