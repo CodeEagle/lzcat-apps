@@ -85,14 +85,18 @@ def test_codex_web_icon_is_real_png() -> None:
     assert 1024 < len(data) < 200 * 1024
 
     pixels = _decode_rgba(data, width, height)
-    dark_opaque_pixels = 0
+    visible_colored_pixels = 0
+    codex_blue_pixels = 0
     for red, green, blue, alpha in zip(
         pixels[0::4],
         pixels[1::4],
         pixels[2::4],
         pixels[3::4],
     ):
-        if alpha > 240 and red < 32 and green < 32 and blue < 32:
-            dark_opaque_pixels += 1
+        if alpha > 200 and (red < 245 or green < 245 or blue < 245):
+            visible_colored_pixels += 1
+        if alpha > 200 and blue > 180 and blue > red + 20 and blue > green:
+            codex_blue_pixels += 1
 
-    assert dark_opaque_pixels > 10_000
+    assert visible_colored_pixels > 50_000
+    assert codex_blue_pixels > 10_000
