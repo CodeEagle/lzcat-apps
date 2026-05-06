@@ -1,0 +1,19 @@
+gateway:
+  # 客户端通过 ANTHROPIC_CUSTOM_HEADERS: Proxy-Authorization: Bearer <Token> 连接时允许的 Token 列表
+  client_tokens:
+    - "YOUR_LOCAL_TOKEN"
+
+identity:
+  # 你想对外展现的面具 ID 和邮箱
+  device_id: "104e14cfe0075eb20755b4fb9b6045620803517c2f6d6ed95818d04260000000"
+  email: "anonymous@example.com"
+  
+auth:
+  tokens:
+    - "YOUR_CLAUDE_SESSION_TOKEN_HERE"
+
+oauth:
+  refresh_token: "YOUR_EXTRACTED_REFRESH_TOKEN_HERE" 
+logging:
+  level: "info"
+  audit: true
