@@ -1,0 +1,50 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.jellyfish
+version: '0.1.10'
+min_os_version: 1.3.8
+name: Jellyfish
+description: (LazyCat Auto-build) AI short drama studio with script, storyboard, asset and generation workflow management
+license: Apache-2.0
+homepage: https://github.com/Forget-C/Jellyfish
+author: Forget-C
+application:
+  subdomain: jellyfish
+  public_path:
+    - /
+    - /api
+    - /docs
+    - /openapi.json
+    - /redoc
+    - /local-files
+  upstreams:
+    - location: /
+      backend: http://jellyfish:8080/
+      disable_trim_location: true
+services:
+  jellyfish:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/jellyfish:0bd320fde14f708f
+    environment:
+      - PORT=8000
+      - DATABASE_URL=sqlite+aiosqlite:////data/jellyfish.db
+      - LOCAL_STORAGE_DIR=/data/storage
+      - JELLYFISH_DATA_DIR=/data
+      - OPENAI_MODEL=gpt-4o-mini
+    binds:
+      - /lzcapp/var/data/jellyfish:/data
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://127.0.0.1:8080/health
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+locales:
+  en:
+    name: Jellyfish
+    description: (LazyCat Auto-build) AI short drama studio for scripts, storyboards, assets and generation workflows
+  zh:
+    name: Jellyfish
+    description: （懒猫微服自动构建）AI 短剧工厂，提供剧本、分镜、资产与生成流程管理
