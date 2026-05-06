@@ -1,0 +1,148 @@
+# Phase F4 — single-slug migration cycle. Idempotent — re-runs are safe.
+#
+# Reads migration/<slug> branch, advances queue state via auto_migration_service,
+# updates the GitHub Project Status field based on the resulting queue state,
+# and chains to auto-verify.yml when ready for browser checks.
+
+name: Auto-Migrate Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: "Migration slug (must already exist on Approved column)"
+        required: true
+        type: string
+      max_codex_attempts:
+        description: "Max codex repair attempts on build failure"
+        type: number
+        default: 3
+
+permissions:
+  contents: write
+  packages: write
+  actions: write   # to chain auto-verify
+
+concurrency:
+  group: migrate-${{ inputs.slug }}
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: migrate-${{ inputs.slug }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/codeeagle/lzcat-migration-runner:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GH_PAT }}
+      options: --privileged   # docker/podman builds need it
+    timeout-minutes: 90
+    env:
+      SLUG: ${{ inputs.slug }}
+      GH_TOKEN: ${{ secrets.GH_PAT }}
+      GH_PAT: ${{ secrets.GH_PAT }}
+      LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+      LAZYCAT_BOX_DOMAIN: ${{ secrets.LAZYCAT_BOX_DOMAIN }}
+
+    steps:
+      - name: Validate slug
+        run: |
+          case "$SLUG" in
+            ""|*[!a-zA-Z0-9._-]*)
+              echo "::error::Invalid slug: '$SLUG'"
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout migration/${{ inputs.slug }}
+        uses: actions/checkout@v4
+        with:
+          ref: migration/${{ inputs.slug }}
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Mark Project In-Progress
+        continue-on-error: true
+        run: |
+          python3 scripts/project_board.py update "$SLUG" --status=In-Progress
+
+      - name: Run one migration cycle
+        id: cycle
+        run: |
+          set -euo pipefail
+          python3 scripts/auto_migration_service.py \
+            --once \
+            --max-migrations-per-cycle 1 \
+            --enable-build-install \
+            --enable-codex-worker \
+            --max-codex-attempts "${{ inputs.max_codex_attempts || 3 }}" \
+            --resume \
+            --commit-scaffold \
+            --no-env-file \
+            --disable-discord \
+            --disable-local-agent
+
+      - name: Push migration/${{ inputs.slug }}
+        if: always()
+        continue-on-error: true
+        run: |
+          git push origin "migration/$SLUG" || true
+
+      - name: Map queue state -> Project Status
+        if: always()
+        id: post
+        run: |
+          set -euo pipefail
+          state="$(python3 - <<'PY'
+          import json, os, pathlib, sys
+          slug = os.environ["SLUG"]
+          path = pathlib.Path("registry/auto-migration/queue.json")
+          if not path.exists():
+              print(""); sys.exit(0)
+          for it in json.loads(path.read_text()).get("items", []):
+              if it.get("slug") == slug:
+                  print(it.get("state", "")); sys.exit(0)
+          print("")
+          PY
+          )"
+          case "$state" in
+            installed|browser_pending)                                status="Browser-Test";    next="verify" ;;
+            scaffolded)                                               status="In-Progress";     next="rerun" ;;
+            ready)                                                    status="In-Progress";     next="rerun" ;;
+            build_failed|codex_failed)                                status="Blocked";         next="blocked" ;;
+            browser_failed)                                           status="Awaiting-Human";  next="wait" ;;
+            browser_passed|copy_ready|publish_ready|waiting_for_human) status="Awaiting-Human";  next="wait" ;;
+            published)                                                status="Published";       next="done" ;;
+            filtered_out)                                             status="Filtered";        next="done" ;;
+            *)                                                        status="Blocked";         next="unknown" ;;
+          esac
+          echo "queue_state=$state"  >> "$GITHUB_OUTPUT"
+          echo "project_status=$status" >> "$GITHUB_OUTPUT"
+          echo "next_action=$next"   >> "$GITHUB_OUTPUT"
+          echo "Slug=$SLUG state=$state -> status=$status, next=$next"
+          python3 scripts/project_board.py update "$SLUG" --status="$status"
+
+      - name: Hand off to auto-verify
+        if: success() && steps.post.outputs.next_action == 'verify'
+        run: |
+          gh workflow run auto-verify.yml \
+            --repo "${{ github.repository }}" \
+            --ref template \
+            --field slug="$SLUG"
+
+      - name: Record failure on Project
+        if: failure()
+        continue-on-error: true
+        run: |
+          python3 scripts/project_board.py update "$SLUG" \
+            --status=Blocked \
+            --field="Failures=workflow ${{ github.run_id }} failed"

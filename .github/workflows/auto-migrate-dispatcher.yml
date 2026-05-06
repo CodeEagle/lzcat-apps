@@ -1,0 +1,88 @@
+# Phase F4 — pull Approved items off the GitHub Project and fan out workers.
+#
+# Initial gating: limit=1 slug per cycle so the first weeks of unattended
+# operation don't pile up failures across many slugs. F7 raises this to 2.
+#
+# Cron is intentionally OFF for F4. Run via workflow_dispatch until the worker
+# is verified end-to-end, then F7 turns the cron on.
+
+name: Auto-Migrate Dispatcher
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_concurrent:
+        description: "Max slugs to fan out this cycle"
+        type: number
+        default: 1
+  # F7: uncomment when ready to flip on autonomous dispatch.
+  # schedule:
+  #   - cron: "*/10 * * * *"
+
+permissions:
+  actions: write          # gh workflow run auto-migrate-worker.yml
+  contents: read
+
+concurrency:
+  group: auto-migrate-dispatcher
+  cancel-in-progress: false
+
+jobs:
+  pick-approved:
+    name: pick-approved
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/codeeagle/lzcat-migration-runner:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GH_PAT }}
+    timeout-minutes: 5
+    outputs:
+      slugs: ${{ steps.pick.outputs.slugs }}
+      count: ${{ steps.pick.outputs.count }}
+    env:
+      GH_TOKEN: ${{ secrets.GH_PAT }}
+      GH_PAT: ${{ secrets.GH_PAT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: template
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 1
+
+      - name: Bootstrap project board (idempotent)
+        run: python3 scripts/project_board.py bootstrap
+
+      - id: pick
+        name: Read approved slugs
+        run: |
+          set -euo pipefail
+          limit="${{ inputs.max_concurrent || 1 }}"
+          slugs="$(python3 scripts/project_board.py list-approved --limit "$limit" --format json)"
+          count="$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])))" "$slugs")"
+          echo "Approved slugs: $slugs (count=$count)"
+          {
+            echo "slugs=$slugs"
+            echo "count=$count"
+          } >> "$GITHUB_OUTPUT"
+
+  fan-out:
+    name: dispatch-${{ matrix.slug }}
+    needs: pick-approved
+    if: needs.pick-approved.outputs.count != '0'
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1   # F7 bumps this to 2
+      fail-fast: false
+      matrix:
+        slug: ${{ fromJSON(needs.pick-approved.outputs.slugs) }}
+    env:
+      GH_TOKEN: ${{ secrets.GH_PAT }}
+    steps:
+      - name: Trigger auto-migrate-worker for ${{ matrix.slug }}
+        run: |
+          set -euo pipefail
+          gh workflow run auto-migrate-worker.yml \
+            --repo "${{ github.repository }}" \
+            --ref template \
+            --field slug="${{ matrix.slug }}"

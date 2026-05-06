@@ -1,0 +1,60 @@
+# Phase F8 — Awaiting-Human SLA reminder.
+#
+# Runs hourly. For every Project item stuck in Awaiting-Human for >24h, post a
+# single summary message to Discord. Locked decision #5: ping but never
+# auto-revert — items wait indefinitely until a human acts.
+
+name: Auto-SLA-Reminder
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # hourly
+  workflow_dispatch:
+    inputs:
+      sla_hours:
+        description: "Stuck threshold in hours"
+        type: number
+        default: 24
+      skip_publish:
+        description: "Print the report but don't post to Discord"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-sla-reminder
+  cancel-in-progress: true
+
+jobs:
+  reminder:
+    name: sla-reminder
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/codeeagle/lzcat-migration-runner:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GH_PAT }}
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GH_PAT }}
+      GH_PAT: ${{ secrets.GH_PAT }}
+      LZCAT_DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: template
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 1
+
+      - name: Bootstrap project board (idempotent)
+        run: python3 scripts/project_board.py bootstrap
+
+      - name: Run SLA reminder
+        run: |
+          set -euo pipefail
+          ARGS=(--sla-hours "${{ inputs.sla_hours || 24 }}")
+          if [ "${{ inputs.skip_publish }}" != "true" ]; then ARGS+=(--publish-discord); fi
+          python3 scripts/sla_reminder.py "${ARGS[@]}"

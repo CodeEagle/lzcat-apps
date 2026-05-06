@@ -1,0 +1,170 @@
+# Phase F5 — browser verification.
+#
+# Runs in the lzcat-bb-browser image (Playwright + Python). Orchestrates the
+# existing scripts:
+#   - browser_acceptance_plan.py      -> .browser-acceptance-plan.json
+#   - capture_web_screenshot.py       -> apps/<slug>/acceptance/<slug>-home.png
+#   - functional_checker.py           -> apps/<slug>/.functional-check.json
+#
+# functional_checker classifies the run as browser_pass / browser_failed /
+# browser_pending. Without an agent-driven .browser-acceptance.json (the
+# Codex Browser-Use agent writes that), we'll typically land at
+# browser_pending — Project moves to Awaiting-Human and a real human (or a
+# future Codex Browser-Use stage) closes the loop.
+
+name: Auto-Verify
+
+on:
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: "Migration slug to verify"
+        required: true
+        type: string
+
+permissions:
+  contents: write   # commit screenshots + check JSON back to migration/<slug>
+
+concurrency:
+  group: verify-${{ inputs.slug }}
+  cancel-in-progress: true   # newer verify runs supersede stale ones
+
+jobs:
+  verify:
+    name: verify-${{ inputs.slug }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/codeeagle/lzcat-bb-browser:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GH_PAT }}
+    timeout-minutes: 30
+    env:
+      SLUG: ${{ inputs.slug }}
+      GH_TOKEN: ${{ secrets.GH_PAT }}
+      GH_PAT: ${{ secrets.GH_PAT }}
+      LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
+      LAZYCAT_BOX_DOMAIN: ${{ secrets.LAZYCAT_BOX_DOMAIN }}
+
+    steps:
+      - name: Validate slug
+        run: |
+          case "$SLUG" in
+            ""|*[!a-zA-Z0-9._-]*)
+              echo "::error::Invalid slug: '$SLUG'"
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout migration/${{ inputs.slug }}
+        uses: actions/checkout@v4
+        with:
+          ref: migration/${{ inputs.slug }}
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 1
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve entry URL
+        id: url
+        run: |
+          set -euo pipefail
+          if [ -z "${LAZYCAT_BOX_DOMAIN:-}" ]; then
+            echo "::error::LAZYCAT_BOX_DOMAIN secret is not set"
+            exit 1
+          fi
+          entry_url="$(python3 - <<'PY'
+          import os, sys, pathlib
+          sys.path.insert(0, "scripts")
+          from browser_acceptance_plan import build_acceptance_plan
+          plan = build_acceptance_plan(
+              pathlib.Path("."),
+              os.environ["SLUG"],
+              box_domain=os.environ["LAZYCAT_BOX_DOMAIN"],
+          )
+          print(plan["entry_url"])
+          PY
+          )"
+          echo "entry_url=$entry_url" >> "$GITHUB_OUTPUT"
+          echo "Entry URL: $entry_url"
+
+      - name: Generate acceptance plan
+        run: |
+          python3 scripts/browser_acceptance_plan.py "$SLUG" \
+            --box-domain "$LAZYCAT_BOX_DOMAIN"
+
+      - name: Capture home screenshot
+        continue-on-error: true   # screenshots are best-effort; functional check is authoritative
+        run: |
+          python3 scripts/capture_web_screenshot.py "$SLUG" \
+            --url "${{ steps.url.outputs.entry_url }}" \
+            --timeout-ms 60000
+
+      - name: Run functional check
+        id: check
+        continue-on-error: true   # exit code 2 means browser_failed/pending; we still want to update Project + commit
+        run: |
+          python3 scripts/functional_checker.py "$SLUG" \
+            --box-domain "$LAZYCAT_BOX_DOMAIN"
+
+      - name: Map check status -> Project Status
+        if: always()
+        id: post
+        run: |
+          set -euo pipefail
+          status="$(python3 - <<'PY'
+          import json, os, pathlib, sys
+          slug = os.environ["SLUG"]
+          path = pathlib.Path(f"apps/{slug}/.functional-check.json")
+          if not path.exists():
+              print("browser_pending"); sys.exit(0)
+          payload = json.loads(path.read_text())
+          print(payload.get("browser_acceptance_status", "browser_pending"))
+          PY
+          )"
+          case "$status" in
+            browser_pass)    project_status="Awaiting-Human" ;;   # human releases to publish
+            browser_failed)  project_status="Awaiting-Human" ;;   # human triages
+            browser_pending) project_status="Awaiting-Human" ;;   # awaiting agent results
+            *)               project_status="Blocked" ;;
+          esac
+          echo "browser_status=$status"           >> "$GITHUB_OUTPUT"
+          echo "project_status=$project_status"   >> "$GITHUB_OUTPUT"
+          python3 scripts/project_board.py update "$SLUG" --status="$project_status"
+
+      - name: Commit verification artifacts
+        if: always()
+        run: |
+          set -euo pipefail
+          ART=(
+            "apps/${SLUG}/.browser-acceptance-plan.json"
+            "apps/${SLUG}/.functional-check.json"
+            "apps/${SLUG}/acceptance/"
+          )
+          for path in "${ART[@]}"; do
+            if [ -e "$path" ]; then git add "$path"; fi
+          done
+          if git diff --cached --quiet; then
+            echo "auto-verify: no artifacts changed"
+            exit 0
+          fi
+          git commit -m "chore(${SLUG}): record browser verification artifacts"
+          for attempt in 1 2 3 4; do
+            if git pull --rebase --autostash origin "migration/$SLUG" \
+              && git push origin "migration/$SLUG"; then
+              echo "auto-verify: pushed on attempt $attempt"
+              exit 0
+            fi
+            sleep $((2 ** attempt))
+          done
+          echo "auto-verify: push failed after 4 attempts" >&2
+          exit 1
+
+      - name: Surface failure
+        if: failure() && steps.check.outcome == 'failure'
+        run: |
+          echo "::warning::functional_checker exited non-zero — Project marked Blocked"
+          python3 scripts/project_board.py update "$SLUG" --status=Blocked || true
