@@ -1,0 +1,80 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "treeverse/dvc",
+  "fixes": {
+    "project_name": "dvc",
+    "description": "Data Versioning and ML Experiments",
+    "description_zh": "（迁移初稿）Dvc 的懒猫微服版本",
+    "homepage": "https://dvc.org",
+    "license": "Apache-2.0",
+    "author": "treeverse",
+    "package": "fun.selfstudio.app.migration.dvc",
+    "check_strategy": "github_release",
+    "build_strategy": "official_image",
+    "official_image_registry": "ghcr.io/linuxserver/openssh-server",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "image_targets": [
+      "git-server"
+    ],
+    "service_port": 2222,
+    "services": {
+      "git-server": {
+        "image": "registry.lazycat.cloud/placeholder/dvc:git-server",
+        "environment": [
+          "USER_NAME=user",
+          "PUBLIC_KEY_FILE=/tmp/key"
+        ],
+        "binds": [
+          "/lzcapp/var/data/dvc/git-server/key:/tmp/key",
+          "/lzcapp/var/data/dvc/git-server/custom-cont-init-d:/custom-cont-init.d"
+        ]
+      }
+    },
+    "application": {
+      "subdomain": "dvc",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://git-server:2222/"
+        }
+      ]
+    },
+    "env_vars": [
+      {
+        "name": "USER_NAME",
+        "description": "From compose service git-server",
+        "required": false,
+        "value": "user"
+      },
+      {
+        "name": "PUBLIC_KEY_FILE",
+        "description": "From compose service git-server",
+        "required": false,
+        "value": "/tmp/key"
+      }
+    ],
+    "data_paths": [
+      {
+        "host": "/lzcapp/var/data/dvc/git-server/key",
+        "container": "/tmp/key",
+        "description": "From compose service git-server"
+      },
+      {
+        "host": "/lzcapp/var/data/dvc/git-server/custom-cont-init-d",
+        "container": "/custom-cont-init.d",
+        "description": "From compose service git-server"
+      }
+    ],
+    "startup_notes": [
+      "自动扫描到 compose 文件：tests/docker-compose.yml",
+      "主服务推断为 `git-server`，入口端口 `2222`。",
+      "未扫描到 env 示例文件",
+      "扫描到 README：README.rst, README.rst"
+    ],
+    "include_content": false
+  }
+}

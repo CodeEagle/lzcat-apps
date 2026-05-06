@@ -1,0 +1,16 @@
+{
+  "build_strategy": "official_image",
+  "check_strategy": "github_release",
+  "dependencies": [],
+  "dockerfile_type": "custom",
+  "enabled": true,
+  "image_targets": [
+    "git-server"
+  ],
+  "official_image_registry": "ghcr.io/linuxserver/openssh-server",
+  "precompiled_binary_url": "",
+  "publish_to_store": false,
+  "service_cmd": [],
+  "service_port": 2222,
+  "upstream_repo": "treeverse/dvc"
+}
