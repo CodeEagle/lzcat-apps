@@ -39,16 +39,18 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get update && apt-get install -y gh \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# ---- node + npm + claude-code ----------------------------------------------
+# ---- node + npm + claude-code + lzc-cli -------------------------------------
+# lzc-cli is distributed as @lazycatcloud/lzc-cli on npm. Pin via
+# LZC_CLI_VERSION at build time when reproducibility matters
+# (e.g. LZC_CLI_VERSION=1.4.0 → npm install -g @lazycatcloud/lzc-cli@1.4.0).
 RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
     && apt-get install -y nodejs \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
-    && npm install -g @anthropic-ai/claude-code \
-    && npm cache clean --force
-
-# ---- lzc-cli ----------------------------------------------------------------
-# Per LazyCat docs; pin via LZC_CLI_VERSION when reproducibility matters.
-RUN curl -fsSL https://lazycat.cloud/install/lzc-cli.sh | bash \
+    && LZC_PKG="@lazycatcloud/lzc-cli$([ "${LZC_CLI_VERSION}" = "latest" ] || echo @${LZC_CLI_VERSION})" \
+    && npm install -g \
+         @anthropic-ai/claude-code \
+         "${LZC_PKG}" \
+    && npm cache clean --force \
     && lzc-cli --version
 
 # ---- python deps ------------------------------------------------------------
