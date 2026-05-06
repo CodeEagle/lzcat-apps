@@ -13,6 +13,9 @@ mkdir -p \
   "${DATA_DIR}/home/.config" \
   "${DATA_DIR}/home/.local/share" \
   "${DATA_DIR}/home/.cache" \
+  "${DATA_DIR}/home/.agents/skills" \
+  "${DATA_DIR}/home/.claude" \
+  "${DATA_DIR}/home/.codex" \
   "${DATA_DIR}/state" \
   "${DATA_DIR}/workspaces" \
   "${DATA_DIR}/bin"
@@ -21,7 +24,20 @@ export HOME="${HOME:-${DATA_DIR}/home}"
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
 export XDG_DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${HOME}/.cache}"
-export PATH="${DATA_DIR}/bin:${PATH}"
+export CODEX_HOME="${CODEX_HOME:-${HOME}/.codex}"
+export PATH="${DATA_DIR}/bin:${HOME}/.local/bin:${PATH}"
+
+if [ -x /usr/local/bin/update-agent-clis.sh ]; then
+  /usr/local/bin/update-agent-clis.sh --link-only || true
+fi
+
+if [ "${CC_CONNECT_UPDATE_AGENT_CLIS_ON_START:-1}" != "0" ] && [ -x /usr/local/bin/update-agent-clis.sh ]; then
+  (
+    echo "[agent-cli] startup update started at $(date -Is)"
+    /usr/local/bin/update-agent-clis.sh --best-effort
+    echo "[agent-cli] startup update finished at $(date -Is)"
+  ) >>"${DATA_DIR}/state/agent-cli-update.log" 2>&1 &
+fi
 
 if [ ! -f "${CONFIG_FILE}" ]; then
   umask 077

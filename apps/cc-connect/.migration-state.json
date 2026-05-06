@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "https://github.com/chenhg5/cc-connect",
   "created_at": "2026-04-27T06:40:03.291292+00:00",
-  "updated_at": "2026-04-27T06:54:00.557159+00:00",
+  "updated_at": "2026-04-27T07:48:09.159137+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -66,6 +66,8 @@
             "CC_CONNECT_DATA_DIR=/data",
             "CC_CONNECT_CONFIG=/data/config.toml",
             "HOME=/data/home",
+            "CODEX_HOME=/data/home/.codex",
+            "CC_CONNECT_UPDATE_AGENT_CLIS_ON_START=1",
             "XDG_CONFIG_HOME=/data/home/.config",
             "XDG_DATA_HOME=/data/home/.local/share",
             "XDG_CACHE_HOME=/data/home/.cache"
@@ -93,6 +95,8 @@
         "CC_CONNECT_DATA_DIR=/data",
         "CC_CONNECT_CONFIG=/data/config.toml",
         "HOME=/data/home",
+        "CODEX_HOME=/data/home/.codex",
+        "CC_CONNECT_UPDATE_AGENT_CLIS_ON_START=1",
         "XDG_CONFIG_HOME=/data/home/.config",
         "XDG_DATA_HOME=/data/home/.local/share",
         "XDG_CACHE_HOME=/data/home/.cache"
@@ -104,7 +108,10 @@
         "Go 1.25 source build with embedded web admin UI.",
         "Default config is created at /data/config.toml on first start.",
         "Management-only startup is enabled by a LazyCat build patch.",
-        "Tokenless web login is enabled when CC_CONNECT_MANAGEMENT_TOKEN is empty."
+        "Tokenless web login is enabled when CC_CONNECT_MANAGEMENT_TOKEN is empty.",
+        "Agent CLI home is persisted under /data/home, with CODEX_HOME=/data/home/.codex.",
+        "Default agent CLIs are installed during image build and updated in the background on every container start.",
+        "LazyCat patch adds a full web terminal for manual CLI login flows."
       ],
       "include_content": false,
       "ai_pod_service": "",
@@ -126,12 +133,12 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-04-27T06:53:15.494099+00:00",
+      "completed_at": "2026-04-27T07:48:04.289660+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-04-27T06:53:17.786824+00:00",
+      "completed_at": "2026-04-27T07:48:09.111159+00:00",
       "conclusion": "已自动推断构建路线为 `target_repo_dockerfile`"
     },
     "3": {
@@ -164,14 +171,24 @@
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-04-27T06:53:17.834984+00:00",
+      "completed_at": "2026-04-27T07:48:09.158714+00:00",
       "conclusion": "预检通过",
       "all_passed": true
     },
     "8": {
       "completed": true,
-      "completed_at": "2026-04-27T06:53:17.835329+00:00",
+      "completed_at": "2026-04-27T07:48:09.159133+00:00",
       "conclusion": "validate-only 模式停止"
+    },
+    "9": {
+      "completed": true,
+      "completed_at": "2026-04-27T07:00:02+00:00",
+      "conclusion": "GitHub Workflow 构建成功，生成并发布 cc-connect.lpk"
+    },
+    "10": {
+      "completed": true,
+      "completed_at": "2026-04-27T07:07:32+00:00",
+      "conclusion": "已安装到 LazyCat 并完成浏览器入口验收"
     }
   },
   "problems": [
@@ -201,6 +218,38 @@
       "status": "pass",
       "checked_at": "2026-04-27T06:54:00.557159+00:00",
       "command": "python3 scripts/full_migrate.py https://github.com/chenhg5/cc-connect --repo-root ... --resume --no-build --no-commit"
+    },
+    "github_workflow": {
+      "status": "pass",
+      "checked_at": "2026-04-27T07:00:02+00:00",
+      "run_id": "24980884274",
+      "run_url": "https://github.com/CodeEagle/lzcat-apps/actions/runs/24980884274",
+      "command": "gh workflow run trigger-build.yml -f target_repo=cc-connect -f force_build=true -r codex/migrate-cc-connect"
+    },
+    "artifact": {
+      "status": "pass",
+      "release_url": "https://github.com/CodeEagle/lzcat-artifacts/releases/tag/cc-connect-v1.3.2-20260427T070002Z",
+      "lpk_sha256": "224bc0818d7221ab941f94ccc1fe53fda1f6254260850ebf7b5bf06d2e6326cf",
+      "image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:6e216a9c1159577d"
+    },
+    "install": {
+      "status": "pass",
+      "checked_at": "2026-04-27T07:03:00+00:00",
+      "command": "lzc-cli app install dist/cc-connect.lpk",
+      "entry_url": "https://cc-connect.rx79.heiyu.space"
+    },
+    "browser_acceptance": {
+      "status": "pass",
+      "accepted_at": "2026-04-27T07:07:32Z",
+      "entry_url": "https://cc-connect.rx79.heiyu.space",
+      "evidence": "Chrome acceptance: LazyCat entry rendered CC-Connect Admin dashboard with version 1.3.2; Projects, Providers, Skills, Chat, Cron, and System routes rendered; /api/v1/status returned ok:true with version 1.3.2.",
+      "console_errors": [],
+      "network_failures": []
+    },
+    "functional_check": {
+      "status": "pass",
+      "checked_at": "2026-04-27T07:07:32+00:00",
+      "command": "python3 scripts/functional_checker.py cc-connect --box-domain rx79.heiyu.space"
     }
   }
 }

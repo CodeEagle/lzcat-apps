@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1.6
 
-ARG SOURCE_VERSION=v1.3.2
-ARG BUILD_VERSION=1.3.2
-ARG UPSTREAM_REPO=chenhg5/cc-connect
+ARG SOURCE_VERSION=v1.3.3
+ARG BUILD_VERSION=1.3.3
+ARG UPSTREAM_REPO=CodeEagle/cc-connect
 ARG BUILDPLATFORM=linux/amd64
 ARG TARGETPLATFORM=linux/amd64
 ARG TARGETOS=linux
@@ -21,9 +21,6 @@ WORKDIR /src
 
 RUN curl -fsSL "https://codeload.github.com/${UPSTREAM_REPO}/tar.gz/${SOURCE_VERSION}" \
     | tar -xz --strip-components=1 -C /src
-
-COPY lazycat/patch_lazycat.py /tmp/patch_lazycat.py
-RUN python3 /tmp/patch_lazycat.py /src --web-only
 
 WORKDIR /src/web
 RUN npm install --no-audit --no-fund \
@@ -47,8 +44,6 @@ RUN curl -fsSL "https://codeload.github.com/${UPSTREAM_REPO}/tar.gz/${SOURCE_VER
     | tar -xz --strip-components=1 -C /src
 
 COPY --from=web-builder /src/web/dist /src/web/dist
-COPY lazycat/patch_lazycat.py /tmp/patch_lazycat.py
-RUN python3 /tmp/patch_lazycat.py /src --server-only
 
 RUN GOCACHE=/tmp/go-build-cache \
     GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
@@ -75,22 +70,18 @@ RUN apt-get update \
       git \
       openssh-client \
       python3 \
+      python3-pip \
       sqlite3 \
       tini \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /data /data/home /data/state /data/workspaces /data/bin
 
-# Common agent CLIs are optional: cc-connect still runs if an upstream package is
-# temporarily unavailable, and users can install extra CLIs into /data/bin later.
-RUN set -eux; \
-    for pkg in \
-      "@anthropic-ai/claude-code@latest" \
-      "@openai/codex@latest" \
-      "@google/gemini-cli@latest" \
-      "opencode-ai@latest"; do \
-      npm install -g --no-audit --no-fund "$pkg" || echo "warning: optional npm agent package failed: $pkg"; \
-    done; \
-    npm cache clean --force
+COPY lazycat/update-agent-clis.sh /usr/local/bin/update-agent-clis.sh
+
+# Default agent CLIs are installed into the image. Build fails if the default
+# set cannot be installed, so the LPK does not ship without runnable agents.
+RUN chmod +x /usr/local/bin/update-agent-clis.sh \
+    && CC_CONNECT_QODER_INSTALL_HOME=/opt/qoder /usr/local/bin/update-agent-clis.sh --required
 
 COPY --from=go-builder /out/cc-connect /usr/local/bin/cc-connect
 COPY lazycat/entrypoint.sh /usr/local/bin/entrypoint.sh

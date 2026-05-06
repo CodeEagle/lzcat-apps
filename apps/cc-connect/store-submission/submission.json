@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "slug": "cc-connect",
+  "developer_apps_url": "https://lazycat.cloud/appstore/more/developers/178",
+  "package": "fun.selfstudio.app.migration.cc-connect",
+  "name": "cc-connect",
+  "version": "1.3.3",
+  "homepage": "https://github.com/chenhg5/cc-connect",
+  "license": "MIT",
+  "upstream_attribution": {
+    "original_or_source_author": false,
+    "source_author": "chenhg5",
+    "source_url": "https://github.com/CodeEagle/cc-connect"
+  },
+  "short_description": "把 Claude Code、Codex、Gemini CLI 等本地 AI 编程 Agent 接入 Discord、Telegram、Slack、飞书等聊天平台。",
+  "description_zh": "通过内置 Web 管理台把 Claude Code、Codex、Gemini CLI 等本地 Agent 接入聊天平台。",
+  "description_en": "Bridge local AI coding agents to messaging platforms with a built-in web admin dashboard.",
+  "store_description": "cc-connect 是一个面向开发者和自动化用户的多平台 Agent 桥接服务。安装到懒猫微服后，可以在浏览器中进入管理台，统一配置项目、Provider、Skills、聊天平台凭据和会话状态，把 Claude Code、Codex、Gemini CLI、OpenCode 等命令行 Agent 接入 Discord、Telegram、Slack、飞书、钉钉、企业微信、微信、QQ 等平台。\n\n这个 LazyCat 迁移版默认开启 Web 管理台、Bridge WebSocket 和 Webhook 入口，并把运行数据、Agent home、CLI 登录态和工作区持久化到 `/data`。镜像内默认带有 Claude Code、Codex、Gemini CLI、iFlow CLI、OpenCode、Kimi CLI 和 Qoder CLI；容器重启时会在后台尝试更新这些 CLI，避免阻塞主服务启动。\n\n为方便处理订阅制或浏览器登录式 CLI，本版本额外集成了 Web Terminal 页面。用户可以直接在管理台中打开完整容器 shell，手动执行 `claude login`、`codex login`、`gemini` 等登录流程，也可以在 `/data/workspaces` 下运行普通开发命令。对需要远程维护 Agent 会话的用户，这比在每个客户端单独配置 CLI 更稳定。\n\n本次验收已确认应用入口可访问，管理台 Dashboard、Projects、Providers、System 和 Terminal 页面可渲染，`/api/v1/status` 返回正常，Web Terminal WebSocket 能打开 shell 并执行命令。",
+  "english_description": "cc-connect is a self-hosted bridge for connecting local AI coding agents such as Claude Code, Codex, Gemini CLI, OpenCode, and other command-line agents to chat platforms including Discord, Telegram, Slack, Lark, DingTalk, WeCom, WeChat, QQ, and more. The LazyCat package includes the web admin dashboard, bridge WebSocket, webhook endpoint, persistent agent home directories, bundled CLI tools, background CLI updates, and a full web terminal for manual login flows.",
+  "keywords": [
+    "cc-connect",
+    "Claude Code",
+    "Codex",
+    "Gemini CLI",
+    "AI Agent",
+    "Coding Agent",
+    "Discord",
+    "Telegram",
+    "Slack",
+    "飞书",
+    "自托管",
+    "LazyCat",
+    "懒猫微服",
+    "开发者工具"
+  ],
+  "lpk": {
+    "path": "dist/cc-connect.lpk",
+    "sha256": "d0873482878e1706bdcc761bcf8e4b9a2df6f8ad52f8a491ab8daa7010e1ed2f",
+    "size_bytes": 20324,
+    "manifest": {
+      "name": "cc-connect",
+      "package": "fun.selfstudio.app.migration.cc-connect",
+      "version": "1.3.3"
+    }
+  },
+  "assets": {
+    "icon": "apps/cc-connect/store-submission/assets/icon.png",
+    "screenshots": [
+      "apps/cc-connect/store-submission/assets/screenshots/cc-connect-desktop-home.png",
+      "apps/cc-connect/store-submission/assets/screenshots/cc-connect-desktop-terminal.png",
+      "apps/cc-connect/store-submission/assets/screenshots/cc-connect-mobile-projects.png",
+      "apps/cc-connect/store-submission/assets/screenshots/cc-connect-mobile-providers.png",
+      "apps/cc-connect/store-submission/assets/screenshots/cc-connect-mobile-system.png"
+    ],
+    "source_icon": "apps/cc-connect/icon.png",
+    "source_screenshots": [
+      "apps/cc-connect/acceptance/cc-connect-desktop-home.png",
+      "apps/cc-connect/acceptance/cc-connect-desktop-terminal.png",
+      "apps/cc-connect/acceptance/cc-connect-mobile-projects.png",
+      "apps/cc-connect/acceptance/cc-connect-mobile-providers.png",
+      "apps/cc-connect/acceptance/cc-connect-mobile-system.png"
+    ],
+    "web_screenshot_metadata": "apps/cc-connect/acceptance/web-screenshots.json",
+    "store_copy": "apps/cc-connect/copywriting/store-copy.md",
+    "tutorial": "apps/cc-connect/copywriting/tutorial.md",
+    "playground": "apps/cc-connect/copywriting/playground.md"
+  },
+  "browser_acceptance": {
+    "status": "pass",
+    "result_path": "apps/cc-connect/acceptance/browser-use-result.json",
+    "evidence": "Chrome acceptance: LazyCat entry rendered CC-Connect Admin dashboard with version 1.3.3; Projects, Providers, Skills, Chat, Cron, and System routes rendered; /api/v1/status returned ok:true with version 1.3.3."
+  },
+  "reward_opportunities": [
+    {
+      "key": "self_hosted_migration",
+      "title": "开源/自托管应用移植",
+      "note": "确认上游许可证、功能验收和原作者信息后申报。"
+    },
+    {
+      "key": "game_server_migration",
+      "title": "游戏服务器类移植",
+      "note": "仅当项目属于可运行游戏服务端时适用。"
+    },
+    {
+      "key": "playground_guide",
+      "title": "Playground 图文攻略",
+      "note": "每个上架应用都生成图文教程，配套真实网页截图。"
+    },
+    {
+      "key": "lazycat_account_integration",
+      "title": "懒猫账号集成",
+      "note": "若应用支持用户体系或 OAuth，可评估懒猫账号接入。"
+    },
+    {
+      "key": "cloud_drive_integration",
+      "title": "懒猫网盘/右键菜单集成",
+      "note": "若应用处理文件、图片、文档或媒体，优先评估网盘入口。"
+    },
+    {
+      "key": "original_enhancement",
+      "title": "移植后的原创增强",
+      "note": "把通用改进反哺 template 或实现 LazyCat 专属增强。"
+    }
+  ],
+  "submission_steps": [
+    "Open the configured LazyCat developer apps page.",
+    "Create a new app entry.",
+    "Fill name, package id, version, descriptions, keywords, homepage, and license from this JSON.",
+    "Upload icon and screenshots from assets.",
+    "Upload the verified LPK from lpk.path.",
+    "Stop before the final create/submit/publish action and ask for confirmation."
+  ]
+}

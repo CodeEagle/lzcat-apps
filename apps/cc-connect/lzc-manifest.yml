@@ -32,8 +32,10 @@ services:
       - CC_CONNECT_DATA_DIR=/data
       - CC_CONNECT_CONFIG=/data/config.toml
       - HOME=/data/home
+      - CODEX_HOME=/data/home/.codex
+      - CC_CONNECT_UPDATE_AGENT_CLIS_ON_START=1
       - XDG_CONFIG_HOME=/data/home/.config
       - XDG_DATA_HOME=/data/home/.local/share
       - XDG_CACHE_HOME=/data/home/.cache
     image: registry.lazycat.cloud/placeholder/cc-connect:bootstrap
-version: 1.3.2
+version: 1.3.3
