@@ -1020,6 +1020,13 @@ def advance_discovery_reviewer(
                 queue, item_id, status=status, returncode=result.returncode, now=now
             )
         results.append({"id": item_id, "status": status, "returncode": result.returncode})
+        # Persist after each review so a timeout / crash mid-cycle doesn't
+        # lose the work already done. write_json is atomic (tmp+rename).
+        try:
+            write_json(config.queue_path, queue)
+        except OSError:
+            # Disk hiccup is non-fatal; the end-of-cycle write will retry.
+            pass
     return results
 
 

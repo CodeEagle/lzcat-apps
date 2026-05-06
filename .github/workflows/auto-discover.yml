@@ -92,7 +92,7 @@ jobs:
           ARGS=(
             --once
             --max-migrations-per-cycle 0
-            --max-discovery-reviews-per-cycle 20
+            --max-discovery-reviews-per-cycle 8
             --no-env-file
             --disable-local-agent
             --disable-discord
