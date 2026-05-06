@@ -29,9 +29,25 @@ the sandbox proxy and must be finished locally with `finish_cutover.sh`.
 | # | Action | Status |
 |---|---|---|
 | 1 | Force-push `template` = `template-clean` | DONE |
-| 2 | Force-push each `staged/migration/<slug>` → `migration/<slug>` | DONE (57 branches) |
-| 3 | Switch default branch to `template` in GitHub Settings → Branches | TODO (run `finish_cutover.sh` step 1, requires `gh auth`) |
-| 4 | Delete `migrate/fusion`, `migrate/hermes-webui`, `migration-warp`, `migrate/fix-rebase-conflict`, `template-clean`, all `staged/migration/*`, and `main` | TODO (run `finish_cutover.sh`) |
+| 2 | Force-push each `staged/migration/<slug>` → `migration/<slug>` | DONE (57 branches; later +1 for `codex-web` discovered in stray cleanup → 58) |
+| 3 | Switch default branch to `template` in GitHub Settings → Branches | DONE |
+| 4 | Delete `migrate/fusion`, `migrate/hermes-webui`, `migration-warp`, `migrate/fix-rebase-conflict`, `template-clean`, all `staged/migration/*`, and `main` | DONE |
+
+## Stray-branch cleanup (Phase F)
+
+After cutover, 13 leftover `codex/*`, `feature/*`, `fix/*`, and
+`lazycat/*` branches were audited:
+
+- **5 already merged** into `template` + `migration/<slug>`: deleted by
+  `cleanup_stray_branches.sh` (safe, loss-free).
+- **1 discovered new slug** (`codex-web` from `codex/codex-web-lazycat`):
+  built `migration/codex-web`. Bringing total to 58 migration branches.
+- **7 with unique work** retained for human review (see script). Each has
+  3–24 unmerged files diff against the corresponding `migration/<slug>`.
+  Cherry-pick or PR them onto the migration branch before deleting.
+- **16 `archive/*-pre-reorg`** retained as rollback. Drop with
+  `bash docs/branch-reorg/cleanup_stray_branches.sh --drop-archives`
+  once you're confident the reorg is stable.
 
 ## Rollback (any time before or after cutover)
 
