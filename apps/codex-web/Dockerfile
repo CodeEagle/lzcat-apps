@@ -318,7 +318,7 @@ server = server.replace(
     '      target.searchParams.set(name, value);\n'
     '    }\n'
     '    try {\n'
-    '      const response = await fetch(target, { redirect: "manual" });\n'
+    '      const response = await fetch(target, { redirect: "follow" });\n'
     '      if (response.status >= 400) {\n'
     '        return { ok: false, message: `Local Codex callback returned HTTP ${response.status}.` };\n'
     '      }\n'
