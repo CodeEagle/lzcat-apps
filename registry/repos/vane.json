@@ -1,0 +1,19 @@
+{
+  "repo": "CodeEagle/Vane",
+  "enabled": true,
+  "upstream_repo": "ItzCrazyKns/Vane",
+  "check_strategy": "github_release",
+  "build_strategy": "official_image",
+  "publish_to_store": false,
+  "official_image_registry": "docker.io/itzcrazykns1337/vane",
+  "official_image_fallback_tag": "latest",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "simple",
+  "service_port": 3000,
+  "service_cmd": [],
+  "image_targets": [
+    "vane"
+  ],
+  "dependencies": [],
+  "migration_status": "migrated"
+}

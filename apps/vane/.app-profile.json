@@ -1,0 +1,72 @@
+{
+  "managed_by": "optimize_migration",
+  "generated_from_upstream": "ItzCrazyKns/Vane",
+  "pinned": true,
+  "fixes": {
+    "build_strategy": "official_image",
+    "check_strategy": "github_release",
+    "official_image_registry": "docker.io/itzcrazykns1337/vane",
+    "dockerfile_type": "simple",
+    "service_port": 3000,
+    "service_cmd": [],
+    "image_targets": [
+      "vane"
+    ],
+    "dependencies": [],
+    "precompiled_binary_url": "",
+    "official_image_fallback_tag": "latest",
+    "repo": "CodeEagle/Vane",
+    "service_builds": [],
+    "build_args": {},
+    "docker_platform": "",
+    "project_name": "Vane",
+    "description": "(LazyCat Auto-build) Privacy-focused AI answering engine with built-in SearXNG search",
+    "license": "MIT",
+    "homepage": "https://github.com/ItzCrazyKns/Vane",
+    "author": "ItzCrazyKns",
+    "description_zh": "（懒猫微服自动构建）隐私优先的 AI 搜索问答引擎，内置 SearXNG 搜索",
+    "application": {
+      "subdomain": "vane",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://vane:3000/"
+        }
+      ],
+      "health_check": {
+        "test_url": "http://vane:3000/",
+        "start_period": "600s",
+        "timeout": "20s"
+      }
+    },
+    "services": {
+      "vane": {
+        "image": "registry.lazycat.cloud/invokerlaw/itzcrazykns1337/vane:064e8d735176fe5e",
+        "environment": [
+          "DATA_DIR=/home/vane",
+          "SEARXNG_API_URL=http://localhost:8080",
+          "NODE_ENV=production",
+          "PORT=3000",
+          "HOSTNAME=0.0.0.0"
+        ],
+        "binds": [
+          "/lzcapp/var/data/vane:/home/vane/data"
+        ],
+        "healthcheck": {
+          "test": [
+            "CMD-SHELL",
+            "curl -fsS http://127.0.0.1:3000/ >/dev/null || exit 1"
+          ],
+          "interval": "30s",
+          "timeout": "20s",
+          "retries": 20,
+          "start_period": "600s"
+        }
+      }
+    },
+    "include_content": false
+  }
+}
