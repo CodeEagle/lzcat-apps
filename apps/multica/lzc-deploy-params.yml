@@ -1,0 +1,25 @@
+params:
+  - id: resend_api_key
+    type: string
+    name: Resend API Key
+    description: 用于发送登录验证码邮件。留空时不会发送邮件，验证码需要在应用日志中查看。
+    optional: true
+
+  - id: resend_from_email
+    type: string
+    name: Resend From Email
+    description: 发件人邮箱地址（例如 no-reply@yourdomain.com）。未填写时默认使用 noreply@multica.ai。
+    default_value: noreply@multica.ai
+    optional: true
+
+  - id: google_client_id
+    type: string
+    name: Google Client ID
+    description: 仅作为非 LazyCat OIDC 环境的回退配置；LazyCat 上默认使用微服 OIDC 免密登录。
+    optional: true
+
+  - id: google_client_secret
+    type: string
+    name: Google Client Secret
+    description: 仅作为非 LazyCat OIDC 环境的回退配置；需要与 Google Client ID 配套填写。
+    optional: true
