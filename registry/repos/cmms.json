@@ -1,0 +1,44 @@
+{
+  "enabled": true,
+  "upstream_repo": "Grashjs/cmms",
+  "check_strategy": "github_release",
+  "build_strategy": "upstream_dockerfile",
+  "publish_to_store": false,
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "custom",
+  "service_port": 3000,
+  "service_cmd": [],
+  "image_targets": [
+    "frontend"
+  ],
+  "dependencies": [
+    {
+      "target_service": "postgres",
+      "source_image": "postgres:16-alpine"
+    },
+    {
+      "target_service": "minio",
+      "source_image": "minio/minio:RELEASE.2025-04-22T22-12-26Z"
+    }
+  ],
+  "service_builds": [
+    {
+      "target_service": "api",
+      "build_strategy": "upstream_dockerfile",
+      "source_dockerfile_path": "api/Dockerfile",
+      "build_context": "api",
+      "build_args": {},
+      "image_name": "cmms-api"
+    },
+    {
+      "target_service": "frontend",
+      "build_strategy": "upstream_dockerfile",
+      "source_dockerfile_path": "frontend/Dockerfile",
+      "build_context": "frontend",
+      "build_args": {},
+      "image_name": "cmms-frontend"
+    }
+  ],
+  "migration_status": "in_progress"
+}

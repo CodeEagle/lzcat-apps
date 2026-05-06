@@ -1,0 +1,121 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.cmms
+version: 1.5.0
+min_os_version: 1.3.8
+name: cmms
+description: "#1 Self hosted CMMS web & mobile application that allows you to manage enterprise maintenance for free - Computerized Maintenance Management System"
+license: AGPL-3.0
+homepage: https://atlas-cmms.com
+author: Grashjs
+application:
+  subdomain: cmms
+  public_path:
+    - /
+  upstreams:
+    -
+      location: /api/
+      backend: http://api:8080/
+    -
+      location: /minio/
+      backend: http://minio:9000/
+    -
+      location: /
+      backend: http://frontend:3000/
+services:
+  postgres:
+    image: registry.lazycat.cloud/invokerlaw/library/postgres:c7066f661fdb4a89
+    environment:
+      - POSTGRES_DB=atlas
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD=mypassword
+    binds:
+      - /lzcapp/var/db/cmms/postgres:/var/lib/postgresql/data
+  api:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/cmms-api:10fda8fcc488fe98
+    depends_on:
+      - postgres
+      - minio
+    environment:
+      - DB_URL=postgres/atlas
+      - DB_USER=rootUser
+      - DB_PWD=mypassword
+      - PUBLIC_API_URL=https://cmms.${LAZYCAT_BOX_DOMAIN}/api
+      - PUBLIC_FRONT_URL
+      - GCP_BUCKET_NAME
+      - GCP_JSON
+      - GCP_PROJECT_ID
+      - MAIL_RECIPIENTS
+      - SMTP_PWD
+      - SMTP_USER
+      - SMTP_HOST
+      - SMTP_PORT
+      - SPRING_PROFILES_ACTIVE
+      - JWT_SECRET_KEY
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_BUCKET=atlas-bucket
+      - MINIO_ACCESS_KEY=minio
+      - MINIO_SECRET_KEY=minio123
+      - STORAGE_TYPE=MINIO
+      - PUBLIC_MINIO_ENDPOINT=https://cmms.${LAZYCAT_BOX_DOMAIN}/minio
+      - INVITATION_VIA_EMAIL=false
+      - ENABLE_EMAIL_NOTIFICATIONS=false
+      - ENABLE_SSO=false
+      - OAUTH2_PROVIDER
+      - OAUTH2_CLIENT_ID
+      - OAUTH2_CLIENT_SECRET
+      - LICENSE_KEY=
+      - LICENSE_FINGERPRINT_REQUIRED=false
+      - LICENSE_FILE_PATH=
+      - ALLOWED_ORGANIZATION_ADMINS=
+      - LOGO_PATHS
+      - CUSTOM_COLORS
+      - BRAND_CONFIG
+      - PADDLE_API_KEY=
+      - PADDLE_WEBHOOK_SECRET_KEY=
+      - PADDLE_ENVIRONMENT=production
+      - ENABLE_CORS=false
+      - KEYGEN_PRODUCT_TOKEN=
+      - MAIL_TYPE=smtp
+      - SENDGRID_API_KEY=
+      - SENDGRID_FROM_EMAIL=
+      - SENDGRID_CONTACT_LIST_ID=
+      - RECAPTCHA_SECRET_KEY=
+    binds:
+      - /lzcapp/var/data/cmms/api/images:/app/static/images
+      - /lzcapp/var/data/cmms/api/config:/app/static/config
+  frontend:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/cmms-frontend:f2967d126e3b48b3
+    depends_on:
+      - api
+    command: /bin/sh -lc 'set -e; cd /usr/share/nginx/html; printf '"'"'%s\n'"'"' "API_URL=${API_URL-}" "GOOGLE_KEY=${GOOGLE_KEY-}" "GOOGLE_TRACKING_ID=${GOOGLE_TRACKING_ID-}" "INVITATION_VIA_EMAIL=${INVITATION_VIA_EMAIL-}" "CLOUD_VERSION=${CLOUD_VERSION-}" "NODE_ENV=${NODE_ENV-}" "ENABLE_SSO=${ENABLE_SSO-}" "OAUTH2_PROVIDER=${OAUTH2_PROVIDER-}" "LOGO_PATHS=${LOGO_PATHS-}" "CUSTOM_COLORS=${CUSTOM_COLORS-}" "BRAND_CONFIG=${BRAND_CONFIG-}" "DEMO_LINK=${DEMO_LINK-}" "PADDLE_SECRET_TOKEN=${PADDLE_SECRET_TOKEN-}" "PADDLE_ENVIRONMENT=${PADDLE_ENVIRONMENT-}" "RECAPTCHA_SITE_KEY=${RECAPTCHA_SITE_KEY-}" > ./.env; NODE_ENV=development runtime-env-cra --config-name=./runtime-env.js --env-file=./.env; exec nginx -g "daemon off;"'
+    environment:
+      - API_URL=https://cmms.${LAZYCAT_BOX_DOMAIN}/api
+      - GOOGLE_KEY=
+      - GOOGLE_TRACKING_ID=
+      - INVITATION_VIA_EMAIL=false
+      - CLOUD_VERSION=false
+      - NODE_ENV=production
+      - ENABLE_SSO=false
+      - OAUTH2_PROVIDER=
+      - LOGO_PATHS=
+      - CUSTOM_COLORS=
+      - BRAND_CONFIG=
+      - DEMO_LINK=
+      - PADDLE_SECRET_TOKEN=
+      - PADDLE_ENVIRONMENT=production
+      - RECAPTCHA_SITE_KEY=
+  minio:
+    image: registry.lazycat.cloud/invokerlaw/minio/minio:04662dc938f19824
+    command: server --address ":9000" --console-address ":9001" /data
+    environment:
+      - MINIO_ROOT_USER=minio
+      - MINIO_ROOT_PASSWORD=minio123
+    binds:
+      - /lzcapp/var/data/cmms/minio:/data
+locales:
+  en:
+    name: cmms
+    description: "#1 Self hosted CMMS web & mobile application that allows you to manage enterprise maintenance for free - Computerized Maintenance Management System"
+  zh:
+    name: cmms
+    description: （迁移初稿）Cmms 的懒猫微服版本
