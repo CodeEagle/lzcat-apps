@@ -1,0 +1,77 @@
+# Skeleton — to land in template:.github/workflows/ once approved.
+# Phase F1: build & publish the worker images to GHCR.
+
+name: Build Images
+
+on:
+  schedule:
+    - cron: "0 4 * * 1" # Mondays 04:00 UTC
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Which image(s) to rebuild"
+        type: choice
+        options: [both, runner, browser]
+        default: both
+  push:
+    branches: [template]
+    paths:
+      - "docs/automation/images/**"
+      - "scripts/requirements.txt"
+      - "scripts/requirements-browser.txt"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: lzcat-migration-runner
+            dockerfile: docs/automation/images/migration-runner.Dockerfile
+            condition: ${{ inputs.target == 'both' || inputs.target == 'runner' || github.event_name != 'workflow_dispatch' }}
+          - name: lzcat-bb-browser
+            dockerfile: docs/automation/images/bb-browser.Dockerfile
+            condition: ${{ inputs.target == 'both' || inputs.target == 'browser' || github.event_name != 'workflow_dispatch' }}
+
+    steps:
+      - if: matrix.condition
+        uses: actions/checkout@v4
+
+      - if: matrix.condition
+        uses: docker/setup-qemu-action@v3
+
+      - if: matrix.condition
+        uses: docker/setup-buildx-action@v3
+
+      - if: matrix.condition
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_PAT }}
+
+      - if: matrix.condition
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/codeeagle/${{ matrix.name }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+
+      - if: matrix.condition
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

@@ -1,0 +1,171 @@
+#!/usr/bin/env python3
+"""GitHub Projects v2 wrapper for the auto-migration pipeline.
+
+Skeleton — to be moved to scripts/project_board.py and tested.
+
+Surface:
+  project_board.py sync                  Reconcile registry/auto-migration/queue.json -> Project items
+  project_board.py list-approved -n N    Print up to N approved slugs (one per line / JSON list)
+  project_board.py read <slug> [--field F]   Read one or all fields
+  project_board.py update <slug> --status=...  --field=k=v ...
+  project_board.py upsert <slug> --upstream=URL --strategy=S --score=N
+  project_board.py archive <slug>        Move terminal items (Published / Filtered)
+
+Implementation notes:
+- Uses GraphQL via the gh CLI (gh api graphql) so we don't need a Python GH SDK.
+- Caches Project node IDs + field IDs in registry/auto-migration/project-cache.json
+  so repeated calls don't re-walk the schema.
+- Idempotent: every mutation finds the item by slug first, creates only if missing.
+- Exponential backoff on 429.
+
+Required env: GH_TOKEN with `project` and `repo` scopes.
+Required config in project-config.json:
+
+  "project_board": {
+    "owner": "CodeEagle",
+    "repo": "lzcat-apps",
+    "project_number": 1,                # Number from the Project URL
+    "fields": {
+      "status": "Status",
+      "slug": "Slug",
+      "upstream": "Upstream",
+      "build_strategy": "Build Strategy",
+      "ai_score": "AI Score",
+      "branch": "Branch",
+      "pr": "PR",
+      "last_run": "Last Run",
+      "failures": "Failures",
+      "codex_attempts": "Codex Attempts"
+    }
+  }
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+CACHE_PATH = "registry/auto-migration/project-cache.json"
+QUEUE_PATH = "registry/auto-migration/queue.json"
+
+
+def gh_graphql(query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Run a GraphQL request via `gh api graphql`. Raises on non-2xx or GraphQL errors."""
+    cmd = ["gh", "api", "graphql", "-f", f"query={query}"]
+    for k, v in (variables or {}).items():
+        cmd += ["-F", f"{k}={v}"]
+    out = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if out.returncode != 0:
+        raise RuntimeError(f"gh graphql failed: {out.stderr}")
+    payload = json.loads(out.stdout)
+    if "errors" in payload:
+        raise RuntimeError(f"GraphQL errors: {payload['errors']}")
+    return payload["data"]
+
+
+# ---- cache --------------------------------------------------------------------
+
+def load_cache(repo_root: Path) -> dict[str, Any]:
+    p = repo_root / CACHE_PATH
+    if p.exists():
+        return json.loads(p.read_text())
+    return {}
+
+
+def save_cache(repo_root: Path, cache: dict[str, Any]) -> None:
+    p = repo_root / CACHE_PATH
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(cache, indent=2, sort_keys=True) + "\n")
+
+
+# ---- subcommands --------------------------------------------------------------
+
+def cmd_sync(args: argparse.Namespace) -> int:
+    """For every queue.json item not yet on the Project, create an Inbox item."""
+    repo_root = Path(args.repo_root).resolve()
+    queue = json.loads((repo_root / QUEUE_PATH).read_text()) if (repo_root / QUEUE_PATH).exists() else {"items": []}
+    cache = load_cache(repo_root)
+    # TODO: ensure project + field IDs cached, then mutate
+    print(f"[sync] {len(queue.get('items', []))} queue items would be reconciled")
+    save_cache(repo_root, cache)
+    return 0
+
+
+def cmd_list_approved(args: argparse.Namespace) -> int:
+    """Print up to N slugs in Approved state, oldest first."""
+    # TODO: GraphQL query items where Status='Approved' ORDER BY Last Run ASC
+    slugs: list[str] = []
+    if args.format == "json":
+        print(json.dumps(slugs))
+    else:
+        print("\n".join(slugs))
+    return 0
+
+
+def cmd_read(args: argparse.Namespace) -> int:
+    # TODO: query item by Slug field == args.slug
+    if args.field:
+        print("")
+    else:
+        print("{}")
+    return 0
+
+
+def cmd_update(args: argparse.Namespace) -> int:
+    # TODO: mutate project item; backoff on 429
+    print(f"[update] {args.slug}: {args.status or '(no status)'} {args.field or []}")
+    return 0
+
+
+def cmd_upsert(args: argparse.Namespace) -> int:
+    # TODO: find or create item, then update
+    print(f"[upsert] {args.slug} upstream={args.upstream} strategy={args.strategy} score={args.score}")
+    return 0
+
+
+def cmd_archive(args: argparse.Namespace) -> int:
+    # TODO: set Status to Published or Filtered, archive on Project
+    print(f"[archive] {args.slug}")
+    return 0
+
+
+# ---- argparse -----------------------------------------------------------------
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog="project_board.py")
+    p.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[1]))
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    s = sub.add_parser("sync"); s.set_defaults(func=cmd_sync)
+
+    s = sub.add_parser("list-approved"); s.add_argument("-n", "--limit", type=int, default=2)
+    s.add_argument("--format", choices=["text", "json"], default="text"); s.set_defaults(func=cmd_list_approved)
+
+    s = sub.add_parser("read"); s.add_argument("slug"); s.add_argument("--field")
+    s.set_defaults(func=cmd_read)
+
+    s = sub.add_parser("update"); s.add_argument("slug")
+    s.add_argument("--status"); s.add_argument("--field", action="append", default=[])
+    s.set_defaults(func=cmd_update)
+
+    s = sub.add_parser("upsert"); s.add_argument("slug")
+    s.add_argument("--upstream", required=True); s.add_argument("--strategy", default="")
+    s.add_argument("--score", type=float, default=0.0); s.set_defaults(func=cmd_upsert)
+
+    s = sub.add_parser("archive"); s.add_argument("slug"); s.set_defaults(func=cmd_archive)
+    return p
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

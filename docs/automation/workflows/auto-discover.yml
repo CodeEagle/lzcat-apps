@@ -1,0 +1,70 @@
+# Skeleton — to land in template:.github/workflows/ once approved.
+# Phase F3 of the rollout: read-only Inbox population, no migrations yet.
+
+name: Auto-Discover
+
+on:
+  schedule:
+    - cron: "0,30 * * * *" # every 30 min
+  workflow_dispatch:
+    inputs:
+      skip_status_sync:
+        type: boolean
+        default: false
+      skip_scout:
+        type: boolean
+        default: false
+
+permissions:
+  contents: write       # commit candidates/queue updates to template
+  issues: write         # for project board fallback
+  pull-requests: write
+
+concurrency:
+  group: auto-discover
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/codeeagle/lzcat-migration-runner:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GH_PAT }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout template
+        uses: actions/checkout@v4
+        with:
+          ref: template
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 1
+
+      - name: Run discovery + triage cycle
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: |
+          python3 scripts/auto_migration_service.py --once \
+            --max-migrations-per-cycle 0 \
+            ${{ inputs.skip_status_sync && '--skip-status-sync' || '' }} \
+            ${{ inputs.skip_scout && '--skip-scout' || '' }}
+
+      - name: Sync candidates → GitHub Project
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          python3 scripts/project_board.py sync
+
+      - name: Commit & push registry updates
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add registry/candidates/ registry/auto-migration/
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(auto-discover): refresh candidate snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push origin template
+          fi

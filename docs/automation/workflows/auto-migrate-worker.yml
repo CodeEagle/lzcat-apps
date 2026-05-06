@@ -1,0 +1,99 @@
+# Skeleton — to land in template:.github/workflows/ once approved.
+# Phase F4: per-slug migration cycle. Idempotent — re-runs are safe.
+
+name: Auto-Migrate Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: "Migration slug (e.g. cc-connect)"
+        required: true
+        type: string
+      max_codex_attempts:
+        type: number
+        default: 3
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: migrate-${{ inputs.slug }}
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/codeeagle/lzcat-migration-runner:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GH_PAT }}
+      options: --privileged   # podman/docker need privileged for in-container builds
+    timeout-minutes: 90
+    env:
+      SLUG: ${{ inputs.slug }}
+      GH_TOKEN: ${{ secrets.GH_PAT }}
+      LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+
+    steps:
+      - name: Mark Project In-Progress
+        run: |
+          python3 -c "
+          import os, subprocess
+          subprocess.check_call([
+            'python3', 'scripts/project_board.py', 'update',
+            os.environ['SLUG'], '--status=In-Progress'])"
+        continue-on-error: true   # status push is best-effort
+
+      - name: Checkout migration/<slug> with worktree of template
+        uses: actions/checkout@v4
+        with:
+          ref: migration/${{ inputs.slug }}
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 0
+          path: repo
+
+      - name: Configure git identity
+        working-directory: repo
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run one migration cycle for slug
+        working-directory: repo
+        run: |
+          python3 scripts/auto_migration_service.py --once \
+            --max-migrations-per-cycle 1 \
+            --enable-build-install \
+            --enable-codex-worker \
+            --max-codex-attempts "${{ inputs.max_codex_attempts || 3 }}" \
+            --resume \
+            --commit-scaffold
+
+      - name: Push migration/<slug> updates
+        if: always()
+        working-directory: repo
+        run: |
+          git push origin migration/${{ inputs.slug }} || true
+
+      - name: Hand off to browser verification
+        if: success()
+        run: |
+          state=$(python3 scripts/project_board.py read "$SLUG" --field=Status)
+          if [ "$state" = "browser_pending" ] || [ "$state" = "installed" ]; then
+            gh workflow run auto-verify.yml \
+              --ref template \
+              --field slug="$SLUG"
+          fi
+
+      - name: Update Project on failure
+        if: failure()
+        run: |
+          python3 scripts/project_board.py update "$SLUG" \
+            --status=Blocked \
+            --field=Failures="$(tail -n 50 /tmp/auto-migrate.log 2>/dev/null || echo 'see workflow logs')"

@@ -1,0 +1,65 @@
+# Skeleton — to land in template:.github/workflows/ once approved.
+# Phase F4 of the rollout: pulls Approved items off Project, fans out to workers.
+
+name: Auto-Migrate Dispatcher
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # every 10 min
+  workflow_dispatch:
+    inputs:
+      max_concurrent:
+        type: number
+        default: 2
+
+permissions:
+  actions: write          # gh workflow run
+  contents: read
+
+concurrency:
+  group: auto-migrate-dispatcher
+  cancel-in-progress: false
+
+jobs:
+  pick-approved:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/codeeagle/lzcat-migration-runner:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GH_PAT }}
+    timeout-minutes: 5
+    outputs:
+      slugs: ${{ steps.pick.outputs.slugs }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: template
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 1
+
+      - id: pick
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          slugs=$(python3 scripts/project_board.py list-approved \
+              --limit "${{ inputs.max_concurrent || 2 }}" \
+              --format json)
+          echo "slugs=$slugs" >> "$GITHUB_OUTPUT"
+
+  fan-out:
+    needs: pick-approved
+    if: needs.pick-approved.outputs.slugs != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 2
+      matrix:
+        slug: ${{ fromJSON(needs.pick-approved.outputs.slugs) }}
+    steps:
+      - name: Trigger worker for ${{ matrix.slug }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh workflow run auto-migrate-worker.yml \
+            --ref template \
+            --field slug="${{ matrix.slug }}"
