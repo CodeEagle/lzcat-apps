@@ -1,0 +1,58 @@
+{
+  "managed_by": "optimize_migration",
+  "generated_from_upstream": "kittors/CliRelay",
+  "pinned": true,
+  "fixes": {
+    "build_strategy": "upstream_with_target_template",
+    "check_strategy": "github_tag",
+    "official_image_registry": "",
+    "dockerfile_path": "Dockerfile.template",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "service_port": 8317,
+    "service_cmd": [],
+    "image_targets": [
+      "clirelay"
+    ],
+    "dependencies": [],
+    "precompiled_binary_url": "",
+    "service_builds": [],
+    "build_args": {},
+    "docker_platform": "",
+    "project_name": "CliRelay",
+    "description": "(LazyCat Auto-build) AI CLI Relay - Unified API for Gemini CLI, Claude Code, OpenAI Codex",
+    "license": "MIT",
+    "homepage": "https://help.router-for.me/",
+    "author": "kittors",
+    "description_zh": "（懒猫微服自动构建）AI CLI 代理 - 统一 API 服务",
+    "application": {
+      "subdomain": "clirelay",
+      "routes": [
+        "/=file:///lzcapp/pkg/content/home"
+      ],
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "domain_prefix": "api",
+          "backend": "http://clirelay:8317/"
+        }
+      ]
+    },
+    "services": {
+      "clirelay": {
+        "image": "registry.lazycat.cloud/invokerlaw/codeeagle/clirelay:a165007ee64a201f",
+        "command": "sh -lc 'mkdir -p /CLIProxyAPI/static /lzcapp/var/data/clirelay/auths /lzcapp/var/data/clirelay/logs && cp /lzcapp/pkg/content/management.html /CLIProxyAPI/static/management.html && if [ ! -f /lzcapp/var/data/clirelay/config.yaml ]; then cp /lzcapp/pkg/content/default-config.yaml /lzcapp/var/data/clirelay/config.yaml; fi && ln -sf /lzcapp/var/data/clirelay/config.yaml /CLIProxyAPI/config.yaml && rm -rf /root/.cli-proxy-api && ln -s /lzcapp/var/data/clirelay/auths /root/.cli-proxy-api && rm -rf /CLIProxyAPI/logs && ln -s /lzcapp/var/data/clirelay/logs /CLIProxyAPI/logs && exec /CLIProxyAPI/CLIProxyAPI'",
+        "environment": [
+          "TZ=Asia/Shanghai"
+        ],
+        "binds": [
+          "/lzcapp/var/data/clirelay:/lzcapp/var/data/clirelay"
+        ]
+      }
+    },
+    "include_content": true
+  }
+}
