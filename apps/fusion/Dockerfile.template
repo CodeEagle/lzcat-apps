@@ -1,0 +1,84 @@
+# syntax=docker/dockerfile:1
+
+ARG SOURCE_VERSION=v0.9.1
+ARG BUILD_VERSION=0.9.1
+
+FROM node:22-slim AS builder
+
+ARG SOURCE_VERSION
+ARG BUILD_VERSION
+
+WORKDIR /src
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates git build-essential python3 \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+
+COPY . .
+
+# The dashboard subpath export points at TypeScript source upstream. Runtime uses
+# the compiled output in this container so the CLI can start with production deps.
+RUN node -e "const fs=require('fs'); const p='packages/dashboard/package.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); if (j.exports && j.exports['./planning']) j.exports['./planning'].import='./dist/planning.js'; fs.writeFileSync(p, JSON.stringify(j, null, 2)+'\n');"
+
+RUN pnpm install --frozen-lockfile --filter @runfusion/fusion...
+RUN pnpm --filter @runfusion/fusion... build
+
+FROM node:22-slim AS runner
+
+ARG SOURCE_VERSION
+ARG BUILD_VERSION
+
+ENV NODE_ENV=production \
+    PORT=4040 \
+    HOME=/home/node \
+    XDG_CONFIG_HOME=/home/node/.config \
+    XDG_CACHE_HOME=/home/node/.cache \
+    XDG_DATA_HOME=/home/node/.local/share \
+    XDG_STATE_HOME=/home/node/.local/state
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates git openssh-client gosu \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+
+WORKDIR /opt/fusion
+
+COPY . .
+
+RUN set -eux; \
+  node -e "const fs=require('fs'); const p='packages/dashboard/package.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); if (j.exports && j.exports['./planning']) j.exports['./planning'].import='./dist/planning.js'; fs.writeFileSync(p, JSON.stringify(j, null, 2)+'\n');"; \
+  # Keep selected workspace dev dependencies in the runtime image because the
+  # bundled CLI imports `typebox` at startup while upstream declares it outside
+  # production dependencies.
+  pnpm install --frozen-lockfile --filter @runfusion/fusion...; \
+  mkdir -p node_modules/@sinclair; \
+  cp -a node_modules/.pnpm/@sinclair+typebox@*/node_modules/@sinclair/typebox node_modules/@sinclair/typebox 2>/dev/null || true; \
+  node -e "const fs=require('fs'); const path=require('path'); const roots=fs.readdirSync('node_modules/.pnpm').filter(n=>n.startsWith('@homebridge+node-pty-prebuilt-multiarch@')); if (!roots.length) throw new Error('node-pty package missing from pnpm store'); const target=path.join('node_modules/.pnpm', roots[0], 'node_modules/@homebridge/node-pty-prebuilt-multiarch'); for (const link of ['node_modules/node-pty','packages/dashboard/node_modules/node-pty']) { fs.mkdirSync(path.dirname(link), { recursive: true }); try { fs.rmSync(link, { force: true, recursive: true }); } catch {} fs.symlinkSync(path.relative(path.dirname(link), target), link, 'dir'); }"
+
+COPY --from=builder /src/packages/cli/dist ./packages/cli/dist
+COPY --from=builder /src/packages/core/dist ./packages/core/dist
+COPY --from=builder /src/packages/dashboard/dist ./packages/dashboard/dist
+COPY --from=builder /src/packages/engine/dist ./packages/engine/dist
+COPY --from=builder /src/packages/plugin-sdk/dist ./packages/plugin-sdk/dist
+COPY --from=builder /src/plugins/fusion-plugin-hermes-runtime/dist ./plugins/fusion-plugin-hermes-runtime/dist
+COPY --from=builder /src/plugins/fusion-plugin-openclaw-runtime/dist ./plugins/fusion-plugin-openclaw-runtime/dist
+COPY --from=builder /src/plugins/fusion-plugin-paperclip-runtime/dist ./plugins/fusion-plugin-paperclip-runtime/dist
+
+RUN node --input-type=module -e "import { createRequire } from 'node:module'; const require = createRequire('/opt/fusion/packages/dashboard/dist/terminal-service.js'); const pty = require('node-pty'); if (typeof pty.spawn !== 'function') throw new Error('node-pty spawn export missing'); console.log('node-pty import ok')"
+
+RUN install -d -o node -g node -m 0755 /project \
+  && install -d -o node -g node -m 0700 /home/node/.fusion /home/node/.ssh \
+    /home/node/.pi /home/node/.pi/agent /home/node/.pi/agent/sessions \
+  && install -d -o node -g node -m 0755 /home/node/.config /home/node/.cache /home/node/.local/share /home/node/.local/state
+
+WORKDIR /project
+
+EXPOSE 4040
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+  CMD node -e "fetch('http://127.0.0.1:4040/api/tasks').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+
+CMD ["sh", "-lc", "install -d -o 1000 -g 1000 -m 0755 /project /project/.fusion /project/.worktrees; install -d -o 1000 -g 1000 -m 0700 /home/node/.fusion /home/node/.ssh /home/node/.pi /home/node/.pi/agent /home/node/.pi/agent/sessions; install -d -o 1000 -g 1000 -m 0755 /home/node/.config /home/node/.cache /home/node/.local/share /home/node/.local/state; exec gosu node node /opt/fusion/packages/cli/dist/bin.js dashboard --host 0.0.0.0 --port 4040 --no-auth"]

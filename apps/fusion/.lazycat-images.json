@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "app": "fusion",
+  "source_version": "v0.9.1",
+  "build_version": "0.9.1",
+  "head_sha": "c5c14d0fb06d",
+  "build_recipe_hash": "bc8f3d2b9a8b5108494e4995442c85827a3fdbca25d9e4fef5353b0164d14484",
+  "updated_at": "2026-04-30T03:29:00.000000+00:00",
+  "images": {
+    "fusion": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:827789b07c1b5b59"
+  },
+  "source_images": {
+    "fusion": "ghcr.io/codeeagle/lazycatimages:fusion_c5c14d0fb06d"
+  },
+  "source_digests": {
+    "_primary": "sha256:9fe052979c9c1c680f8f2538c8b3f0dc54f3250a5e121661e749a86cebd3621a"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:fusion_c5c14d0fb06d",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:827789b07c1b5b59",
+      "elapsed_seconds": 104.987,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}
