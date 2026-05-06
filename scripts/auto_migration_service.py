@@ -38,6 +38,7 @@ except ImportError:  # pragma: no cover - direct script execution
 DEFAULT_CANDIDATE_SNAPSHOT = "registry/candidates/latest.json"
 DEFAULT_QUEUE_PATH = "registry/auto-migration/queue.json"
 DEFAULT_DISCOVERY_LOG_DIR = "registry/auto-migration/logs/discovery-runs"
+DEFAULT_ENV_FILE = "scripts/.env.local"
 FILTERED_CANDIDATE_STATUSES = {"already_migrated", "excluded", "in_progress"}
 PROTECTED_STATES = {
     "scaffolded",
@@ -116,6 +117,37 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     temp_path = path.with_suffix(path.suffix + ".tmp")
     temp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     temp_path.replace(path)
+
+
+def is_env_key(value: str) -> bool:
+    if not value or value[0].isdigit():
+        return False
+    return all(char == "_" or char.isalnum() for char in value)
+
+
+def unquote_env_value(value: str) -> str:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1]
+    return value
+
+
+def load_env_file(path: Path, *, override: bool = False) -> list[str]:
+    if not path.exists():
+        return []
+    loaded: list[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        key = key.strip()
+        if not is_env_key(key):
+            continue
+        if override or key not in os.environ:
+            os.environ[key] = unquote_env_value(value)
+            loaded.append(key)
+    return loaded
 
 
 def discovery_log_path(repo_root: Path, now: str) -> Path:
@@ -1312,6 +1344,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[1]))
     parser.add_argument("--queue-path", default=DEFAULT_QUEUE_PATH)
     parser.add_argument("--candidate-snapshot", default=DEFAULT_CANDIDATE_SNAPSHOT)
+    parser.add_argument("--env-file", default=DEFAULT_ENV_FILE, help="Load environment variables before startup.")
+    parser.add_argument("--no-env-file", action="store_true", help="Do not load scripts/.env.local.")
+    parser.add_argument("--env-override", action="store_true", help="Let --env-file override existing environment variables.")
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--once", action="store_true", help="Run one cycle and exit.")
     parser.add_argument("--daemon", action="store_true", help="Run continuously.")
@@ -1330,6 +1365,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--enable-codex-worker", action="store_true")
     parser.add_argument("--max-codex-attempts", type=int, default=1)
+    parser.add_argument("--workspace-root", default="", help="Override migration.workspace_root from project-config.json.")
+    parser.add_argument("--template-branch", default="", help="Override migration.template_branch from project-config.json.")
+    parser.add_argument("--codex-worker-model", default="", help="Override migration.codex_worker_model.")
+    parser.add_argument("--disable-discord", action="store_true", help="Run without Discord even if project-config enables it.")
+    parser.add_argument("--require-discord", action="store_true", help="Fail startup if Discord is configured but unavailable.")
+    parser.add_argument("--disable-local-agent", action="store_true", help="Ignore local_agent settings from project-config.json.")
     return parser.parse_args()
 
 
@@ -1342,16 +1383,19 @@ def build_config(args: argparse.Namespace) -> ServiceConfig:
         raise SystemExit("--functional-check requires --box-domain")
     project_config = load_project_config(repo_root)
     developer_url = args.developer_url or project_config.lazycat.developer_apps_url
-    workspace_root_value = project_config.migration.workspace_root.strip()
+    workspace_root_value = str(getattr(args, "workspace_root", "") or project_config.migration.workspace_root).strip()
     workspace_root = Path("")
     if workspace_root_value:
         workspace_root = Path(workspace_root_value).expanduser()
         if not workspace_root.is_absolute():
             workspace_root = repo_root / workspace_root
     discord_bot_token = os.environ.get("LZCAT_DISCORD_BOT_TOKEN", "").strip()
-    if project_config.discord.enabled and not discord_bot_token:
+    discord_enabled = project_config.discord.enabled and not getattr(args, "disable_discord", False)
+    if discord_enabled and not discord_bot_token and getattr(args, "require_discord", False):
         raise SystemExit("project-config.json enables Discord but LZCAT_DISCORD_BOT_TOKEN is missing")
-    if project_config.discord.enabled and not project_config.discord.guild_id:
+    if discord_enabled and not discord_bot_token:
+        discord_enabled = False
+    if discord_enabled and not project_config.discord.guild_id:
         raise SystemExit("project-config.json enables Discord but discord.guild_id is missing")
     local_agent_path = Path("")
     if project_config.local_agent.path:
@@ -1380,15 +1424,15 @@ def build_config(args: argparse.Namespace) -> ServiceConfig:
         resume=args.resume,
         enable_codex_worker=args.enable_codex_worker,
         max_codex_attempts=max(1, args.max_codex_attempts),
-        codex_worker_model=project_config.migration.codex_worker_model,
-        template_branch=project_config.migration.template_branch,
+        codex_worker_model=str(getattr(args, "codex_worker_model", "") or project_config.migration.codex_worker_model),
+        template_branch=str(getattr(args, "template_branch", "") or project_config.migration.template_branch),
         workspace_root=workspace_root,
-        discord_enabled=project_config.discord.enabled,
+        discord_enabled=discord_enabled,
         discord_guild_id=project_config.discord.guild_id,
         discord_category_id=project_config.discord.category_id,
         discord_channel_prefix=project_config.discord.channel_prefix,
         discord_bot_token=discord_bot_token,
-        local_agent_enabled=project_config.local_agent.enabled,
+        local_agent_enabled=project_config.local_agent.enabled and not getattr(args, "disable_local_agent", False),
         local_agent_path=local_agent_path,
         local_agent_snapshot_path=local_agent_snapshot_path,
     )
@@ -1396,6 +1440,12 @@ def build_config(args: argparse.Namespace) -> ServiceConfig:
 
 def main() -> int:
     args = parse_args()
+    if not args.no_env_file and args.env_file:
+        repo_root = Path(args.repo_root).resolve()
+        env_path = Path(args.env_file).expanduser()
+        if not env_path.is_absolute():
+            env_path = repo_root / env_path
+        load_env_file(env_path, override=args.env_override)
     config = build_config(args)
     if not args.daemon:
         print(json.dumps(run_cycle(config), ensure_ascii=False, indent=2, sort_keys=True))

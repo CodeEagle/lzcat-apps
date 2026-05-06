@@ -120,3 +120,13 @@ python3 scripts/full_migrate.py <upstream-address>
 
 - 这是“迁移骨架一键化”，不是“完整移植全自动化”。真实入口、环境变量、数据目录、初始化命令和依赖拓扑，仍然要回到 `UPSTREAM_DEPLOYMENT_CHECKLIST.md` 补齐后再进构建/验收。
 - 对复杂项目，优先用 spec 明确 `application`、`services`、`image_targets`、`dependencies`，不要只靠单服务参数硬猜。
+
+## Fusion 7x24 自动迁移
+
+面向 `https://fusion.rx79.heiyu.space` 的持续迁移入口是：
+
+```bash
+python3 scripts/fusion_auto_migration.py --box-domain rx79.heiyu.space --interval-seconds 3600
+```
+
+它会加载 `scripts/.env.local`，使用 `../migration-workspaces` 创建每个候选应用独立的 `migration/<slug>` worktree，并串起发现、审核、移植、构建安装、Browser Use 验收、Codex 修复与发布前素材准备。运行和 LaunchAgent 配置见 [docs/fusion-auto-migration.md](docs/fusion-auto-migration.md)。

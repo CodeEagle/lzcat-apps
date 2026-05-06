@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -21,6 +22,7 @@ from scripts.auto_migration_service import (
     build_prepare_submission_command,
     build_auto_migrate_command,
     run_cycle,
+    load_env_file,
     select_next_ready_item,
     upsert_candidates,
 )
@@ -50,7 +52,92 @@ class AutoMigrationServiceTest(unittest.TestCase):
             resume=False,
             enable_codex_worker=False,
             max_codex_attempts=1,
+            workspace_root="",
+            template_branch="",
+            codex_worker_model="",
+            disable_discord=False,
+            require_discord=False,
+            disable_local_agent=False,
         )
+
+    def test_load_env_file_reads_simple_dotenv_without_overwriting_existing_values(self) -> None:
+        repo_root = self.make_repo_root()
+        env_path = repo_root / "scripts" / ".env.local"
+        env_path.parent.mkdir(parents=True)
+        env_path.write_text(
+            "\n".join(
+                [
+                    "# local secrets",
+                    "GH_TOKEN=token-from-file",
+                    "QUOTED_VALUE='hello world'",
+                    "BAD-KEY=ignored",
+                    "",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        with patch.dict("os.environ", {"GH_TOKEN": "existing-token"}, clear=False):
+            loaded = load_env_file(env_path)
+
+            self.assertNotIn("GH_TOKEN", loaded)
+            self.assertIn("QUOTED_VALUE", loaded)
+            self.assertEqual(os.environ["GH_TOKEN"], "existing-token")
+            self.assertEqual(os.environ["QUOTED_VALUE"], "hello world")
+
+    def test_build_config_disables_discord_when_token_is_missing_by_default(self) -> None:
+        repo_root = self.make_repo_root()
+        (repo_root / "project-config.json").write_text(
+            json.dumps({"discord": {"enabled": True, "guild_id": "guild-1", "category_id": "category-1"}}) + "\n",
+            encoding="utf-8",
+        )
+
+        with patch.dict("os.environ", {}, clear=True):
+            config = build_config(self.make_args(repo_root))
+
+        self.assertFalse(config.discord_enabled)
+
+    def test_build_config_can_require_discord_credentials(self) -> None:
+        repo_root = self.make_repo_root()
+        (repo_root / "project-config.json").write_text(
+            json.dumps({"discord": {"enabled": True, "guild_id": "guild-1", "category_id": "category-1"}}) + "\n",
+            encoding="utf-8",
+        )
+        args = self.make_args(repo_root)
+        args.require_discord = True
+
+        with patch.dict("os.environ", {}, clear=True):
+            with self.assertRaises(SystemExit):
+                build_config(args)
+
+    def test_build_config_allows_cli_overrides_for_fusion_daemon(self) -> None:
+        repo_root = self.make_repo_root()
+        (repo_root / "project-config.json").write_text(
+            json.dumps(
+                {
+                    "migration": {
+                        "template_branch": "template",
+                        "workspace_root": "/tmp/original-workspaces",
+                        "codex_worker_model": "gpt-5.5",
+                    },
+                    "local_agent": {"enabled": True, "path": "/tmp/LocalAgent"},
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        args = self.make_args(repo_root)
+        args.workspace_root = "../migration-workspaces"
+        args.template_branch = "template"
+        args.codex_worker_model = "gpt-5.4"
+        args.disable_local_agent = True
+
+        config = build_config(args)
+
+        self.assertEqual(config.workspace_root, repo_root.resolve() / "../migration-workspaces")
+        self.assertEqual(config.codex_worker_model, "gpt-5.4")
+        self.assertFalse(config.local_agent_enabled)
 
     def test_build_config_loads_migration_discord_and_local_agent_policy(self) -> None:
         repo_root = self.make_repo_root()
