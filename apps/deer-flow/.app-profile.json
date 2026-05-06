@@ -1,0 +1,219 @@
+{
+  "managed_by": "optimize_migration",
+  "generated_from_upstream": "bytedance/deer-flow",
+  "pinned": true,
+  "fixes": {
+    "build_strategy": "upstream_dockerfile",
+    "check_strategy": "github_release",
+    "official_image_registry": "",
+    "docker_platform": "linux/amd64",
+    "dockerfile_type": "custom",
+    "service_port": 2026,
+    "service_cmd": [],
+    "image_targets": [
+      "frontend",
+      "gateway",
+      "langgraph"
+    ],
+    "dependencies": [
+      {
+        "target_service": "nginx",
+        "source_image": "nginx:alpine"
+      }
+    ],
+    "service_builds": [
+      {
+        "target_service": "frontend",
+        "build_strategy": "upstream_dockerfile",
+        "source_dockerfile_path": "frontend/Dockerfile",
+        "build_context": ".",
+        "build_target": "dev",
+        "build_args": {
+          "PNPM_STORE_PATH": "${PNPM_STORE_PATH:-/root/.local/share/pnpm/store}"
+        },
+        "image_name": "deer-flow-frontend"
+      },
+      {
+        "target_service": "gateway",
+        "build_strategy": "upstream_dockerfile",
+        "source_dockerfile_path": "backend/Dockerfile",
+        "build_context": ".",
+        "build_args": {},
+        "image_name": "deer-flow-gateway"
+      },
+      {
+        "target_service": "langgraph",
+        "build_strategy": "upstream_dockerfile",
+        "source_dockerfile_path": "backend/Dockerfile",
+        "build_context": ".",
+        "build_args": {},
+        "image_name": "deer-flow-langgraph"
+      }
+    ],
+    "precompiled_binary_url": "",
+    "deploy_param_sync": {
+      "script_relpath": "content/render-deer-flow-config.sh",
+      "targets": [
+        "/deer-flow-state/config/model.env",
+        "/deer-flow-state/config/config.yaml"
+      ]
+    },
+    "build_args": {},
+    "project_name": "deer-flow",
+    "description": "An open-source long-horizon SuperAgent harness that researches, codes, and creates. With the help of sandboxes, memories, tools, skill, subagents and message gateway, it handles different levels of tasks that could take minutes to hours.",
+    "license": "MIT",
+    "homepage": "https://deerflow.tech",
+    "author": "bytedance",
+    "description_zh": "（迁移初稿）Deer Flow 的懒猫微服版本",
+    "application": {
+      "subdomain": "deer-flow",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://nginx:2026/"
+        }
+      ],
+      "health_check": {
+        "test_url": "http://nginx:2026/health"
+      }
+    },
+    "services": {
+      "nginx": {
+        "image": "registry.lazycat.cloud/invokerlaw/library/nginx:f14898f5b3ebfb0b",
+        "command": "sh -lc 'mkdir -p /deer-flow-state/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /deer-flow-state/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /deer-flow-state/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && sh /lzcapp/pkg/content/render-deer-flow-config.sh && if [ -f /deer-flow-state/config/model.env ]; then set -a && . /deer-flow-state/config/model.env && set +a; fi && exec nginx -g \"daemon off;\"'",
+        "environment": [
+          "{{ if index .U \"model.api_key\" }}OPENAI_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENAI_API_KEY={{ end }}",
+          "{{ if index .U \"model.api_key\" }}OPENROUTER_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENROUTER_API_KEY={{ end }}",
+          "{{ if index .U \"model.provider_preset\" }}DEER_FLOW_MODEL_PROVIDER_PRESET={{ index .U \"model.provider_preset\" }}{{ else }}DEER_FLOW_MODEL_PROVIDER_PRESET=openai{{ end }}",
+          "{{ if index .U \"model.name\" }}DEER_FLOW_MODEL_NAME={{ index .U \"model.name\" }}{{ else }}DEER_FLOW_MODEL_NAME=default-chat{{ end }}",
+          "{{ if index .U \"model.display_name\" }}DEER_FLOW_MODEL_DISPLAY_NAME={{ index .U \"model.display_name\" }}{{ else }}DEER_FLOW_MODEL_DISPLAY_NAME=Default Chat Model{{ end }}",
+          "{{ if index .U \"model.id\" }}DEER_FLOW_MODEL_ID={{ index .U \"model.id\" }}{{ else }}DEER_FLOW_MODEL_ID=gpt-4.1-mini{{ end }}",
+          "{{ if index .U \"model.base_url\" }}DEER_FLOW_MODEL_BASE_URL={{ index .U \"model.base_url\" }}{{ else }}DEER_FLOW_MODEL_BASE_URL={{ end }}",
+          "{{ if index .U \"model.api_key\" }}DEER_FLOW_MODEL_API_KEY={{ index .U \"model.api_key\" }}{{ else }}DEER_FLOW_MODEL_API_KEY={{ end }}",
+          "{{ if index .U \"model.use_responses_api\" }}DEER_FLOW_MODEL_USE_RESPONSES_API={{ index .U \"model.use_responses_api\" }}{{ else }}DEER_FLOW_MODEL_USE_RESPONSES_API=false{{ end }}",
+          "{{ if index .U \"model.temperature\" }}DEER_FLOW_MODEL_TEMPERATURE={{ index .U \"model.temperature\" }}{{ else }}DEER_FLOW_MODEL_TEMPERATURE=0.7{{ end }}",
+          "{{ if index .U \"search.tavily_api_key\" }}TAVILY_API_KEY={{ index .U \"search.tavily_api_key\" }}{{ else }}TAVILY_API_KEY={{ end }}",
+          "{{ if index .U \"fetch.jina_api_key\" }}JINA_API_KEY={{ index .U \"fetch.jina_api_key\" }}{{ else }}JINA_API_KEY={{ end }}"
+        ],
+        "binds": [
+          "/lzcapp/pkg/content/nginx.conf:/etc/nginx/nginx.conf",
+          "/lzcapp/var/data/deer-flow/runtime:/deer-flow-state"
+        ]
+      },
+      "frontend": {
+        "image": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-frontend:5e8cd61ec7497cd0",
+        "command": "sh -lc 'mkdir -p /deer-flow-state/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /deer-flow-state/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /deer-flow-state/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && sh /lzcapp/pkg/content/render-deer-flow-config.sh && if [ -f /deer-flow-state/config/model.env ]; then set -a && . /deer-flow-state/config/model.env && set +a; fi && cd /app/frontend && pnpm dev --hostname 0.0.0.0 --port 3000'",
+        "environment": [
+          "BETTER_AUTH_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-better-auth",
+          "NODE_ENV=development",
+          "NEXT_TELEMETRY_DISABLED=1",
+          "{{ if index .U \"model.api_key\" }}OPENAI_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENAI_API_KEY={{ end }}",
+          "{{ if index .U \"model.api_key\" }}OPENROUTER_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENROUTER_API_KEY={{ end }}",
+          "{{ if index .U \"model.provider_preset\" }}DEER_FLOW_MODEL_PROVIDER_PRESET={{ index .U \"model.provider_preset\" }}{{ else }}DEER_FLOW_MODEL_PROVIDER_PRESET=openai{{ end }}",
+          "{{ if index .U \"model.name\" }}DEER_FLOW_MODEL_NAME={{ index .U \"model.name\" }}{{ else }}DEER_FLOW_MODEL_NAME=default-chat{{ end }}",
+          "{{ if index .U \"model.display_name\" }}DEER_FLOW_MODEL_DISPLAY_NAME={{ index .U \"model.display_name\" }}{{ else }}DEER_FLOW_MODEL_DISPLAY_NAME=Default Chat Model{{ end }}",
+          "{{ if index .U \"model.id\" }}DEER_FLOW_MODEL_ID={{ index .U \"model.id\" }}{{ else }}DEER_FLOW_MODEL_ID=gpt-4.1-mini{{ end }}",
+          "{{ if index .U \"model.base_url\" }}DEER_FLOW_MODEL_BASE_URL={{ index .U \"model.base_url\" }}{{ else }}DEER_FLOW_MODEL_BASE_URL={{ end }}",
+          "{{ if index .U \"model.api_key\" }}DEER_FLOW_MODEL_API_KEY={{ index .U \"model.api_key\" }}{{ else }}DEER_FLOW_MODEL_API_KEY={{ end }}",
+          "{{ if index .U \"model.use_responses_api\" }}DEER_FLOW_MODEL_USE_RESPONSES_API={{ index .U \"model.use_responses_api\" }}{{ else }}DEER_FLOW_MODEL_USE_RESPONSES_API=false{{ end }}",
+          "{{ if index .U \"model.temperature\" }}DEER_FLOW_MODEL_TEMPERATURE={{ index .U \"model.temperature\" }}{{ else }}DEER_FLOW_MODEL_TEMPERATURE=0.7{{ end }}",
+          "{{ if index .U \"search.tavily_api_key\" }}TAVILY_API_KEY={{ index .U \"search.tavily_api_key\" }}{{ else }}TAVILY_API_KEY={{ end }}",
+          "{{ if index .U \"fetch.jina_api_key\" }}JINA_API_KEY={{ index .U \"fetch.jina_api_key\" }}{{ else }}JINA_API_KEY={{ end }}"
+        ],
+        "binds": [
+          "/lzcapp/var/data/deer-flow/runtime:/deer-flow-state"
+        ]
+      },
+      "gateway": {
+        "image": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-gateway:159256ec31d80c69",
+        "command": "sh -lc 'mkdir -p /deer-flow-state/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /deer-flow-state/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /deer-flow-state/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && sh /lzcapp/pkg/content/render-deer-flow-config.sh && if [ -f /deer-flow-state/config/model.env ]; then set -a && . /deer-flow-state/config/model.env && set +a; fi && echo \"[deer-flow] waiting for model configuration\"; until [ -f /deer-flow-state/config/.lazycat-config-ready ]; do sleep 2; done && cd /app/backend && PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --workers 2'",
+        "environment": [
+          "CI=true",
+          "DEER_FLOW_HOME=/app/backend/.deer-flow",
+          "DEER_FLOW_SHARED_STATE_DIR=/deer-flow-state",
+          "DEER_FLOW_CONFIG_DIR=/deer-flow-state/config",
+          "DEER_FLOW_CONFIG_PATH=/deer-flow-state/config/config.yaml",
+          "DEER_FLOW_CONFIG_ENV_PATH=/deer-flow-state/config/model.env",
+          "DEER_FLOW_READY_MARKER=/deer-flow-state/config/.lazycat-config-ready",
+          "DEER_FLOW_EXTENSIONS_CONFIG_PATH=/deer-flow-state/config/extensions_config.json",
+          "OPENAI_API_KEY",
+          "OPENROUTER_API_KEY",
+          "ANTHROPIC_API_KEY",
+          "GEMINI_API_KEY",
+          "GOOGLE_API_KEY",
+          "DEEPSEEK_API_KEY",
+          "VOLCENGINE_API_KEY",
+          "TAVILY_API_KEY",
+          "JINA_API_KEY",
+          "INFOQUEST_API_KEY",
+          "FIRECRAWL_API_KEY",
+          "GITHUB_TOKEN",
+          "{{ if index .U \"model.api_key\" }}OPENAI_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENAI_API_KEY={{ end }}",
+          "{{ if index .U \"model.api_key\" }}OPENROUTER_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENROUTER_API_KEY={{ end }}",
+          "{{ if index .U \"model.provider_preset\" }}DEER_FLOW_MODEL_PROVIDER_PRESET={{ index .U \"model.provider_preset\" }}{{ else }}DEER_FLOW_MODEL_PROVIDER_PRESET=openai{{ end }}",
+          "{{ if index .U \"model.name\" }}DEER_FLOW_MODEL_NAME={{ index .U \"model.name\" }}{{ else }}DEER_FLOW_MODEL_NAME=default-chat{{ end }}",
+          "{{ if index .U \"model.display_name\" }}DEER_FLOW_MODEL_DISPLAY_NAME={{ index .U \"model.display_name\" }}{{ else }}DEER_FLOW_MODEL_DISPLAY_NAME=Default Chat Model{{ end }}",
+          "{{ if index .U \"model.id\" }}DEER_FLOW_MODEL_ID={{ index .U \"model.id\" }}{{ else }}DEER_FLOW_MODEL_ID=gpt-4.1-mini{{ end }}",
+          "{{ if index .U \"model.base_url\" }}DEER_FLOW_MODEL_BASE_URL={{ index .U \"model.base_url\" }}{{ else }}DEER_FLOW_MODEL_BASE_URL={{ end }}",
+          "{{ if index .U \"model.api_key\" }}DEER_FLOW_MODEL_API_KEY={{ index .U \"model.api_key\" }}{{ else }}DEER_FLOW_MODEL_API_KEY={{ end }}",
+          "{{ if index .U \"model.use_responses_api\" }}DEER_FLOW_MODEL_USE_RESPONSES_API={{ index .U \"model.use_responses_api\" }}{{ else }}DEER_FLOW_MODEL_USE_RESPONSES_API=false{{ end }}",
+          "{{ if index .U \"model.temperature\" }}DEER_FLOW_MODEL_TEMPERATURE={{ index .U \"model.temperature\" }}{{ else }}DEER_FLOW_MODEL_TEMPERATURE=0.7{{ end }}",
+          "{{ if index .U \"search.tavily_api_key\" }}TAVILY_API_KEY={{ index .U \"search.tavily_api_key\" }}{{ else }}TAVILY_API_KEY={{ end }}",
+          "{{ if index .U \"fetch.jina_api_key\" }}JINA_API_KEY={{ index .U \"fetch.jina_api_key\" }}{{ else }}JINA_API_KEY={{ end }}"
+        ],
+        "binds": [
+          "/lzcapp/var/data/deer-flow/runtime:/deer-flow-state",
+          "/lzcapp/var/data/deer-flow/runtime:/app/backend/.deer-flow"
+        ]
+      },
+      "langgraph": {
+        "image": "registry.lazycat.cloud/invokerlaw/codeeagle/deer-flow-langgraph:f3f27973a0b5bf88",
+        "command": "sh -lc 'mkdir -p /deer-flow-state/config /lzcapp/var/data/deer-flow/skills /lzcapp/var/data/deer-flow/runtime && if [ ! -f /deer-flow-state/config/extensions_config.json ]; then cp /lzcapp/pkg/content/extensions_config.json /deer-flow-state/config/extensions_config.json; fi && if [ ! -f /lzcapp/var/data/deer-flow/skills/README.md ]; then cp /lzcapp/pkg/content/skills/README.md /lzcapp/var/data/deer-flow/skills/README.md; fi && sh /lzcapp/pkg/content/render-deer-flow-config.sh && if [ -f /deer-flow-state/config/model.env ]; then set -a && . /deer-flow-state/config/model.env && set +a; fi && echo \"[deer-flow] waiting for model configuration\"; until [ -f /deer-flow-state/config/.lazycat-config-ready ]; do sleep 2; done && mkdir -p /app/backend/.langgraph_api && cd /app/backend && (python /lzcapp/pkg/content/backfill-langgraph-state.py >/tmp/backfill-langgraph-state.log 2>&1 &) && uv run langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port 2024'",
+        "environment": [
+          "CI=true",
+          "DEER_FLOW_HOME=/app/backend/.deer-flow",
+          "DEER_FLOW_SHARED_STATE_DIR=/deer-flow-state",
+          "DEER_FLOW_CONFIG_DIR=/deer-flow-state/config",
+          "DEER_FLOW_CONFIG_PATH=/deer-flow-state/config/config.yaml",
+          "DEER_FLOW_CONFIG_ENV_PATH=/deer-flow-state/config/model.env",
+          "DEER_FLOW_READY_MARKER=/deer-flow-state/config/.lazycat-config-ready",
+          "DEER_FLOW_EXTENSIONS_CONFIG_PATH=/deer-flow-state/config/extensions_config.json",
+          "OPENAI_API_KEY",
+          "OPENROUTER_API_KEY",
+          "ANTHROPIC_API_KEY",
+          "GEMINI_API_KEY",
+          "GOOGLE_API_KEY",
+          "DEEPSEEK_API_KEY",
+          "VOLCENGINE_API_KEY",
+          "TAVILY_API_KEY",
+          "JINA_API_KEY",
+          "INFOQUEST_API_KEY",
+          "FIRECRAWL_API_KEY",
+          "GITHUB_TOKEN",
+          "{{ if index .U \"model.api_key\" }}OPENAI_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENAI_API_KEY={{ end }}",
+          "{{ if index .U \"model.api_key\" }}OPENROUTER_API_KEY={{ index .U \"model.api_key\" }}{{ else }}OPENROUTER_API_KEY={{ end }}",
+          "{{ if index .U \"model.provider_preset\" }}DEER_FLOW_MODEL_PROVIDER_PRESET={{ index .U \"model.provider_preset\" }}{{ else }}DEER_FLOW_MODEL_PROVIDER_PRESET=openai{{ end }}",
+          "{{ if index .U \"model.name\" }}DEER_FLOW_MODEL_NAME={{ index .U \"model.name\" }}{{ else }}DEER_FLOW_MODEL_NAME=default-chat{{ end }}",
+          "{{ if index .U \"model.display_name\" }}DEER_FLOW_MODEL_DISPLAY_NAME={{ index .U \"model.display_name\" }}{{ else }}DEER_FLOW_MODEL_DISPLAY_NAME=Default Chat Model{{ end }}",
+          "{{ if index .U \"model.id\" }}DEER_FLOW_MODEL_ID={{ index .U \"model.id\" }}{{ else }}DEER_FLOW_MODEL_ID=gpt-4.1-mini{{ end }}",
+          "{{ if index .U \"model.base_url\" }}DEER_FLOW_MODEL_BASE_URL={{ index .U \"model.base_url\" }}{{ else }}DEER_FLOW_MODEL_BASE_URL={{ end }}",
+          "{{ if index .U \"model.api_key\" }}DEER_FLOW_MODEL_API_KEY={{ index .U \"model.api_key\" }}{{ else }}DEER_FLOW_MODEL_API_KEY={{ end }}",
+          "{{ if index .U \"model.use_responses_api\" }}DEER_FLOW_MODEL_USE_RESPONSES_API={{ index .U \"model.use_responses_api\" }}{{ else }}DEER_FLOW_MODEL_USE_RESPONSES_API=false{{ end }}",
+          "{{ if index .U \"model.temperature\" }}DEER_FLOW_MODEL_TEMPERATURE={{ index .U \"model.temperature\" }}{{ else }}DEER_FLOW_MODEL_TEMPERATURE=0.7{{ end }}",
+          "{{ if index .U \"search.tavily_api_key\" }}TAVILY_API_KEY={{ index .U \"search.tavily_api_key\" }}{{ else }}TAVILY_API_KEY={{ end }}",
+          "{{ if index .U \"fetch.jina_api_key\" }}JINA_API_KEY={{ index .U \"fetch.jina_api_key\" }}{{ else }}JINA_API_KEY={{ end }}",
+          "LANGCHAIN_TRACING_V2=false"
+        ],
+        "binds": [
+          "/lzcapp/var/data/deer-flow/runtime:/deer-flow-state",
+          "/lzcapp/var/data/deer-flow/runtime:/app/backend/.deer-flow",
+          "/lzcapp/var/data/deer-flow/langgraph-api:/app/backend/.langgraph_api"
+        ]
+      }
+    },
+    "include_content": true
+  }
+}
