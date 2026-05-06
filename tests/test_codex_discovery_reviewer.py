@@ -73,7 +73,7 @@ class CodexDiscoveryReviewerTest(unittest.TestCase):
         self.assertIn("choose `needs_human`; do not guess", prompt)
         self.assertIn("choose `skip` and cite the hit", prompt)
 
-    def test_build_codex_command_uses_noninteractive_exec(self) -> None:
+    def test_build_codex_command_invokes_claude_cli_unattended(self) -> None:
         repo_root = self.make_repo_root()
         config = DiscoveryReviewerConfig(
             repo_root=repo_root,
@@ -83,12 +83,16 @@ class CodexDiscoveryReviewerTest(unittest.TestCase):
 
         command = build_codex_command(config)
 
-        self.assertEqual(command[:4], ["codex", "--ask-for-approval", "never", "exec"])
-        self.assertIn("--sandbox", command)
-        self.assertIn("danger-full-access", command)
+        self.assertEqual(command[0], "claude")
+        self.assertIn("--print", command)
+        self.assertIn("--dangerously-skip-permissions", command)
+        self.assertIn("--add-dir", command)
+        self.assertIn(str(repo_root), command)
         self.assertIn("--model", command)
-        self.assertIn("gpt-5.5", command)
-        self.assertEqual(command[-1], "-")
+        self.assertIn("claude-sonnet-4-6", command)
+        # No interactive sandbox / approval flags now that we're on claude.
+        self.assertNotIn("--ask-for-approval", command)
+        self.assertNotIn("--sandbox", command)
 
     def test_write_task_bundle_writes_prompt_and_metadata(self) -> None:
         repo_root = self.make_repo_root()
@@ -110,13 +114,13 @@ class CodexDiscoveryReviewerTest(unittest.TestCase):
     def test_safe_task_name_keeps_identifier_readable(self) -> None:
         self.assertEqual(safe_task_name("github:owner/demo"), "github-owner-demo")
 
-    def test_run_codex_falls_back_when_cli_rejects_default_model(self) -> None:
+    def test_run_codex_writes_stdout_and_stderr_logs(self) -> None:
         repo_root = self.make_repo_root()
         config = DiscoveryReviewerConfig(
             repo_root=repo_root,
             queue_path=repo_root / "queue.json",
             task_dir=repo_root / "tasks" / "demo",
-            model="gpt-5.5",
+            model="claude-sonnet-4-6",
         )
         config.task_dir.mkdir(parents=True)
         command = build_codex_command(config)
@@ -131,18 +135,24 @@ class CodexDiscoveryReviewerTest(unittest.TestCase):
 
         def fake_run(command_arg: list[str], **kwargs: object) -> Result:
             calls.append(command_arg)
-            if len(calls) == 1:
-                return Result(1, stderr="The 'gpt-5.5' model requires a newer version of Codex.")
-            return Result(0, stdout="fallback ok")
+            return Result(0, stdout="claude decision: migrate", stderr="warn: low-confidence input")
 
         with patch("scripts.codex_discovery_reviewer.subprocess.run", side_effect=fake_run):
             returncode = run_codex(config, "prompt", command)
 
         self.assertEqual(returncode, 0)
-        self.assertEqual(calls[0][calls[0].index("--model") + 1], "gpt-5.5")
-        self.assertEqual(calls[1][calls[1].index("--model") + 1], "gpt-5.4")
-        self.assertIn("fallback ok", (config.task_dir / "codex.stdout.log").read_text(encoding="utf-8"))
-        self.assertTrue((config.task_dir / "model-fallback.json").exists())
+        # No fallback / retry path on claude — exactly one invocation.
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][calls[0].index("--model") + 1], "claude-sonnet-4-6")
+        self.assertIn(
+            "claude decision: migrate",
+            (config.task_dir / "claude.stdout.log").read_text(encoding="utf-8"),
+        )
+        self.assertIn(
+            "warn: low-confidence",
+            (config.task_dir / "claude.stderr.log").read_text(encoding="utf-8"),
+        )
+        self.assertFalse((config.task_dir / "model-fallback.json").exists())
 
 
 if __name__ == "__main__":

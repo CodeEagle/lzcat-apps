@@ -7,8 +7,7 @@
 #   - docker / podman / buildah / skopeo (container engine bridge)
 #   - node 20 + npm
 #   - @lazycatcloud/lzc-cli (LazyCat CLI, installed via npm)
-#   - @anthropic-ai/claude-code (LLM repair via codex_migration_worker)
-#   - @openai/codex (AI discovery review via codex_discovery_reviewer)
+#   - @anthropic-ai/claude-code (Claude CLI: discovery review + repair worker)
 #   - gh (GitHub CLI for Project + repo mutations)
 #
 # Multi-arch: amd64 + arm64
@@ -49,11 +48,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
     && LZC_PKG="@lazycatcloud/lzc-cli$([ "${LZC_CLI_VERSION}" = "latest" ] || echo @${LZC_CLI_VERSION})" \
     && npm install -g \
          @anthropic-ai/claude-code \
-         @openai/codex \
          "${LZC_PKG}" \
     && npm cache clean --force \
     && lzc-cli --version \
-    && codex --version
+    && claude --version
 
 # ---- python deps ------------------------------------------------------------
 # Two pip-install layers so lockfile changes don't bust the toolchain cache.

@@ -14,7 +14,7 @@ on:
         required: true
         type: string
       max_codex_attempts:
-        description: "Max codex repair attempts on build failure"
+        description: "Max claude repair attempts on build failure"
         type: number
         default: 3
 
@@ -44,7 +44,6 @@ jobs:
       GH_PAT: ${{ secrets.GH_PAT }}
       LZC_CLI_TOKEN: ${{ secrets.LZC_CLI_TOKEN }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
       LAZYCAT_BOX_DOMAIN: ${{ secrets.LAZYCAT_BOX_DOMAIN }}
 

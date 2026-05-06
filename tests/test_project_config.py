@@ -109,11 +109,11 @@ class ProjectConfigTest(unittest.TestCase):
         self.assertEqual(config.lazycat.developer_apps_url, "")
         self.assertFalse(config.lazycat.status_sync_enabled)
         self.assertEqual(config.migration.template_branch, "template")
-        self.assertEqual(config.migration.codex_worker_model, "gpt-5.5")
+        self.assertEqual(config.migration.codex_worker_model, "claude-sonnet-4-6")
         self.assertFalse(config.discord.enabled)
         self.assertFalse(config.codex_control.enabled)
         self.assertEqual(config.codex_control.control_channel, "migration-control")
-        self.assertEqual(config.codex_control.dashboard_model, "gpt-5.5")
+        self.assertEqual(config.codex_control.dashboard_model, "claude-sonnet-4-6")
         self.assertEqual(config.codex_control.dashboard_reasoning_effort, "xhigh")
         self.assertGreater(config.codex_control.dashboard_session_max_input_tokens, 0)
 

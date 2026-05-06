@@ -18,7 +18,7 @@ class LazyCatConfig:
 class MigrationConfig:
     template_branch: str = "template"
     workspace_root: str = ""
-    codex_worker_model: str = "gpt-5.5"
+    codex_worker_model: str = "claude-sonnet-4-6"
     desktop_screenshots_required: int = 2
     mobile_screenshots_required: int = 3
     playground_required: bool = True
@@ -45,8 +45,8 @@ class CodexControlConfig:
     control_channel: str = "migration-control"
     state_path: str = "registry/auto-migration/discord-codex-control.json"
     task_root: str = "registry/auto-migration/codex-control-tasks"
-    model: str = "gpt-5.5"
-    dashboard_model: str = "gpt-5.5"
+    model: str = "claude-sonnet-4-6"
+    dashboard_model: str = "claude-sonnet-4-6"
     dashboard_reasoning_effort: str = "xhigh"
     dashboard_session_max_input_tokens: int = 500000
     bot_user_id: str = ""
@@ -116,7 +116,7 @@ def load_project_config(repo_root: Path) -> ProjectConfig:
         migration=MigrationConfig(
             template_branch=str(migration.get("template_branch", "template")).strip() or "template",
             workspace_root=str(migration.get("workspace_root", "")).strip(),
-            codex_worker_model=str(migration.get("codex_worker_model", "gpt-5.5")).strip() or "gpt-5.5",
+            codex_worker_model=str(migration.get("codex_worker_model", "claude-sonnet-4-6")).strip() or "claude-sonnet-4-6",
             desktop_screenshots_required=_as_int(migration.get("desktop_screenshots_required"), 2),
             mobile_screenshots_required=_as_int(migration.get("mobile_screenshots_required"), 3),
             playground_required=_as_bool(migration.get("playground_required"), True),
@@ -142,8 +142,8 @@ def load_project_config(repo_root: Path) -> ProjectConfig:
             or "registry/auto-migration/discord-codex-control.json",
             task_root=str(codex_control.get("task_root", "registry/auto-migration/codex-control-tasks")).strip()
             or "registry/auto-migration/codex-control-tasks",
-            model=str(codex_control.get("model", "gpt-5.5")).strip() or "gpt-5.5",
-            dashboard_model=str(codex_control.get("dashboard_model", "gpt-5.5")).strip() or "gpt-5.5",
+            model=str(codex_control.get("model", "claude-sonnet-4-6")).strip() or "claude-sonnet-4-6",
+            dashboard_model=str(codex_control.get("dashboard_model", "claude-sonnet-4-6")).strip() or "claude-sonnet-4-6",
             dashboard_reasoning_effort=str(codex_control.get("dashboard_reasoning_effort", "xhigh")).strip()
             or "xhigh",
             dashboard_session_max_input_tokens=_as_int(

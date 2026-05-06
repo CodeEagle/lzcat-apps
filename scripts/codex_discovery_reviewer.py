@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
+"""Discovery review worker.
+
+Despite the historical `codex_*` naming kept for queue.json and import
+back-compat, this now invokes the Claude Code CLI (`claude --print …`) from
+@anthropic-ai/claude-code rather than the OpenAI Codex CLI. Configure the
+model via `migration.codex_worker_model` in project-config.json — defaults to
+`claude-sonnet-4-6`.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import subprocess
 from dataclasses import dataclass
@@ -15,8 +22,7 @@ from typing import Any
 
 DEFAULT_TASK_ROOT = "registry/auto-migration/discovery-review-tasks"
 DEFAULT_OUTBOX = "registry/auto-migration/notifications"
-DEFAULT_CODEX_WORKER_MODEL = "gpt-5.5"
-DEFAULT_CODEX_FALLBACK_MODEL = "gpt-5.4"
+DEFAULT_CODEX_WORKER_MODEL = "claude-sonnet-4-6"
 
 
 @dataclass(frozen=True)
@@ -96,7 +102,7 @@ def build_codex_prompt(
     )
     store_search_guidance = lazycat_store_search_guidance(item)
 
-    return f"""You are a Codex discovery reviewer for the LazyCat lzcat-apps auto-migration pipeline.
+    return f"""You are Claude, the discovery reviewer for the LazyCat lzcat-apps auto-migration pipeline.
 
 Goal:
 - Decide whether this discovery candidate should proceed to migration before any build or migration starts.
@@ -124,10 +130,10 @@ Required queue update:
     * 0.20-   confidently skip (library, list, already migrated, not deployable)
   The score MUST be a JSON number (not a string).
 - For `migrate`, set `state` to `ready`, clear `last_error` and `filtered_reason`, and write:
-  `discovery_review.status = "migrate"`, `discovery_review.reviewed_at`, `discovery_review.reviewer = "codex"`,
+  `discovery_review.status = "migrate"`, `discovery_review.reviewed_at`, `discovery_review.reviewer = "claude"`,
   `discovery_review.reason`, `discovery_review.evidence` as a short list, and `discovery_review.score`.
 - For `skip`, set `state` to `filtered_out`, set `filtered_reason` to `ai_discovery_skip`, set `last_error` to a concise reason, and write:
-  `discovery_review.status = "skip"`, `discovery_review.reviewed_at`, `discovery_review.reviewer = "codex"`,
+  `discovery_review.status = "skip"`, `discovery_review.reviewed_at`, `discovery_review.reviewer = "claude"`,
   `discovery_review.reason`, `discovery_review.evidence`, and `discovery_review.score`.
 - For `needs_human`, set `state` to `waiting_for_human` and write:
   `human_request.kind = "discovery_review"`, `human_request.question`, `human_request.options`,
@@ -169,39 +175,23 @@ LocalAgent candidate snapshot excerpt:
 
 
 def build_codex_command(config: DiscoveryReviewerConfig) -> list[str]:
-    last_message_path = config.task_dir / "last-message.md"
+    """Build the Claude Code CLI invocation for one discovery-review session.
+
+    Reads the prompt from stdin (subprocess `input=...`), prints the response
+    to stdout (--output-format text keeps it unparsed), and bypasses the
+    interactive permission prompt so the worker can run unattended in CI.
+    """
     return [
-        "codex",
-        "--ask-for-approval",
-        "never",
-        "exec",
-        "-C",
-        str(config.repo_root),
+        "claude",
+        "--print",
+        "--dangerously-skip-permissions",
         "--model",
         config.model,
-        "--sandbox",
-        "danger-full-access",
-        "--output-last-message",
-        str(last_message_path),
-        "-",
+        "--add-dir",
+        str(config.repo_root),
+        "--output-format",
+        "text",
     ]
-
-
-def model_requires_newer_codex(output: str) -> bool:
-    return "requires a newer version of Codex" in output
-
-
-def fallback_model() -> str:
-    return os.environ.get("LZCAT_CODEX_FALLBACK_MODEL", DEFAULT_CODEX_FALLBACK_MODEL).strip()
-
-
-def command_with_model(command: list[str], model: str) -> list[str]:
-    updated = list(command)
-    if "--model" in updated:
-        updated[updated.index("--model") + 1] = model
-    else:
-        updated.extend(["--model", model])
-    return updated
 
 
 def write_task_bundle(
@@ -256,7 +246,7 @@ def write_notification(
     path.write_text(
         "\n".join(
             [
-                f"# Codex discovery reviewer {status}",
+                f"# Claude discovery reviewer {status}",
                 "",
                 f"- time: {now}",
                 f"- item: {item.get('id', '')}",
@@ -273,33 +263,11 @@ def write_notification(
 
 
 def run_codex(config: DiscoveryReviewerConfig, prompt: str, command: list[str]) -> int:
-    stdout_path = config.task_dir / "codex.stdout.log"
-    stderr_path = config.task_dir / "codex.stderr.log"
+    stdout_path = config.task_dir / "claude.stdout.log"
+    stderr_path = config.task_dir / "claude.stderr.log"
     result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=False)
-    stdout_chunks = [result.stdout or ""]
-    stderr_chunks = [result.stderr or ""]
-    fallback_used: dict[str, Any] | None = None
-    combined_output = f"{result.stdout or ''}\n{result.stderr or ''}"
-    fallback = fallback_model()
-    if result.returncode != 0 and fallback and fallback != config.model and model_requires_newer_codex(combined_output):
-        fallback_command = command_with_model(command, fallback)
-        fallback_result = subprocess.run(fallback_command, input=prompt, text=True, capture_output=True, check=False)
-        stdout_chunks.append(f"\n\n--- retry with {fallback} ---\n{fallback_result.stdout or ''}")
-        stderr_chunks.append(f"\n\n--- retry with {fallback} ---\n{fallback_result.stderr or ''}")
-        fallback_used = {
-            "from_model": config.model,
-            "to_model": fallback,
-            "original_returncode": result.returncode,
-            "returncode": fallback_result.returncode,
-        }
-        result = fallback_result
-    stdout_path.write_text("".join(stdout_chunks), encoding="utf-8")
-    stderr_path.write_text("".join(stderr_chunks), encoding="utf-8")
-    if fallback_used:
-        (config.task_dir / "model-fallback.json").write_text(
-            json.dumps(fallback_used, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+    stdout_path.write_text(result.stdout or "", encoding="utf-8")
+    stderr_path.write_text(result.stderr or "", encoding="utf-8")
     return result.returncode
 
 
@@ -311,7 +279,7 @@ def parse_item_json(value: str) -> dict[str, Any]:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run a Codex reviewer for one discovery_review queue item.")
+    parser = argparse.ArgumentParser(description="Run a Claude reviewer for one discovery_review queue item.")
     parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[1]))
     parser.add_argument("--queue-path", required=True)
     parser.add_argument("--item-id", required=True)

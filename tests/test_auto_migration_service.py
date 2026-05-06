@@ -1031,7 +1031,7 @@ class AutoMigrationServiceTest(unittest.TestCase):
         self.assertIn("--box-domain", command)
         self.assertIn("box.example.test", command)
         self.assertIn("--model", command)
-        self.assertIn("gpt-5.5", command)
+        self.assertIn("claude-sonnet-4-6", command)
 
     def test_build_codex_discovery_review_command_passes_queue_context(self) -> None:
         repo_root = self.make_repo_root()
@@ -1049,7 +1049,7 @@ class AutoMigrationServiceTest(unittest.TestCase):
         payload = json.loads(command[command.index("--item-json") + 1])
         self.assertEqual(payload["state"], "discovery_review")
         self.assertIn("--model", command)
-        self.assertIn("gpt-5.5", command)
+        self.assertIn("claude-sonnet-4-6", command)
 
     def test_run_cycle_invokes_discovery_reviewer_before_migration(self) -> None:
         repo_root = self.make_repo_root()

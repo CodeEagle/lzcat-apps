@@ -1,0 +1,61 @@
+# Interactive Claude assistant.
+#
+# Mention `@claude` in any issue, PR, issue review, or PR review comment to
+# trigger Claude Code with read+write access to that PR / issue. Use cases:
+#   - Ask Claude to review a diff: `@claude please review the security model`
+#   - Ask Claude to implement a small task referenced in an issue
+#   - Ask Claude to explain unfamiliar code or surface follow-up work
+#
+# This is **distinct** from the auto-migration pipeline (auto-discover.yml,
+# auto-migrate-*.yml, auto-verify.yml, auto-publish.yml). Those run on cron
+# and invoke `claude --print …` directly inside scripts. This workflow is
+# the human-in-the-loop interactive surface.
+#
+# Reference: https://code.claude.com/docs/en/github-actions
+
+name: Claude Code Assistant
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  claude:
+    runs-on: ubuntu-latest
+    # Pre-filter so we don't spin up the action for every comment in the repo.
+    # Action will still run its own trigger_phrase logic; this guard just
+    # avoids paying for jobs that obviously have nothing to do.
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' &&
+        (contains(github.event.issue.body, '@claude') ||
+         (github.event.action == 'assigned' && github.event.assignee.login == 'claude')))
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: |
+            --max-turns 10
+            --model claude-sonnet-4-6

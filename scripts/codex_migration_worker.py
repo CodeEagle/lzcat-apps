@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
+"""Per-item migration repair worker.
+
+Despite the historical `codex_*` naming kept for queue.json and import
+back-compat, this now invokes the Claude Code CLI (`claude --print …`) from
+@anthropic-ai/claude-code rather than the OpenAI Codex CLI. Session resume
+uses Claude's `--resume <sessionId>` flag; session IDs are extracted from the
+stream-json event log emitted by Claude Code on stdout.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import subprocess
 from dataclasses import dataclass
@@ -15,8 +22,7 @@ from typing import Any
 
 DEFAULT_TASK_ROOT = "registry/auto-migration/codex-tasks"
 DEFAULT_OUTBOX = "registry/auto-migration/notifications"
-DEFAULT_CODEX_WORKER_MODEL = "gpt-5.5"
-DEFAULT_CODEX_FALLBACK_MODEL = "gpt-5.4"
+DEFAULT_CODEX_WORKER_MODEL = "claude-sonnet-4-6"
 SESSION_ID_PATTERN = re.compile(
     r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
 )
@@ -81,7 +87,7 @@ def build_codex_prompt(
     app_state = read_text_if_exists(app_dir / ".migration-state.json", max_chars=12000)
     functional_check = read_text_if_exists(app_dir / ".functional-check.json", max_chars=6000)
 
-    return f"""You are a Codex migration worker running unattended for the LazyCat lzcat-apps repository.
+    return f"""You are Claude, the migration repair worker running unattended for the LazyCat lzcat-apps repository.
 
 Goal:
 - Fix the migration failure for this queue item.
@@ -134,60 +140,28 @@ Recent daemon logs:
 
 
 def build_codex_command(config: CodexWorkerConfig) -> list[str]:
-    last_message_path = config.task_dir / "last-message.md"
-    session_id = config.session_id.strip()
-    if session_id:
-        return [
-            "codex",
-            "--ask-for-approval",
-            "never",
-            "-C",
-            str(config.repo_root),
-            "--sandbox",
-            "danger-full-access",
-            "exec",
-            "resume",
-            "--model",
-            config.model,
-            "--json",
-            "--output-last-message",
-            str(last_message_path),
-            session_id,
-            "-",
-        ]
-    return [
-        "codex",
-        "--ask-for-approval",
-        "never",
-        "exec",
-        "-C",
-        str(config.repo_root),
+    """Build the Claude Code CLI invocation for one migration-repair session.
+
+    Reads the prompt from stdin, emits stream-json so we can extract the
+    session_id for the next attempt, and bypasses the interactive permission
+    prompt so the worker runs unattended in CI.
+    """
+    cmd = [
+        "claude",
+        "--print",
+        "--dangerously-skip-permissions",
         "--model",
         config.model,
-        "--sandbox",
-        "danger-full-access",
-        "--json",
-        "--output-last-message",
-        str(last_message_path),
-        "-",
+        "--add-dir",
+        str(config.repo_root),
+        "--output-format",
+        "stream-json",
+        "--verbose",
     ]
-
-
-def model_requires_newer_codex(output: str) -> bool:
-    return "requires a newer version of Codex" in output
-
-
-def fallback_model() -> str:
-    return os.environ.get("LZCAT_CODEX_FALLBACK_MODEL", DEFAULT_CODEX_FALLBACK_MODEL).strip()
-
-
-def command_with_model(command: list[str], model: str) -> list[str]:
-    updated = list(command)
-    if "--model" in updated:
-        updated[updated.index("--model") + 1] = model
-    else:
-        updated.extend(["--model", model])
-    return updated
+    session_id = config.session_id.strip()
+    if session_id:
+        cmd.extend(["--resume", session_id])
+    return cmd
 
 
 def _session_id_from_value(value: Any) -> str:
@@ -283,7 +257,7 @@ def write_notification(
     path.write_text(
         "\n".join(
             [
-                f"# Codex migration worker {status}",
+                f"# Claude migration repair worker {status}",
                 "",
                 f"- time: {now}",
                 f"- item: {item.get('id', '')}",
@@ -300,34 +274,12 @@ def write_notification(
 
 
 def run_codex(config: CodexWorkerConfig, prompt: str, command: list[str]) -> CodexRunResult:
-    stdout_path = config.task_dir / "codex.stdout.log"
-    stderr_path = config.task_dir / "codex.stderr.log"
+    stdout_path = config.task_dir / "claude.stdout.log"
+    stderr_path = config.task_dir / "claude.stderr.log"
     result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=False)
-    stdout_chunks = [result.stdout or ""]
-    stderr_chunks = [result.stderr or ""]
-    fallback_used: dict[str, Any] | None = None
-    combined_output = f"{result.stdout or ''}\n{result.stderr or ''}"
-    fallback = fallback_model()
-    if result.returncode != 0 and fallback and fallback != config.model and model_requires_newer_codex(combined_output):
-        fallback_command = command_with_model(command, fallback)
-        fallback_result = subprocess.run(fallback_command, input=prompt, text=True, capture_output=True, check=False)
-        stdout_chunks.append(f"\n\n--- retry with {fallback} ---\n{fallback_result.stdout or ''}")
-        stderr_chunks.append(f"\n\n--- retry with {fallback} ---\n{fallback_result.stderr or ''}")
-        fallback_used = {
-            "from_model": config.model,
-            "to_model": fallback,
-            "original_returncode": result.returncode,
-            "returncode": fallback_result.returncode,
-        }
-        result = fallback_result
-    stdout_path.write_text("".join(stdout_chunks), encoding="utf-8")
-    stderr_path.write_text("".join(stderr_chunks), encoding="utf-8")
-    if fallback_used:
-        (config.task_dir / "model-fallback.json").write_text(
-            json.dumps(fallback_used, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-    session_id = extract_session_id_from_jsonl("".join(stdout_chunks)) or config.session_id.strip()
+    stdout_path.write_text(result.stdout or "", encoding="utf-8")
+    stderr_path.write_text(result.stderr or "", encoding="utf-8")
+    session_id = extract_session_id_from_jsonl(result.stdout or "") or config.session_id.strip()
     return CodexRunResult(returncode=result.returncode, session_id=session_id)
 
 
@@ -344,7 +296,7 @@ def item_codex_session_id(item: dict[str, Any]) -> str:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run a Codex worker for one LazyCat migration queue item.")
+    parser = argparse.ArgumentParser(description="Run a Claude repair worker for one LazyCat migration queue item.")
     parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[1]))
     parser.add_argument("--queue-path", default="")
     parser.add_argument("--task-root", default=DEFAULT_TASK_ROOT)

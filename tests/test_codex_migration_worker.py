@@ -62,19 +62,24 @@ class CodexMigrationWorkerTest(unittest.TestCase):
         self.assertIn("Discord", prompt)
         self.assertIn("credentials", prompt)
 
-    def test_build_codex_command_uses_noninteractive_exec(self) -> None:
+    def test_build_codex_command_invokes_claude_cli_unattended(self) -> None:
         repo_root = self.make_repo_root()
         config = CodexWorkerConfig(repo_root=repo_root, task_dir=repo_root / "tasks" / "demo")
 
         command = build_codex_command(config)
 
-        self.assertEqual(command[:4], ["codex", "--ask-for-approval", "never", "exec"])
-        self.assertIn("--sandbox", command)
-        self.assertIn("danger-full-access", command)
+        self.assertEqual(command[0], "claude")
+        self.assertIn("--print", command)
+        self.assertIn("--dangerously-skip-permissions", command)
+        self.assertIn("--add-dir", command)
+        self.assertIn(str(repo_root), command)
         self.assertIn("--model", command)
-        self.assertIn("gpt-5.5", command)
-        self.assertIn("--json", command)
-        self.assertEqual(command[-1], "-")
+        self.assertIn("claude-sonnet-4-6", command)
+        # stream-json + verbose so we can extract session_id from the event log.
+        self.assertIn("--output-format", command)
+        self.assertIn("stream-json", command)
+        self.assertNotIn("--ask-for-approval", command)
+        self.assertNotIn("--sandbox", command)
 
     def test_build_codex_command_resumes_existing_session(self) -> None:
         repo_root = self.make_repo_root()
@@ -83,12 +88,8 @@ class CodexMigrationWorkerTest(unittest.TestCase):
 
         command = build_codex_command(config)
 
-        self.assertIn("exec", command)
-        self.assertIn("resume", command)
-        self.assertLess(command.index("exec"), command.index("resume"))
-        self.assertIn(session_id, command)
-        self.assertEqual(command[-1], "-")
-        self.assertIn("--json", command)
+        self.assertIn("--resume", command)
+        self.assertEqual(command[command.index("--resume") + 1], session_id)
 
     def test_extract_session_id_from_jsonl_reads_nested_codex_event(self) -> None:
         output = "\n".join(
@@ -142,9 +143,9 @@ class CodexMigrationWorkerTest(unittest.TestCase):
         self.assertIn("completed", content)
         self.assertIn("tasks/demo", content)
 
-    def test_run_codex_falls_back_when_cli_rejects_default_model(self) -> None:
+    def test_run_codex_writes_stdout_and_stderr_logs(self) -> None:
         repo_root = self.make_repo_root()
-        config = CodexWorkerConfig(repo_root=repo_root, task_dir=repo_root / "tasks" / "demo", model="gpt-5.5")
+        config = CodexWorkerConfig(repo_root=repo_root, task_dir=repo_root / "tasks" / "demo", model="claude-sonnet-4-6")
         config.task_dir.mkdir(parents=True)
         command = build_codex_command(config)
 
@@ -158,20 +159,19 @@ class CodexMigrationWorkerTest(unittest.TestCase):
 
         def fake_run(command_arg: list[str], **kwargs: object) -> Result:
             calls.append(command_arg)
-            if len(calls) == 1:
-                return Result(1, stderr="The 'gpt-5.5' model requires a newer version of Codex.")
-            return Result(0, stdout="fallback ok")
+            return Result(0, stdout="repair ok", stderr="warn")
 
         with patch("scripts.codex_migration_worker.subprocess.run", side_effect=fake_run):
             result = run_codex(config, "prompt", command)
 
         self.assertEqual(result.returncode, 0)
-        self.assertEqual(calls[0][calls[0].index("--model") + 1], "gpt-5.5")
-        self.assertEqual(calls[1][calls[1].index("--model") + 1], "gpt-5.4")
-        self.assertIn("fallback ok", (config.task_dir / "codex.stdout.log").read_text(encoding="utf-8"))
-        self.assertTrue((config.task_dir / "model-fallback.json").exists())
+        self.assertEqual(len(calls), 1)   # No fallback path on claude.
+        self.assertEqual(calls[0][calls[0].index("--model") + 1], "claude-sonnet-4-6")
+        self.assertIn("repair ok", (config.task_dir / "claude.stdout.log").read_text(encoding="utf-8"))
+        self.assertIn("warn", (config.task_dir / "claude.stderr.log").read_text(encoding="utf-8"))
+        self.assertFalse((config.task_dir / "model-fallback.json").exists())
 
-    def test_run_codex_returns_session_id_from_json_output(self) -> None:
+    def test_run_codex_returns_session_id_from_stream_json(self) -> None:
         repo_root = self.make_repo_root()
         config = CodexWorkerConfig(repo_root=repo_root, task_dir=repo_root / "tasks" / "demo")
         config.task_dir.mkdir(parents=True)
@@ -179,7 +179,7 @@ class CodexMigrationWorkerTest(unittest.TestCase):
 
         class Result:
             returncode = 0
-            stdout = json.dumps({"type": "task.started", "session_id": "11111111-2222-3333-4444-555555555555"})
+            stdout = json.dumps({"type": "system", "session_id": "11111111-2222-3333-4444-555555555555"})
             stderr = ""
 
         with patch("scripts.codex_migration_worker.subprocess.run", return_value=Result()):

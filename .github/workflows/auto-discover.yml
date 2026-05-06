@@ -15,10 +15,11 @@
 # F4+ workflows will read the Approved column to dispatch migrations. Until
 # F4 lands, this workflow is the entire automation surface.
 #
-# Codex note: scripts/codex_discovery_reviewer.py shells out to the `codex`
-# CLI which is NOT yet installed in lzcat-migration-runner (only `claude` is).
-# Until the runner image picks up `codex`, leave `enable_codex` off — items
-# stay in Inbox without an AI score and need a human click. See HANDOFF.
+# AI review: scripts/codex_discovery_reviewer.py (Claude-backed despite the
+# historical name) shells out to the `claude` CLI from @anthropic-ai/claude-code,
+# which the lzcat-migration-runner image installs. Leave `enable_codex` on so
+# the AI Score field gets populated and high-scoring items auto-promote to
+# Approved.
 
 name: Auto-Discover
 
@@ -36,9 +37,9 @@ on:
         type: boolean
         default: false
       enable_codex:
-        description: "Run codex_discovery_reviewer (requires codex CLI in runner image)"
+        description: "Run claude discovery reviewer (writes AI Score; flip off to skip review entirely)"
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: write          # commit queue/candidate refresh back to template
@@ -62,7 +63,6 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GH_PAT }}
       GH_PAT: ${{ secrets.GH_PAT }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
       LAZYCAT_BOX_DOMAIN: ${{ secrets.LAZYCAT_BOX_DOMAIN }}

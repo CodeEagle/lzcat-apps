@@ -85,7 +85,7 @@ class ServiceConfig:
     resume: bool = False
     enable_codex_worker: bool = False
     max_codex_attempts: int = 1
-    codex_worker_model: str = "gpt-5.5"
+    codex_worker_model: str = "claude-sonnet-4-6"
     template_branch: str = "template"
     workspace_root: Path = Path("")
     discord_enabled: bool = False
@@ -786,7 +786,7 @@ def update_item_codex_result(
             elif status == "browser_pending":
                 item.pop("last_error", None)
         else:
-            item["last_error"] = f"codex worker exited {returncode}"
+            item["last_error"] = f"claude repair worker exited {returncode}"
         break
 
 
@@ -894,7 +894,7 @@ def update_item_discovery_review_result(
     review["last_run_at"] = now
     item["discovery_review"] = review
     item["updated_at"] = now
-    item["last_error"] = f"codex discovery reviewer exited {returncode}"
+    item["last_error"] = f"claude discovery reviewer exited {returncode}"
 
 
 def build_discord_notifier(config: ServiceConfig) -> MigrationDiscordNotifier | None:
