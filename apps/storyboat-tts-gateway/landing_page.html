@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="__HTML_LANG__">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StoryBoat TTS Gateway</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --bg: #05070b;
+      --panel: rgba(12, 16, 24, 0.84);
+      --panel-strong: rgba(9, 12, 18, 0.96);
+      --line: rgba(103, 222, 255, 0.22);
+      --line-strong: rgba(103, 222, 255, 0.42);
+      --text: #edf6ff;
+      --muted: #8da3b5;
+      --accent: #67deff;
+      --accent-2: #4fffb0;
+      --danger: #ff6b81;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+      --radius: 22px;
+      --mono: "SFMono-Regular", "JetBrains Mono", "Menlo", monospace;
+      --sans: "SF Pro Display", "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--sans);
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(103, 222, 255, 0.16), transparent 30%),
+        radial-gradient(circle at 80% 20%, rgba(79, 255, 176, 0.12), transparent 26%),
+        linear-gradient(180deg, #05070b 0%, #080d14 42%, #04060a 100%);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(103, 222, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(103, 222, 255, 0.05) 1px, transparent 1px);
+      background-size: 36px 36px;
+      mask-image: linear-gradient(180deg, rgba(255,255,255,0.36), transparent 92%);
+      pointer-events: none;
+    }
+    .shell {
+      width: min(1200px, calc(100vw - 28px));
+      margin: 0 auto;
+      padding: 20px 0 56px;
+      position: relative;
+      z-index: 1;
+    }
+    .topbar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 18px;
+    }
+    .lang-switch {
+      border: 1px solid var(--line);
+      background: rgba(8, 12, 18, 0.72);
+      color: var(--text);
+      text-decoration: none;
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .hero, .grid-card, .demo, .quickstart, .links, .tips {
+      backdrop-filter: blur(16px);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+    }
+    .hero {
+      padding: 28px;
+      overflow: hidden;
+      position: relative;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -5% -25% 45%;
+      height: 320px;
+      background: radial-gradient(circle, rgba(103, 222, 255, 0.18), transparent 68%);
+      pointer-events: none;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(34px, 5vw, 62px);
+      line-height: 0.94;
+      letter-spacing: -0.04em;
+    }
+    .subtitle {
+      color: var(--accent);
+      font-size: 14px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .summary {
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.7;
+      margin: 0;
+    }
+    .hero-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 22px;
+    }
+    .hero-links a {
+      color: var(--text);
+      text-decoration: none;
+      padding: 12px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.02);
+      font-size: 14px;
+    }
+    .section-title {
+      margin: 0 0 8px;
+      font-size: 22px;
+    }
+    .section-desc {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+    .content-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .stack {
+      display: grid;
+      gap: 18px;
+    }
+    .quickstart, .links, .tips, .demo {
+      padding: 22px;
+    }
+    .providers-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .grid-card {
+      padding: 18px;
+      min-height: 180px;
+      position: relative;
+      overflow: hidden;
+    }
+    .grid-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+    .card-kicker {
+      color: var(--accent);
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .grid-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    pre {
+      margin: 0;
+      padding: 16px;
+      border-radius: 16px;
+      background: var(--panel-strong);
+      border: 1px solid rgba(255,255,255,0.06);
+      color: #d8f6ff;
+      overflow-x: auto;
+      font: 13px/1.7 var(--mono);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .quickstart-block + .quickstart-block { margin-top: 14px; }
+    .quickstart-label {
+      margin: 0 0 8px;
+      color: var(--accent);
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .link-list {
+      display: grid;
+      gap: 10px;
+    }
+    .link-list a {
+      color: var(--text);
+      text-decoration: none;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      padding: 14px 16px;
+      border-radius: 14px;
+      font: 13px/1.5 var(--mono);
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+    .field-full { grid-column: 1 / -1; }
+    label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    input, select, textarea, button {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(3, 8, 14, 0.88);
+      color: var(--text);
+      padding: 13px 14px;
+      font: inherit;
+    }
+    textarea {
+      min-height: 118px;
+      resize: vertical;
+      line-height: 1.65;
+    }
+    button {
+      cursor: pointer;
+      background: linear-gradient(135deg, rgba(103,222,255,0.22), rgba(79,255,176,0.18));
+      border-color: var(--line-strong);
+      font-weight: 600;
+    }
+    .status-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 18px 0 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .status-pill {
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.03);
+    }
+    .status-pill.error {
+      color: #ffd7df;
+      border-color: rgba(255,107,129,0.28);
+      background: rgba(255,107,129,0.12);
+    }
+    .status-pill.ok {
+      color: #d3fff0;
+      border-color: rgba(79,255,176,0.28);
+      background: rgba(79,255,176,0.12);
+    }
+    .audio-box, .meta-box, .log-box {
+      margin-top: 14px;
+      padding: 16px;
+      border-radius: 16px;
+      background: var(--panel-strong);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    audio {
+      width: 100%;
+      margin-top: 10px;
+    }
+    .download-link {
+      display: inline-flex;
+      margin-top: 12px;
+      color: var(--text);
+      text-decoration: none;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 10px 14px;
+    }
+    .hidden { display: none !important; }
+    .log-box pre, .meta-box pre {
+      background: transparent;
+      border: 0;
+      padding: 0;
+    }
+    @media (max-width: 920px) {
+      .content-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 720px) {
+      .shell {
+        width: min(100vw - 16px, 100%);
+        padding-top: 10px;
+      }
+      .hero, .quickstart, .links, .tips, .demo, .grid-card {
+        padding: 18px;
+      }
+      .providers-grid, .form-grid {
+        grid-template-columns: 1fr;
+      }
+      .hero-links a {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <a class="lang-switch" href="__LANG_URL__">__SWITCH_LABEL__</a>
+    </div>
+    <section class="hero">
+      <div class="subtitle">__SUBTITLE__</div>
+      <h1>__TITLE__</h1>
+      <p class="summary">__SUMMARY__</p>
+      <div class="hero-links">
+        <a href="#demo">__DEMO__</a>
+        <a href="#quickstart">__QUICKSTART__</a>
+        <a href="/docs" target="_blank">/docs</a>
+        <a href="/v1/catalog" target="_blank">/v1/catalog</a>
+      </div>
+    </section>
+
+    <div class="content-grid">
+      <div class="stack">
+        <section class="quickstart" id="quickstart">
+          <h2 class="section-title">__QUICKSTART__</h2>
+          <p class="section-desc">__QUICKSTART_DESC__</p>
+          <div id="quickstart-content"></div>
+        </section>
+
+        <section class="demo" id="demo">
+          <h2 class="section-title">__DEMO__</h2>
+          <p class="section-desc">__DEMO_DESC__</p>
+          <form id="demo-form" class="form-grid">
+            <div class="field">
+              <label for="provider">__FIELD_PROVIDER__</label>
+              <select id="provider" name="provider">
+                <option value="edge">edge</option>
+                <option value="kokoro">kokoro</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="mode">__FIELD_MODE__</label>
+              <select id="mode" name="mode">
+                <option value="bundle">__MODE_BUNDLE__</option>
+                <option value="job">__MODE_JOB__</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="model">__FIELD_MODEL__</label>
+              <select id="model" name="model"></select>
+            </div>
+            <div class="field">
+              <label for="voice">__FIELD_VOICE__</label>
+              <select id="voice" name="voice"></select>
+            </div>
+            <div class="field">
+              <label for="format">__FIELD_FORMAT__</label>
+              <select id="format" name="format">
+                <option value="mp3">mp3</option>
+                <option value="wav">wav</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="speed">__FIELD_SPEED__</label>
+              <input id="speed" name="speed" type="number" min="0.25" max="4" step="0.05" value="1">
+            </div>
+            <div class="field field-full hidden" id="normalize-field">
+              <label>
+                <input id="normalize" name="normalize" type="checkbox">
+                __FIELD_NORMALIZE__
+              </label>
+            </div>
+            <div class="field field-full">
+              <label for="text">__FIELD_TEXT__</label>
+              <textarea id="text" name="text">__DEFAULT_TEXT__</textarea>
+            </div>
+            <div class="field field-full">
+              <button type="submit">__BUTTON_RUN__</button>
+            </div>
+          </form>
+
+          <div class="status-row">
+            <div class="status-pill" id="status-pill">__STATUS_IDLE__</div>
+            <div class="status-pill" id="job-pill">__JOB_LOG__</div>
+          </div>
+
+          <div class="audio-box hidden" id="audio-box">
+            <strong>__AUDIO_PREVIEW__</strong>
+            <audio id="audio-player" controls></audio>
+            <a id="download-link" class="download-link hidden" download="tts-audio.mp3">__BUTTON_DOWNLOAD__</a>
+          </div>
+
+          <div class="meta-box hidden" id="meta-box">
+            <strong>__METADATA__</strong>
+            <pre id="meta-output"></pre>
+          </div>
+
+          <div class="log-box">
+            <strong>__JOB_LOG__</strong>
+            <pre id="log-output">__STATUS_IDLE__</pre>
+          </div>
+        </section>
+      </div>
+
+      <div class="stack">
+        <section class="quickstart">
+          <h2 class="section-title">__PROVIDERS__</h2>
+          <div class="providers-grid">
+            <article class="grid-card">
+              <div class="card-kicker">__PROVIDER_EDGE_TITLE__</div>
+              <p>__PROVIDER_EDGE_BODY__</p>
+            </article>
+            <article class="grid-card">
+              <div class="card-kicker">__PROVIDER_KOKORO_TITLE__</div>
+              <p>__PROVIDER_KOKORO_BODY__</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="links">
+          <h2 class="section-title">__LINKS__</h2>
+          <div class="link-list">
+            <a href="/healthz" target="_blank">/healthz</a>
+            <a href="/v1/providers" target="_blank">/v1/providers</a>
+            <a href="/v1/voices?provider=edge" target="_blank">/v1/voices?provider=edge</a>
+            <a href="/v1/voices?provider=kokoro" target="_blank">/v1/voices?provider=kokoro</a>
+            <a href="/v1/catalog" target="_blank">/v1/catalog</a>
+            <a href="/docs" target="_blank">/docs</a>
+          </div>
+        </section>
+
+        <section class="tips">
+          <h2 class="section-title">__TIPS__</h2>
+          <p class="section-desc">__TIPS_BODY__</p>
+        </section>
+
+        <section class="quickstart">
+          <h2 class="section-title">__BUNDLE_STRUCTURE__</h2>
+          <p class="section-desc">__BUNDLE_STRUCTURE_DESC__</p>
+          <div class="quickstart-block">
+            <div class="quickstart-label">__BUNDLE_HEADER_LABEL__</div>
+            <pre>__BUNDLE_HEADER_CODE__</pre>
+          </div>
+          <div class="quickstart-block">
+            <div class="quickstart-label">__BUNDLE_PARTS_LABEL__</div>
+            <pre>__BUNDLE_PARTS_CODE__</pre>
+          </div>
+          <div class="quickstart-block">
+            <div class="quickstart-label">__BUNDLE_PARSE_LABEL__</div>
+            <pre>__BUNDLE_PARSE_CODE__</pre>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+  <script>
+    window.__BOOTSTRAP__ = __BOOTSTRAP_JSON__;
+  </script>
+  <script>
+    const boot = window.__BOOTSTRAP__;
+    const text = boot.text;
+    const modelOptions = boot.modelOptions;
+    const voiceCache = {};
+    let currentAudioUrl = null;
+    let currentEventSource = null;
+
+    const providerEl = document.getElementById("provider");
+    const modeEl = document.getElementById("mode");
+    const modelEl = document.getElementById("model");
+    const voiceEl = document.getElementById("voice");
+    const formatEl = document.getElementById("format");
+    const speedEl = document.getElementById("speed");
+    const textEl = document.getElementById("text");
+    const normalizeEl = document.getElementById("normalize");
+    const normalizeFieldEl = document.getElementById("normalize-field");
+    const statusEl = document.getElementById("status-pill");
+    const jobEl = document.getElementById("job-pill");
+    const audioBoxEl = document.getElementById("audio-box");
+    const audioPlayerEl = document.getElementById("audio-player");
+    const downloadLinkEl = document.getElementById("download-link");
+    const metaBoxEl = document.getElementById("meta-box");
+    const metaOutputEl = document.getElementById("meta-output");
+    const logOutputEl = document.getElementById("log-output");
+    const quickstartEl = document.getElementById("quickstart-content");
+
+    function setStatus(label, kind) {
+      statusEl.textContent = label;
+      statusEl.className = "status-pill" + (kind ? " " + kind : "");
+    }
+
+    function setJob(label, kind) {
+      jobEl.textContent = label;
+      jobEl.className = "status-pill" + (kind ? " " + kind : "");
+    }
+
+    function resetAudio() {
+      if (currentEventSource) {
+        currentEventSource.close();
+        currentEventSource = null;
+      }
+      if (currentAudioUrl) {
+        URL.revokeObjectURL(currentAudioUrl);
+        currentAudioUrl = null;
+      }
+      audioPlayerEl.removeAttribute("src");
+      audioPlayerEl.load();
+      downloadLinkEl.classList.add("hidden");
+      audioBoxEl.classList.add("hidden");
+      metaBoxEl.classList.add("hidden");
+    }
+
+    function appendLog(line) {
+      const current = logOutputEl.textContent.trim();
+      logOutputEl.textContent = current ? `${current}\n${line}` : line;
+    }
+
+    function setLog(lines) {
+      logOutputEl.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function parsePossiblyDirtyJson(raw) {
+      try {
+        return JSON.parse(raw);
+      } catch (primaryError) {
+        const input = String(raw || "");
+        let output = "";
+        let inString = false;
+        let escaped = false;
+
+        for (let index = 0; index < input.length; index += 1) {
+          const char = input[index];
+          const code = input.charCodeAt(index);
+
+          if (escaped) {
+            output += char;
+            escaped = false;
+            continue;
+          }
+          if (char === "\\") {
+            output += char;
+            escaped = true;
+            continue;
+          }
+          if (char === "\"") {
+            output += char;
+            inString = !inString;
+            continue;
+          }
+          if (inString && code <= 0x1f) {
+            if (code === 10) {
+              output += "\\n";
+            } else if (code === 13) {
+              output += "\\r";
+            } else if (code === 9) {
+              output += "\\t";
+            } else {
+              output += `\\u${code.toString(16).padStart(4, "0")}`;
+            }
+            continue;
+          }
+          output += char;
+        }
+        return JSON.parse(output);
+      }
+    }
+
+    function resolveBaseUrl() {
+      return boot.baseUrl.replace(/\/$/, "");
+    }
+
+    function buildCurlSamples() {
+      const baseUrl = resolveBaseUrl();
+      const samples = [
+        {
+          label: text.curl_catalog,
+          content: `curl ${baseUrl}/v1/catalog`
+        },
+        {
+          label: text.curl_bundle,
+          content: `curl -X POST ${baseUrl}/v1/audio/speech_bundle \\
+  -H 'Content-Type: application/json' \\
+  -d '{\n    "provider": "edge",\n    "model": "tts-1",\n    "input": "Hello from StoryBoat.",\n    "voice": "alloy",\n    "response_format": "mp3",\n    "speed": 1.0\n  }'`
+        },
+        {
+          label: text.curl_job_create,
+          content: `curl -X POST ${baseUrl}/v1/audio/jobs \\
+  -H 'Content-Type: application/json' \\
+  -d '{\n    "provider": "kokoro",\n    "model": "kokoro",\n    "input": "SSE async jobs are now available.",\n    "voice": "af_sarah",\n    "response_format": "mp3",\n    "speed": 1.0,\n    "normalization_options": {"normalize": false}\n  }'`
+        },
+        {
+          label: text.curl_job_sse,
+          content: `curl -N ${baseUrl}/v1/audio/jobs/<job_id>/events`
+        },
+        {
+          label: text.curl_job_bundle,
+          content: `curl -L ${baseUrl}/v1/audio/jobs/<job_id>/bundle -o result.multipart`
+        }
+      ];
+      quickstartEl.innerHTML = samples.map((item) => (
+        `<div class="quickstart-block"><div class="quickstart-label">${escapeHtml(item.label)}</div><pre>${escapeHtml(item.content)}</pre></div>`
+      )).join("");
+    }
+
+    function updateModelOptions() {
+      const provider = providerEl.value;
+      const options = modelOptions[provider] || [];
+      modelEl.innerHTML = options.map((item) => (
+        `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`
+      )).join("");
+      normalizeFieldEl.classList.toggle("hidden", provider !== "kokoro");
+    }
+
+    async function loadVoiceOptions() {
+      const provider = providerEl.value;
+      voiceEl.innerHTML = `<option value="">${escapeHtml(text.voice_loading)}</option>`;
+      try {
+        if (!voiceCache[provider]) {
+          const response = await fetch(`/v1/voices?provider=${encodeURIComponent(provider)}`);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          voiceCache[provider] = await response.json();
+        }
+        const voices = voiceCache[provider];
+        voiceEl.innerHTML = voices.map((voice) => {
+          const label = [voice.id, voice.locale].filter(Boolean).join(" · ");
+          return `<option value="${escapeHtml(voice.id)}">${escapeHtml(label)}</option>`;
+        }).join("");
+        if (!voices.length) {
+          voiceEl.innerHTML = `<option value="">(empty)</option>`;
+        }
+      } catch (error) {
+        voiceEl.innerHTML = `<option value="">${escapeHtml(text.voice_failed)}</option>`;
+      }
+    }
+
+    function buildPayload() {
+      const provider = providerEl.value;
+      const payload = {
+        provider,
+        model: modelEl.value,
+        input: textEl.value,
+        voice: voiceEl.value || null,
+        response_format: formatEl.value,
+        speed: Number(speedEl.value || "1")
+      };
+      if (provider === "kokoro") {
+        payload.normalization_options = { normalize: Boolean(normalizeEl.checked) };
+      }
+      return payload;
+    }
+
+    function indexOfSequence(source, sequence, fromIndex) {
+      outer: for (let i = fromIndex; i <= source.length - sequence.length; i += 1) {
+        for (let j = 0; j < sequence.length; j += 1) {
+          if (source[i + j] !== sequence[j]) {
+            continue outer;
+          }
+        }
+        return i;
+      }
+      return -1;
+    }
+
+    function parseMultipart(buffer, contentType) {
+      const boundaryMatch = /boundary="?([^=";]+)"?/i.exec(contentType || "");
+      if (!boundaryMatch) {
+        throw new Error(`missing multipart boundary: ${contentType}`);
+      }
+
+      const bytes = new Uint8Array(buffer);
+      const encoder = new TextEncoder();
+      const boundaryBytes = encoder.encode(`--${boundaryMatch[1]}`);
+      const headerSeparator = new Uint8Array([13, 10, 13, 10]);
+      const headerDecoder = new TextDecoder("utf-8");
+      const parts = {};
+
+      function trimLeadingCrlf(cursor) {
+        while (cursor < bytes.length && (bytes[cursor] === 13 || bytes[cursor] === 10)) {
+          cursor += 1;
+        }
+        return cursor;
+      }
+
+      let cursor = 0;
+      while (cursor < bytes.length) {
+        const boundaryStart = indexOfSequence(bytes, boundaryBytes, cursor);
+        if (boundaryStart === -1) {
+          break;
+        }
+
+        let partStart = boundaryStart + boundaryBytes.length;
+        if (bytes[partStart] === 45 && bytes[partStart + 1] === 45) {
+          break;
+        }
+
+        partStart = trimLeadingCrlf(partStart);
+        const nextBoundary = indexOfSequence(bytes, boundaryBytes, partStart);
+        if (nextBoundary === -1) {
+          break;
+        }
+
+        let partEnd = nextBoundary;
+        while (partEnd > partStart && (bytes[partEnd - 1] === 13 || bytes[partEnd - 1] === 10)) {
+          partEnd -= 1;
+        }
+
+        const headerEnd = indexOfSequence(bytes, headerSeparator, partStart);
+        if (headerEnd === -1 || headerEnd >= partEnd) {
+          cursor = nextBoundary;
+          continue;
+        }
+
+        const headerText = headerDecoder.decode(bytes.slice(partStart, headerEnd));
+        const bodyStart = headerEnd + headerSeparator.length;
+        const bodyBytes = bytes.slice(bodyStart, partEnd);
+        const headers = {};
+
+        headerText.split("\r\n").forEach((line) => {
+          const separatorIndex = line.indexOf(":");
+          if (separatorIndex === -1) {
+            return;
+          }
+          const name = line.slice(0, separatorIndex).trim().toLowerCase();
+          const value = line.slice(separatorIndex + 1).trim();
+          headers[name] = value;
+        });
+
+        const disposition = headers["content-disposition"] || "";
+        const filenameMatch = /filename="([^"]+)"/.exec(disposition);
+        const nameMatch = /name="([^"]+)"/.exec(disposition);
+        const filename = filenameMatch ? filenameMatch[1] : null;
+        const name = nameMatch ? nameMatch[1] : null;
+        const key = filename || name || `part-${Object.keys(parts).length + 1}`;
+
+        parts[key] = {
+          key,
+          name: name || key,
+          filename: filename || key,
+          headers,
+          contentType: headers["content-type"] || "application/octet-stream",
+          bytes: bodyBytes
+        };
+
+        cursor = nextBoundary;
+      }
+
+      return parts;
+    }
+
+    function presentBundle(parts) {
+      const entries = Object.values(parts);
+      const metadataPart = parts["metadata.json"]
+        || parts.metadata
+        || entries.find((item) => item.filename === "metadata.json" || item.name === "metadata");
+      const audioPart = parts["audio.mp3"]
+        || parts["audio.wav"]
+        || parts.audio
+        || entries.find((item) => /^audio\//.test(item.contentType));
+
+      if (!metadataPart || !audioPart) {
+        throw new Error("bundle missing metadata or audio part");
+      }
+
+      const metadataText = new TextDecoder("utf-8").decode(metadataPart.bytes);
+      const metadata = parsePossiblyDirtyJson(metadataText);
+      const audioBlob = new Blob([audioPart.bytes], { type: audioPart.contentType });
+
+      currentAudioUrl = URL.createObjectURL(audioBlob);
+      audioPlayerEl.src = currentAudioUrl;
+      audioBoxEl.classList.remove("hidden");
+      metaBoxEl.classList.remove("hidden");
+      downloadLinkEl.classList.remove("hidden");
+      downloadLinkEl.href = currentAudioUrl;
+      downloadLinkEl.download = audioPart.filename || `tts-audio.${metadata.format || "mp3"}`;
+      metaOutputEl.textContent = JSON.stringify(metadata, null, 2);
+      setStatus(text.status_done, "ok");
+      setJob(text.status_done, "ok");
+      audioPlayerEl.play().catch(() => {});
+    }
+
+    async function fetchAndPresentBundle(url) {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const buffer = await response.arrayBuffer();
+      const parts = parseMultipart(buffer, response.headers.get("content-type") || "");
+      presentBundle(parts);
+    }
+
+    async function runBundle(payload) {
+      const response = await fetch("/v1/audio/speech_bundle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      const buffer = await response.arrayBuffer();
+      const parts = parseMultipart(buffer, response.headers.get("content-type") || "");
+      presentBundle(parts);
+      appendLog("bundle: completed");
+    }
+
+    async function runJob(payload) {
+      const createResponse = await fetch("/v1/audio/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!createResponse.ok) {
+        throw new Error(await createResponse.text());
+      }
+
+      const created = await createResponse.json();
+      const jobId = created.id;
+      setJob(jobId, "");
+      appendLog(`job created: ${jobId}`);
+
+      if (currentEventSource) {
+        currentEventSource.close();
+      }
+
+      await new Promise((resolve, reject) => {
+        const eventSource = new EventSource(`/v1/audio/jobs/${encodeURIComponent(jobId)}/events`);
+        currentEventSource = eventSource;
+
+        const finish = async (downloadUrl) => {
+          eventSource.close();
+          currentEventSource = null;
+          try {
+            await fetchAndPresentBundle(downloadUrl);
+            appendLog(`bundle ready: ${downloadUrl}`);
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        };
+
+        ["snapshot", "started", "synth_progress", "packaging", "bundle_ready", "completed", "failed"].forEach((eventName) => {
+          eventSource.addEventListener(eventName, (event) => {
+            const payload = JSON.parse(event.data);
+            appendLog(`${eventName}: ${JSON.stringify(payload)}`);
+            if (eventName === "failed") {
+              setStatus(text.status_failed, "error");
+              setJob(text.status_failed, "error");
+              eventSource.close();
+              currentEventSource = null;
+              reject(new Error(payload.error || "job failed"));
+              return;
+            }
+            if (eventName === "completed" && payload.download_url) {
+              void finish(payload.download_url);
+            }
+          });
+        });
+
+        eventSource.onerror = () => {
+          appendLog("sse: connection error");
+        };
+      });
+    }
+
+    async function handleSubmit(event) {
+      event.preventDefault();
+      resetAudio();
+      setLog(text.status_loading);
+      setStatus(text.status_loading, "");
+      setJob(text.status_loading, "");
+      const payload = buildPayload();
+      try {
+        if (modeEl.value === "job") {
+          await runJob(payload);
+        } else {
+          await runBundle(payload);
+        }
+      } catch (error) {
+        setStatus(text.status_failed, "error");
+        setJob(text.status_failed, "error");
+        appendLog(String(error));
+      }
+    }
+
+    providerEl.addEventListener("change", async () => {
+      updateModelOptions();
+      await loadVoiceOptions();
+    });
+
+    document.getElementById("demo-form").addEventListener("submit", handleSubmit);
+
+    buildCurlSamples();
+    updateModelOptions();
+    loadVoiceOptions();
+  </script>
+</body>
+</html>

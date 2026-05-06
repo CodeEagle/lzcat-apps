@@ -1,0 +1,31 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.storyboat-tts-gateway
+version: '1.0.0'
+min_os_version: 1.3.8
+name: StoryBoat TTS Gateway
+description: Unified TTS gateway for Edge TTS and Kokoro, with timestamps, multipart bundle, and SSE job streaming
+license: NOASSERTION
+homepage: https://github.com/CodeEagle/StoryBoatTTSGateway
+author: CodeEagle
+application:
+  subdomain: storyboat-tts-gateway
+  public_path:
+    - /
+  upstreams:
+    - location: /
+      backend: http://storyboat-tts-gateway:5051/
+services:
+  storyboat-tts-gateway:
+    image: registry.lazycat.cloud/invokerlaw/cybermegaworld/storyboat-tts-gateway:83a0f4a7b3b34469
+    environment:
+      - KOKORO_FASTAPI_BASE_URL=http://kokoro-fastapi:8880
+      - KOKORO_FASTAPI_TIMEOUT=120
+  kokoro-fastapi:
+    image: registry.lazycat.cloud/invokerlaw/remsky/kokoro-fastapi-cpu:7b517e1bf1f7c8fb
+locales:
+  en:
+    name: StoryBoat TTS Gateway
+    description: Unified TTS gateway for Edge TTS and Kokoro, with timestamps, multipart bundle, and SSE job streaming
+  zh:
+    name: StoryBoat TTS Gateway
+    description: 统一 Edge TTS 与 Kokoro 的 TTS 网关，支持时间戳、multipart 打包和 SSE 任务流
