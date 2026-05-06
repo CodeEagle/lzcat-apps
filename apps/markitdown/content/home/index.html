@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MarkItDown Web + MCP</title>
+    <style>
+      :root {
+        --bg: #f5efe4;
+        --paper: rgba(255, 252, 246, 0.9);
+        --ink: #1d1a17;
+        --muted: #5c564f;
+        --line: rgba(29, 26, 23, 0.12);
+        --accent: #b74b2a;
+        --accent-2: #1b6f6a;
+        --accent-3: #d8a71f;
+        --shadow: 0 28px 70px rgba(45, 34, 22, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(183, 75, 42, 0.18), transparent 30%),
+          radial-gradient(circle at top right, rgba(27, 111, 106, 0.16), transparent 28%),
+          linear-gradient(135deg, #f7f1e6 0%, #efe7d9 100%);
+      }
+
+      .shell {
+        width: min(1100px, calc(100% - 32px));
+        margin: 32px auto;
+        padding: 28px;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: var(--paper);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(12px);
+      }
+
+      .eyebrow {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(183, 75, 42, 0.1);
+        color: var(--accent);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 18px 0 12px;
+        font-family: "Georgia", "Times New Roman", serif;
+        font-size: clamp(40px, 6vw, 72px);
+        line-height: 0.95;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .lead {
+        max-width: 760px;
+        font-size: 18px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+        margin-top: 28px;
+      }
+
+      .card {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.65);
+      }
+
+      .card h2 {
+        margin: 0 0 10px;
+        font-size: 16px;
+      }
+
+      .endpoint {
+        display: inline-block;
+        margin-top: 10px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        background: rgba(27, 111, 106, 0.08);
+        color: var(--accent-2);
+        font-family: "SFMono-Regular", "Menlo", monospace;
+        font-size: 14px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 18px;
+        margin-top: 24px;
+      }
+
+      .composer {
+        display: grid;
+        gap: 14px;
+        padding: 22px;
+        border-radius: 24px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .composer h2,
+      .panel h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      input[type="url"],
+      input[type="file"],
+      textarea {
+        width: 100%;
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(29, 26, 23, 0.14);
+        background: rgba(255, 255, 255, 0.88);
+        color: var(--ink);
+        font: inherit;
+      }
+
+      textarea {
+        min-height: 320px;
+        resize: vertical;
+        font-family: "SFMono-Regular", "Menlo", monospace;
+        line-height: 1.6;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      button {
+        appearance: none;
+        border: none;
+        border-radius: 999px;
+        padding: 12px 18px;
+        font: inherit;
+        cursor: pointer;
+        transition: transform 140ms ease, box-shadow 140ms ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      .primary {
+        background: var(--accent);
+        color: #fff9f2;
+        box-shadow: 0 12px 24px rgba(183, 75, 42, 0.22);
+      }
+
+      .secondary {
+        background: rgba(27, 111, 106, 0.12);
+        color: var(--accent-2);
+      }
+
+      .ghost {
+        background: rgba(216, 167, 31, 0.14);
+        color: #7a5c00;
+      }
+
+      .panel {
+        margin-top: 20px;
+        padding: 20px;
+        border-radius: 22px;
+        border: 1px solid var(--line);
+        background: #191613;
+        color: #f5efe4;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #eadcca;
+        font-size: 13px;
+      }
+
+      .tips {
+        margin-top: 22px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+      }
+
+      .tip {
+        padding: 16px;
+        border-left: 4px solid var(--accent);
+        background: rgba(183, 75, 42, 0.08);
+        border-radius: 14px;
+      }
+
+      .tip strong {
+        display: block;
+        margin-bottom: 8px;
+      }
+
+      @media (max-width: 640px) {
+        .shell {
+          padding: 20px;
+          margin: 16px auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <span class="eyebrow">LazyCat Migration</span>
+      <h1>MarkItDown<br />Web + MCP</h1>
+      <p class="lead">
+        先在当前页面完成文件或 URL 转换；如果你需要把它接入客户端或自动化流程，再使用后面的 MCP
+        服务说明即可。
+      </p>
+
+      <section class="stack">
+        <form class="composer" id="url-form">
+          <h2>URL 转换</h2>
+          <label>
+            输入远程文件或网页地址
+            <input
+              id="uri-input"
+              name="uri"
+              type="url"
+              placeholder="https://example.com/report.pdf"
+              required
+            />
+          </label>
+          <div class="actions">
+            <button class="primary" type="submit">转换 URL</button>
+          </div>
+        </form>
+
+        <form class="composer" id="file-form">
+          <h2>文件上传</h2>
+          <label>
+            上传本地文件并直接转换
+            <input id="file-input" name="file" type="file" required />
+          </label>
+          <div class="actions">
+            <button class="primary" type="submit">上传并转换</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>转换结果</h2>
+        <div class="meta">
+          <span class="pill" id="status-pill">等待请求</span>
+          <span class="pill" id="source-pill">来源: -</span>
+        </div>
+        <textarea id="result-output" readonly placeholder="转换后的 Markdown 会显示在这里"></textarea>
+        <div class="actions" style="margin-top: 14px;">
+          <button class="secondary" id="copy-button" type="button">复制结果</button>
+          <button class="ghost" id="download-button" type="button">下载 .md</button>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <h2>Web Convert API</h2>
+          <p>如果不想使用页面交互，也可以直接请求同域名下的转换接口。</p>
+          <span class="endpoint">/api/convert</span>
+        </article>
+        <article class="card">
+          <h2>Streamable HTTP</h2>
+          <p>适合新的 MCP 客户端，直接把服务地址指向该端点。</p>
+          <span class="endpoint">/mcp</span>
+        </article>
+        <article class="card">
+          <h2>SSE + Workdir</h2>
+          <p>兼容 SSE 调试；数据目录仍挂载到 <code>/workdir</code>。</p>
+          <span class="endpoint">/sse + file:///workdir/&lt;filename&gt;</span>
+        </article>
+      </section>
+
+      <section class="tips">
+        <article class="tip">
+          <strong>浏览器使用</strong>
+          页面会向同域名下的 <code>/api/convert</code> 发起请求，支持 JSON 和文件上传两种方式。
+        </article>
+        <article class="tip">
+          <strong>MCP 调试</strong>
+          使用 MCP Inspector 时，把服务地址设置为当前应用域名下的 <code>/mcp</code>。
+        </article>
+        <article class="tip">
+          <strong>注意事项</strong>
+          服务默认不带认证；如需公网使用，请结合上层路由或网关策略控制访问。
+        </article>
+      </section>
+    </main>
+    <script>
+      const urlForm = document.getElementById("url-form");
+      const fileForm = document.getElementById("file-form");
+      const resultOutput = document.getElementById("result-output");
+      const statusPill = document.getElementById("status-pill");
+      const sourcePill = document.getElementById("source-pill");
+      const copyButton = document.getElementById("copy-button");
+      const downloadButton = document.getElementById("download-button");
+
+      let lastFilename = "markitdown-output.md";
+
+      function setStatus(text) {
+        statusPill.textContent = text;
+      }
+
+      function setSource(text) {
+        sourcePill.textContent = `来源: ${text || "-"}`;
+      }
+
+      function showResult(payload) {
+        resultOutput.value = payload.markdown || "";
+        lastFilename = payload.filename || "markitdown-output.md";
+        setStatus("转换完成");
+        setSource(payload.source || payload.source_type || "-");
+      }
+
+      function showError(message) {
+        resultOutput.value = "";
+        setStatus("请求失败");
+        setSource(message);
+      }
+
+      async function requestConvert(options) {
+        setStatus("转换中...");
+        setSource("-");
+
+        try {
+          const response = await fetch("/api/convert", options);
+          const payload = await response.json();
+
+          if (!response.ok || !payload.ok) {
+            throw new Error(payload.error || `HTTP ${response.status}`);
+          }
+
+          showResult(payload);
+        } catch (error) {
+          showError(error.message || "Unknown error");
+        }
+      }
+
+      urlForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const uri = document.getElementById("uri-input").value.trim();
+        if (!uri) {
+          showError("请输入 URL");
+          return;
+        }
+
+        await requestConvert({
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            accept: "application/json"
+          },
+          body: JSON.stringify({ uri })
+        });
+      });
+
+      fileForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const input = document.getElementById("file-input");
+        if (!input.files || !input.files.length) {
+          showError("请选择文件");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", input.files[0]);
+
+        await requestConvert({
+          method: "POST",
+          headers: {
+            accept: "application/json"
+          },
+          body: formData
+        });
+      });
+
+      copyButton.addEventListener("click", async () => {
+        if (!resultOutput.value) {
+          return;
+        }
+
+        await navigator.clipboard.writeText(resultOutput.value);
+        setStatus("已复制到剪贴板");
+      });
+
+      downloadButton.addEventListener("click", () => {
+        if (!resultOutput.value) {
+          return;
+        }
+
+        const blob = new Blob([resultOutput.value], { type: "text/markdown;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = lastFilename;
+        link.click();
+        URL.revokeObjectURL(url);
+        setStatus("已下载 Markdown");
+      });
+    </script>
+  </body>
+</html>
