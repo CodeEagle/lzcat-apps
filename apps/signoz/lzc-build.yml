@@ -1,0 +1,5 @@
+lzc-sdk-version: '0.1'
+manifest: ./lzc-manifest.yml
+contentdir: ./content
+pkgout: ./
+icon: ./icon.png
