@@ -1,0 +1,147 @@
+{
+  "managed_by": "optimize_migration",
+  "generated_from_upstream": "waoowaooAI/waoowaoo",
+  "pinned": true,
+  "fixes": {
+    "build_strategy": "upstream_dockerfile",
+    "check_strategy": "github_release",
+    "official_image_registry": "",
+    "dockerfile_type": "custom",
+    "service_port": 3000,
+    "service_cmd": [],
+    "image_targets": [
+      "waoowaoo"
+    ],
+    "dependencies": [],
+    "precompiled_binary_url": "",
+    "service_builds": [],
+    "build_args": {},
+    "docker_platform": "",
+    "project_name": "waoowaoo",
+    "description": "(LazyCat Auto-build) AI-powered short drama and comic video production platform",
+    "license": "MIT",
+    "homepage": "https://github.com/waoowaooAI/waoowaoo",
+    "author": "waoowaoo-team",
+    "description_zh": "AI 短剧与漫画视频制作平台",
+    "application": {
+      "subdomain": "waoowaoo",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://waoowaoo:3000/"
+        }
+      ],
+      "health_check": {
+        "test_url": "http://waoowaoo:3000/api/system/boot-id",
+        "start_period": "600s",
+        "timeout": "10s"
+      }
+    },
+    "services": {
+      "mysql": {
+        "image": "registry.lazycat.cloud/invokerlaw/library/mysql:dce173d8b2ebda34",
+        "environment": [
+          "MYSQL_ROOT_PASSWORD=waoowaoo123",
+          "MYSQL_DATABASE=waoowaoo",
+          "MYSQL_ROOT_HOST=%"
+        ],
+        "binds": [
+          "/lzcapp/var/db/waoowaoo/mysql:/var/lib/mysql"
+        ],
+        "command": "--default-authentication-plugin=mysql_native_password --sql_mode=STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION",
+        "healthcheck": {
+          "test": [
+            "CMD-SHELL",
+            "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD"
+          ],
+          "interval": "10s",
+          "timeout": "5s",
+          "retries": 60,
+          "start_period": "60s",
+          "start_interval": "2s"
+        }
+      },
+      "redis": {
+        "image": "registry.lazycat.cloud/invokerlaw/library/redis:160a706bce934011",
+        "binds": [
+          "/lzcapp/var/data/waoowaoo/redis:/data"
+        ],
+        "command": "redis-server --appendonly yes",
+        "healthcheck": {
+          "test": [
+            "CMD",
+            "redis-cli",
+            "ping"
+          ],
+          "interval": "10s",
+          "timeout": "5s",
+          "retries": 20,
+          "start_period": "30s",
+          "start_interval": "2s"
+        }
+      },
+      "waoowaoo": {
+        "image": "registry.lazycat.cloud/invokerlaw/codeeagle/waoowaoo:3a19c5ae2255abea",
+        "depends_on": [
+          "mysql",
+          "redis"
+        ],
+        "environment": [
+          "DATABASE_URL=mysql://root:waoowaoo123@mysql:3306/waoowaoo",
+          "REDIS_HOST=redis",
+          "REDIS_PORT=6379",
+          "REDIS_USERNAME=",
+          "REDIS_PASSWORD=",
+          "REDIS_TLS=",
+          "STORAGE_TYPE=local",
+          "NEXTAUTH_URL=https://${LAZYCAT_APP_DOMAIN}",
+          "NEXTAUTH_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-nextauth",
+          "CRON_SECRET=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-cron",
+          "INTERNAL_TASK_TOKEN=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-task",
+          "API_ENCRYPTION_KEY=${LAZYCAT_APP_ID}-${LAZYCAT_BOX_DOMAIN}-encrypt",
+          "WATCHDOG_INTERVAL_MS=30000",
+          "TASK_HEARTBEAT_TIMEOUT_MS=90000",
+          "QUEUE_CONCURRENCY_IMAGE=50",
+          "QUEUE_CONCURRENCY_VIDEO=50",
+          "QUEUE_CONCURRENCY_VOICE=20",
+          "QUEUE_CONCURRENCY_TEXT=50",
+          "BULL_BOARD_HOST=0.0.0.0",
+          "BULL_BOARD_PORT=3010",
+          "BULL_BOARD_BASE_PATH=/admin/queues",
+          "BULL_BOARD_USER=",
+          "BULL_BOARD_PASSWORD=",
+          "LOG_UNIFIED_ENABLED=true",
+          "LOG_LEVEL=INFO",
+          "LOG_FORMAT=json",
+          "LOG_DEBUG_ENABLED=false",
+          "LOG_AUDIT_ENABLED=true",
+          "LOG_SERVICE=waoowaoo",
+          "LOG_REDACT_KEYS=password,token,apiKey,apikey,authorization,cookie,secret,access_token,refresh_token",
+          "BILLING_MODE=OFF",
+          "LLM_STREAM_EPHEMERAL_ENABLED=true",
+          "NODE_ENV=production"
+        ],
+        "binds": [
+          "/lzcapp/var/data/waoowaoo:/app/data",
+          "/lzcapp/var/log/waoowaoo:/app/logs"
+        ],
+        "command": "sh -lc ' set -e;\necho \"[Init] Waiting for dependencies...\"; node -e \" const net = require(\\\"net\\\"); const waitTcp = (host, port, timeout=60000) => new Promise((resolve, reject) => {\n  const start = Date.now();\n  const tryConnect = () => {\n    const socket = net.connect({ host, port, timeout: 5000 }, () => {\n      socket.end();\n      resolve();\n    });\n    socket.on(\\\"error\\\", () => {\n      if (Date.now() - start > timeout) {\n        reject(new Error(\\\"Timeout waiting for \\\" + host + \\\":\\\" + port));\n      } else {\n        setTimeout(tryConnect, 2000);\n      }\n    });\n  };\n  tryConnect();\n}); (async () => {\n  await waitTcp(\\\"mysql\\\", 3306);\n  console.log(\\\"[Init] MySQL ready\\\");\n  await waitTcp(\\\"redis\\\", 6379);\n  console.log(\\\"[Init] Redis ready\\\");\n})().catch(e => { console.error(e); process.exit(1); }); \";\necho \"[Init] Running database migration...\"; npx prisma db push --skip-generate --accept-data-loss || {\n  echo \"[Warning] Migration failed, checking if it is duplicate FK error...\";\n};\necho \"[Init] Starting application...\"; exec npm run start '",
+        "healthcheck": {
+          "test": [
+            "CMD-SHELL",
+            "wget -qO- http://127.0.0.1:3000/api/system/boot-id > /dev/null 2>&1 &&\necho \"Health check passed\" ||\n(echo \"Health check failed\" && exit 1)\n"
+          ],
+          "interval": "30s",
+          "timeout": "10s",
+          "retries": 10,
+          "start_period": "600s",
+          "start_interval": "5s"
+        }
+      }
+    },
+    "include_content": false
+  }
+}
