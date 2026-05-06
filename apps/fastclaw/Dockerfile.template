@@ -1,8 +1,0 @@
-FROM alpine:3.20
-
-# TODO: replace this placeholder with the real build steps for the upstream project.
-RUN apk add --no-cache bash curl
-WORKDIR /app
-COPY . /app
-EXPOSE {{SERVICE_PORT}}
-CMD ["sh", "-c", "echo \"Replace this placeholder Dockerfile before running a real build.\" >&2; sleep infinity"]
