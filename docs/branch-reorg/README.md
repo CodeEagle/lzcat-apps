@@ -36,18 +36,37 @@ the sandbox proxy and must be finished locally with `finish_cutover.sh`.
 ## Stray-branch cleanup (Phase F)
 
 After cutover, 13 leftover `codex/*`, `feature/*`, `fix/*`, and
-`lazycat/*` branches were audited:
+`lazycat/*` branches were audited and resolved:
 
-- **5 already merged** into `template` + `migration/<slug>`: deleted by
-  `cleanup_stray_branches.sh` (safe, loss-free).
+- **5 already merged** into `template` + `migration/<slug>` at cutover.
 - **1 discovered new slug** (`codex-web` from `codex/codex-web-lazycat`):
-  built `migration/codex-web`. Bringing total to 58 migration branches.
-- **7 with unique work** retained for human review (see script). Each has
-  3–24 unmerged files diff against the corresponding `migration/<slug>`.
-  Cherry-pick or PR them onto the migration branch before deleting.
-- **16 `archive/*-pre-reorg`** retained as rollback. Drop with
-  `bash docs/branch-reorg/cleanup_stray_branches.sh --drop-archives`
-  once you're confident the reorg is stable.
+  built `migration/codex-web`. Total: **58 migration branches**.
+- **3 had genuine WIP that was adopted** in Phase F follow-up:
+  - `codex/migrate-cc-connect` — full `apps/cc-connect` (v1.3.3, LazyCat
+    fork, copywriting, store-submission) adopted onto `migration/cc-connect`.
+  - `fix/app-profile-env-filter-image-state-validate` — full `apps/hermes`
+    (auto-update + hot-update-compat scripts, manifest fixes) adopted
+    onto `migration/hermes`.
+  - `codex/multica-oidc` — `patch-login-build.js` (Google icon removal)
+    merged into `migration/multica`.
+- **3 infra commits** from `codex/codex-web-lazycat` cherry-picked onto
+  `template`: `35047e8` (AgentHub dashboard takeover), `2e2da31` (build
+  metadata branch resolver), `8fe9227` (LocalAgent store search;
+  conflicts resolved by keeping fusion + dashboard work).
+- **4 confirmed obsolete** (superseded on the new `migration/<slug>`):
+  `codex/multica-schema-readiness`, `codex/htmly-build-fix`,
+  `codex/htmly-install-fix`, `codex/deer-flow-official-deploy-params`
+  (deer-flow migration is 9 versions newer).
+
+All 13 stray dev branches are now safe to delete:
+
+```bash
+bash docs/branch-reorg/cleanup_stray_branches.sh
+```
+
+`16 archive/*-pre-reorg` retained as rollback. Drop with
+`bash docs/branch-reorg/cleanup_stray_branches.sh --drop-archives`
+once you're confident the reorg is stable.
 
 ## Rollback (any time before or after cutover)
 

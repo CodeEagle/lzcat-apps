@@ -28,32 +28,28 @@ delete_if_exists() {
   fi
 }
 
-echo "==> SAFE_TO_DELETE: already merged into template + migration/<slug>"
+echo "==> SAFE_TO_DELETE: already merged or work adopted into template/migration"
 SAFE=(
+  # already merged into template at cutover
   codex/htmly-multica-startup-readiness
   codex/storayboat-landing-docs
   feature/ai-auto-migration
   fix/full-migrate-one-click-ab
   lazycat/fix-hermes-agent-bind
+
+  # WIP work adopted/cherry-picked in Phase F follow-up
+  codex/codex-web-lazycat                          # infra cherry-picks 35047e8/2e2da31/8fe9227 + migration/codex-web
+  codex/migrate-cc-connect                         # apps/cc-connect adopted onto migration/cc-connect
+  codex/multica-oidc                               # patch-login-build.js merged into migration/multica
+  fix/app-profile-env-filter-image-state-validate  # apps/hermes adopted onto migration/hermes
+
+  # WIP confirmed obsolete (superseded by newer state already on migration/<slug>)
+  codex/multica-schema-readiness
+  codex/htmly-build-fix
+  codex/htmly-install-fix
+  codex/deer-flow-official-deploy-params           # migration/deer-flow is 9 versions newer
 )
 for br in "${SAFE[@]}"; do delete_if_exists "$br"; done
-
-echo ""
-echo "==> WIP_REVIEW: NOT deleting these. Each has unique commits not yet"
-echo "    integrated into migration/<slug>. Review and either cherry-pick"
-echo "    the commits onto the migration branch, or explicitly abandon."
-cat <<'EOF'
-   codex/codex-web-lazycat                       slug: codex-web
-       (codex-web is now migration/codex-web; consider rebasing
-        codex/codex-web-lazycat onto migration/codex-web and PR-ing)
-   codex/migrate-cc-connect                      slug: cc-connect      (24 files)
-   codex/multica-oidc                            slug: multica         ( 3 files)
-   codex/multica-schema-readiness                slug: multica         (13 files)
-   codex/htmly-build-fix                         slug: htmly           ( 5 files)
-   codex/htmly-install-fix                       slug: htmly           ( 5 files)
-   codex/deer-flow-official-deploy-params        slug: deer-flow       ( 4 files)
-   fix/app-profile-env-filter-image-state-validate  slug: hermes       ( 8 files)
-EOF
 
 echo ""
 echo "==> ARCHIVE: 16 rollback snapshots retained."
