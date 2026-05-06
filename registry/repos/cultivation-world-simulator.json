@@ -1,0 +1,41 @@
+{
+  "enabled": true,
+  "upstream_repo": "4thfever/cultivation-world-simulator",
+  "check_strategy": "commit_sha",
+  "build_strategy": "upstream_dockerfile",
+  "publish_to_store": false,
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "dockerfile_type": "custom",
+  "service_port": 80,
+  "service_cmd": [],
+  "image_targets": [
+    "frontend"
+  ],
+  "dependencies": [],
+  "service_builds": [
+    {
+      "target_service": "backend",
+      "build_strategy": "upstream_dockerfile",
+      "source_dockerfile_path": "deploy/Dockerfile.backend",
+      "build_context": ".",
+      "build_args": {},
+      "image_name": "cultivation-world-simulator-backend"
+    },
+    {
+      "target_service": "frontend",
+      "build_strategy": "upstream_with_target_template",
+      "dockerfile_path": "Dockerfile.frontend.template",
+      "source_dockerfile_path": "deploy/Dockerfile.frontend",
+      "build_context": ".",
+      "overlay_paths": [
+        "nginx.default.conf.template",
+        "nginx-resolver.envsh"
+      ],
+      "build_args": {},
+      "image_name": "cultivation-world-simulator-frontend"
+    }
+  ],
+  "docker_platform": "linux/amd64",
+  "migration_status": "in_progress"
+}
