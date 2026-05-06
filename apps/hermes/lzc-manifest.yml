@@ -1,0 +1,33 @@
+application:
+  public_path:
+    - /
+  subdomain: hermes
+  upstreams:
+    -
+      backend: http://hermes:80/
+      location: /
+author: CodeEagle
+description: All-in-one LLM agent interface (hermes-manager + hermes-webui) with nginx reverse proxy, managed by supervisord.
+homepage: https://github.com/CodeEagle/hermes
+locales:
+  en:
+    description: All-in-one LLM agent interface with manager UI and web chat, supporting OpenAI, Gemini, OpenRouter and more.
+    name: Hermes
+  zh:
+    description: 集成 hermes-manager 管理面板与 hermes-webui 聊天界面的一体化 LLM 代理应用，支持 OpenAI、Gemini 等多种模型。
+    name: Hermes
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+name: Hermes
+package: fun.selfstudio.app.migration.hermes
+services:
+  hermes:
+    binds:
+      - /lzcapp/var/data/hermes:/data
+      - /lzcapp/var/data/hermes/workspace:/root/workspace
+    environment:
+      - HERMES_WEBUI_AGENT_DIR=/opt/hermes-agent
+      - BROWSER_INACTIVITY_TIMEOUT=120
+      - BROWSER_SESSION_TIMEOUT=300
+    image: registry.lazycat.cloud/placeholder/hermes:hermes
+version: 0.1.0
