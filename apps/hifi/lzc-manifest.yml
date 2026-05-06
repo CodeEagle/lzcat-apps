@@ -1,0 +1,27 @@
+application:
+  public_path:
+    - /
+  subdomain: hifi
+  upstreams:
+    -
+      backend: http://hifi:3000/
+      location: /
+author: sachinsenal0x64
+description: Tidal music integration for Subsonic/Jellyfin/Plexamp
+homepage: https://github.com/sachinsenal0x64/hifi
+license: GPL-2.0
+locales:
+  en:
+    description: Tidal music integration for Subsonic/Jellyfin/Plexamp
+    name: hifi
+  zh:
+    description: （迁移初稿）Hifi 的懒猫微服版本
+    name: hifi
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+name: hifi
+package: fun.selfstudio.app.migration.hifi
+services:
+  hifi:
+    image: registry.lazycat.cloud/placeholder/hifi:bootstrap
+version: 0.1.0
