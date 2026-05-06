@@ -1,0 +1,14 @@
+# Build output
+*.lpk
+content.tar
+upstream-src/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
