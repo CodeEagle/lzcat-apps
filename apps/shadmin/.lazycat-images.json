@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "app": "shadmin",
+  "source_version": "6996b88",
+  "build_version": "2.1.11",
+  "head_sha": "0decb1680f14",
+  "build_recipe_hash": "1fbec5dfafa36ee4b2284708541251b5813b73207bc67bc0a7a584a87c90c9db",
+  "updated_at": "2026-04-26T01:37:58.790916+00:00",
+  "images": {
+    "shadmin": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:0effdc7355326e9a"
+  },
+  "source_images": {
+    "shadmin": "ghcr.io/codeeagle/lazycatimages:shadmin_0decb1680f14"
+  },
+  "source_digests": {
+    "_primary": "sha256:e4da68518f3c05ddf0ef8317cfe9ff2b2e375b6bec24893d3c17490809a7a2fc"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:shadmin_0decb1680f14",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:0effdc7355326e9a",
+      "elapsed_seconds": 32.457,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}
