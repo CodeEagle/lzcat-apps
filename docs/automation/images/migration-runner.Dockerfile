@@ -5,10 +5,10 @@
 # Contains:
 #   - python 3.12 + repo's scripts/ requirements
 #   - docker / podman / buildah / skopeo (container engine bridge)
-#   - node 20 + npm
-#   - @lazycatcloud/lzc-cli (LazyCat CLI, installed via npm)
-#   - @anthropic-ai/claude-code (LLM repair via codex_migration_worker)
+#   - lzc-cli (LazyCat CLI)
 #   - gh (GitHub CLI for Project + repo mutations)
+#   - node 20 + npm (for migration scripts that need it)
+#   - claude-code CLI (for codex_migration_worker LLM repair)
 #
 # Multi-arch: amd64 + arm64
 
@@ -19,6 +19,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DEBIAN_FRONTEND=noninteractive \
     PATH="/root/.local/bin:/usr/local/bin:${PATH}"
 
+ARG TARGETARCH
 ARG NODE_VERSION=20
 ARG LZC_CLI_VERSION=latest
 
@@ -38,18 +39,16 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get update && apt-get install -y gh \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# ---- node + npm + claude-code + lzc-cli -------------------------------------
-# lzc-cli is distributed as @lazycatcloud/lzc-cli on npm. Pin via
-# LZC_CLI_VERSION at build time when reproducibility matters
-# (e.g. LZC_CLI_VERSION=1.4.0 → npm install -g @lazycatcloud/lzc-cli@1.4.0).
+# ---- node + npm + claude-code ----------------------------------------------
 RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
     && apt-get install -y nodejs \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
-    && LZC_PKG="@lazycatcloud/lzc-cli$([ "${LZC_CLI_VERSION}" = "latest" ] || echo @${LZC_CLI_VERSION})" \
-    && npm install -g \
-         @anthropic-ai/claude-code \
-         "${LZC_PKG}" \
-    && npm cache clean --force \
+    && npm install -g @anthropic-ai/claude-code \
+    && npm cache clean --force
+
+# ---- lzc-cli ----------------------------------------------------------------
+# Per LazyCat docs; pin via LZC_CLI_VERSION when reproducibility matters.
+RUN curl -fsSL https://lazycat.cloud/install/lzc-cli.sh | bash \
     && lzc-cli --version
 
 # ---- python deps ------------------------------------------------------------
@@ -57,8 +56,12 @@ RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
 COPY scripts/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+# Optional: pre-warm playwright browsers if scripts use them.
+# RUN python -m playwright install --with-deps chromium
+
 # ---- runtime config ---------------------------------------------------------
 WORKDIR /repo
 ENV LZCAT_RUNNER=1
 
+# Default to bash so the entrypoint can be overridden per-workflow step.
 ENTRYPOINT ["/bin/bash"]
