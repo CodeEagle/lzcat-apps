@@ -1,0 +1,33 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.hermes-webui
+version: 0.38.6
+min_os_version: 1.3.8
+name: hermes-webui
+description: Hermes WebUI
+license: MIT
+homepage: https://github.com/nesquena/hermes-webui
+author: nesquena
+application:
+  subdomain: hermes-webui
+  public_path:
+    - /
+  upstreams:
+    -
+      location: /
+      backend: http://hermes-webui:8787/
+services:
+  hermes-webui:
+    image: registry.lazycat.cloud/placeholder/hermes-webui:hermes-webui
+    environment:
+      - HERMES_WEBUI_HOST=0.0.0.0
+      - HERMES_WEBUI_PORT=8787
+      - HERMES_WEBUI_STATE_DIR=/data
+    binds:
+      - /lzcapp/var/data/hermes-webui/hermes-webui:/data
+locales:
+  en:
+    name: hermes-webui
+    description: Hermes WebUI
+  zh:
+    name: hermes-webui
+    description: （迁移初稿）Hermes Webui 的懒猫微服版本
