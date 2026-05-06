@@ -57,7 +57,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: migration/${{ inputs.slug }}
-          token: ${{ secrets.GH_PAT }}
           fetch-depth: 1
 
       - name: Configure git identity

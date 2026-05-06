@@ -43,7 +43,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: template
-          token: ${{ secrets.GH_PAT }}
           fetch-depth: 1
 
       - name: Bootstrap project board (idempotent)
