@@ -1,0 +1,57 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "0xcaff/codex-web",
+  "fixes": {
+    "project_name": "Codex Web",
+    "description": "a browser frontend for codex desktop, running on a machine you control",
+    "description_zh": "在浏览器中访问运行于懒猫微服内的 Codex 桌面桥接服务",
+    "homepage": "https://github.com/0xcaff/codex-web",
+    "license": "MIT",
+    "author": "0xcaff",
+    "package": "fun.selfstudio.app.migration.codex-web",
+    "check_strategy": "commit_sha",
+    "build_strategy": "target_repo_dockerfile",
+    "dockerfile_type": "custom",
+    "dockerfile_path": "Dockerfile",
+    "build_context": ".",
+    "docker_platform": "linux/amd64",
+    "image_targets": [
+      "codex-web"
+    ],
+    "service_port": 8214,
+    "services": {
+      "codex-web": {
+        "image": "registry.lazycat.cloud/placeholder/codex-web:bootstrap",
+        "environment": [
+          "NODE_ENV=production",
+          "HOME=/data/home",
+          "CODEX_HOME=/data/home/.codex",
+          "XDG_CACHE_HOME=/data/cache",
+          "XDG_CONFIG_HOME=/data/config",
+          "XDG_DATA_HOME=/data/share",
+          "TMPDIR=/data/tmp",
+          "CODEX_CLI_PATH=/usr/local/bin/codex"
+        ]
+      }
+    },
+    "application": {
+      "subdomain": "codex-web",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://codex-web:8214/"
+        }
+      ]
+    },
+    "startup_notes": [
+      "上游运行入口为 Node/Fastify 服务 src/server/main.ts。",
+      "默认监听 127.0.0.1:8214，LazyCat 镜像启动时改为 0.0.0.0:8214。",
+      "运行时需要 codex CLI，镜像内安装 @openai/codex@0.126.0-alpha.15。",
+      "首次使用需要在服务容器内执行 codex login --device-auth。"
+    ],
+    "include_content": false
+  }
+}
