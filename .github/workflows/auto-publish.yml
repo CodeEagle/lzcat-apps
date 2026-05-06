@@ -32,9 +32,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/codeeagle/lzcat-migration-runner:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GH_PAT }}
     timeout-minutes: 20
     env:
       SLUG: ${{ inputs.slug }}

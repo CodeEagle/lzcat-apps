@@ -33,9 +33,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/codeeagle/lzcat-migration-runner:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GH_PAT }}
       options: --privileged   # docker/podman builds need it
     timeout-minutes: 90
     env:
