@@ -29,6 +29,10 @@ concurrency:
   group: verify-${{ inputs.slug }}
   cancel-in-progress: true   # newer verify runs supersede stale ones
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   verify:
     name: verify-${{ inputs.slug }}

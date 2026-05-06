@@ -26,6 +26,10 @@ concurrency:
   group: publish-${{ inputs.slug }}
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   publish:
     name: publish-${{ inputs.slug }}

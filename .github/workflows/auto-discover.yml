@@ -50,6 +50,10 @@ concurrency:
   group: auto-discover
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   discover:
     name: discover-and-sync

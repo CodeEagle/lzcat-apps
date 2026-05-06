@@ -27,6 +27,10 @@ concurrency:
   group: auto-sla-reminder
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   reminder:
     name: sla-reminder

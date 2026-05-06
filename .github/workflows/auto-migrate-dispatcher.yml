@@ -27,6 +27,10 @@ concurrency:
   group: auto-migrate-dispatcher
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   pick-approved:
     name: pick-approved

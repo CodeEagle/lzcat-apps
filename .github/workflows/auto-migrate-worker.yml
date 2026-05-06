@@ -27,6 +27,10 @@ concurrency:
   group: migrate-${{ inputs.slug }}
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   migrate:
     name: migrate-${{ inputs.slug }}

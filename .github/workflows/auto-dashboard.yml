@@ -28,6 +28,10 @@ concurrency:
   group: auto-dashboard
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   dashboard:
     name: dashboard-daily
