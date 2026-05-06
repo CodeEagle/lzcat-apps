@@ -24,10 +24,12 @@ services:
   hermes:
     binds:
       - /lzcapp/var/data/hermes:/data
-      - /lzcapp/var/data/hermes/workspace:/root/workspace
     environment:
-      - HERMES_WEBUI_AGENT_DIR=/opt/hermes-agent
+      - CHECK_INTERVAL=1800
+      - WATCHED_REPOS=NousResearch/hermes-agent,nesquena/hermes-webui
       - BROWSER_INACTIVITY_TIMEOUT=120
       - BROWSER_SESSION_TIMEOUT=300
+      - HERMES_WEBUI_STATE_DIR=/data/webui
+      - HERMES_AGENT_GIT_IGNORE=tools/browser_tool.py
     image: registry.lazycat.cloud/placeholder/hermes:hermes
-version: 0.1.0
+version: 0.1.3
