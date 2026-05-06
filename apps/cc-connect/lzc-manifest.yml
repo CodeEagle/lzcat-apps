@@ -1,0 +1,39 @@
+application:
+  public_path:
+    - /
+  subdomain: cc-connect
+  upstreams:
+    -
+      backend: http://cc-connect:9820/
+      location: /
+    -
+      backend: http://cc-connect:9111/
+      location: /hook
+author: chenhg5
+description: Bridge local AI coding agents to messaging platforms with a built-in web admin dashboard.
+homepage: https://github.com/chenhg5/cc-connect
+license: MIT
+locales:
+  en:
+    description: Bridge local AI coding agents to messaging platforms with a built-in web admin dashboard.
+    name: cc-connect
+  zh:
+    description: 通过内置 Web 管理台把 Claude Code、Codex、Gemini CLI 等本地 Agent 接入聊天平台。
+    name: cc-connect
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+name: cc-connect
+package: fun.selfstudio.app.migration.cc-connect
+services:
+  cc-connect:
+    binds:
+      - /lzcapp/var/data/cc-connect:/data
+    environment:
+      - CC_CONNECT_DATA_DIR=/data
+      - CC_CONNECT_CONFIG=/data/config.toml
+      - HOME=/data/home
+      - XDG_CONFIG_HOME=/data/home/.config
+      - XDG_DATA_HOME=/data/home/.local/share
+      - XDG_CACHE_HOME=/data/home/.cache
+    image: registry.lazycat.cloud/placeholder/cc-connect:bootstrap
+version: 1.3.2

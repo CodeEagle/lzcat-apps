@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "app": "cc-connect",
+  "source_version": "v1.3.2",
+  "build_version": "1.3.2",
+  "head_sha": "8862be64032c",
+  "build_recipe_hash": "b75f728a57eccfdf5da38724a83482369bd2351ee12a2ecd355985787407bc00",
+  "updated_at": "2026-04-27T07:00:02.988268+00:00",
+  "images": {
+    "cc-connect": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:6e216a9c1159577d"
+  },
+  "source_images": {
+    "cc-connect": "ghcr.io/codeeagle/lazycatimages:ccConnect_8862be64032c"
+  },
+  "source_digests": {
+    "_primary": "sha256:c777797bb8fcca738f93c1a61ae547db242cb17a97e20465c6aee49480b58564"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:ccConnect_8862be64032c",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:6e216a9c1159577d",
+      "elapsed_seconds": 117.132,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}
