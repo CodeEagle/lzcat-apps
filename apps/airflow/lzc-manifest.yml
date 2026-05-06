@@ -1,0 +1,231 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.airflow
+version: 1.20.0
+min_os_version: 1.3.8
+name: Apache Airflow
+description: (LazyCat Auto-build) A platform to programmatically author, schedule, and monitor workflows
+license: Apache-2.0
+homepage: https://airflow.apache.org/
+author: Apache Software Foundation
+application:
+  subdomain: airflow
+  public_path:
+    - /
+  upstreams:
+    - location: /
+      backend: http://airflow-api-server:8080/
+  environment:
+    - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+    - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres:5432/airflow
+    - AIRFLOW__CELERY__BROKER_URL=redis://:@redis:6379/0
+    - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-api-server:8080/execution/
+    - AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK=true
+    - AIRFLOW__CORE__FERNET_KEY=sg0l2QRHbEJXYIfair8z3o2o70V6OXYCe8uSKjoOOy4=
+    - AIRFLOW__API__SECRET_KEY=8gST9AuNYfjxzu1Of59OyPsdeP3JET8uQeV3f_3KAJA=
+    - AIRFLOW_UID=50000
+services:
+  airflow-api-server:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:e26b78b51e9a7d67
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://:@redis:6379/0
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-api-server:8080/execution/
+      - AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK=true
+      - AIRFLOW__CORE__FERNET_KEY=sg0l2QRHbEJXYIfair8z3o2o70V6OXYCe8uSKjoOOy4=
+      - AIRFLOW__API__SECRET_KEY=8gST9AuNYfjxzu1Of59OyPsdeP3JET8uQeV3f_3KAJA=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW_UID=50000
+      - _AIRFLOW_WWW_USER_CREATE=true
+      - _AIRFLOW_WWW_USER_USERNAME=airflow
+      - _AIRFLOW_WWW_USER_PASSWORD=airflow
+    binds:
+      - /lzcapp/var/data/airflow/dags:/opt/airflow/dags
+      - /lzcapp/var/data/airflow/logs:/opt/airflow/logs
+      - /lzcapp/var/data/airflow/plugins:/opt/airflow/plugins
+      - /lzcapp/var/data/airflow/config:/opt/airflow/config
+    command: >-
+      bash -lc '
+      mkdir -p /opt/airflow/{logs,dags,plugins,config} &&
+      airflow db migrate &&
+      airflow users create
+      --username airflow
+      --password airflow
+      --firstname Airflow
+      --lastname Admin
+      --role Admin
+      --email airflow@example.com || true &&
+      exec airflow api-server
+      '
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/v2/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow-scheduler:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:e26b78b51e9a7d67
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://:@redis:6379/0
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-api-server:8080/execution/
+      - AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK=true
+      - AIRFLOW__CORE__FERNET_KEY=sg0l2QRHbEJXYIfair8z3o2o70V6OXYCe8uSKjoOOy4=
+      - AIRFLOW__API__SECRET_KEY=8gST9AuNYfjxzu1Of59OyPsdeP3JET8uQeV3f_3KAJA=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW_UID=50000
+    binds:
+      - /lzcapp/var/data/airflow/dags:/opt/airflow/dags
+      - /lzcapp/var/data/airflow/logs:/opt/airflow/logs
+      - /lzcapp/var/data/airflow/plugins:/opt/airflow/plugins
+      - /lzcapp/var/data/airflow/config:/opt/airflow/config
+    command: "airflow scheduler"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8974/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow-worker:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:e26b78b51e9a7d67
+    depends_on:
+      - postgres
+      - redis
+      - airflow-scheduler
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://:@redis:6379/0
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-api-server:8080/execution/
+      - AIRFLOW__CORE__FERNET_KEY=sg0l2QRHbEJXYIfair8z3o2o70V6OXYCe8uSKjoOOy4=
+      - AIRFLOW__API__SECRET_KEY=8gST9AuNYfjxzu1Of59OyPsdeP3JET8uQeV3f_3KAJA=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - DUMB_INIT_SETSID=0
+      - AIRFLOW_UID=50000
+    binds:
+      - /lzcapp/var/data/airflow/dags:/opt/airflow/dags
+      - /lzcapp/var/data/airflow/logs:/opt/airflow/logs
+      - /lzcapp/var/data/airflow/plugins:/opt/airflow/plugins
+      - /lzcapp/var/data/airflow/config:/opt/airflow/config
+    command: "airflow celery worker"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d \"celery@$$HOSTNAME\" || celery --app airflow.executors.celery_executor.app inspect ping -d \"celery@$$HOSTNAME\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow-dag-processor:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:e26b78b51e9a7d67
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://:@redis:6379/0
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-api-server:8080/execution/
+      - AIRFLOW__CORE__FERNET_KEY=sg0l2QRHbEJXYIfair8z3o2o70V6OXYCe8uSKjoOOy4=
+      - AIRFLOW__API__SECRET_KEY=8gST9AuNYfjxzu1Of59OyPsdeP3JET8uQeV3f_3KAJA=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW_UID=50000
+    binds:
+      - /lzcapp/var/data/airflow/dags:/opt/airflow/dags
+      - /lzcapp/var/data/airflow/logs:/opt/airflow/logs
+      - /lzcapp/var/data/airflow/plugins:/opt/airflow/plugins
+      - /lzcapp/var/data/airflow/config:/opt/airflow/config
+    command: "airflow dag-processor"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import json,sys,urllib.request; data=json.load(urllib.request.urlopen('http://airflow-api-server:8080/api/v2/monitor/health')); sys.exit(0 if data.get('dag_processor', {}).get('status') == 'healthy' else 1)\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow-triggerer:
+    image: registry.lazycat.cloud/invokerlaw/codeeagle/airflow:e26b78b51e9a7d67
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://:@redis:6379/0
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-api-server:8080/execution/
+      - AIRFLOW__CORE__FERNET_KEY=sg0l2QRHbEJXYIfair8z3o2o70V6OXYCe8uSKjoOOy4=
+      - AIRFLOW__API__SECRET_KEY=8gST9AuNYfjxzu1Of59OyPsdeP3JET8uQeV3f_3KAJA=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW_UID=50000
+    binds:
+      - /lzcapp/var/data/airflow/dags:/opt/airflow/dags
+      - /lzcapp/var/data/airflow/logs:/opt/airflow/logs
+      - /lzcapp/var/data/airflow/plugins:/opt/airflow/plugins
+      - /lzcapp/var/data/airflow/config:/opt/airflow/config
+    command: "airflow triggerer"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import json,sys,urllib.request; data=json.load(urllib.request.urlopen('http://airflow-api-server:8080/api/v2/monitor/health')); sys.exit(0 if data.get('triggerer', {}).get('status') == 'healthy' else 1)\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  postgres:
+    image: registry.lazycat.cloud/invokerlaw/library/postgres:c7066f661fdb4a89
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    binds:
+      - /lzcapp/var/db/airflow/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: registry.lazycat.cloud/invokerlaw/library/redis:160a706bce934011
+    binds:
+      - /lzcapp/var/data/airflow/redis:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+locales:
+  en:
+    name: Apache Airflow
+    description: (LazyCat Auto-build) A platform to programmatically author, schedule, and monitor workflows
+  zh:
+    name: Apache Airflow
+    description: （懒猫微服自动构建）以编程方式编写、调度和监控工作流的平台
