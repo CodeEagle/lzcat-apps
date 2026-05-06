@@ -1,0 +1,7 @@
+# Browser-image dependencies — minimal subset for auto-verify.yml.
+# Playwright comes from the base image (mcr.microsoft.com/playwright).
+
+PyYAML>=6.0,<7.0
+httpx>=0.27,<1.0
+requests>=2.32,<3.0
+pytest>=8.0,<10.0
