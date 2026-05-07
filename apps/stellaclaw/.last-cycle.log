@@ -35,3 +35,1215 @@ migration/stellaclaw
  create mode 100644 apps/stellaclaw/lzc-deploy-params.yml
  create mode 100644 apps/stellaclaw/lzc-manifest.yml
  create mode 100644 registry/repos/stellaclaw.json
+[1/10] 收集上游信息
+
+- 当前结论：已识别输入类型为 `github_repo`，并准备好可分析的上游材料。
+- 当前产出：source=JeremyGuo/StellaClaw; kind=github_repo; build_mode=reinstall; gh_token_source=GH_TOKEN; lzc_token_source=env:LZC_CLI_TOKEN; image_owner=CodeEagle; /tmp/lzcat-full-migrate-13vlr9gu/StellaClaw-main
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; git clone
+- 阻塞/风险：无
+- 下一步：进入 [2/10] 选择移植路线
+
+[2/10] 选择移植路线
+
+- 当前结论：已自动推断构建路线为 `upstream_with_target_template`。
+- 当前产出：slug=stellaclaw; route=upstream_with_target_template; 扫描到上游图标：apps/stellacodeX/ios/StellaCodeX/StellaCodeX/Assets.xcassets/AppIcon.appiconset/Icon-App-256x256@1x.png
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py
+- 阻塞/风险：planner override: apps/stellaclaw/Dockerfile.template already exists — using upstream_with_target_template instead of analyzed route
+- 下一步：进入 [3/10] 注册目标 app
+
+[3/10] 注册目标 app
+
+- 当前结论：目标 app 将注册为 `stellaclaw`。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/apps/stellaclaw; /__w/lzcat-apps/lzcat-apps/registry/repos/stellaclaw.json
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py
+- 阻塞/风险：目标 app 已存在时会自动覆盖当前托管文件
+- 下一步：进入 [4/10] 建立项目骨架
+
+[4/10] 建立项目骨架
+
+- 当前结论：已在 monorepo 中创建 app 目录和 registry 配置。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/apps/stellaclaw/lzc-manifest.yml; /__w/lzcat-apps/lzcat-apps/apps/stellaclaw/lzc-build.yml; /__w/lzcat-apps/lzcat-apps/apps/stellaclaw/README.md; /__w/lzcat-apps/lzcat-apps/apps/stellaclaw/UPSTREAM_DEPLOYMENT_CHECKLIST.md; /__w/lzcat-apps/lzcat-apps/apps/stellaclaw/icon.png; /__w/lzcat-apps/lzcat-apps/registry/repos/stellaclaw.json
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; scripts/bootstrap_migration.py
+- 阻塞/风险：无
+- 下一步：进入 [5/10] 编写 lzc-manifest.yml
+
+[5/10] 编写 lzc-manifest.yml
+
+- 当前结论：manifest 已按自动推断的服务拓扑、入口端口、环境变量和持久化目录生成初稿；构建后的真实镜像地址将由 .lazycat-images.json 管理。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/apps/stellaclaw/lzc-manifest.yml
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; scripts/bootstrap_migration.py
+- 阻塞/风险：planner override: apps/stellaclaw/Dockerfile.template already exists — using upstream_with_target_template instead of analyzed route
+- 下一步：进入 [6/10] 补齐剩余文件
+
+[6/10] 补齐剩余文件
+
+- 当前结论：README、build 配置、checklist 以及需要的模板文件已补齐。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/apps/stellaclaw/README.md; /__w/lzcat-apps/lzcat-apps/apps/stellaclaw/lzc-build.yml; /__w/lzcat-apps/lzcat-apps/apps/stellaclaw/UPSTREAM_DEPLOYMENT_CHECKLIST.md; /__w/lzcat-apps/lzcat-apps/apps/stellaclaw/Dockerfile
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; scripts/bootstrap_migration.py
+- 阻塞/风险：无
+- 下一步：进入 [7/10] 运行预检
+
+[git] committed: chore(stellaclaw): scaffold app via full_migrate
+[7/10] 运行预检
+
+- 当前结论：预检通过，骨架和 registry 注册已满足进入构建阶段的最低条件。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/apps/stellaclaw/lzc-manifest.yml; /__w/lzcat-apps/lzcat-apps/registry/repos/stellaclaw.json
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py
+- 阻塞/风险：无
+- 下一步：进入 [8/10] 触发并监听构建
+
+{"repo": "stellaclaw", "source_version": "v1.25.0", "build_version": "1.25.0", "update_needed": true, "check_only": false}
+[22:40:38] [stellaclaw] Update needed: 1.25.0 -> 1.25.0 (source: v1.25.0)
+[22:40:38] [stellaclaw] Phase: build_image
+[22:40:38] Cloning upstream: JeremyGuo/StellaClaw
+Cloning into '/tmp/lzcat-upstream-b46o7uxo'...
+Updating files:   0% (2/451)
+Updating files:   1% (5/451)
+Updating files:   2% (10/451)
+Updating files:   3% (14/451)
+Updating files:   4% (19/451)
+Updating files:   5% (23/451)
+Updating files:   6% (28/451)
+Updating files:   7% (32/451)
+Updating files:   8% (37/451)
+Updating files:   9% (41/451)
+Updating files:  10% (46/451)
+Updating files:  11% (50/451)
+Updating files:  12% (55/451)
+Updating files:  13% (59/451)
+Updating files:  14% (64/451)
+Updating files:  15% (68/451)
+Updating files:  16% (73/451)
+Updating files:  17% (77/451)
+Updating files:  18% (82/451)
+Updating files:  19% (86/451)
+Updating files:  20% (91/451)
+Updating files:  21% (95/451)
+Updating files:  22% (100/451)
+Updating files:  23% (104/451)
+Updating files:  24% (109/451)
+Updating files:  25% (113/451)
+Updating files:  26% (118/451)
+Updating files:  27% (122/451)
+Updating files:  28% (127/451)
+Updating files:  29% (131/451)
+Updating files:  30% (136/451)
+Updating files:  31% (140/451)
+Updating files:  32% (145/451)
+Updating files:  33% (149/451)
+Updating files:  34% (154/451)
+Updating files:  35% (158/451)
+Updating files:  36% (163/451)
+Updating files:  37% (167/451)
+Updating files:  38% (172/451)
+Updating files:  39% (176/451)
+Updating files:  40% (181/451)
+Updating files:  41% (185/451)
+Updating files:  42% (190/451)
+Updating files:  43% (194/451)
+Updating files:  44% (199/451)
+Updating files:  45% (203/451)
+Updating files:  46% (208/451)
+Updating files:  47% (212/451)
+Updating files:  48% (217/451)
+Updating files:  49% (221/451)
+Updating files:  50% (226/451)
+Updating files:  51% (231/451)
+Updating files:  52% (235/451)
+Updating files:  53% (240/451)
+Updating files:  54% (244/451)
+Updating files:  55% (249/451)
+Updating files:  56% (253/451)
+Updating files:  57% (258/451)
+Updating files:  58% (262/451)
+Updating files:  59% (267/451)
+Updating files:  60% (271/451)
+Updating files:  61% (276/451)
+Updating files:  62% (280/451)
+Updating files:  63% (285/451)
+Updating files:  64% (289/451)
+Updating files:  65% (294/451)
+Updating files:  66% (298/451)
+Updating files:  67% (303/451)
+Updating files:  68% (307/451)
+Updating files:  69% (312/451)
+Updating files:  70% (316/451)
+Updating files:  71% (321/451)
+Updating files:  72% (325/451)
+Updating files:  73% (330/451)
+Updating files:  74% (334/451)
+Updating files:  75% (339/451)
+Updating files:  76% (343/451)
+Updating files:  77% (348/451)
+Updating files:  78% (352/451)
+Updating files:  79% (357/451)
+Updating files:  80% (361/451)
+Updating files:  81% (366/451)
+Updating files:  82% (370/451)
+Updating files:  83% (375/451)
+Updating files:  84% (379/451)
+Updating files:  85% (384/451)
+Updating files:  86% (388/451)
+Updating files:  87% (393/451)
+Updating files:  88% (397/451)
+Updating files:  89% (402/451)
+Updating files:  90% (406/451)
+Updating files:  91% (411/451)
+Updating files:  92% (415/451)
+Updating files:  93% (420/451)
+Updating files:  94% (424/451)
+Updating files:  95% (429/451)
+Updating files:  96% (433/451)
+Updating files:  97% (438/451)
+Updating files:  98% (442/451)
+Updating files:  99% (447/451)
+Updating files: 100% (451/451)
+Updating files: 100% (451/451), done.
+[22:40:42] Building Docker image: ghcr.io/codeeagle/lazycatimages:stellaclaw_bfa788cbbabc
+[1/2] STEP 1/7: FROM rust:1-slim AS builder
+Resolved "rust" as an alias (/etc/containers/registries.conf.d/shortnames.conf)
+Trying to pull docker.io/library/rust:1-slim...
+Getting image source signatures
+Copying blob sha256:319daaf9025bcc95f3e1c68897fb2d07e488c6e866a6506f442ffd03f0ca94f6
+Copying blob sha256:3531af2bc2a9c8883754652783cf96207d53189db279c9637b7157d034de7ecd
+Copying config sha256:3fa2b05e991d73434e6475d6fb9ade1a1ba7a632a04b7a54c2f287d2a8a1ec21
+Writing manifest to image destination
+[1/2] STEP 2/7: ARG SOURCE_VERSION
+--> 335f6a90dcc4
+[1/2] STEP 3/7: RUN apt-get update && apt-get install -y --no-install-recommends     pkg-config     libssl-dev     && rm -rf /var/lib/apt/lists/*
+Get:1 http://deb.debian.org/debian trixie InRelease [140 kB]
+Get:2 http://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+Get:3 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
+Get:4 http://deb.debian.org/debian trixie/main amd64 Packages [9671 kB]
+Get:5 http://deb.debian.org/debian trixie-updates/main amd64 Packages [5412 B]
+Get:6 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [154 kB]
+Fetched 10.1 MB in 1s (10.7 MB/s)
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  libpkgconf3 pkgconf pkgconf-bin
+Suggested packages:
+  libssl-doc
+The following NEW packages will be installed:
+  libpkgconf3 libssl-dev pkg-config pkgconf pkgconf-bin
+0 upgraded, 5 newly installed, 0 to remove and 1 not upgraded.
+Need to get 3061 kB of archives.
+After this operation, 16.6 MB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian trixie/main amd64 libpkgconf3 amd64 1.8.1-4 [36.4 kB]
+Get:2 http://deb.debian.org/debian-security trixie-security/main amd64 libssl-dev amd64 3.5.5-1~deb13u2 [2954 kB]
+Get:3 http://deb.debian.org/debian trixie/main amd64 pkgconf-bin amd64 1.8.1-4 [30.2 kB]
+Get:4 http://deb.debian.org/debian trixie/main amd64 pkgconf amd64 1.8.1-4 [26.2 kB]
+Get:5 http://deb.debian.org/debian trixie/main amd64 pkg-config amd64 1.8.1-4 [14.0 kB]
+debconf: unable to initialize frontend: Dialog
+debconf: (TERM is not set, so the dialog frontend is not usable.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.40.1 /usr/local/share/perl/5.40.1 /usr/lib/x86_64-linux-gnu/perl5/5.40 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.40 /usr/share/perl/5.40 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8, <STDIN> line 5.)
+debconf: falling back to frontend: Teletype
+debconf: unable to initialize frontend: Teletype
+debconf: (This frontend requires a controlling tty.)
+debconf: falling back to frontend: Noninteractive
+Fetched 3061 kB in 0s (62.5 MB/s)
+Selecting previously unselected package libpkgconf3:amd64.
+(Reading database ... 
+(Reading database ... 5%
+(Reading database ... 10%
+(Reading database ... 15%
+(Reading database ... 20%
+(Reading database ... 25%
+(Reading database ... 30%
+(Reading database ... 35%
+(Reading database ... 40%
+(Reading database ... 45%
+(Reading database ... 50%
+(Reading database ... 55%
+(Reading database ... 60%
+(Reading database ... 65%
+(Reading database ... 70%
+(Reading database ... 75%
+(Reading database ... 80%
+(Reading database ... 85%
+(Reading database ... 90%
+(Reading database ... 95%
+(Reading database ... 100%
+(Reading database ... 9595 files and directories currently installed.)
+Preparing to unpack .../libpkgconf3_1.8.1-4_amd64.deb ...
+Unpacking libpkgconf3:amd64 (1.8.1-4) ...
+Selecting previously unselected package libssl-dev:amd64.
+Preparing to unpack .../libssl-dev_3.5.5-1~deb13u2_amd64.deb ...
+Unpacking libssl-dev:amd64 (3.5.5-1~deb13u2) ...
+Selecting previously unselected package pkgconf-bin.
+Preparing to unpack .../pkgconf-bin_1.8.1-4_amd64.deb ...
+Unpacking pkgconf-bin (1.8.1-4) ...
+Selecting previously unselected package pkgconf:amd64.
+Preparing to unpack .../pkgconf_1.8.1-4_amd64.deb ...
+Unpacking pkgconf:amd64 (1.8.1-4) ...
+Selecting previously unselected package pkg-config:amd64.
+Preparing to unpack .../pkg-config_1.8.1-4_amd64.deb ...
+Unpacking pkg-config:amd64 (1.8.1-4) ...
+Setting up libpkgconf3:amd64 (1.8.1-4) ...
+Setting up libssl-dev:amd64 (3.5.5-1~deb13u2) ...
+Setting up pkgconf-bin (1.8.1-4) ...
+Setting up pkgconf:amd64 (1.8.1-4) ...
+Setting up pkg-config:amd64 (1.8.1-4) ...
+Processing triggers for libc-bin (2.41-12+deb13u2) ...
+--> 075d47885aa4
+[1/2] STEP 4/7: WORKDIR /src
+--> b5f11d18e421
+[1/2] STEP 5/7: COPY . .
+--> 9fa977686718
+[1/2] STEP 6/7: RUN cargo build --workspace --release
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded byteorder v1.5.0
+  Downloaded idna_adapter v1.2.1
+  Downloaded monostate-impl v0.1.18
+  Downloaded option-ext v0.2.0
+  Downloaded strsim v0.11.1
+  Downloaded termios v0.2.2
+  Downloaded tinystr v0.8.3
+  Downloaded unit-prefix v0.5.2
+  Downloaded yoke-derive v0.8.2
+  Downloaded zune-core v0.5.1
+  Downloaded yoke v0.8.2
+  Downloaded zerovec-derive v0.11.3
+  Downloaded zune-jpeg v0.5.15
+  Downloaded unicode-width v0.2.2
+  Downloaded ureq v3.3.0
+  Downloaded tracing v0.1.44
+  Downloaded rayon v1.12.0
+  Downloaded zerocopy-derive v0.8.48
+  Downloaded tokio v1.52.1
+  Downloaded zerovec v0.11.6
+  Downloaded nix v0.25.1
+  Downloaded zerocopy v0.8.48
+  Downloaded writeable v0.6.3
+  Downloaded regex-syntax v0.8.10
+  Downloaded zerotrie v0.2.4
+  Downloaded httparse v1.10.1
+  Downloaded webpki-roots v0.26.11
+  Downloaded thiserror v2.0.18
+  Downloaded rustls v0.23.39
+  Downloaded rustix v1.1.4
+  Downloaded num_threads v0.1.7
+  Downloaded ident_case v1.0.1
+  Downloaded webpki-roots v1.0.7
+  Downloaded regex-automata v0.4.14
+  Downloaded phf_shared v0.12.1
+  Downloaded crossbeam-utils v0.8.21
+  Downloaded unicode-normalization-alignments v0.1.12
+  Downloaded itoa v1.0.18
+  Downloaded image v0.25.10
+  Downloaded tiff v0.11.3
+  Downloaded libc v0.2.185
+  Downloaded quinn-proto v0.11.14
+  Downloaded ahash v0.8.12
+  Downloaded chrono-tz v0.10.4
+  Downloaded portable-atomic v1.13.1
+  Downloaded moxcms v0.8.1
+  Downloaded pxfm v0.1.29
+  Downloaded tiktoken-rs v0.11.0
+  Downloaded block-buffer v0.10.4
+  Downloaded reqwest v0.12.28
+  Downloaded regex v1.12.3
+  Downloaded itertools v0.14.0
+  Downloaded iri-string v0.7.12
+  Downloaded idna v1.1.0
+  Downloaded syn v2.0.117
+  Downloaded iana-time-zone v0.1.65
+  Downloaded tower-http v0.6.8
+  Downloaded tokio-util v0.7.18
+  Downloaded serde_json v1.0.149
+  Downloaded pulldown-cmark v0.12.2
+  Downloaded minijinja v2.19.0
+  Downloaded tower v0.5.3
+  Downloaded png v0.18.1
+  Downloaded nom v7.1.3
+  Downloaded spm_precompiled v0.1.4
+  Downloaded memchr v2.8.0
+  Downloaded unicode-segmentation v1.13.2
+  Downloaded futures-util v0.3.32
+  Downloaded url v2.5.8
+  Downloaded rand v0.9.4
+  Downloaded rand v0.8.6
+  Downloaded mio v1.2.0
+  Downloaded minimal-lexical v0.2.1
+  Downloaded zeroize v1.8.2
+  Downloaded ureq-proto v0.6.0
+  Downloaded tokio-rustls v0.26.4
+  Downloaded serde v1.0.228
+  Downloaded icu_normalizer_data v2.2.0
+  Downloaded hyper-util v0.1.20
+  Downloaded time-core v0.1.8
+  Downloaded time v0.3.47
+  Downloaded static_assertions v1.1.0
+  Downloaded slab v0.4.12
+  Downloaded ring v0.17.14
+  Downloaded serde_derive v1.0.228
+  Downloaded serde_core v1.0.228
+  Downloaded ryu v1.0.23
+  Downloaded rustls-webpki v0.103.13
+  Downloaded quinn v0.11.9
+  Downloaded ppv-lite86 v0.2.21
+  Downloaded pin-project-lite v0.2.17
+  Downloaded parking_lot_core v0.9.12
+  Downloaded once_cell v1.21.4
+  Downloaded num-traits v0.2.19
+  Downloaded minijinja-contrib v2.19.0
+  Downloaded indicatif v0.18.4
+  Downloaded indexmap v2.14.0
+  Downloaded image-webp v0.2.4
+  Downloaded getrandom v0.2.17
+  Downloaded fdeflate v0.3.7
+  Downloaded zmij v1.0.21
+  Downloaded zerofrom-derive v0.1.7
+  Downloaded zerofrom v0.1.7
+  Downloaded xattr v1.6.1
+  Downloaded weezl v0.1.12
+  Downloaded want v0.3.1
+  Downloaded utf8-zero v0.8.1
+  Downloaded unicode_categories v0.1.1
+  Downloaded typenum v1.20.0
+  Downloaded try-lock v0.2.5
+  Downloaded tracing-core v0.1.36
+  Downloaded tokenizers v0.22.2
+  Downloaded thiserror v1.0.69
+  Downloaded socks v0.3.4
+  Downloaded siphasher v1.0.2
+  Downloaded rustversion v1.0.22
+  Downloaded rustls-pki-types v1.14.0
+  Downloaded rand_core v0.6.4
+  Downloaded rand_chacha v0.9.0
+  Downloaded rand_chacha v0.3.1
+  Downloaded quote v1.0.45
+  Downloaded quinn-udp v0.5.14
+  Downloaded proc-macro2 v1.0.106
+  Downloaded parking_lot v0.12.5
+  Downloaded miniz_oxide v0.8.9
+  Downloaded log v0.4.29
+  Downloaded litrs v1.0.0
+  Downloaded globset v0.4.18
+  Downloaded getrandom v0.3.4
+  Downloaded futures-core v0.3.32
+  Downloaded fax_derive v0.2.0
+  Downloaded esaxx-rs v0.1.10
+  Downloaded equivalent v1.0.2
+  Downloaded downcast-rs v1.2.1
+  Downloaded displaydoc v0.2.5
+  Downloaded derive_builder_core v0.20.2
+  Downloaded dary_heap v0.3.9
+  Downloaded chrono v0.4.44
+  Downloaded version_check v0.9.5
+  Downloaded v_htmlescape v0.15.8
+  Downloaded utf8_iter v1.0.4
+  Downloaded utf-8 v0.7.6
+  Downloaded untrusted v0.9.0
+  Downloaded unicode-ident v1.0.24
+  Downloaded unicase v2.9.0
+  Downloaded tungstenite v0.24.0
+  Downloaded tower-layer v0.3.3
+  Downloaded thiserror-impl v2.0.18
+  Downloaded sync_wrapper v1.0.2
+  Downloaded shlex v1.3.0
+  Downloaded shell-words v1.1.1
+  Downloaded serial-unix v0.4.0
+  Downloaded serial-core v0.4.0
+  Downloaded rayon-core v1.13.0
+  Downloaded rayon-cond v0.4.0
+  Downloaded portable-pty v0.8.1
+  Downloaded phf v0.12.1
+  Downloaded mime_guess v2.0.5
+  Downloaded jinja v0.1.1
+  Downloaded icu_properties_data v2.2.0
+  Downloaded hyper v1.9.0
+  Downloaded httpdate v1.0.3
+  Downloaded hashbrown v0.17.0
+  Downloaded h2 v0.4.13
+  Downloaded gif v0.14.2
+  Downloaded fancy-regex v0.17.0
+  Downloaded dirs-sys v0.5.0
+  Downloaded crossbeam-channel v0.5.15
+  Downloaded linux-raw-sys v0.12.1
+  Downloaded cc v1.2.60
+  Downloaded castaway v0.2.4
+  Downloaded base64 v0.22.1
+  Downloaded base64 v0.13.1
+  Downloaded tower-service v0.3.3
+  Downloaded tinyvec_macros v0.1.1
+  Downloaded tinyvec v1.11.0
+  Downloaded time-macros v0.2.27
+  Downloaded thiserror-impl v1.0.69
+  Downloaded textwrap v0.16.2
+  Downloaded tar v0.4.45
+  Downloaded synstructure v0.13.2
+  Downloaded socket2 v0.6.3
+  Downloaded serde_urlencoded v0.7.1
+  Downloaded rustc-hash v2.1.2
+  Downloaded quick-error v2.0.1
+  Downloaded pulldown-cmark-escape v0.11.0
+  Downloaded potential_utf v0.1.5
+  Downloaded num-conv v0.2.1
+  Downloaded monostate v0.1.18
+  Downloaded mime v0.3.17
+  Downloaded memo-map v0.3.3
+  Downloaded macro_rules_attribute-proc_macro v0.2.2
+  Downloaded icu_provider v2.2.0
+  Downloaded icu_normalizer v2.2.0
+  Downloaded icu_collections v2.2.0
+  Downloaded http v1.4.0
+  Downloaded hf-hub v0.5.0
+  Downloaded futures-channel v0.3.32
+  Downloaded fancy-regex v0.14.0
+  Downloaded derive_builder v0.20.2
+  Downloaded deranged v0.5.8
+  Downloaded darling v0.20.11
+  Downloaded cron v0.12.1
+  Downloaded crc32fast v1.5.0
+  Downloaded cpufeatures v0.2.17
+  Downloaded color_quant v1.1.0
+  Downloaded subtle v2.6.1
+  Downloaded stable_deref_trait v1.2.1
+  Downloaded simd-adler32 v0.3.9
+  Downloaded powerfmt v0.2.0
+  Downloaded percent-encoding v2.3.2
+  Downloaded lock_api v0.4.14
+  Downloaded ioctl-rs v0.1.6
+  Downloaded icu_properties v2.2.0
+  Downloaded http-body-util v0.1.3
+  Downloaded http-body v1.0.1
+  Downloaded generic-array v0.14.7
+  Downloaded form_urlencoded v1.2.2
+  Downloaded filetime v0.2.27
+  Downloaded dirs v6.0.0
+  Downloaded digest v0.10.7
+  Downloaded derive_builder_macro v0.20.2
+  Downloaded data-encoding v2.10.0
+  Downloaded darling_macro v0.20.11
+  Downloaded bstr v1.12.1
+  Downloaded aho-corasick v1.1.4
+  Downloaded smawk v0.3.2
+  Downloaded rustc-hash v1.1.0
+  Downloaded rand_core v0.9.5
+  Downloaded pin-utils v0.1.0
+  Downloaded paste v1.0.15
+  Downloaded macro_rules_attribute v0.2.2
+  Downloaded litemap v0.8.2
+  Downloaded lazy_static v1.5.0
+  Downloaded icu_locale_core v2.2.0
+  Downloaded futures-sink v0.3.32
+  Downloaded futures-io v0.3.32
+  Downloaded fnv v1.0.7
+  Downloaded flate2 v1.1.9
+  Downloaded find-msvc-tools v0.1.9
+  Downloaded errno v0.3.14
+  Downloaded console v0.16.3
+  Downloaded cfg_aliases v0.2.1
+  Downloaded byteorder-lite v0.1.0
+  Downloaded bitflags v2.11.1
+  Downloaded anyhow v1.0.102
+  Downloaded smallvec v1.15.1
+  Downloaded sha1 v0.10.6
+  Downloaded serial v0.4.0
+  Downloaded scopeguard v1.2.0
+  Downloaded memoffset v0.6.5
+  Downloaded lru-slab v0.1.2
+  Downloaded hyper-rustls v0.27.9
+  Downloaded half v2.7.1
+  Downloaded crypto-common v0.1.7
+  Downloaded crossbeam-epoch v0.9.18
+  Downloaded crossbeam-deque v0.8.6
+  Downloaded cookie v0.18.1
+  Downloaded compact_str v0.9.0
+  Downloaded bytes v1.11.1
+  Downloaded bytemuck v1.25.0
+  Downloaded bit-set v0.8.0
+  Downloaded ipnet v2.12.0
+  Downloaded cookie_store v0.22.1
+  Downloaded cfg-if v1.0.4
+  Downloaded bit-vec v0.8.0
+  Downloaded atomic-waker v1.1.2
+  Downloaded futures-task v0.3.32
+  Downloaded futures-macro v0.3.32
+  Downloaded filedescriptor v0.8.3
+  Downloaded fax v0.2.6
+  Downloaded either v1.15.0
+  Downloaded darling_core v0.20.11
+  Downloaded bitflags v1.3.2
+  Downloaded autocfg v1.5.0
+  Downloaded getopts v0.2.24
+  Downloaded document-features v0.2.12
+  Downloaded adler2 v2.0.1
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling libc v0.2.185
+   Compiling cfg-if v1.0.4
+   Compiling memchr v2.8.0
+   Compiling serde_core v1.0.228
+   Compiling itoa v1.0.18
+   Compiling syn v2.0.117
+   Compiling serde v1.0.228
+   Compiling bytes v1.11.1
+   Compiling zerocopy v0.8.48
+   Compiling stable_deref_trait v1.2.1
+   Compiling autocfg v1.5.0
+   Compiling once_cell v1.21.4
+   Compiling shlex v1.3.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling getrandom v0.2.17
+   Compiling cc v1.2.60
+   Compiling version_check v0.9.5
+   Compiling http v1.4.0
+   Compiling aho-corasick v1.1.4
+   Compiling ring v0.17.14
+   Compiling synstructure v0.13.2
+   Compiling log v0.4.29
+   Compiling zeroize v1.8.2
+   Compiling percent-encoding v2.3.2
+   Compiling pin-project-lite v0.2.17
+   Compiling rustls-pki-types v1.14.0
+   Compiling serde_derive v1.0.228
+   Compiling zerofrom-derive v0.1.7
+   Compiling zerofrom v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling yoke v0.8.2
+   Compiling zerocopy-derive v0.8.48
+   Compiling zerovec-derive v0.11.3
+   Compiling displaydoc v0.2.5
+   Compiling smallvec v1.15.1
+   Compiling zerovec v0.11.6
+   Compiling zmij v1.0.21
+   Compiling futures-core v0.3.32
+   Compiling httparse v1.10.1
+   Compiling crossbeam-utils v0.8.21
+   Compiling untrusted v0.9.0
+   Compiling serde_json v1.0.149
+   Compiling tinystr v0.8.3
+   Compiling socket2 v0.6.3
+   Compiling mio v1.2.0
+   Compiling rustls v0.23.39
+   Compiling writeable v0.6.3
+   Compiling litemap v0.8.2
+   Compiling getrandom v0.3.4
+   Compiling simd-adler32 v0.3.9
+   Compiling regex-syntax v0.8.10
+   Compiling crc32fast v1.5.0
+   Compiling bitflags v2.11.1
+   Compiling futures-sink v0.3.32
+   Compiling ppv-lite86 v0.2.21
+   Compiling icu_locale_core v2.2.0
+   Compiling tokio v1.52.1
+   Compiling rustls-webpki v0.103.13
+   Compiling regex-automata v0.4.14
+   Compiling potential_utf v0.1.5
+   Compiling zerotrie v0.2.4
+   Compiling generic-array v0.14.7
+   Compiling num-traits v0.2.19
+   Compiling adler2 v2.0.1
+   Compiling utf8_iter v1.0.4
+   Compiling icu_properties_data v2.2.0
+   Compiling fnv v1.0.7
+   Compiling base64 v0.22.1
+   Compiling subtle v2.6.1
+   Compiling ident_case v1.0.1
+   Compiling strsim v0.11.1
+   Compiling icu_normalizer_data v2.2.0
+   Compiling darling_core v0.20.11
+   Compiling icu_collections v2.2.0
+   Compiling miniz_oxide v0.8.9
+   Compiling icu_provider v2.2.0
+   Compiling webpki-roots v1.0.7
+   Compiling http-body v1.0.1
+   Compiling typenum v1.20.0
+   Compiling futures-task v0.3.32
+   Compiling futures-io v0.3.32
+   Compiling slab v0.4.12
+   Compiling unicase v2.9.0
+   Compiling futures-util v0.3.32
+   Compiling flate2 v1.1.9
+[22:41:42] [heartbeat] docker build ghcr.io/codeeagle/lazycatimages:stellaclaw_bfa788cbbabc still running after 60s (idle=1s, pid=16538 (ps unavailable))
+   Compiling darling_macro v0.20.11
+   Compiling crossbeam-epoch v0.9.18
+   Compiling rayon-core v1.13.0
+   Compiling tower-service v0.3.3
+   Compiling unicode-width v0.2.2
+   Compiling try-lock v0.2.5
+   Compiling thiserror v1.0.69
+   Compiling bit-vec v0.8.0
+   Compiling rustversion v1.0.22
+   Compiling v_htmlescape v0.15.8
+   Compiling bit-set v0.8.0
+   Compiling want v0.3.1
+   Compiling crossbeam-deque v0.8.6
+   Compiling icu_normalizer v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling darling v0.20.11
+   Compiling rand_core v0.9.5
+   Compiling futures-channel v0.3.32
+   Compiling thiserror-impl v1.0.69
+   Compiling tracing-core v0.1.36
+   Compiling memoffset v0.6.5
+   Compiling byteorder v1.5.0
+   Compiling ryu v1.0.23
+   Compiling hashbrown v0.17.0
+   Compiling either v1.15.0
+   Compiling atomic-waker v1.1.2
+   Compiling minimal-lexical v0.2.1
+   Compiling portable-atomic v1.13.1
+   Compiling anyhow v1.0.102
+   Compiling thiserror v2.0.18
+   Compiling equivalent v1.0.2
+   Compiling paste v1.0.15
+   Compiling indexmap v2.14.0
+   Compiling mime_guess v2.0.5
+   Compiling nom v7.1.3
+   Compiling hyper v1.9.0
+   Compiling tracing v0.1.44
+   Compiling rand_chacha v0.9.0
+   Compiling derive_builder_core v0.20.2
+   Compiling idna_adapter v1.2.1
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling sync_wrapper v1.0.2
+   Compiling thiserror-impl v2.0.18
+   Compiling fax_derive v0.2.0
+   Compiling form_urlencoded v1.2.2
+   Compiling ahash v0.8.12
+   Compiling rand_core v0.6.4
+   Compiling ioctl-rs v0.1.6
+   Compiling serial-core v0.4.0
+   Compiling termios v0.2.2
+   Compiling quick-error v2.0.1
+   Compiling esaxx-rs v0.1.10
+   Compiling zune-core v0.5.1
+   Compiling memo-map v0.3.3
+   Compiling ipnet v2.12.0
+   Compiling option-ext v0.2.0
+   Compiling tower-layer v0.3.3
+   Compiling smawk v0.3.2
+   Compiling weezl v0.1.12
+   Compiling unicode_categories v0.1.1
+   Compiling hyper-util v0.1.20
+   Compiling tower v0.5.3
+   Compiling textwrap v0.16.2
+   Compiling zune-jpeg v0.5.15
+   Compiling dirs-sys v0.5.0
+   Compiling minijinja v2.19.0
+   Compiling serial-unix v0.4.0
+   Compiling rand_chacha v0.3.1
+   Compiling fax v0.2.6
+   Compiling digest v0.10.7
+   Compiling castaway v0.2.4
+   Compiling rayon v1.12.0
+   Compiling derive_builder_macro v0.20.2
+   Compiling idna v1.1.0
+   Compiling rand v0.9.4
+   Compiling itertools v0.14.0
+   Compiling socks v0.3.4
+   Compiling console v0.16.3
+   Compiling tokio-rustls v0.26.4
+   Compiling regex v1.12.3
+   Compiling bstr v1.12.1
+   Compiling ureq-proto v0.6.0
+   Compiling half v2.7.1
+   Compiling fdeflate v0.3.7
+   Compiling monostate-impl v0.1.18
+   Compiling byteorder-lite v0.1.0
+   Compiling unit-prefix v0.5.2
+   Compiling iri-string v0.7.12
+   Compiling pxfm v0.1.29
+   Compiling cpufeatures v0.2.17
+   Compiling base64 v0.13.1
+   Compiling num-conv v0.2.1
+   Compiling pin-utils v0.1.0
+   Compiling utf8-zero v0.8.1
+   Compiling rustix v1.1.4
+   Compiling static_assertions v1.1.0
+   Compiling macro_rules_attribute-proc_macro v0.2.2
+   Compiling color_quant v1.1.0
+   Compiling powerfmt v0.2.0
+   Compiling unicode-segmentation v1.13.2
+   Compiling mime v0.3.17
+   Compiling bitflags v1.3.2
+   Compiling time-core v0.1.8
+   Compiling time-macros v0.2.27
+   Compiling nix v0.25.1
+   Compiling moxcms v0.8.1
+   Compiling spm_precompiled v0.1.4
+   Compiling deranged v0.5.8
+   Compiling tower-http v0.6.8
+   Compiling gif v0.14.2
+   Compiling macro_rules_attribute v0.2.2
+   Compiling compact_str v0.9.0
+   Compiling ureq v3.3.0
+   Compiling sha1 v0.10.6
+   Compiling indicatif v0.18.4
+   Compiling image-webp v0.2.4
+   Compiling monostate v0.1.18
+   Compiling png v0.18.1
+   Compiling tiff v0.11.3
+   Compiling rayon-cond v0.4.0
+   Compiling hyper-rustls v0.27.9
+   Compiling minijinja-contrib v2.19.0
+   Compiling url v2.5.8
+   Compiling derive_builder v0.20.2
+   Compiling rand v0.8.6
+   Compiling serial v0.4.0
+   Compiling dirs v6.0.0
+   Compiling serde_urlencoded v0.7.1
+   Compiling filedescriptor v0.8.3
+   Compiling fancy-regex v0.17.0
+   Compiling fancy-regex v0.14.0
+   Compiling http-body-util v0.1.3
+   Compiling webpki-roots v0.26.11
+   Compiling unicode-normalization-alignments v0.1.12
+   Compiling dary_heap v0.3.9
+   Compiling bytemuck v1.25.0
+   Compiling linux-raw-sys v0.12.1
+   Compiling utf-8 v0.7.6
+   Compiling num_threads v0.1.7
+   Compiling siphasher v1.0.2
+   Compiling downcast-rs v1.2.1
+   Compiling iana-time-zone v0.1.65
+   Compiling lazy_static v1.5.0
+   Compiling data-encoding v2.10.0
+   Compiling shell-words v1.1.1
+   Compiling rustc-hash v1.1.0
+   Compiling tiktoken-rs v0.11.0
+   Compiling time v0.3.47
+   Compiling portable-pty v0.8.1
+   Compiling tungstenite v0.24.0
+   Compiling chrono v0.4.44
+   Compiling phf_shared v0.12.1
+[22:42:45] [heartbeat] docker build ghcr.io/codeeagle/lazycatimages:stellaclaw_bfa788cbbabc still running after 123s (idle=1s, pid=16538 (ps unavailable))
+   Compiling image v0.25.10
+   Compiling tokenizers v0.22.2
+   Compiling reqwest v0.12.28
+   Compiling hf-hub v0.5.0
+   Compiling jinja v0.1.1
+   Compiling globset v0.4.18
+   Compiling crossbeam-channel v0.5.15
+   Compiling chrono-tz v0.10.4
+   Compiling pulldown-cmark v0.12.2
+   Compiling stellaclaw_core v1.0.2 (/src/core)
+   Compiling xattr v1.6.1
+   Compiling phf v0.12.1
+   Compiling getopts v0.2.24
+   Compiling filetime v0.2.27
+   Compiling pulldown-cmark-escape v0.11.0
+   Compiling tar v0.4.45
+   Compiling cron v0.12.1
+[22:43:45] [heartbeat] docker build ghcr.io/codeeagle/lazycatimages:stellaclaw_bfa788cbbabc still running after 183s (idle=23s, pid=16538 (ps unavailable))
+   Compiling agent_server v1.0.2 (/src/agent_server)
+   Compiling stellaclaw v1.0.2 (/src/stellaclaw)
+    Finished `release` profile [optimized] target(s) in 3m 09s
+--> b3d16a13826b
+[1/2] STEP 7/7: RUN <<'ENDCONFIG' tee /tmp/config.json ({...)
+{
+  "version": "0.12",
+  "agent_server": {
+    "path": "/app/agent_server"
+  },
+  "models": {},
+  "available_agent_models": [],
+  "session_defaults": {
+    "compression_threshold_tokens": 180000,
+    "compression_retain_recent_tokens": 18000
+  },
+  "memory": {
+    "enabled": false
+  },
+  "sandbox": {
+    "mode": "none"
+  },
+  "channels": [
+    {
+      "kind": "web",
+      "id": "web-main",
+      "bind_addr": "0.0.0.0:80",
+      "token_env": "STELLACLAW_WEB_TOKEN"
+    }
+  ]
+}
+--> 0c2d4851bc9b
+[2/2] STEP 1/11: FROM debian:bookworm-slim
+[2/2] STEP 2/11: RUN apt-get update && apt-get install -y --no-install-recommends     ca-certificates     libssl3     && rm -rf /var/lib/apt/lists/*
+Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [48.0 kB]
+Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8792 kB]
+Get:5 http://deb.debian.org/debian bookworm-updates/main amd64 Packages [6924 B]
+Get:6 http://deb.debian.org/debian-security bookworm-security/main amd64 Packages [299 kB]
+Fetched 9352 kB in 1s (7935 kB/s)
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  openssl
+The following NEW packages will be installed:
+  ca-certificates libssl3 openssl
+0 upgraded, 3 newly installed, 0 to remove and 0 not upgraded.
+Need to get 3622 kB of archives.
+After this operation, 8933 kB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian-security bookworm-security/main amd64 libssl3 amd64 3.0.19-1~deb12u2 [2032 kB]
+Get:2 http://deb.debian.org/debian-security bookworm-security/main amd64 openssl amd64 3.0.19-1~deb12u2 [1435 kB]
+Get:3 http://deb.debian.org/debian bookworm/main amd64 ca-certificates all 20230311+deb12u1 [155 kB]
+debconf: delaying package configuration, since apt-utils is not installed
+Fetched 3622 kB in 0s (70.4 MB/s)
+Selecting previously unselected package libssl3:amd64.
+(Reading database ... 
+(Reading database ... 5%
+(Reading database ... 10%
+(Reading database ... 15%
+(Reading database ... 20%
+(Reading database ... 25%
+(Reading database ... 30%
+(Reading database ... 35%
+(Reading database ... 40%
+(Reading database ... 45%
+(Reading database ... 50%
+(Reading database ... 55%
+(Reading database ... 60%
+(Reading database ... 65%
+(Reading database ... 70%
+(Reading database ... 75%
+(Reading database ... 80%
+(Reading database ... 85%
+(Reading database ... 90%
+(Reading database ... 95%
+(Reading database ... 100%
+(Reading database ... 6096 files and directories currently installed.)
+Preparing to unpack .../libssl3_3.0.19-1~deb12u2_amd64.deb ...
+Unpacking libssl3:amd64 (3.0.19-1~deb12u2) ...
+Selecting previously unselected package openssl.
+Preparing to unpack .../openssl_3.0.19-1~deb12u2_amd64.deb ...
+Unpacking openssl (3.0.19-1~deb12u2) ...
+Selecting previously unselected package ca-certificates.
+Preparing to unpack .../ca-certificates_20230311+deb12u1_all.deb ...
+Unpacking ca-certificates (20230311+deb12u1) ...
+Setting up libssl3:amd64 (3.0.19-1~deb12u2) ...
+Setting up openssl (3.0.19-1~deb12u2) ...
+Setting up ca-certificates (20230311+deb12u1) ...
+debconf: unable to initialize frontend: Dialog
+debconf: (TERM is not set, so the dialog frontend is not usable.)
+debconf: falling back to frontend: Readline
+debconf: unable to initialize frontend: Readline
+debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.36.0 /usr/local/share/perl/5.36.0 /usr/lib/x86_64-linux-gnu/perl5/5.36 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.36 /usr/share/perl/5.36 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7.)
+debconf: falling back to frontend: Teletype
+Updating certificates in /etc/ssl/certs...
+142 added, 0 removed; done.
+Processing triggers for libc-bin (2.36-9+deb12u13) ...
+Processing triggers for ca-certificates (20230311+deb12u1) ...
+Updating certificates in /etc/ssl/certs...
+0 added, 0 removed; done.
+Running hooks in /etc/ca-certificates/update.d...
+done.
+[22:44:47] [heartbeat] docker build ghcr.io/codeeagle/lazycatimages:stellaclaw_bfa788cbbabc still running after 245s (idle=1s, pid=16538 (ps unavailable))
+--> 901022c91f86
+[2/2] STEP 3/11: RUN mkdir -p /app /workdir
+--> cdba11491223
+[2/2] STEP 4/11: COPY --from=builder /src/target/release/stellaclaw /app/stellaclaw
+--> 42dab41435fb
+[2/2] STEP 5/11: COPY --from=builder /src/target/release/agent_server /app/agent_server
+--> ee2914d5557c
+[2/2] STEP 6/11: COPY --from=builder /tmp/config.json /app/config.json
+--> 259783ea1266
+[2/2] STEP 7/11: EXPOSE 80
+--> 942fe5244a54
+[2/2] STEP 8/11: ENV STELLACLAW_WORKDIR=/workdir
+--> d258a39f2add
+[2/2] STEP 9/11: ENTRYPOINT ["/app/stellaclaw"]
+--> da3c3d343261
+[2/2] STEP 10/11: CMD ["--config", "/app/config.json", "--workdir", "/workdir"]
+--> c05d58f2b924
+[2/2] STEP 11/11: LABEL "org.opencontainers.image.source"="https://github.com/CodeEagle/lzcat-apps"
+[2/2] COMMIT ghcr.io/codeeagle/lazycatimages:stellaclaw_bfa788cbbabc
+--> 282f0db9f1fe
+[Warning] one or more build args were not consumed: [BUILD_VERSION]
+Successfully tagged ghcr.io/codeeagle/lazycatimages:stellaclaw_bfa788cbbabc
+282f0db9f1fe6d3ea50cca6f00dc51f575d180431595eef65ff69b84dbb1dce8
+[22:44:57] Pushing Docker image: ghcr.io/codeeagle/lazycatimages:stellaclaw_bfa788cbbabc
+Getting image source signatures
+Copying blob sha256:96ae5676f9117e85a333cd844eb24c0eb8c41cbd82ffa5adb62365f7738a092b
+Copying blob sha256:0da811fd3ed46c38cea69079fa395a3d715dbdbdd5c8177107c450bf6332bbfa
+Copying blob sha256:d1377534d6131e117288dd32b6a7eb272cf4b43a0cde3fc6705d3f679be5083b
+Copying blob sha256:df94b5ea92788ec55405b7be953288841a2e97e26465d32db533164c4ddf9b06
+Copying blob sha256:2632259cbc7796062f6bedb5feaeb4cf678816499261ee80614a8cd3ae9e425e
+Copying blob sha256:65a512591b02aaa314eeaa8c2314b67f042457e44f04a27ffe9c180b3ef44031
+Copying config sha256:282f0db9f1fe6d3ea50cca6f00dc51f575d180431595eef65ff69b84dbb1dce8
+Writing manifest to image destination
+[22:45:01] [stellaclaw] Phase: copy_image
+[22:45:04] Copying image to LazyCat registry: ghcr.io/codeeagle/lazycatimages:stellaclaw_bfa788cbbabc
+registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:3b3eb223d1c73800
+[22:45:45] [copy-image] Completed in 41.6s: ghcr.io/codeeagle/lazycatimages:stellaclaw_bfa788cbbabc -> registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:3b3eb223d1c73800
+[22:45:45] [stellaclaw] Phase: package (lzc-cli project build from temporary manifest)
+Build config: /tmp/lzcat-artifacts-_yzksjq2/package-workspace/lzc-build.yml
+[lint] Unknown manifest fields detected: `lzc-sdk-version`. Please confirm whether they take effect.
+[lint] Top-level static package fields in lzc-manifest.yml are a legacy LPK v1 layout. Move `package`, `version`, `name`, `description`, `author`, `homepage`, `min_os_version`, `locales` to package.yml for LPK v2.
+跳过执行 buildscript
+跳过拷贝 contentdir 内容
+Building legacy LPK v1 metadata layout. Run "lzc-cli migrate" to move static package fields into package.yml.
+输出lpk包 /tmp/lzcat-artifacts-_yzksjq2/stellaclaw.lpk
+[22:45:46] [stellaclaw] lpk saved to: /__w/lzcat-apps/lzcat-apps/dist/stellaclaw.lpk
+[22:45:46] [stellaclaw] Phase: publish_artifact -> CodeEagle/lzcat-artifacts
+[22:45:49] [stellaclaw] Phase: commit_target_repo
+[22:45:49] [stellaclaw] Working tree is dirty; skipping git pull/push
+[22:45:49] [stellaclaw] Build completed successfully: v1.25.0
+[8/10] 触发并监听构建
+
+- 当前结论：本地构建命令执行成功。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/dist/stellaclaw.lpk; /__w/lzcat-apps/lzcat-apps/apps/stellaclaw/.lazycat-images.json
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; scripts/run_build.py
+- 阻塞/风险：无
+- 下一步：进入 [9/10] 下载并核对 .lpk
+
+[9/10] 下载并核对 .lpk
+
+- 当前结论：已拿到本地构建产物并完成基本核对。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/dist/stellaclaw.lpk (sha256=9c88f757a56fe42d5ff4189acb6b73e06c333ac941057275f6224930bea938da)
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; scripts/run_build.py
+- 阻塞/风险：无
+- 下一步：进入 [10/10] 安装验收并复盘
+
+[10/10] 安装验收并复盘
+
+- 当前结论：已执行安装命令，并完成一次基础状态查询。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/dist/stellaclaw.lpk; package=fun.selfstudio.app.migration.stellaclaw; status=无输出
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; scripts/run_build.py; lzc-cli app status
+- 阻塞/风险：无
+- 下一步：完成
+
+{
+  "browser_recheck": [],
+  "codex_worker": [
+    {
+      "id": "github:tobocop2/lilbee",
+      "returncode": 0,
+      "status": "installed"
+    }
+  ],
+  "commands": [
+    {
+      "command": [
+        "python3",
+        "scripts/status_sync.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps"
+      ],
+      "returncode": 1
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/scout.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "scan",
+        "--limit",
+        "50"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/codex_migration_worker.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "--queue-path",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/queue.json",
+        "--task-root",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks",
+        "--outbox-dir",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications",
+        "--item-json",
+        "{\"attempts\": 0, \"branch\": \"migration/stellaclaw\", \"candidate\": {\"description\": \"🦀 A self-hosted, multi-agent service framework built in Rust. Agents as services, not scripts.\", \"external_signal\": \"\", \"external_url\": \"\", \"full_name\": \"JeremyGuo/StellaClaw\", \"language\": \"Rust\", \"last_checked_at\": \"2026-05-06T17:24:32Z\", \"lazycat_hits\": [], \"owner\": \"JeremyGuo\", \"repo\": \"StellaClaw\", \"repo_url\": \"https://github.com/JeremyGuo/StellaClaw\", \"searches\": [{\"result_count\": 0, \"search_url\": \"https://lazycat.cloud/appstore/search?keyword=StellaClaw\", \"term\": \"StellaClaw\"}], \"source_labels\": [\"GitHub Search Self-hosted\"], \"sources\": [\"github_search_self_hosted_recent\"], \"stars_today\": 0, \"status\": \"portable\", \"status_reason\": \"No matching app found in LazyCat app store search.\", \"total_stars\": 10}, \"candidate_status\": \"needs_review\", \"codex\": {\"attempts\": 1, \"last_returncode\": 0, \"last_run_at\": \"2026-05-06T23:51:29Z\", \"last_status\": \"ready\", \"last_task_dir\": \"/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260506T235942Z-github-jeremyguo-stellaclaw\", \"session_id\": \"4031b114-d2fe-4202-901a-f19642ffad08\"}, \"created_at\": \"2026-05-06T17:24:31Z\", \"discovery_review\": {\"codex_attempts\": 0, \"created_at\": \"2026-05-07T07:34:19Z\", \"evidence\": [\"Root has run.sh + graceful_restart.sh + restart_with_web.sh\", \"agent_host/ + agent_server/ + apps/ subdirs (multi-service runtime)\", \"Cargo.toml + Cargo.lock + VERSION (real Rust binary)\", \"README explicitly: 'Agents as services, not scripts'\"], \"prompt\": \"Re-evaluate this LazyCat candidate under the new (more permissive) discovery prompt. Old verdict was: ai_discovery_skip.\\n上游：JeremyGuo/StellaClaw\\n仓库：https://github.com/JeremyGuo/StellaClaw\\n请按新规则重新判断 migrate / skip / needs_human 并给分。\", \"reason\": \"StellaClaw is a self-hosted multi-agent SERVICE framework — Rust binaries with agent_host/, agent_server/, run.sh / restart_with_web.sh confirm it is a deployable runtime, not a naked SDK.\", \"reviewed_at\": \"2026-05-07T10:17:06Z\", \"reviewer\": \"claude\", \"score\": 0.85, \"status\": \"migrate\"}, \"github_issue_number\": 246, \"id\": \"github:jeremyguo/stellaclaw\", \"resurrected_at\": \"2026-05-07T07:34:19Z\", \"resurrected_from_reason\": \"ai_discovery_skip\", \"slug\": \"stellaclaw\", \"source\": \"JeremyGuo/StellaClaw\", \"state\": \"ready\", \"state_history\": [{\"from\": \"discovery_review\", \"reason\": \"manual E2E promote: AI prompt overhaul + source-code signals + license=null override (operator approved despite missing LICENSE for E2E test)\", \"source\": \"operator.manual_promote\", \"to\": \"ready\", \"ts\": \"2026-05-07T10:12:51Z\"}, {\"from\": \"ready\", \"reason\": \"manual E2E promote: prove the worker chain end-to-end despite license=null and missing Dockerfile\", \"source\": \"operator.manual_promote\", \"to\": \"ready\", \"ts\": \"2026-05-07T10:17:06Z\"}, {\"from\": \"ready\", \"reason\": \"manual E2E re-promote: select-with-target fix in place; planner needs another shot\", \"source\": \"operator.manual_promote\", \"to\": \"ready\", \"ts\": \"2026-05-07T12:37:56Z\"}], \"state_history_posted_count\": 3, \"updated_at\": \"2026-05-07T12:37:56Z\", \"workspace_path\": \"/__w/lzcat-apps/lzcat-apps\"}",
+        "--mode",
+        "planning",
+        "--model",
+        "claude-sonnet-4-6"
+      ],
+      "phase": "planning",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/auto_migrate.py",
+        "JeremyGuo/StellaClaw",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "--build-mode",
+        "reinstall",
+        "--resume",
+        "--commit-scaffold",
+        "--allow-existing"
+      ],
+      "phase": "build",
+      "returncode": 0
+    }
+  ],
+  "discord_replies": [],
+  "discovery_gate": [
+    {
+      "id": "github:flirexa/flirexa",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:rish-1997/wsl-assistant",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:a10011101/install-openclaw-site",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:eratolab/erato",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:shawnmccool/scry-2",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:papi-ux/polaris",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:baldidon/vaultwarden-s3-backup",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:bacteriafield/r2-s3",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:scobru/shogun-tunecamp",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:1backend/1backend",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:eloylp/agents",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:karnstack/tempo",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:joaolucas07ads/pizzaria-pizzu",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:dustaris/wd-card-shop-dashboard",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:wtfalch/ci-templates",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:atomadictech/atomadic-forge",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:howladerasifvopjwhc/eth-wallet-diversifier",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:bolividob/bibkreyol-comments-data",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:fuzzdot/harvest",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:salasoliva27/nutria-app-dev",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:salasoliva27/lool-ai-dev",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:mrprincewithlove/ping-server",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:thatbearalpha/thatbearalpha.github.io",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:microservice-alex-carlos-lucas/microservices",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:brunoricelly/casa-dantas",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:jonathanperis/rinha4-back-end-dotnet",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:nass3344/trello-like-api",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    }
+  ],
+  "discovery_reviewer": [],
+  "local_agent": {
+    "status": "disabled"
+  },
+  "local_agent_commands": [],
+  "migration": {
+    "returncode": 0,
+    "status": "installed"
+  },
+  "post_acceptance": [],
+  "selected": "github:jeremyguo/stellaclaw",
+  "started_at": "2026-05-07T22:00:52Z"
+}
