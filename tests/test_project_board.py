@@ -776,6 +776,64 @@ class ReadUpdateUpsertArchiveTest(unittest.TestCase):
         self.assertEqual(json.loads(buf.getvalue())["archived"], True)
 
 
+class RenderCardBodyTest(unittest.TestCase):
+    def test_renders_markdown_with_full_audit_chain(self) -> None:
+        body = project_board.render_card_body({
+            "id": "github:owner/demo",
+            "slug": "demo",
+            "source": "owner/demo",
+            "candidate": {
+                "repo_url": "https://github.com/owner/demo",
+                "description": "Self-hosted memes",
+                "language": "Python",
+                "total_stars": 1234,
+                "first_seen_at": "2026-04-01T10:00:00Z",
+                "lazycat_hits": [
+                    {"raw_label": "Memes Pro 12", "detail_url": "https://lazycat.cloud/appstore/detail/x"},
+                    {"raw_label": "Other 3", "detail_url": "https://lazycat.cloud/appstore/detail/y"},
+                ],
+                "source_labels": ["GitHub Trending Daily", "Awesome Self-Hosted"],
+            },
+            "discovery_review": {
+                "status": "migrate",
+                "score": 0.91,
+                "reviewer": "claude",
+                "reason": "Real self-hosted web service with active maintenance.",
+                "evidence": ["docker-compose.yml present", "README has install steps"],
+                "reviewed_at": "2026-04-15T08:00:00Z",
+            },
+            "last_error": "",
+        })
+        self.assertIn("# `demo`", body)
+        self.assertIn("https://github.com/owner/demo", body)
+        self.assertIn("Self-hosted memes", body)
+        self.assertIn("Stars: 1234", body)
+        self.assertIn("Discovered: 2026-04-01", body)
+        self.assertIn("Reviewed: 2026-04-15", body)
+        self.assertIn("`migrate`", body)
+        self.assertIn("score **0.91**", body)
+        self.assertIn("docker-compose.yml present", body)
+        self.assertIn("[Memes Pro 12](https://lazycat.cloud/appstore/detail/x)", body)
+        self.assertIn("Discovered via**: GitHub Trending Daily, Awesome Self-Hosted", body)
+
+    def test_renders_minimal_body_when_only_slug_known(self) -> None:
+        body = project_board.render_card_body({"slug": "tiny", "candidate": {}})
+        self.assertIn("# `tiny`", body)
+        # No AI verdict / store-hits / errors → those sections must be absent.
+        self.assertNotIn("## AI verdict", body)
+        self.assertNotIn("## LazyCat App Store", body)
+        self.assertNotIn("## Last error", body)
+
+    def test_renders_last_error_block_when_set(self) -> None:
+        body = project_board.render_card_body({
+            "slug": "broken",
+            "candidate": {},
+            "last_error": "build_failed: Dockerfile syntax error at line 42",
+        })
+        self.assertIn("## Last error", body)
+        self.assertIn("Dockerfile syntax error", body)
+
+
 class ConfigHelpersTest(unittest.TestCase):
     def test_auto_approve_threshold_falls_back_to_default(self) -> None:
         self.assertEqual(project_board.auto_approve_threshold({}), project_board.DEFAULT_AUTO_APPROVE_THRESHOLD)
