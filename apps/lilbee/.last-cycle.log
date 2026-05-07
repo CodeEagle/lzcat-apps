@@ -1,16 +1,16 @@
 migration/lilbee
 {
-  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T192638Z-github-tobocop2-lilbee.md",
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T195948Z-github-tobocop2-lilbee.md",
   "resumed": false,
   "returncode": 0,
-  "session_id": "ff902f28-274a-4999-b751-959e84219b53",
+  "session_id": "1fa73e77-d518-49a4-8708-e5af1887d534",
   "status": "completed",
-  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T192638Z-github-tobocop2-lilbee"
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T195948Z-github-tobocop2-lilbee"
 }
 obscura binary not found in PATH
 /__w/lzcat-apps/lzcat-apps/registry/candidates/latest.json
-/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T194803Z.jsonl
-{"already_migrated_count": 3, "candidate_count": 50, "counts_by_status": {"already_migrated": 3, "excluded": 2, "needs_review": 29, "portable": 16}, "excluded_count": 2, "generated_at": "2026-05-07T19:48:03Z", "needs_review_count": 29, "portable_count": 16}
+/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T201111Z.jsonl
+{"already_migrated_count": 2, "candidate_count": 50, "counts_by_status": {"already_migrated": 2, "excluded": 3, "needs_review": 25, "portable": 20}, "excluded_count": 3, "generated_at": "2026-05-07T20:11:11Z", "needs_review_count": 25, "portable_count": 20}
 {
   "browser_recheck": [],
   "codex_worker": [
@@ -46,157 +46,117 @@ obscura binary not found in PATH
   "discord_replies": [],
   "discovery_gate": [
     {
-      "id": "github:zeiraxgaming/captainslog-whisper",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:codecentric/c4-genai-suite",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:lucassteffenon/easy-deck",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:codewithcj/sparkyfitness",
-      "reason": "candidate_already_migrated",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:thirdyy2/ai-sign-language-translator",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:tobysuch/shifter",
-      "reason": "candidate_already_migrated",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:tbettles-code/integra-dd-data",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:dforwardfeed/hermes-agent-template-ee9c",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:amaryshchenko/project-sp",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:misabvarikkappulakkal-cpu/linux-basics",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:mrshelby0/web-learning",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:taimallccr/ccr",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:ameliaeric/homie",
-      "reason": "candidate_already_migrated",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:ali4441/ai-spend-audit",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:laotraoficial2026-beep/ai-edge-lab-vvc",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:khlanmyk/ai-agents",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:lekingo/stores-rest-api",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:pokem0n2/aotenjo-mahjong",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:25521836-lang/btth4_oop",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:danya120o3/processhacker-mcp",
+      "id": "github:straight-scalar733/shareflow-kvm",
       "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
-      "id": "github:atraditii-ship-it/winmentor-dashboard",
+      "id": "github:jdpangilinan02/family-book",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:elkrun26/yt-to-mp4",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:davidgoudy8-debug/git-tutorial",
+      "id": "github:birdofparadisecallin337/ni-mail",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:jamf-concepts/jamf-cli",
+      "id": "github:significant-mi454/n2-qln",
       "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
-      "id": "github:xnxjodbcopwamlqp/solidity-access-control",
+      "id": "github:acoseac/1-bit-bridge",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:djemism/portfolio",
+      "id": "github:kacper7011/homelab-platform",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:tekdi/survey",
+      "id": "github:sweetmeats83/memories",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:gabriel-mori/gabriel-mori",
+      "id": "github:thtopher/th-fleet-dashboard",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:digital-analytics-program/gov-wide-code",
+      "id": "github:chriscantu/claude-config",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:elmundiua/ship",
+      "id": "github:necromantic-piedmont947/jido_claw",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:tinaudio/synth-setter",
+      "id": "github:jeremyqapace/pacemate-qa-web20-dashboard",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:oleksii21th/book-management-system",
+      "id": "github:darkfrothlazydweqn/dapp-wallet-modal",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:name02358/trendradar",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:bashbunni/load-balancer",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:osmanbeyoglulab/gbm_data_v2",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:kooreshok/trend",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:flora131/atomic",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:asifmuzammil/desi_devops",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:rebeccaforever1/sales_pipeline",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:mk-knight23/ai-sdk-crewai",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:janmikes/fajnesklady.cz",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ddelorez/docsearch-frontend",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     }
@@ -211,5 +171,5 @@ obscura binary not found in PATH
   },
   "post_acceptance": [],
   "selected": null,
-  "started_at": "2026-05-07T19:26:38Z"
+  "started_at": "2026-05-07T19:59:48Z"
 }
