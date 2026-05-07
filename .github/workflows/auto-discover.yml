@@ -91,6 +91,7 @@ jobs:
           set -euo pipefail
           ARGS=(
             --once
+            --limit 500
             --max-migrations-per-cycle 0
             --max-discovery-reviews-per-cycle 8
             --no-env-file
