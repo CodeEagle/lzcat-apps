@@ -87,6 +87,14 @@ FIELD_SCHEMA: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
     ("last_run", "Last Run", "DATE", ()),
     ("failures", "Failures", "TEXT", ()),
     ("codex_attempts", "Codex Attempts", "NUMBER", ()),
+    # Audit / context fields requested by operator. Filled by sync from
+    # queue.json so each card carries enough info that you don't need to
+    # cross-reference queue.json or the ai-reviews.jsonl audit log just to
+    # decide what's going on.
+    ("discovered", "Discovered", "DATE", ()),     # when scout first saw the repo
+    ("reviewed", "Reviewed", "DATE", ()),         # when AI last reached a verdict
+    ("reasoning", "Reasoning", "TEXT", ()),       # AI verdict + top evidence (truncated)
+    ("store_hits", "Store Hits", "TEXT", ()),     # lazycat app-store search summary
 )
 
 TERMINAL_STATUSES = {"Published", "Filtered"}
@@ -255,6 +263,88 @@ def queue_item_upstream(item: dict[str, Any]) -> str:
 def queue_item_strategy(item: dict[str, Any]) -> str:
     candidate = item.get("candidate") if isinstance(item.get("candidate"), dict) else {}
     return str(candidate.get("build_strategy") or item.get("build_strategy") or "").strip()
+
+
+# ---- card-enrichment helpers --------------------------------------------------
+# These extract the audit context (when found, when AI judged, AI reasoning,
+# store-search hits) that goes onto each Project card. Plain-text values get
+# truncated to keep card payloads under GitHub's per-field limits.
+
+_TEXT_FIELD_LIMIT = 800   # GitHub Projects v2 single text field limit ~1024; leave headroom
+
+
+def _truncate(text: str, limit: int = _TEXT_FIELD_LIMIT) -> str:
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
+
+
+def _iso_to_date(value: Any) -> str:
+    """Coerce an ISO timestamp / date string to YYYY-MM-DD."""
+    if not isinstance(value, str):
+        return ""
+    s = value.strip()
+    if not s:
+        return ""
+    return s[:10]
+
+
+def queue_item_discovered(item: dict[str, Any]) -> str:
+    candidate = item.get("candidate") if isinstance(item.get("candidate"), dict) else {}
+    for key in ("first_seen_at", "last_checked_at"):
+        v = candidate.get(key)
+        date = _iso_to_date(v)
+        if date:
+            return date
+    return _iso_to_date(item.get("created_at"))
+
+
+def queue_item_reviewed(item: dict[str, Any]) -> str:
+    review = item.get("discovery_review") if isinstance(item.get("discovery_review"), dict) else {}
+    return _iso_to_date(review.get("reviewed_at") or review.get("last_run_at"))
+
+
+def queue_item_reasoning(item: dict[str, Any]) -> str:
+    review = item.get("discovery_review") if isinstance(item.get("discovery_review"), dict) else {}
+    parts: list[str] = []
+    verdict = str(review.get("status") or "").strip()
+    if verdict:
+        parts.append(f"verdict: {verdict}")
+    reason = str(review.get("reason") or "").strip()
+    if reason:
+        parts.append(reason)
+    evidence = review.get("evidence")
+    if isinstance(evidence, list):
+        bullets = [f"• {str(e).strip()}" for e in evidence[:3] if str(e).strip()]
+        if bullets:
+            parts.extend(bullets)
+    if not parts:
+        last_error = str(item.get("last_error") or "").strip()
+        if last_error:
+            parts.append(f"error: {last_error}")
+    return _truncate(" | ".join(parts))
+
+
+def queue_item_store_hits(item: dict[str, Any]) -> str:
+    candidate = item.get("candidate") if isinstance(item.get("candidate"), dict) else {}
+    hits = candidate.get("lazycat_hits")
+    if not isinstance(hits, list) or not hits:
+        return "0 hits"
+    labels: list[str] = []
+    for h in hits[:5]:
+        if not isinstance(h, dict):
+            continue
+        raw = str(h.get("raw_label") or "").strip()
+        if raw:
+            # Drop the trailing "<download_count>" most labels carry.
+            labels.append(raw.rsplit(" ", 1)[0] if raw and raw.split(" ")[-1].isdigit() else raw)
+    summary = f"{len(hits)} hits"
+    if labels:
+        summary += ": " + ", ".join(labels[:5])
+    if len(hits) > 5:
+        summary += f" (+{len(hits) - 5} more)"
+    return _truncate(summary)
 
 
 # ---- bootstrap ----------------------------------------------------------------
@@ -866,6 +956,26 @@ def cmd_sync(args: argparse.Namespace) -> int:
         if score is not None and flat.get("AI Score") != score:
             set_field(project_id, item_id, cache, "AI Score", score)
             flat["AI Score"] = score
+
+        # Audit / context fields. We only push when the value changed so we
+        # don't burn GraphQL calls every cycle. set_field tolerates dropping
+        # a field if bootstrap hasn't created it yet (caught and ignored).
+        for field_label, value in (
+            ("Discovered", queue_item_discovered(item)),
+            ("Reviewed", queue_item_reviewed(item)),
+            ("Reasoning", queue_item_reasoning(item)),
+            ("Store Hits", queue_item_store_hits(item)),
+        ):
+            if not value:
+                continue
+            if flat.get(field_label) == value:
+                continue
+            try:
+                set_field(project_id, item_id, cache, field_label, value)
+                flat[field_label] = value
+            except RuntimeError:
+                # Field missing in cache — bootstrap will add it next cycle.
+                pass
 
         current_status = flat.get("Status")
         current_status_name = (
