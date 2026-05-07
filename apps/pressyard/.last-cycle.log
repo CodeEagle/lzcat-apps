@@ -1,0 +1,25 @@
+migration/pressyard
+branch 'template' set up to track 'origin/template'.
+HEAD is now at f18c4ef chore(auto-discover): refresh queue + candidates 2026-05-07T18:04Z
+Preparing worktree (new branch 'template')
+{
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T184825Z-github-tobocop2-lilbee.md",
+  "resumed": false,
+  "returncode": 0,
+  "session_id": "996655ee-293d-4ace-ac20-7644acb97060",
+  "status": "completed",
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T184825Z-github-tobocop2-lilbee"
+}
+obscura binary not found in PATH
+/__w/lzcat-apps/lzcat-apps/registry/candidates/latest.json
+/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T191111Z.jsonl
+{"already_migrated_count": 4, "candidate_count": 50, "counts_by_status": {"already_migrated": 4, "excluded": 1, "needs_review": 24, "portable": 21}, "excluded_count": 1, "generated_at": "2026-05-07T19:11:11Z", "needs_review_count": 24, "portable_count": 21}
+migration/pressyard
+{
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T191822Z-github-codemasters999-pressyard.md",
+  "resumed": false,
+  "returncode": 0,
+  "session_id": "4e3ce495-bb9c-477e-bc83-103e093ef548",
+  "status": "completed",
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T191822Z-github-codemasters999-pressyard"
+}

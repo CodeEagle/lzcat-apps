@@ -1,0 +1,57 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.pressyard
+version: 1.5.0
+name: PressYard
+description: Local WordPress development environment with isolated containers, automatic installs, and project-based hostnames.
+license: UNLICENSED
+homepage: https://github.com/CodeMasters999/PressYard
+author: CodeMasters999
+application:
+  subdomain: pressyard
+  upstreams:
+    - location: /
+      backend: http://wordpress:80/
+  injects:
+    - builtin://simple-inject-password
+locales:
+  en:
+    name: PressYard
+    description: Local WordPress development environment with isolated containers, automatic installs, and project-based hostnames.
+  zh:
+    name: PressYard
+    description: 使用隔离容器创建本地 WordPress 开发环境，支持自动安装与基于项目的主机名管理。
+services:
+  wordpress:
+    image: registry.lazycat.cloud/codemasters999/pressyard:wordpress
+    depends_on:
+      - db
+    environment:
+      - WORDPRESS_DB_HOST=db:3306
+      - WORDPRESS_DB_USER=wordpress
+      - WORDPRESS_DB_PASSWORD=wordpress_secret
+      - WORDPRESS_DB_NAME=wordpress
+    binds:
+      - /lzcapp/var/data/pressyard/wp-content:/var/www/html/wp-content
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -fs http://127.0.0.1:80/ >/dev/null || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  db:
+    image: registry.lazycat.cloud/codemasters999/pressyard:db
+    environment:
+      - MYSQL_DATABASE=wordpress
+      - MYSQL_USER=wordpress
+      - MYSQL_PASSWORD=wordpress_secret
+      - MYSQL_ROOT_PASSWORD=root_secret
+    binds:
+      - /lzcapp/var/db/pressyard/mysql:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent
+      interval: 10s
+      timeout: 5s
+      retries: 10

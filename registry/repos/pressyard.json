@@ -1,0 +1,16 @@
+{
+  "enabled": false,
+  "upstream_repo": "CodeMasters999/PressYard",
+  "check_strategy": "github_tag",
+  "build_strategy": "official_image",
+  "publish_to_store": false,
+  "official_image_registry": "docker.io/library/wordpress",
+  "precompiled_binary_url": "",
+  "service_port": 80,
+  "service_cmd": [],
+  "image_targets": [
+    "wordpress"
+  ],
+  "dependencies": [],
+  "migration_status": "waiting_for_human"
+}
