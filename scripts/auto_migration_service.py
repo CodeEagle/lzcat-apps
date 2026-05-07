@@ -542,7 +542,20 @@ def build_prepare_submission_command(config: ServiceConfig, item: dict[str, Any]
     return command
 
 
-def build_codex_worker_command(config: ServiceConfig, item: dict[str, Any]) -> list[str]:
+def build_codex_worker_command(
+    config: ServiceConfig,
+    item: dict[str, Any],
+    *,
+    mode: str = "repair",
+) -> list[str]:
+    """Construct the codex_migration_worker.py invocation.
+
+    Two modes share the same script and CLI shape, just different prompts:
+      * ``planning`` — pre-build, claude writes Dockerfile.template +
+        sets build_strategy from upstream source signals.
+      * ``repair``   — post-build_failed (default; back-compat),
+        claude diagnoses the build failure and patches.
+    """
     repo_root = item_repo_root(config, item)
     command = [
         "python3",
@@ -557,6 +570,8 @@ def build_codex_worker_command(config: ServiceConfig, item: dict[str, Any]) -> l
         str(config.repo_root / "registry" / "auto-migration" / "notifications"),
         "--item-json",
         json.dumps(item, ensure_ascii=False, sort_keys=True),
+        "--mode",
+        mode,
     ]
     if config.box_domain:
         command.extend(["--box-domain", config.box_domain])
@@ -1473,9 +1488,33 @@ def run_cycle(
             )
             summary["migration"] = {"status": "worktree_failed", "returncode": workspace_result.returncode}
             break
+        # PROACTIVE PLANNER — claude pre-arms apps/<slug>/ with a tailored
+        # Dockerfile.template + correct build_strategy BEFORE the
+        # mechanical build chain runs. Without this, repos like StellaClaw
+        # (no upstream Dockerfile, niche stack) burn through every
+        # build_strategy fallback before claude even sees the source code,
+        # then have to repair from a cold start. Planning is best-effort:
+        # if it fails or skips, the mechanical chain + post-failure repair
+        # still take the slug through to terminal state.
+        if config.enable_codex_worker:
+            slug_str = str(selected.get("slug") or "").strip()
+            app_dir = item_repo_root(config, selected) / "apps" / slug_str if slug_str else None
+            template_path = app_dir / "Dockerfile.template" if app_dir else None
+            need_planning = (
+                slug_str
+                and (template_path is None or not template_path.exists())
+            )
+            if need_planning:
+                planner_command = build_codex_worker_command(config, selected, mode="planning")
+                planner_result = runner(planner_command)
+                summary["commands"].append({
+                    "command": planner_command,
+                    "returncode": planner_result.returncode,
+                    "phase": "planning",
+                })
         command = build_auto_migrate_command(config, selected)
         result = runner(command)
-        summary["commands"].append({"command": command, "returncode": result.returncode})
+        summary["commands"].append({"command": command, "returncode": result.returncode, "phase": "build"})
         if result.returncode == 0:
             if config.enable_build_install and config.functional_check:
                 state = functional_check_state_for_item(config, selected) or "browser_pending"
