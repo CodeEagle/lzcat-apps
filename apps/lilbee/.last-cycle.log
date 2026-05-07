@@ -1,0 +1,195 @@
+migration/lilbee
+{
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T180716Z-github-tobocop2-lilbee.md",
+  "resumed": false,
+  "returncode": 0,
+  "session_id": "36c24829-f2e5-4c0e-8674-4fc75f4635f5",
+  "status": "completed",
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T180716Z-github-tobocop2-lilbee"
+}
+obscura binary not found in PATH
+/__w/lzcat-apps/lzcat-apps/registry/candidates/latest.json
+/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T181852Z.jsonl
+{"already_migrated_count": 0, "candidate_count": 50, "counts_by_status": {"excluded": 3, "needs_review": 25, "portable": 22}, "excluded_count": 3, "generated_at": "2026-05-07T18:18:52Z", "needs_review_count": 25, "portable_count": 22}
+{
+  "browser_recheck": [],
+  "codex_worker": [
+    {
+      "id": "github:tobocop2/lilbee",
+      "returncode": 0,
+      "status": "installed"
+    }
+  ],
+  "commands": [
+    {
+      "command": [
+        "python3",
+        "scripts/status_sync.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps"
+      ],
+      "returncode": 1
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/scout.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "scan",
+        "--limit",
+        "50"
+      ],
+      "returncode": 0
+    }
+  ],
+  "discord_replies": [],
+  "discovery_gate": [
+    {
+      "id": "github:wrobeltomasz/open-sparrow",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:asihgdfas/rate-cloud",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:sree-sanak/minty",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:igorganapolsky/openclaw-console",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ilanmotiei/kodus-helm",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:jacobosanchez/volley-overlay-control",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:alexpipiska/ev-savings-vs-fuel-dashboard-teslamate",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:a-ayad96/ansible-role-forgejo",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:dhtmlx/scheduler-howto-blazor",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:direwolf-github/ephemeral-ci-4eb9c78c",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:tshchief/agentpicx_xiaoxuejiaofu",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:zakahossain/cheltenham_map",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:direwolf-github/ephemeral-ci-59e4c2da",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:abdo-ashraf/ai-recipe-generator",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:marciomandarino/oplanodba-scripts",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:direwolf-github/ephemeral-ci-58842c83",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:h0ek/ot-pcap-triage",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:marktuhill/polymarket-bot",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ysl970/lunatv-config",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:simon885-design/workflows-starter-template",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:shredthagnar/list-of-my-starred-repos",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:pslkk/openclaw-syncralis",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:aifactory-api-ux/ecommerce-de-productos-para-gatos",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ashwanijha04/extremis",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:ashallcross/umbraco.community.aivisibility",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ch1ll1peppers1/ch1ll1peppers1.github.io",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:marc0janssen/nzbgetvpn",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    }
+  ],
+  "discovery_reviewer": [],
+  "local_agent": {
+    "status": "disabled"
+  },
+  "local_agent_commands": [],
+  "migration": {
+    "status": "idle"
+  },
+  "post_acceptance": [],
+  "selected": null,
+  "started_at": "2026-05-07T18:07:15Z"
+}

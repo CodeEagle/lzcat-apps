@@ -1,0 +1,29 @@
+application:
+  public_path:
+    - /
+  subdomain: lilbee
+  upstreams:
+    -
+      backend: http://lilbee:8000/
+      location: /
+author: tobocop2
+description: Terminal-first local search and AI chat over your documents, code, and crawled websites
+homepage: https://tobocop2.github.io/lilbee/
+locales:
+  en:
+    description: Terminal-first local search and AI chat over your documents, code, and crawled websites
+    name: lilbee
+  zh:
+    description: （迁移初稿）Lilbee 的懒猫微服版本
+    name: lilbee
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+name: lilbee
+package: fun.selfstudio.app.migration.lilbee
+services:
+  lilbee:
+    binds:
+      - /lzcapp/var/data/lilbee/lilbee:/data
+      - /lzcapp/var/data/lilbee:/root/.local/share/lilbee
+    image: registry.lazycat.cloud/placeholder/lilbee:bootstrap
+version: 0.6.66

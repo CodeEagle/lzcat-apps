@@ -1,0 +1,63 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "tobocop2/lilbee",
+  "fixes": {
+    "project_name": "lilbee",
+    "description": "Terminal-first local search and AI chat over your documents, code, and crawled websites",
+    "description_zh": "（迁移初稿）Lilbee 的懒猫微服版本",
+    "homepage": "https://tobocop2.github.io/lilbee/",
+    "author": "tobocop2",
+    "package": "fun.selfstudio.app.migration.lilbee",
+    "check_strategy": "github_release",
+    "build_strategy": "upstream_with_target_template",
+    "dockerfile_type": "custom",
+    "dockerfile_path": "Dockerfile.template",
+    "build_context": ".",
+    "docker_platform": "linux/amd64",
+    "image_owner": "CodeEagle",
+    "image_targets": [
+      "lilbee"
+    ],
+    "service_port": 8000,
+    "services": {
+      "lilbee": {
+        "image": "registry.lazycat.cloud/placeholder/lilbee:bootstrap",
+        "binds": [
+          "/lzcapp/var/data/lilbee/lilbee:/data",
+          "/lzcapp/var/data/lilbee:/root/.local/share/lilbee"
+        ]
+      }
+    },
+    "application": {
+      "subdomain": "lilbee",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://lilbee:8000/"
+        }
+      ]
+    },
+    "data_paths": [
+      {
+        "host": "/lzcapp/var/data/lilbee/lilbee",
+        "container": "/data",
+        "description": "From common data path pattern"
+      },
+      {
+        "host": "/lzcapp/var/data/lilbee",
+        "container": "/root/.local/share/lilbee",
+        "description": "From source code pattern in system.py"
+      }
+    ],
+    "startup_notes": [
+      "自动扫描到 Dockerfile：Dockerfile",
+      "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
+      "未扫描到 env 示例文件",
+      "扫描到 README：README.md, README.md"
+    ],
+    "include_content": false
+  }
+}
