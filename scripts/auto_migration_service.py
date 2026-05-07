@@ -325,7 +325,22 @@ def upsert_candidates(queue: dict[str, Any], candidates: list[dict[str, Any]], *
     return queue
 
 
-_RESUMABLE_MIGRATION_STATES = {"ready", "scaffolded"}
+# When --target-slug is set we're resuming a specific slug. The
+# default open scan only takes `state=ready` (untouched candidates)
+# but a targeted resume must also accept slugs that previously
+# entered a non-terminal "needs another worker pass" state:
+#   * scaffolded      — scaffold succeeded, build pending
+#   * build_failed    — build failed, planner+codex repair should retry
+#   * codex_failed    — repair attempts exhausted; one more try
+#                       (24h Blocked-retry path also routes through here)
+# Without build_failed/codex_failed, every retried run for a slug
+# whose previous cycle hit build_failed would silently no-op (cycle
+# selects nothing, post-step maps state=build_failed → Blocked) and
+# the dispatcher loops forever without actually re-running the
+# build. Observed in stellaclaw run 25493407661 — planner couldn't
+# fire because the previous cycle's preflight already pinned state
+# to build_failed.
+_RESUMABLE_MIGRATION_STATES = {"ready", "scaffolded", "build_failed", "codex_failed"}
 
 
 def select_next_ready_item(
