@@ -9,6 +9,9 @@
 #   - @lazycatcloud/lzc-cli (LazyCat CLI, installed via npm)
 #   - @anthropic-ai/claude-code (Claude CLI: discovery review + repair worker)
 #   - gh (GitHub CLI for Project + repo mutations)
+#   - chromium browser + Playwright runtime + bb-browser (so the same
+#     worker can run browser-based functional tests after build, no
+#     handoff to lzcat-bb-browser image needed for simple cases)
 #
 # Multi-arch: amd64 + arm64
 
@@ -72,6 +75,28 @@ RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
 # Two pip-install layers so lockfile changes don't bust the toolchain cache.
 COPY scripts/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# ---- chromium + Playwright + bb-browser -------------------------------------
+# Browser stack so the worker can run bb-browser-driven functional
+# verification (SKILL.md rule 12 — install success ≠ acceptance) in
+# the same job after build/install, instead of handing off to a
+# separate lzcat-bb-browser job. Adds ~250 MB to the image.
+#
+# Approach: pip install playwright (already in requirements.txt as
+# playwright>=1.50), then `playwright install --with-deps chromium`
+# downloads the upstream-tested chromium build PLUS its system libs
+# in one shot — more reliable than apt's distro chromium which lags
+# Playwright's pinned version.
+#
+# bb-browser CLI / MCP server is the Chrome-driving agent used in
+# auto-verify; install it globally via the same npm we already have.
+ARG BB_BROWSER_VERSION=latest
+RUN python3 -m playwright install --with-deps chromium \
+    && BB_PKG="bb-browser$([ "${BB_BROWSER_VERSION}" = "latest" ] || echo @${BB_BROWSER_VERSION})" \
+    && npm install -g "${BB_PKG}" \
+    && npm cache clean --force \
+    && bb-browser --version \
+    && command -v bb-browser-mcp >/dev/null
 
 # ---- runtime config ---------------------------------------------------------
 WORKDIR /repo

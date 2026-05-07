@@ -98,17 +98,26 @@ def build_planning_prompt(
     repo_signals: dict[str, Any] | None = None,
     license_info: dict[str, Any] | None = None,
 ) -> str:
-    """Pre-build planning prompt — claude examines upstream source and
-    PRE-WRITES apps/<slug>/Dockerfile.template + adjusts lzc-build.yml's
-    build_strategy BEFORE the mechanical build chain runs.
+    """Pre-build planning prompt — claude reads SKILL.md and pre-fills
+    apps/<slug>/ with everything the build phase needs (manifest, build
+    config, Dockerfile.template) before the mechanical build chain
+    runs. Together with build_codex_prompt (post-failure repair) they
+    bracket the mechanical phase.
 
-    Run this once per slug right after scaffold succeeds and before the
-    first build attempt; build_codex_prompt below stays as the
-    after-build_failed repair path. Together they bracket the build.
+    The prompt is intentionally short — it points claude at the
+    authoritative SOP (skills/lazycat-migrate/SKILL.md, 35 KB, 10-step
+    playbook) and lets claude read it directly via --add-dir. We only
+    inline the inputs claude can't fetch herself (live license, live
+    source-code signals) and the things specific to the planning
+    phase.
     """
     slug = str(item.get("slug", "")).strip()
     app_dir = repo_root / "apps" / slug if slug else repo_root / "apps"
     item_json = json.dumps(item, ensure_ascii=False, indent=2, sort_keys=True)
+    candidate = item.get("candidate") if isinstance(item.get("candidate"), dict) else {}
+    full_name = str(candidate.get("full_name") or item.get("source") or "").strip()
+    repo_url = str(candidate.get("repo_url") or "").strip()
+    description = str(candidate.get("description") or "").strip()
     if repo_signals is None:
         repo_signals = fetch_repo_signals(item)
     if license_info is None:
@@ -119,99 +128,149 @@ def build_planning_prompt(
     build_yml = read_text_if_exists(app_dir / "lzc-build.yml", max_chars=2000)
     readme = read_text_if_exists(app_dir / "README.md", max_chars=4000)
 
-    return f"""You are Claude, the migration PLANNER for the LazyCat lzcat-apps pipeline.
+    return f"""You are Claude, the migration planner for LazyCat lzcat-apps.
 
-Goal:
-- Pre-arm the mechanical build chain so it succeeds on the FIRST attempt.
-- Decide the right `build_strategy` for this slug from actual source code.
-- If the upstream lacks a Dockerfile, write a tailored
-  `apps/{slug}/Dockerfile.template` that builds and runs the upstream as
-  a containerized service.
-- Update `apps/{slug}/lzc-build.yml`'s build_strategy field to match.
-- Lightly tweak `apps/{slug}/lzc-manifest.yml` if obvious defaults are
-  wrong for this app (port, service name, env vars upstream README needs).
+# Task
 
-Hard guardrails:
-- DO NOT run the build, install, or any LazyCat CLI commands.
-- DO NOT modify scripts/ — fixes belong in `apps/{slug}/` only.
-- DO NOT commit / push — the orchestrator handles git.
-- KEEP existing `lzc-sdk-version`, `manifest`, `pkgout`, `icon` lines
-  in lzc-build.yml verbatim; only add/change `build_strategy`.
-- If the right strategy is already obvious from the existing
-  lzc-build.yml AND the existing files build cleanly, exit cleanly with
-  the message: `PLANNER: skipped — existing scaffolding looks correct`.
+Migrate the upstream project end-to-end:
+- Slug: `{slug}`
+- Upstream: {full_name} ({repo_url})
+- Description: {description}
 
-Slug: `{slug}`
+# Authoritative SOP — read FIRST and follow EXACTLY
+
+`@skills/lazycat-migrate/SKILL.md` — 35 KB, 10-step playbook covering
+the full closed loop: 上游研判 → 注册/建骨架 → 预检 → 构建 → 下载 .lpk
+→ 安装验收 → bb-browser 功能验证 → 商店上架 → 复盘回写.
+
+The skill file enumerates non-negotiable defaults (账号 `CodeEagle`、
+分支策略、registry/repos 接入方式、login 免密路线、Browser Use 验收
+门槛、商店上架前的真实截图要求 …). Do NOT reinvent them — read
+SKILL.md, follow it.
+
+# Phase you're in: PLANNING (pre-build)
+
+The mechanical build chain runs **immediately after you exit**, so
+your job here is to pre-fill `apps/{slug}/` with everything the build
+phase needs:
+
+  * `lzc-manifest.yml` — real ports / services / data paths / env
+    vars / login route — NO placeholders. Per SKILL.md `[5/10]`,
+    must be filled in one pass after producing the "上游部署清单".
+  * `lzc-build.yml` — set the right `build_strategy` (one of
+    `official_image` / `upstream_dockerfile` /
+    `upstream_with_target_template` / `precompiled_binary`).
+  * `Dockerfile.template` — write only when strategy is
+    `upstream_with_target_template`. Multi-stage when upstream
+    builds to a binary; pick the right base image (rust:1-slim,
+    node:20-slim, python:3.12-slim, golang:1.22-alpine).
+  * `README.md`, `icon.png` — bootstrap_migration may have written
+    placeholders; update if obviously wrong.
+  * `registry/repos/{slug}.json` — registry/repos/index.json
+    membership; usually already there from earlier scaffold but
+    verify.
+
+Don't run any build, install, lzc-cli, or commit/push. The
+orchestrator handles all of that. Your write surface is
+`apps/{slug}/` only (per SKILL.md rule 5 — script over manual,
+your manual edits get superseded if they belong in
+`scripts/full_migrate.py`).
+
+# Downstream phases (for context — DO NOT execute, just be aware)
+
+Once you exit:
+
+  1. **build phase** (this same worker run): full_migrate.py +
+     run_build.py compile your Dockerfile.template into images,
+     pkg into `.lpk`, push to GHCR, install to the configured
+     LazyCat box.
+
+  2. **bb-browser verification** (`auto-verify.yml`, separate
+     workflow that auto-fires on this worker's success): the
+     `lzcat-bb-browser` image runs `browser_acceptance_plan.py` +
+     `browser_acceptance_runner.py` against the live install URL.
+     SKILL.md rule 12 — install success ≠ acceptance. Browser Use
+     clicks through the functional matrix and captures real
+     screenshots.
+
+  3. **store submission** (`auto-publish.yml`, human-triggered
+     after Awaiting-Human passes): `prepare_store_submission.py`
+     packages the screenshots + copy and opens a PR. SKILL.md
+     rule 13 — screenshots MUST come from the running install,
+     not designs / placeholders.
+
+If you anticipate any of these phases will fail (e.g. the app
+needs login but no 免密 route is configured, or no published
+image and source isn't buildable), surface it now in the manifest /
+Dockerfile.template / queue waiting_for_human field rather than
+letting it explode later.
+
+# Hard guardrails (a few critical ones — see SKILL.md for full)
+
+- Account: SKILL.md rule 1 — `gh auth switch -u CodeEagle` before
+  any `gh` command.
+- Single-source: SKILL.md rule 3 — push everything in
+  `CodeEagle/lzcat-apps` monorepo; do NOT spawn standalone repos
+  unless the user explicitly asks.
+- Branch hygiene: SKILL.md rule 14 — never merge to main before
+  store submission completes (or user explicitly approves merge).
+- Workflow-only build: SKILL.md rule 15 — local
+  `./scripts/local_build.sh` is forbidden for canonical build;
+  production builds happen in GitHub Workflows.
+- License: if upstream license is missing or non-commercial, set
+  the queue item to `waiting_for_human` with a
+  `human_request.question` asking the operator before continuing —
+  don't assume.
+
+# Repository facts
+
+- repo_root: {repo_root}
+- queue_path: {queue_path or "(not provided)"}
+- box_domain: {box_domain or "(not configured)"}
+- app_dir: {app_dir}
+
+# Inputs already gathered
+
 Upstream license:
 {license_block}
 
-Upstream source-code signals:
+Upstream source-code signals (live-fetched):
 {repo_signals_block}
 
-Build strategies (set via `build_strategy:` line in lzc-build.yml):
-  * `official_image` — upstream publishes a runnable Docker image. Use when
-    README / files suggest a published image AND there's no Dockerfile in
-    the source tree.
-  * `upstream_dockerfile` — upstream has its own Dockerfile at root or a
-    clearly-named subdir. Set this when the file tree confirms a
-    Dockerfile exists; no need to write a template.
-  * `upstream_with_target_template` — upstream has buildable source but
-    no Dockerfile. Write `apps/{slug}/Dockerfile.template` from scratch:
-    pick the right base image (rust:1-slim for Cargo.toml, node:20-slim
-    for package.json, python:3.12-slim for pyproject.toml,
-    golang:1.22-alpine for go.mod), COPY upstream into /app, RUN the
-    build command, expose the right port, CMD with the entrypoint
-    (binary path, `node server.js`, `python -m app`, etc.). Use multi-
-    stage when the build artifact is a binary you can drop into a slim
-    runtime.
-  * `precompiled_binary` — only when upstream releases binary artifacts on
-    GitHub Releases and you'd rather pull than compile.
+Existing scaffolded files:
 
-Decision flow:
-  1. file tree has `Dockerfile` (root or first-level subdir) → strategy
-     `upstream_dockerfile`. Update lzc-build.yml only.
-  2. README explicitly references a published image (ghcr.io / docker.io
-     URL) → `official_image`. Update lzc-build.yml only.
-  3. otherwise upstream is buildable from source → strategy
-     `upstream_with_target_template` AND write Dockerfile.template.
-  4. unclear / unsupported → exit cleanly. Mechanical fallbacks +
-     post-failure repair will pick up.
-
-Concrete output requirements:
-  * Use Edit / Write tools to modify `apps/{slug}/lzc-build.yml` and
-    (if applicable) write `apps/{slug}/Dockerfile.template`.
-  * Append `build_strategy: <chosen>` to lzc-build.yml. If a different
-    `build_strategy` already exists, replace it.
-  * Print a short final summary: which strategy you chose, which files
-    you wrote, and the rationale (1-2 sentences referring to specific
-    source signals).
-
-Queue item:
-```json
-{item_json}
-```
-
-Repository:
-- repo_root: {repo_root}
-- app_dir: {app_dir}
-- queue_path: {queue_path or "(not provided)"}
-
-Current scaffolded files in apps/{slug}/:
-
-`lzc-manifest.yml`:
+`apps/{slug}/lzc-manifest.yml`:
 ```yaml
 {manifest or "(missing — bootstrap_migration has not run yet)"}
 ```
 
-`lzc-build.yml`:
+`apps/{slug}/lzc-build.yml`:
 ```yaml
 {build_yml or "(missing)"}
 ```
 
-`README.md` (first 4 KB):
+`apps/{slug}/README.md` (first 4 KB):
 ```markdown
 {readme or "(missing)"}
 ```
+
+# Queue item
+
+```json
+{item_json}
+```
+
+# Output
+
+When done, print a short summary:
+- which build_strategy you chose
+- which files you wrote / modified
+- key decisions you made about ports / login / data paths
+- any waiting_for_human / blockers you flagged
+
+If the existing scaffolding already looks correct (e.g. another
+operator pre-filled it), exit cleanly with:
+`PLANNER: skipped — existing scaffolding looks correct`.
 """
 
 
