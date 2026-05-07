@@ -159,6 +159,39 @@ class GraphQLHelpersTest(unittest.TestCase):
         self.assertEqual(data, {"final": True})
         self.assertEqual(sleep.call_count, 1)
 
+    def test_gh_graphql_retries_on_http_504(self) -> None:
+        # GitHub returns 504 Gateway Timeout under load; a backoff retry
+        # almost always succeeds. This is the exact failure mode that
+        # killed Auto-Discover run 25480344627.
+        fake = FakeRun([
+            (1, "", "gh: We couldn't respond to your request in time. Sorry about that. Please try resubmitting your request and contact us if the problem persists. (HTTP 504)"),
+            {"final": True},
+        ])
+        with patch.object(project_board.subprocess, "run", fake), patch.object(project_board.time, "sleep") as sleep:
+            data = project_board.gh_graphql("query")
+        self.assertEqual(data, {"final": True})
+        self.assertEqual(sleep.call_count, 1)
+
+    def test_gh_graphql_retries_on_http_502(self) -> None:
+        fake = FakeRun([
+            (1, "", "gh: bad gateway (HTTP 502)"),
+            (1, "", "gh: service unavailable (HTTP 503)"),
+            {"final": True},
+        ])
+        with patch.object(project_board.subprocess, "run", fake), patch.object(project_board.time, "sleep"):
+            data = project_board.gh_graphql("query")
+        self.assertEqual(data, {"final": True})
+
+    def test_gh_graphql_does_not_retry_non_transient_4xx(self) -> None:
+        # A 404 / FORBIDDEN is the operator's mistake — burning retries on
+        # it just delays surfacing the real problem.
+        fake = FakeRun([
+            (1, "", "gh: not found (HTTP 404)"),
+        ])
+        with patch.object(project_board.subprocess, "run", fake):
+            with self.assertRaises(project_board.GraphQLError):
+                project_board.gh_graphql("query")
+
     def test_gh_graphql_raises_on_graphql_errors(self) -> None:
         fake = FakeRun([
             (0, json.dumps({"errors": [{"message": "boom", "type": "FORBIDDEN"}]}), ""),

@@ -133,6 +133,11 @@ jobs:
         # --max-creates 200 caps per-cycle GraphQL spend; the LocalAgent
         # import (1287 new candidates) trickles onto the board over a few
         # cycles instead of burning the entire 5000/hr GraphQL budget at once.
+        # continue-on-error: a partial sync (e.g. GitHub 504 mid-cycle) must
+        # NOT skip the subsequent commit step — the AI verdicts written to
+        # queue.json this cycle are still valuable and the next sync will
+        # complete the board update.
+        continue-on-error: true
         run: python3 scripts/project_board.py sync --max-creates 200
 
       - name: File GitHub Issues for needs_human verdicts

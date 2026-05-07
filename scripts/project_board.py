@@ -167,13 +167,40 @@ def _is_rate_limited(payload: dict[str, Any], stderr: str) -> bool:
     return False
 
 
+def _is_transient_http_error(stderr: str) -> bool:
+    """Detect retriable HTTP errors from gh CLI output.
+
+    GitHub returns 5xx (e.g. 502 Bad Gateway, 503 Service Unavailable, 504
+    Gateway Timeout) under load — these are transient and a backoff/retry
+    almost always succeeds. Without this check, sync would fail mid-cycle
+    on the first 504 and skip Commit canonical state, leaving the local
+    queue work unsynced.
+    """
+    s = stderr.lower()
+    return (
+        "(http 502)" in s
+        or "(http 503)" in s
+        or "(http 504)" in s
+        or "couldn't respond to your request in time" in s
+        or "bad gateway" in s
+        or "service unavailable" in s
+        or "gateway timeout" in s
+    )
+
+
 def gh_graphql(
     query: str,
     variables: dict[str, Any] | None = None,
     *,
     max_retries: int = 5,
 ) -> dict[str, Any]:
-    """Run a GraphQL request via `gh api graphql`. Retries on 429 / RATE_LIMITED."""
+    """Run a GraphQL request via `gh api graphql`.
+
+    Retries on RATE_LIMITED (429), HTTP 5xx gateway errors (502/503/504),
+    and any "couldn't respond in time" surfacing from the gh CLI. Uses
+    exponential backoff + jitter so a thundering-herd retry doesn't make
+    the upstream hiccup worse.
+    """
     cmd = ["gh", "api", "graphql", "-f", f"query={query}"]
     for k, v in (variables or {}).items():
         if isinstance(v, bool):
@@ -194,7 +221,11 @@ def gh_graphql(
             payload = {}
 
         rate_limited = _is_rate_limited(payload, stderr) or out.returncode == 429
-        if rate_limited and attempt < max_retries - 1:
+        transient = (
+            out.returncode != 0
+            and _is_transient_http_error(stderr)
+        )
+        if (rate_limited or transient) and attempt < max_retries - 1:
             time.sleep(delay + random.random())
             delay *= 2
             continue
