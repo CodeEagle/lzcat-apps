@@ -23,12 +23,27 @@ ARG NODE_VERSION=20
 ARG LZC_CLI_VERSION=latest
 
 # ---- core toolchain ---------------------------------------------------------
+# nftables: required by netavark (podman's network plugin). Without it,
+# `RUN` lines in podman builds die at "setup network: netavark: nftables
+# error: unable to execute nft: No such file or directory" — observed in
+# every build cycle until 2026-05-07 (heym run 25485629825 reached the
+# `bun install` step but failed there for this reason).
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl wget git jq xz-utils unzip \
         build-essential pkg-config gnupg lsb-release \
-        docker.io podman buildah skopeo fuse-overlayfs \
+        docker.io podman buildah skopeo fuse-overlayfs nftables \
         openssh-client rsync \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# ---- containers/registries.conf --------------------------------------------
+# Podman refuses unqualified FROM lines like `oven/bun:1` / `node:20` /
+# `python:3.11` unless an unqualified-search registry is declared.
+# Defaulting to docker.io matches the docker CLI's behavior so build
+# strategies that mirror upstream Dockerfiles (which routinely use
+# short names) work out of the box.
+RUN mkdir -p /etc/containers \
+    && printf 'unqualified-search-registries = ["docker.io"]\n' \
+        >> /etc/containers/registries.conf
 
 # ---- gh CLI -----------------------------------------------------------------
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \

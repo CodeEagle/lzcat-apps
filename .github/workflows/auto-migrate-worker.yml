@@ -59,18 +59,31 @@ jobs:
               ;;
           esac
 
-      - name: Configure podman to resolve unqualified short names
-        # full_migrate.py → run_build.py shells out to `docker build`. The
-        # runner image auto-bridges that to podman, which by default refuses
-        # short FROM lines like `oven/bun:1` / `node:20` / `python:3.11`
-        # unless /etc/containers/registries.conf declares search registries.
-        # Without this, run 25484102037 (heym 2026-05-07T08:23) failed 4×
-        # with "short-name 'oven/bun:1' did not resolve to an alias and no
-        # unqualified-search registries are defined", landing the slug
-        # build_failed before any code path ran. Idempotent: only appends
-        # if the directive isn't already present.
+      - name: Configure podman runtime (nftables + registries.conf)
+        # Both fixes are baked into the runner image's Dockerfile (see
+        # .github/automation-images/migration-runner.Dockerfile), but this
+        # step covers the window between Dockerfile change being merged and
+        # build-images.yml publishing the new :latest tag — workers
+        # dispatched in that gap pull the previous (broken) image. Once
+        # the new image rolls out, both branches become no-ops:
+        #   - apt detects nftables already installed → ~0.3s
+        #   - grep finds existing unqualified-search-registries → skip
+        #
+        # Origins of each branch:
+        #   - nftables: netavark (podman network plugin) shells out to nft;
+        #     missing it kills RUN steps with "netavark: nftables error:
+        #     unable to execute nft" — heym run 25485629825 step 4/11.
+        #   - unqualified-search-registries: podman refuses short FROM
+        #     names without one — heym run 25484102037 4× build_failed.
         run: |
           set -euo pipefail
+          if ! command -v nft >/dev/null 2>&1; then
+            apt-get update -qq
+            apt-get install -y --no-install-recommends nftables
+            echo "installed nftables ($(nft --version 2>&1 | head -1))"
+          else
+            echo "nftables already present: $(nft --version 2>&1 | head -1)"
+          fi
           conf=/etc/containers/registries.conf
           mkdir -p "$(dirname "$conf")"
           if [ -f "$conf" ] && grep -qE '^[[:space:]]*unqualified-search-registries[[:space:]]*=' "$conf"; then
