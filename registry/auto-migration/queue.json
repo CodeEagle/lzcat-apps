@@ -2954,13 +2954,20 @@
         "total_stars": 10
       },
       "candidate_status": "portable",
+      "codex": {
+        "attempts": 1,
+        "last_returncode": 0,
+        "last_run_at": "2026-05-06T23:51:29Z",
+        "last_status": "ready",
+        "last_task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260506T235942Z-github-jeremyguo-stellaclaw",
+        "session_id": "4031b114-d2fe-4202-901a-f19642ffad08"
+      },
       "created_at": "2026-05-06T17:24:31Z",
       "id": "github:jeremyguo/stellaclaw",
-      "last_error": "docker build unavailable in sandbox (rootless podman lacks namespace support); precheck passes and Dockerfile is real — retry build in CI",
       "slug": "stellaclaw",
       "source": "JeremyGuo/StellaClaw",
-      "state": "build_failed",
-      "updated_at": "2026-05-07T00:09:52Z",
+      "state": "ready",
+      "updated_at": "2026-05-06T23:51:29Z",
       "workspace_path": "/__w/lzcat-apps/lzcat-apps/../migration-workspaces/migration-stellaclaw"
     },
     {
