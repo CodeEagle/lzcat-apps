@@ -126,7 +126,47 @@ web-accessible service on a user's personal cloud, including:
 - Bots, schedulers, background services with a web dashboard
 - Even single-purpose utilities (URL shorteners, paste bins, file servers) regardless of star count
 
-Decision rules:
+Step 0 — Commercial-use license check (RUN THIS FIRST, BEFORE any other decision):
+LazyCat is a commercial app store; only candidates whose upstream license permits
+commercial redistribution can ship there. Inspect the upstream LICENSE file (and
+`license` field in package.json / Cargo.toml / pyproject.toml / go.mod when
+present). Classify into:
+
+  * COMMERCIAL-OK — proceed with normal `migrate`/`skip` evaluation:
+      MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Unlicense, CC0, MPL-2.0,
+      LGPL-2.1/3.0, GPL-2.0/3.0, AGPL-3.0 (copyleft is fine — it just propagates
+      to derivative works).
+
+  * NON-COMMERCIAL — fire `skip` immediately with:
+      `state = "filtered_out"`, `filtered_reason = "non_commercial_license"`,
+      `last_error = "License does not allow commercial use: <SPDX or name>"`,
+      `discovery_review.status = "skip"`,
+      `discovery_review.reason` MUST start with "不能商用：<license name>",
+      `discovery_review.evidence` MUST cite the LICENSE file or license field.
+      Common non-commercial licenses to recognize:
+        - CC-BY-NC, CC-BY-NC-SA, CC-BY-NC-ND (any "NC" variant)
+        - "非商用" / "Non-Commercial Use Only" / "for personal use only" clauses
+        - Custom licenses with explicit "no commercial use" / "no resale" terms
+
+  * RESTRICTIVE-BUT-COMMERCIALLY-DEPLOYABLE-CASE-BY-CASE — fire `needs_human`
+    so the operator can read the specific terms before we ship:
+        - SSPL (MongoDB / Elastic-style server-side license)
+        - Elastic License v2 (free for end-user, restricted for hosting providers)
+        - BUSL / Business Source License (time-limited non-commercial, converts
+          to Apache after N years — operator must check the change date)
+        - Commons Clause variants
+        - Any custom license without an SPDX identifier
+    Write `human_request.question` asking whether the operator's distribution
+    plan complies with the upstream license terms.
+
+  * NO LICENSE / UNLICENSED — fire `needs_human`. Distributing source without a
+    license grants no rights; the operator must reach out to the upstream
+    author or skip.
+
+If Step 0 says skip or needs_human, the rest of the decision rules below are
+moot — write the verdict and stop.
+
+Decision rules (only when Step 0 says COMMERCIAL-OK):
 - `migrate`: the upstream is a real software project (not abandoned spam) AND the README / description suggests there is functionality a user might want to run on their personal cloud. Stars / language / size / age do NOT disqualify. If you can imagine ANY way to wrap it into a web-accessible container, choose `migrate`.
 - `skip`: ONLY when one of these EXPLICIT disqualifiers applies —
   (a) academic coursework / homework / graduation thesis with no real users
@@ -137,7 +177,7 @@ Decision rules:
   (f) someone's personal homepage / résumé / blog content (not a deployable app)
   (g) blatant SaaS wrapper that ONLY works against a paid third-party API with no self-host path
   (h) the candidate is JUST a programming-language standard library, web framework (React, Vue, Express), or developer SDK, with literally NOTHING runnable as an end-user service. Caveat: many real apps' descriptions mention they're "built on Django" or "a CTF framework" or "an X framework for Y" — those are END-USER APPS that USE/PROVIDE a framework, NOT naked frameworks. dpaste (pasteboard app built on Django), ctfd (CTF competition platform), nuclio (serverless platform with dashboard) are all `migrate`. Only fire (h) when the repo is purely a library imported by other code with no service / web UI / dashboard at all.
-- `needs_human`: ambiguous app-store match where the upstream MIGHT already be listed (operator should confirm), or licensing red flags. Do NOT use `needs_human` just because you're unsure about quality; default to `migrate` and let the worker confirm by attempting a build.
+- `needs_human`: ambiguous app-store match where the upstream MIGHT already be listed (operator should confirm). Do NOT use `needs_human` just because you're unsure about quality; default to `migrate` and let the worker confirm by attempting a build. (License-driven `needs_human` is handled in Step 0 above.)
 
 LazyCat app-store search review:
 {store_search_guidance}
@@ -160,7 +200,7 @@ Required queue update:
 - For `migrate`, set `state` to `ready`, clear `last_error` and `filtered_reason`, and write:
   `discovery_review.status = "migrate"`, `discovery_review.reviewed_at`, `discovery_review.reviewer = "claude"`,
   `discovery_review.reason`, `discovery_review.evidence` as a short list, and `discovery_review.score`.
-- For `skip`, set `state` to `filtered_out`, set `filtered_reason` to `ai_discovery_skip`, set `last_error` to a concise reason, and write:
+- For `skip`, set `state` to `filtered_out`, set `filtered_reason` to `ai_discovery_skip` (override to `non_commercial_license` if the skip was driven by Step 0's license check), set `last_error` to a concise reason, and write:
   `discovery_review.status = "skip"`, `discovery_review.reviewed_at`, `discovery_review.reviewer = "claude"`,
   `discovery_review.reason`, `discovery_review.evidence`, and `discovery_review.score`.
 - For `needs_human`, set `state` to `waiting_for_human` and write:
