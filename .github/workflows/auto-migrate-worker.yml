@@ -178,9 +178,14 @@ jobs:
       - name: Map queue state -> Project Status
         if: always() && steps.preempt.outputs.rc != '3'
         id: post
+        env:
+          # Hard cap so a slug stuck at scaffolded/ready (e.g. scaffold succeeds
+          # but the build never converges) eventually transitions to Blocked
+          # instead of bouncing Approved → In-Progress forever.
+          MAX_RERUN_ATTEMPTS: "5"
         run: |
           set -euo pipefail
-          state="$(python3 - <<'PY'
+          read -r state attempts <<<"$(python3 - <<'PY'
           import json, os, pathlib, sys
           slug = os.environ["SLUG"]
           path = pathlib.Path("registry/auto-migration/queue.json")
@@ -188,14 +193,23 @@ jobs:
               print(""); sys.exit(0)
           for it in json.loads(path.read_text()).get("items", []):
               if it.get("slug") == slug:
-                  print(it.get("state", "")); sys.exit(0)
+                  print(it.get("state", ""), int(it.get("attempts") or 0)); sys.exit(0)
           print("")
           PY
           )"
+          attempts="${attempts:-0}"
+          # ready / scaffolded mean the cycle made partial progress but still
+          # needs another worker pass. Putting them back to Approved lets the
+          # dispatcher re-fan them out; In-Progress would be a dead end since
+          # the dispatcher only picks Approved cards.
+          rerun_status="Approved"
+          if [ "${attempts}" -ge "${MAX_RERUN_ATTEMPTS}" ]; then
+            rerun_status="Blocked"
+          fi
           case "$state" in
             installed|browser_pending)                                status="Browser-Test";    next="verify" ;;
-            scaffolded)                                               status="In-Progress";     next="rerun" ;;
-            ready)                                                    status="In-Progress";     next="rerun" ;;
+            scaffolded)                                               status="$rerun_status";   next="rerun" ;;
+            ready)                                                    status="$rerun_status";   next="rerun" ;;
             build_failed|codex_failed)                                status="Blocked";         next="blocked" ;;
             browser_failed)                                           status="Awaiting-Human";  next="wait" ;;
             browser_passed|copy_ready|publish_ready|waiting_for_human) status="Awaiting-Human";  next="wait" ;;
@@ -206,8 +220,12 @@ jobs:
           echo "queue_state=$state"  >> "$GITHUB_OUTPUT"
           echo "project_status=$status" >> "$GITHUB_OUTPUT"
           echo "next_action=$next"   >> "$GITHUB_OUTPUT"
-          echo "Slug=$SLUG state=$state -> status=$status, next=$next"
+          echo "Slug=$SLUG state=$state attempts=$attempts -> status=$status, next=$next"
           python3 scripts/project_board.py update "$SLUG" --status="$status"
+          if [ "$status" = "Blocked" ] && { [ "$state" = "scaffolded" ] || [ "$state" = "ready" ]; }; then
+            python3 scripts/project_board.py update "$SLUG" \
+              --field="Failures=exhausted ${attempts} rerun attempts at state=${state}; needs human triage"
+          fi
 
       - name: Hand off to auto-verify
         if: success() && steps.post.outputs.next_action == 'verify'

@@ -98,7 +98,16 @@ jobs:
             --once
             --limit 200
             --max-migrations-per-cycle 0
-            --max-discovery-reviews-per-cycle 6
+            # ~50s/review × 18 ≈ 15 min, leaving 7 min headroom in the 22-min
+            # step budget. Old cap of 6 left the imported LocalAgent backlog
+            # (855 candidates needing review) draining at ~12/hr ≈ 3 days; at
+            # 18/cycle every 30 min that becomes ~24 hours.
+            --max-discovery-reviews-per-cycle 18
+            # Default cap of 1 means a single transient claude failure
+            # (network blip, rate limit, OAuth refresh) permanently strands
+            # an item at last_status=review_failed. 3 attempts gives every
+            # item three independent shots before it gives up.
+            --max-codex-attempts 3
             --no-env-file
             --disable-local-agent
             --disable-discord

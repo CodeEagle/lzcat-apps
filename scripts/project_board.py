@@ -99,6 +99,39 @@ FIELD_SCHEMA: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
 
 TERMINAL_STATUSES = {"Published", "Filtered"}
 
+# How long an item can sit at queue.state ∈ {ready, scaffolded} before sync
+# concludes "no worker is running for this anymore" and recovers it. Workers
+# typically finish in <30 min, so 2h is well above the longest realistic active
+# run while still being short enough that orphaned items don't tie up
+# dispatcher slots overnight.
+_STALE_RECOVERY_HOURS = 2
+
+# Hard cap on rerun attempts before sync auto-blocks a slug. Mirrors the cap
+# enforced by auto-migrate-worker.yml so the two stay in sync.
+_MAX_RERUN_ATTEMPTS = 5
+
+
+def _is_item_stale(item: dict[str, Any], *, hours: int) -> bool:
+    """True iff item.updated_at is reliably older than `hours` ago.
+
+    Falls back to False (treat as fresh / not stale) when the timestamp is
+    missing or unparseable so we never accidentally ping-pong a slug whose
+    worker is genuinely running but happens to have a malformed metadata
+    field — sync should only recover items we're confident are orphaned.
+    """
+    raw = str(item.get("updated_at") or "").strip()
+    if not raw:
+        return False
+    try:
+        from datetime import datetime, timedelta, timezone
+
+        ts = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) - ts > timedelta(hours=hours)
+    except (ValueError, TypeError):
+        return False
+
 
 # ---- gh / GraphQL -------------------------------------------------------------
 
@@ -1179,9 +1212,6 @@ def cmd_sync(args: argparse.Namespace) -> int:
         #   build_failed  →  Blocked   (worker hit a build error, no auto-fix)
         #   codex_failed  →  Blocked   (claude repair worker exhausted attempts)
         #   published     →  Published (terminal success)
-        # Items in the middle of the migration pipeline (scaffolded /
-        # browser_pending / etc.) are left to the worker workflow's own
-        # status updates.
         item_state = str(item.get("state") or "").strip()
         terminal_map = {
             "filtered_out": "Filtered",
@@ -1196,6 +1226,43 @@ def cmd_sync(args: argparse.Namespace) -> int:
                 flat["Status"] = {"name": target_terminal}
                 summary.setdefault("auto_terminal", []).append(f"{slug}->{target_terminal}")
                 current_status_name = target_terminal
+            except RuntimeError:
+                pass
+
+        # Recover stuck "in-flight" items. The worker marks status=In-Progress
+        # at the start of a run; if the run crashes or exits without advancing
+        # queue.state, the slug stays In-Progress forever and the dispatcher
+        # counts it as inflight, exhausting the parallel-worker budget. When
+        # queue.state is ready/scaffolded AND the item hasn't been touched for
+        # STALE_HOURS, no worker is plausibly running anymore — push it back
+        # to Approved so the dispatcher fans out a fresh run, or to Blocked if
+        # it has already burned through MAX_RERUN_ATTEMPTS.
+        if (
+            item_state in {"ready", "scaffolded"}
+            and current_status_name == "In-Progress"
+            and _is_item_stale(item, hours=_STALE_RECOVERY_HOURS)
+        ):
+            attempts = int(item.get("attempts") or 0)
+            recovery_target = "Blocked" if attempts >= _MAX_RERUN_ATTEMPTS else "Approved"
+            try:
+                set_field(project_id, item_id, cache, "Status", recovery_target)
+                flat["Status"] = {"name": recovery_target}
+                summary.setdefault("recovered_stuck", []).append(
+                    f"{slug}({item_state},attempts={attempts})->{recovery_target}"
+                )
+                current_status_name = recovery_target
+                if recovery_target == "Blocked":
+                    try:
+                        set_field(
+                            project_id,
+                            item_id,
+                            cache,
+                            "Failures",
+                            f"stuck at state={item_state} for >{_STALE_RECOVERY_HOURS}h "
+                            f"after {attempts} attempts; auto-blocked by sync",
+                        )
+                    except RuntimeError:
+                        pass
             except RuntimeError:
                 pass
 

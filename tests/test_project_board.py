@@ -716,6 +716,119 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(summary["approved"], [])
         self.assertIn("demo", summary["updated"])
 
+    def test_sync_recovers_stale_in_progress_ready_item_to_approved(self) -> None:
+        # State that breaks the dispatcher: queue says state=ready but the
+        # board says In-Progress, and updated_at is older than the staleness
+        # threshold (no worker is plausibly still running). Recovery: push
+        # back to Approved so the dispatcher can re-fan it out.
+        from datetime import datetime, timedelta, timezone
+
+        stale_ts = (datetime.now(timezone.utc) - timedelta(hours=project_board._STALE_RECOVERY_HOURS + 1)).isoformat().replace("+00:00", "Z")
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/acny",
+                    "slug": "acny",
+                    "state": "ready",
+                    "attempts": 0,
+                    "updated_at": stale_ts,
+                    "candidate": {"repo_url": "https://github.com/owner/acny"},
+                }
+            ]
+        }
+        root = self._setup(queue)
+        existing = _item_node(
+            "PVTI_acny",
+            {
+                "Slug": "acny",
+                "Status": {"name": "In-Progress", "optionId": "opt_inprog"},
+                "Upstream": "https://github.com/owner/acny",
+            },
+        )
+        responses: list = [
+            _items_page([existing]),
+            {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_acny"}}},  # Status=Approved
+        ]
+        fake = FakeRun(responses)
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertIn("acny(ready,attempts=0)->Approved", summary["recovered_stuck"])
+
+    def test_sync_blocks_stuck_item_after_max_rerun_attempts(self) -> None:
+        from datetime import datetime, timedelta, timezone
+
+        stale_ts = (datetime.now(timezone.utc) - timedelta(hours=project_board._STALE_RECOVERY_HOURS + 1)).isoformat().replace("+00:00", "Z")
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/burned",
+                    "slug": "burned",
+                    "state": "scaffolded",
+                    "attempts": project_board._MAX_RERUN_ATTEMPTS,
+                    "updated_at": stale_ts,
+                    "candidate": {"repo_url": "https://github.com/owner/burned"},
+                }
+            ]
+        }
+        root = self._setup(queue)
+        existing = _item_node(
+            "PVTI_burned",
+            {
+                "Slug": "burned",
+                "Status": {"name": "In-Progress", "optionId": "opt_inprog"},
+                "Upstream": "https://github.com/owner/burned",
+            },
+        )
+        responses: list = [
+            _items_page([existing]),
+            {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_burned"}}},  # Status=Blocked
+            {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_burned"}}},  # Failures=...
+        ]
+        fake = FakeRun(responses)
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertTrue(any("burned" in s and "Blocked" in s for s in summary["recovered_stuck"]))
+
+    def test_sync_does_not_recover_recently_updated_in_progress_item(self) -> None:
+        # Worker just marked it In-Progress; sync must not yank it back.
+        from datetime import datetime, timezone
+
+        fresh_ts = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/fresh",
+                    "slug": "fresh",
+                    "state": "ready",
+                    "attempts": 0,
+                    "updated_at": fresh_ts,
+                    "candidate": {"repo_url": "https://github.com/owner/fresh"},
+                }
+            ]
+        }
+        root = self._setup(queue)
+        existing = _item_node(
+            "PVTI_fresh",
+            {
+                "Slug": "fresh",
+                "Status": {"name": "In-Progress", "optionId": "opt_inprog"},
+                "Upstream": "https://github.com/owner/fresh",
+            },
+        )
+        fake = FakeRun([_items_page([existing])])  # no mutations expected
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertNotIn("recovered_stuck", summary)
+
     def test_sync_skips_excluded_slug_not_yet_on_board(self) -> None:
         queue = {
             "items": [
