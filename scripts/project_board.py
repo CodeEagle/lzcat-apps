@@ -87,6 +87,11 @@ FIELD_SCHEMA: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
     ("last_run", "Last Run", "DATE", ()),
     ("failures", "Failures", "TEXT", ()),
     ("codex_attempts", "Codex Attempts", "NUMBER", ()),
+    # Latest item.state_history[-1] rendered as
+    # "<from> -> <to> via <source> @<ts>: <reason>". Filled by sync from
+    # queue.json. Lets the operator see at a glance why a card is in its
+    # current column without opening queue.json or state-history.jsonl.
+    ("state_change", "Last State Change", "TEXT", ()),
     # Audit / context fields requested by operator. Filled by sync from
     # queue.json so each card carries enough info that you don't need to
     # cross-reference queue.json or the ai-reviews.jsonl audit log just to
@@ -310,6 +315,52 @@ def load_queue(repo_root: Path) -> dict[str, Any]:
     return payload
 
 
+def save_queue(repo_root: Path, queue: dict[str, Any]) -> None:
+    """Atomically write queue.json (write .tmp then os.replace).
+
+    Used by cmd_sync when verdict back-fill mutates the queue, so the
+    edited fields persist into the next auto-discover cycle's view of
+    state. Atomic to avoid mid-write corruption from a concurrent reader.
+    """
+    p = repo_root / QUEUE_PATH
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    tmp.write_text(json.dumps(queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, p)
+
+
+def load_ai_reviews_index(repo_root: Path) -> dict[str, dict[str, Any]]:
+    """Read ai-reviews.jsonl and return {slug: latest_discovery_entry}.
+
+    Used by cmd_sync to back-fill ``discovery_review.status`` (the verdict)
+    on queue items that the AI scored but never had the verdict written
+    back to queue.json — common after the score/verdict schema split,
+    where claude wrote the score directly but only logged the verdict.
+    Last-write-wins keyed on slug.
+    """
+    path = repo_root / "registry" / "auto-migration" / "ai-reviews.jsonl"
+    if not path.exists():
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("reviewer") != "discovery":
+            continue
+        slug = str(entry.get("slug") or "").strip()
+        if not slug:
+            continue
+        out[slug] = entry  # last-wins
+    return out
+
+
 def queue_item_score(item: dict[str, Any]) -> float | None:
     review = item.get("discovery_review") if isinstance(item.get("discovery_review"), dict) else {}
     raw = review.get("score")
@@ -395,6 +446,35 @@ def queue_item_reasoning(item: dict[str, Any]) -> str:
         if last_error:
             parts.append(f"error: {last_error}")
     return _truncate(" | ".join(parts))
+
+
+def queue_item_last_state_change(item: dict[str, Any]) -> str:
+    """Format ``item.state_history[-1]`` for the Project Board "Last State
+    Change" field. Returns "" when no history exists.
+
+    Layout::
+
+        <from> → <to>  via <source> @<ts>
+        <reason>
+    """
+    history = item.get("state_history")
+    if not isinstance(history, list) or not history:
+        return ""
+    last = history[-1]
+    if not isinstance(last, dict):
+        return ""
+    src = str(last.get("from") or "—").strip() or "—"
+    dst = str(last.get("to") or "?").strip() or "?"
+    via = str(last.get("source") or "").strip()
+    ts = str(last.get("ts") or "").strip()
+    reason = str(last.get("reason") or "").strip()
+    head = f"{src} → {dst}"
+    if via:
+        head += f"  via {via}"
+    if ts:
+        head += f"  @{ts}"
+    body = f"\n{reason}" if reason else ""
+    return _truncate(head + body)
 
 
 def queue_item_store_hits(item: dict[str, Any]) -> str:
@@ -1124,6 +1204,13 @@ def cmd_sync(args: argparse.Namespace) -> int:
     exclude = load_exclude_slugs(repo_root)
     queue = load_queue(repo_root)
     items = [i for i in queue.get("items", []) if isinstance(i, dict)]
+    # Load ai-reviews.jsonl so we can back-fill discovery_review.status
+    # (verdict) on items that AI scored but never had the verdict written
+    # to queue.json. See Fix B in commit message — without this,
+    # advance_discovery_reviewer-style "ready needs verdict" guards never
+    # find one and demote the item back to discovery_review.
+    ai_reviews_index = load_ai_reviews_index(repo_root)
+    queue_dirty = False
     max_creates = max(0, int(getattr(args, "max_creates", 0) or 0))
     creates_remaining = max_creates if max_creates > 0 else None
 
@@ -1223,6 +1310,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
             ("Reviewed", queue_item_reviewed(item)),
             ("Reasoning", queue_item_reasoning(item)),
             ("Store Hits", queue_item_store_hits(item)),
+            ("Last State Change", queue_item_last_state_change(item)),
         ):
             if not value:
                 continue
@@ -1368,6 +1456,41 @@ def cmd_sync(args: argparse.Namespace) -> int:
         elif not created:
             summary["updated"].append(slug)
 
+        # Fix B back-fill: when AI scored the item past threshold but
+        # discovery_review.status (the verdict) was never written into
+        # queue.json, copy it from ai-reviews.jsonl. The audit log has
+        # the canonical verdict (claude wrote it there directly via
+        # ai_review_log.append_review), so we use it as the source of
+        # truth. Fixes the cycle that demotes verdict-less ready items
+        # back to discovery_review during advance_discovery_reviewer-
+        # adjacent guards.
+        #
+        # Conservative: triggers ONLY when the queue item lacks a
+        # `status` field. If claude already wrote a verdict, we don't
+        # touch any of the surrounding fields — stale audit-log entries
+        # could otherwise overwrite a fresher partial review.
+        if ai_says_go:
+            review_log = ai_reviews_index.get(slug)
+            review = item.get("discovery_review") if isinstance(item.get("discovery_review"), dict) else None
+            queue_verdict = str((review or {}).get("status") or "").strip()
+            if isinstance(review_log, dict) and not queue_verdict:
+                if review is None:
+                    review = {}
+                    item["discovery_review"] = review
+                for queue_key, log_key in (
+                    ("status", "verdict"),
+                    ("reason", "reason"),
+                    ("reviewed_at", "ts"),
+                    ("evidence", "evidence"),
+                    ("score", "score"),
+                ):
+                    if review.get(queue_key) in (None, "", []) and review_log.get(log_key) not in (None, "", []):
+                        review[queue_key] = review_log[log_key]
+                if review.get("reviewer") in (None, ""):
+                    review["reviewer"] = "claude"
+                summary.setdefault("verdict_backfilled", []).append(slug)
+                queue_dirty = True
+
         # Render the rich markdown body if --render-body is set. Drafts get
         # body filled then converted to actual Issues; existing Issues get
         # body updated in place. Cards already converted are recognized via
@@ -1406,6 +1529,14 @@ def cmd_sync(args: argparse.Namespace) -> int:
                 # Body rendering must never fail the overall sync — log to
                 # the audit summary instead.
                 summary.setdefault("body_errors", []).append(f"{slug}: {exc}")
+
+    # Persist back-filled verdicts (Fix B). Atomic write so a concurrent
+    # auto_migration_service reader never sees a half-written file.
+    if queue_dirty:
+        save_queue(repo_root, queue)
+        summary.setdefault("queue_writes", []).append(
+            f"backfilled {len(summary.get('verdict_backfilled', []))} verdicts"
+        )
 
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0

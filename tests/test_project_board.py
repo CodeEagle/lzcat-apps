@@ -1100,6 +1100,224 @@ class SyncTest(unittest.TestCase):
         summary = json.loads(buf.getvalue())
         self.assertEqual(summary["filtered_excluded"], ["codex-web"])
 
+    def test_sync_backfills_verdict_from_ai_reviews_jsonl(self) -> None:
+        """Fix B: when sync auto-approves an item that lacks
+        discovery_review.status (verdict), copy it from ai-reviews.jsonl
+        and persist queue.json. Otherwise downstream readers can't tell
+        the AI ever judged migrate-worthy.
+        """
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/demo",
+                    "slug": "demo",
+                    "state": "ready",
+                    "candidate": {"repo_url": "https://github.com/owner/demo"},
+                    # score is set, but NO status (verdict) — common after the
+                    # discovery_review schema split where claude wrote the
+                    # score directly but only logged the verdict.
+                    "discovery_review": {"score": 0.85},
+                }
+            ]
+        }
+        root = self._setup(queue, threshold=0.8)
+        # Seed ai-reviews.jsonl with the canonical verdict
+        (root / "registry" / "auto-migration" / "ai-reviews.jsonl").write_text(
+            json.dumps({
+                "reviewer": "discovery",
+                "slug": "demo",
+                "verdict": "migrate",
+                "score": 0.85,
+                "reason": "self-hosted server",
+                "evidence": ["docker-compose.yml present", "active maintainer"],
+                "ts": "2026-05-07T01:00:00Z",
+            }) + "\n",
+            encoding="utf-8",
+        )
+        existing = _item_node(
+            "PVTI_demo",
+            {
+                "Slug": "demo",
+                "Status": {"name": "Inbox", "optionId": "opt_inbox"},
+                "Upstream": "https://github.com/owner/demo",
+                "AI Score": 0.85,
+                "Store Hits": "0 hits",
+            },
+        )
+        responses: list = [
+            _items_page([existing]),
+            {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_demo"}}},  # Status=Approved
+        ]
+        fake = FakeRun(responses)
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertEqual(summary["approved"], ["demo"])
+        self.assertEqual(summary.get("verdict_backfilled"), ["demo"])
+        # queue.json was rewritten with the back-filled fields
+        rewritten = json.loads(
+            (root / "registry" / "auto-migration" / "queue.json").read_text(encoding="utf-8")
+        )
+        review = rewritten["items"][0]["discovery_review"]
+        self.assertEqual(review["status"], "migrate")
+        self.assertEqual(review["reason"], "self-hosted server")
+        self.assertEqual(review["evidence"], ["docker-compose.yml present", "active maintainer"])
+        self.assertEqual(review["reviewed_at"], "2026-05-07T01:00:00Z")
+        self.assertEqual(review["reviewer"], "claude")
+
+    def test_sync_does_not_overwrite_existing_verdict(self) -> None:
+        """Back-fill is opt-in by absence — never clobber a verdict claude
+        already wrote with whatever's in the audit log."""
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/demo",
+                    "slug": "demo",
+                    "state": "ready",
+                    "candidate": {"repo_url": "https://github.com/owner/demo"},
+                    "discovery_review": {
+                        "score": 0.85,
+                        "status": "migrate",         # already set
+                        "reason": "operator-set",   # already set
+                        "reviewer": "claude",
+                    },
+                }
+            ]
+        }
+        root = self._setup(queue, threshold=0.8)
+        (root / "registry" / "auto-migration" / "ai-reviews.jsonl").write_text(
+            json.dumps({
+                "reviewer": "discovery",
+                "slug": "demo",
+                "verdict": "skip",                  # divergent — must be ignored
+                "reason": "stale audit entry",
+                "ts": "2026-05-07T01:00:00Z",
+            }) + "\n",
+            encoding="utf-8",
+        )
+        existing = _item_node(
+            "PVTI_demo",
+            {"Slug": "demo", "Status": {"name": "Approved", "optionId": "opt_approved"},
+             "Upstream": "https://github.com/owner/demo",
+             "AI Score": 0.85,
+             "Store Hits": "0 hits",
+             "Reasoning": "verdict: migrate | operator-set"},
+        )
+        responses: list = [_items_page([existing])]
+        fake = FakeRun(responses)
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertNotIn("verdict_backfilled", summary)
+        # queue.json should NOT have been rewritten because nothing changed
+        original_queue = json.loads(
+            (root / "registry" / "auto-migration" / "queue.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(original_queue["items"][0]["discovery_review"]["status"], "migrate")
+        self.assertEqual(original_queue["items"][0]["discovery_review"]["reason"], "operator-set")
+
+    def test_sync_skips_backfill_when_score_below_threshold(self) -> None:
+        """Don't fabricate verdicts for items the AI hasn't actually
+        judged migrate-worthy (score < threshold)."""
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/demo",
+                    "slug": "demo",
+                    "state": "ready",
+                    "candidate": {"repo_url": "https://github.com/owner/demo"},
+                    "discovery_review": {"score": 0.30},  # below threshold
+                }
+            ]
+        }
+        root = self._setup(queue, threshold=0.8)
+        (root / "registry" / "auto-migration" / "ai-reviews.jsonl").write_text(
+            json.dumps({
+                "reviewer": "discovery",
+                "slug": "demo",
+                "verdict": "migrate",
+                "ts": "2026-05-07T01:00:00Z",
+            }) + "\n",
+            encoding="utf-8",
+        )
+        existing = _item_node(
+            "PVTI_demo",
+            {"Slug": "demo", "Status": {"name": "Inbox"},
+             "Upstream": "https://github.com/owner/demo",
+             "AI Score": 0.30,
+             "Store Hits": "0 hits"},
+        )
+        responses: list = [_items_page([existing])]
+        fake = FakeRun(responses)
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertNotIn("verdict_backfilled", summary)
+
+
+class HelperTest(unittest.TestCase):
+    def test_load_ai_reviews_index_last_wins_per_slug(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "registry" / "auto-migration").mkdir(parents=True)
+            (root / "registry" / "auto-migration" / "ai-reviews.jsonl").write_text(
+                "\n".join([
+                    json.dumps({"reviewer": "discovery", "slug": "a", "verdict": "migrate", "ts": "1"}),
+                    json.dumps({"reviewer": "discovery", "slug": "b", "verdict": "skip", "ts": "1"}),
+                    # 'a' updated later — should win
+                    json.dumps({"reviewer": "discovery", "slug": "a", "verdict": "skip", "ts": "2"}),
+                    # non-discovery reviewer ignored
+                    json.dumps({"reviewer": "browser", "slug": "c", "verdict": "pass", "ts": "1"}),
+                    "",  # blank line tolerated
+                    "{not json",  # malformed line tolerated
+                ]) + "\n",
+                encoding="utf-8",
+            )
+            idx = project_board.load_ai_reviews_index(root)
+            self.assertEqual(idx["a"]["verdict"], "skip")
+            self.assertEqual(idx["a"]["ts"], "2")
+            self.assertEqual(idx["b"]["verdict"], "skip")
+            self.assertNotIn("c", idx)
+
+    def test_load_ai_reviews_index_missing_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(project_board.load_ai_reviews_index(Path(tmp)), {})
+
+    def test_save_queue_atomic_write(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project_board.save_queue(root, {"items": [{"slug": "x"}]})
+            target = root / "registry" / "auto-migration" / "queue.json"
+            self.assertTrue(target.exists())
+            self.assertFalse(target.with_suffix(target.suffix + ".tmp").exists())
+            data = json.loads(target.read_text(encoding="utf-8"))
+            self.assertEqual(data, {"items": [{"slug": "x"}]})
+
+    def test_queue_item_last_state_change_renders_history(self) -> None:
+        item = {
+            "state_history": [
+                {"from": "discovery_review", "to": "ready",
+                 "reason": "AI verdict=migrate score=0.85",
+                 "source": "project_board.cmd_sync",
+                 "ts": "2026-05-07T08:00:00Z"},
+            ],
+        }
+        rendered = project_board.queue_item_last_state_change(item)
+        self.assertIn("discovery_review → ready", rendered)
+        self.assertIn("project_board.cmd_sync", rendered)
+        self.assertIn("2026-05-07T08:00:00Z", rendered)
+        self.assertIn("AI verdict=migrate score=0.85", rendered)
+
+    def test_queue_item_last_state_change_empty_when_no_history(self) -> None:
+        self.assertEqual(project_board.queue_item_last_state_change({}), "")
+        self.assertEqual(project_board.queue_item_last_state_change({"state_history": []}), "")
+
 
 class ListByStatusTest(unittest.TestCase):
     def test_returns_slugs_matching_any_status(self) -> None:

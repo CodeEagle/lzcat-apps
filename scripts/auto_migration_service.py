@@ -717,10 +717,19 @@ def advance_post_acceptance(
                     state="browser_passed",
                     now=now,
                     last_error=f"copywriter exited {copy_result.returncode}",
+                    reason=f"copywriter rc={copy_result.returncode}: roll back to browser_passed",
+                    source="auto_migration_service.advance_copywriter",
                 )
                 results.append({"id": item_id, "status": "copy_failed", "returncode": copy_result.returncode})
                 continue
-            update_item_state(queue, item_id, state="copy_ready", now=now)
+            update_item_state(
+                queue,
+                item_id,
+                state="copy_ready",
+                now=now,
+                reason="copywriter rc=0: copy assets ready",
+                source="auto_migration_service.advance_copywriter",
+            )
 
         if not config.developer_url:
             results.append({"id": item_id, "status": "copy_ready", "reason": "developer_url_missing"})
@@ -729,7 +738,14 @@ def advance_post_acceptance(
         submission_command = build_prepare_submission_command(config, item)
         submission_result = runner(submission_command)
         if submission_result.returncode == 0:
-            update_item_state(queue, item_id, state="publish_ready", now=now)
+            update_item_state(
+                queue,
+                item_id,
+                state="publish_ready",
+                now=now,
+                reason="prepare_store_submission rc=0: ready for publish",
+                source="auto_migration_service.advance_publish_prep",
+            )
             results.append({"id": item_id, "status": "publish_ready", "returncode": 0})
         else:
             update_item_state(
@@ -738,6 +754,8 @@ def advance_post_acceptance(
                 state="copy_ready",
                 now=now,
                 last_error=f"prepare_store_submission exited {submission_result.returncode}",
+                reason=f"prepare_store_submission rc={submission_result.returncode}: roll back to copy_ready",
+                source="auto_migration_service.advance_publish_prep",
             )
             results.append({"id": item_id, "status": "copy_ready", "returncode": submission_result.returncode})
 
@@ -767,7 +785,14 @@ def refresh_browser_pending(
         result = runner(command)
         state = functional_check_state_for_item(config, item) or "browser_pending"
         if state in {"browser_pending", "browser_failed", "browser_passed"}:
-            update_item_state(queue, item_id, state=state, now=now)
+            update_item_state(
+                queue,
+                item_id,
+                state=state,
+                now=now,
+                reason=f"functional_checker → {state} (rc={result.returncode})",
+                source="auto_migration_service.advance_browser_acceptance",
+            )
             results.append({"id": item_id, "status": state, "returncode": result.returncode})
         else:
             results.append({"id": item_id, "status": "browser_pending", "returncode": result.returncode})
@@ -1146,6 +1171,8 @@ def advance_codex_worker(
             state="build_failed",
             now=now,
             last_error=f"git worktree exited {workspace_result.returncode}",
+            reason=f"prepare_migration_workspace rc={workspace_result.returncode}",
+            source="auto_migration_service.run_codex_worker",
         )
         return [{"id": item.get("id", ""), "status": "worktree_failed", "returncode": workspace_result.returncode}]
 
@@ -1433,6 +1460,8 @@ def run_cycle(
                 state="build_failed",
                 now=now,
                 last_error=f"git worktree exited {workspace_result.returncode}",
+                reason=f"prepare_migration_workspace rc={workspace_result.returncode}",
+                source="auto_migration_service.cycle.prepare_workspace",
             )
             publish_discord_update(
                 config,
@@ -1452,7 +1481,14 @@ def run_cycle(
                 state = functional_check_state_for_item(config, selected) or "browser_pending"
             else:
                 state = migration_success_state(config)
-            update_item_state(queue, str(selected["id"]), state=state, now=now)
+            update_item_state(
+                queue,
+                str(selected["id"]),
+                state=state,
+                now=now,
+                reason=f"auto_migrate.py rc=0: cycle advanced to {state}",
+                source="auto_migration_service.cycle.migrate",
+            )
             publish_discord_update(
                 config,
                 queue,
@@ -1465,7 +1501,14 @@ def run_cycle(
         elif config.enable_build_install and config.functional_check:
             state = functional_check_state_for_item(config, selected)
             if state in {"browser_pending", "browser_failed", "browser_passed"}:
-                update_item_state(queue, str(selected["id"]), state=state, now=now)
+                update_item_state(
+                    queue,
+                    str(selected["id"]),
+                    state=state,
+                    now=now,
+                    reason=f"functional_check → {state}",
+                    source="auto_migration_service.cycle.functional_check",
+                )
                 publish_discord_update(
                     config,
                     queue,
@@ -1482,6 +1525,8 @@ def run_cycle(
                     state="build_failed",
                     now=now,
                     last_error=f"auto_migrate exited {result.returncode}",
+                    reason=f"auto_migrate.py rc={result.returncode} (final attempt failed)",
+                    source="auto_migration_service.cycle.migrate",
                 )
                 publish_discord_update(
                     config,
@@ -1500,6 +1545,8 @@ def run_cycle(
                 state="build_failed",
                 now=now,
                 last_error=f"auto_migrate exited {result.returncode}",
+                reason=f"auto_migrate.py rc={result.returncode} (max retries exhausted)",
+                source="auto_migration_service.cycle.migrate",
             )
             publish_discord_update(
                 config,
