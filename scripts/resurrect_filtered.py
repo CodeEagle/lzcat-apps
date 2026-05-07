@@ -98,6 +98,19 @@ def reset_item(item: dict[str, Any], *, now: str) -> None:
     review.pop("last_status", None)
     review.pop("last_returncode", None)
     review.pop("last_run_at", None)
+    # Clear the OLD verdict's payload too — score/reason/evidence/reviewed_at
+    # were written by the prompt that filtered the item, and leaving them
+    # around makes a resurrected item look like it just got freshly scored
+    # 0.12 (or whatever) by the NEW prompt. Confuses both human inspection
+    # and the Last State Change board field, which would render the stale
+    # reasoning as if it were current. Audit trail for the previous verdict
+    # already lives in ai-reviews.jsonl + state_history; no need to keep a
+    # second copy here.
+    review.pop("score", None)
+    review.pop("reason", None)
+    review.pop("evidence", None)
+    review.pop("reviewed_at", None)
+    review.pop("verdict", None)
     review["created_at"] = now
     review["status"] = "pending"
     review["prompt"] = (
