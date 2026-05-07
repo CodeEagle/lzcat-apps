@@ -135,6 +135,14 @@ jobs:
         # cycles instead of burning the entire 5000/hr GraphQL budget at once.
         run: python3 scripts/project_board.py sync --max-creates 200
 
+      - name: File GitHub Issues for needs_human verdicts
+        # Surfaces AI-flagged ambiguous candidates as Issues so the operator
+        # has a clickable triage queue without watching Discord. Idempotent:
+        # dedupes against open [needs-triage] issues, capped at 10 new
+        # issues per run so a sudden spike doesn't spam the Issues tab.
+        continue-on-error: true
+        run: python3 scripts/needs_human_to_issues.py --max-issues 10
+
       - name: Commit canonical state back to template
         run: |
           set -euo pipefail

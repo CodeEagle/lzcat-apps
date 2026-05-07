@@ -110,10 +110,34 @@ Goal:
 - Use evidence from the upstream repository, local LazyCat publication status, candidate snapshots, and the user's developer app page when available.
 - Do not run the migration, do not build packages, do not submit or publish anything.
 
+Asymmetric cost model — bias HEAVILY toward `migrate`:
+- A false positive (you say `migrate`, the slug turns out non-deployable) costs ONE worker run that ends in build_failed → Blocked. Cheap, recoverable.
+- A false negative (you say `skip`, the slug was actually useful) is permanent — the candidate is lost from the pipeline.
+- The threshold is intentionally LOW. Reserve `skip` only for cases that match an explicit disqualifier from the list below.
+
+What this project actually packages — broader than "native self-hosted server":
+The LazyCat app-store accepts ANYTHING that can be containerized into a
+web-accessible service on a user's personal cloud, including:
+- Native self-hosted server apps (Vaultwarden, Nextcloud, Home Assistant, Airflow)
+- CLI tools / libraries wrapped as a web service (markitdown → web converter UI; ffmpeg → media-tools UI)
+- Documentation / wiki / knowledge bases served as a personal wiki (HackTricks, Awesome-* viewers)
+- Terminal / TUI / desktop apps wrapped in a browser shell (Warp, ttyd-style apps)
+- ML/data tools with any UI surface (DVC Studio, Jupyter-like notebooks)
+- Bots, schedulers, background services with a web dashboard
+- Even single-purpose utilities (URL shorteners, paste bins, file servers) regardless of star count
+
 Decision rules:
-- `migrate`: the upstream appears to be a deployable self-hosted app or service, is not already published in this LazyCat app set, and has enough deployment evidence to attempt migration.
-- `skip`: it is already migrated/published, is a library/list/documentation/data-only repository, lacks deployable app evidence, or is otherwise not worth migrating.
-- `needs_human`: the decision depends on product/listing ownership, ambiguous app-store match, licensing risk, credentials, or a judgment call that should be asked in Discord.
+- `migrate`: the upstream is a real software project (not abandoned spam) AND the README / description suggests there is functionality a user might want to run on their personal cloud. Stars / language / size / age do NOT disqualify. If you can imagine ANY way to wrap it into a web-accessible container, choose `migrate`.
+- `skip`: ONLY when one of these EXPLICIT disqualifiers applies —
+  (a) academic coursework / homework / graduation thesis with no real users
+  (b) literal "template" / "skeleton" / "boilerplate" / "starter" repo
+  (c) curated *list* of links (awesome-* index) — but a viewer/server FOR such lists IS migrate
+  (d) "Hello World" / "test" / personal scratchpad with no description and no commits past initial
+  (e) already-published in the LazyCat app store (covered by store-search hits — see below)
+  (f) someone's personal homepage / résumé / blog content (not a deployable app)
+  (g) blatant SaaS wrapper that ONLY works against a paid third-party API with no self-host path
+  (h) the candidate is a programming-language standard library, web framework (React, Vue, Express), or developer SDK with no end-user app
+- `needs_human`: ambiguous app-store match where the upstream MIGHT already be listed (operator should confirm), or licensing red flags. Do NOT use `needs_human` just because you're unsure about quality; default to `migrate` and let the worker confirm by attempting a build.
 
 LazyCat app-store search review:
 {store_search_guidance}
@@ -122,12 +146,16 @@ Required queue update:
 - Open and update this queue file: {queue_path}
 - Find the item whose `id` is `{item.get("id", "")}`.
 - For every decision, additionally write a numeric `discovery_review.score`
-  in the closed interval [0.0, 1.0] reflecting your confidence that this is a
-  worthwhile, deployable LazyCat candidate. Calibration:
-    * 0.90+   highly confident migrate (clearly a self-hosted app, not yet on store)
-    * 0.80    threshold for AI auto-approve (project_board.py promotes Inbox → Approved)
-    * 0.50    50/50 — prefer `needs_human`
-    * 0.20-   confidently skip (library, list, already migrated, not deployable)
+  in the closed interval [0.0, 1.0] reflecting your confidence the candidate
+  is worth dispatching to a worker. The threshold is intentionally low so
+  the pipeline isn't starved of work; almost every real software project
+  should land above it:
+    * 0.90+   confident migrate (clear app/service/wiki with active users)
+    * 0.70    healthy candidate, multiple positive signals
+    * 0.65    threshold for AI auto-approve (Inbox → Approved)
+    * 0.55    leans migrate (has utility, partial signals) — STILL ABOVE threshold
+    * 0.40    lean skip — needs an explicit disqualifier
+    * 0.15-   confident skip (clear coursework / template / personal homepage / web framework)
   The score MUST be a JSON number (not a string).
 - For `migrate`, set `state` to `ready`, clear `last_error` and `filtered_reason`, and write:
   `discovery_review.status = "migrate"`, `discovery_review.reviewed_at`, `discovery_review.reviewer = "claude"`,

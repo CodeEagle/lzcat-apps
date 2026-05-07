@@ -716,6 +716,117 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(summary["approved"], [])
         self.assertIn("demo", summary["updated"])
 
+    def test_sync_resurrects_long_blocked_build_failed_item(self) -> None:
+        # Blocked build_failed slugs get one more rerun after BLOCKED_RETRY_HOURS
+        # (assumes transient cause: registry outage, claude flake, runner OOM).
+        # Capped by MAX_RERUN_ATTEMPTS so genuinely-broken builds eventually stay Blocked.
+        from datetime import datetime, timedelta, timezone
+
+        stale_ts = (datetime.now(timezone.utc) - timedelta(hours=project_board._BLOCKED_RETRY_HOURS + 1)).isoformat().replace("+00:00", "Z")
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/lilbee",
+                    "slug": "lilbee",
+                    "state": "build_failed",
+                    "attempts": 1,
+                    "updated_at": stale_ts,
+                    "candidate": {"repo_url": "https://github.com/owner/lilbee"},
+                }
+            ]
+        }
+        root = self._setup(queue)
+        existing = _item_node(
+            "PVTI_lilbee",
+            {
+                "Slug": "lilbee",
+                "Status": {"name": "Blocked", "optionId": "opt_blocked"},
+                "Upstream": "https://github.com/owner/lilbee",
+            },
+        )
+        # Only one mutation: Status=Approved. terminal_map sees current=Blocked
+        # already matches build_failed → no push. Then resurrect-Blocked block
+        # promotes to Approved.
+        responses: list = [
+            _items_page([existing]),
+            {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_lilbee"}}},  # Status=Approved
+        ]
+        fake = FakeRun(responses)
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertIn("lilbee(attempts=1)", summary["blocked_retry"])
+
+    def test_sync_does_not_resurrect_recently_blocked_item(self) -> None:
+        # Blocked just now → leave alone (worker may still be retrying via codex).
+        from datetime import datetime, timezone
+
+        fresh_ts = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/lilbee",
+                    "slug": "lilbee",
+                    "state": "build_failed",
+                    "attempts": 1,
+                    "updated_at": fresh_ts,
+                    "candidate": {"repo_url": "https://github.com/owner/lilbee"},
+                }
+            ]
+        }
+        root = self._setup(queue)
+        existing = _item_node(
+            "PVTI_lilbee",
+            {
+                "Slug": "lilbee",
+                "Status": {"name": "Blocked", "optionId": "opt_blocked"},
+                "Upstream": "https://github.com/owner/lilbee",
+            },
+        )
+        fake = FakeRun([_items_page([existing])])  # no mutations
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertNotIn("blocked_retry", summary)
+
+    def test_sync_does_not_resurrect_blocked_at_max_attempts(self) -> None:
+        # Stale + Blocked + attempts ≥ MAX → leave alone (genuinely broken).
+        from datetime import datetime, timedelta, timezone
+
+        stale_ts = (datetime.now(timezone.utc) - timedelta(hours=project_board._BLOCKED_RETRY_HOURS + 1)).isoformat().replace("+00:00", "Z")
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/exhausted",
+                    "slug": "exhausted",
+                    "state": "build_failed",
+                    "attempts": project_board._MAX_RERUN_ATTEMPTS,
+                    "updated_at": stale_ts,
+                    "candidate": {"repo_url": "https://github.com/owner/exhausted"},
+                }
+            ]
+        }
+        root = self._setup(queue)
+        existing = _item_node(
+            "PVTI_exhausted",
+            {
+                "Slug": "exhausted",
+                "Status": {"name": "Blocked", "optionId": "opt_blocked"},
+                "Upstream": "https://github.com/owner/exhausted",
+            },
+        )
+        fake = FakeRun([_items_page([existing])])  # no mutations
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertNotIn("blocked_retry", summary)
+
     def test_sync_recovers_inbox_stranded_scaffolded_item_to_approved(self) -> None:
         # scaffolded slugs in the Inbox column = a worker already ran scaffold
         # but the board status got reset (or never updated). The work is

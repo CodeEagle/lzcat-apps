@@ -110,6 +110,13 @@ _STALE_RECOVERY_HOURS = 2
 # enforced by auto-migrate-worker.yml so the two stay in sync.
 _MAX_RERUN_ATTEMPTS = 5
 
+# How long a Blocked build_failed slug should sit before sync gives it one
+# more rerun attempt. Periodic codex / dependency / upstream-fix may have
+# unstuck whatever broke the original build, and re-attempting is cheaper
+# than indefinitely losing the candidate. Bounded by _MAX_RERUN_ATTEMPTS so
+# we don't loop on a structurally-broken build.
+_BLOCKED_RETRY_HOURS = 24
+
 
 def _is_item_stale(item: dict[str, Any], *, hours: int) -> bool:
     """True iff item.updated_at is reliably older than `hours` ago.
@@ -1226,6 +1233,28 @@ def cmd_sync(args: argparse.Namespace) -> int:
                 flat["Status"] = {"name": target_terminal}
                 summary.setdefault("auto_terminal", []).append(f"{slug}->{target_terminal}")
                 current_status_name = target_terminal
+            except RuntimeError:
+                pass
+
+        # Resurrect long-Blocked build_failed slugs for one more attempt.
+        # Build failures often come from transient causes (upstream registry
+        # outage, podman flakiness, claude rate limit, ephemeral runner
+        # OOM); after BLOCKED_RETRY_HOURS the conditions usually differ
+        # from the original failure. Cap on attempts prevents looping on
+        # genuinely-broken slugs.
+        if (
+            item_state == "build_failed"
+            and current_status_name == "Blocked"
+            and int(item.get("attempts") or 0) < _MAX_RERUN_ATTEMPTS
+            and _is_item_stale(item, hours=_BLOCKED_RETRY_HOURS)
+        ):
+            try:
+                set_field(project_id, item_id, cache, "Status", "Approved")
+                flat["Status"] = {"name": "Approved"}
+                summary.setdefault("blocked_retry", []).append(
+                    f"{slug}(attempts={int(item.get('attempts') or 0)})"
+                )
+                current_status_name = "Approved"
             except RuntimeError:
                 pass
 

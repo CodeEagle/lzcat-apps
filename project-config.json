@@ -15,7 +15,7 @@
     "desktop_screenshots_required": 2,
     "mobile_screenshots_required": 3,
     "playground_required": true,
-    "auto_approve_score_threshold": 0.8
+    "auto_approve_score_threshold": 0.65
   },
   "project_board": {
     "owner": "CodeEagle",
