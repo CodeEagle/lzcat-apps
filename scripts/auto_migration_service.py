@@ -1512,6 +1512,28 @@ def run_cycle(
                     "returncode": planner_result.returncode,
                     "phase": "planning",
                 })
+                # Commit whatever claude wrote into apps/<slug>/ so the
+                # mechanical build that runs next sees it AND so the work
+                # survives push for post-mortem inspection. Without this,
+                # claude's planner output evaporated when the cycle hit
+                # build_failed (stellaclaw run 25491577249 — apps/<slug>/
+                # never landed on migration/stellaclaw branch). Best-
+                # effort: failures here are non-fatal; we'd rather a
+                # dirty WIP commit than nothing at all.
+                if slug_str and app_dir is not None and app_dir.exists():
+                    try:
+                        runner([
+                            "git", "-C", str(item_repo_root(config, selected)),
+                            "add", f"apps/{slug_str}/", f"registry/repos/{slug_str}.json",
+                        ])
+                        rc_short = "ok" if planner_result.returncode == 0 else f"rc={planner_result.returncode}"
+                        runner([
+                            "git", "-C", str(item_repo_root(config, selected)),
+                            "commit", "-m", f"chore(planner): {slug_str} {rc_short}",
+                            "--allow-empty",
+                        ])
+                    except (RuntimeError, OSError):
+                        pass
         command = build_auto_migrate_command(config, selected)
         result = runner(command)
         summary["commands"].append({"command": command, "returncode": result.returncode, "phase": "build"})
