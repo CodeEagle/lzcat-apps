@@ -21,7 +21,13 @@ on:
 permissions:
   contents: write
   packages: write
-  actions: write   # to chain auto-verify
+  actions: write     # to chain auto-verify
+  # Some cycles touch .github/workflows/trigger-build.yml via
+  # sync_trigger_build_options.py. Without workflows: write the post-cycle
+  # `git push migration/<slug>` is rejected by GitHub's GitHub-App push
+  # protection, silently dropping every local mod made during the cycle.
+  # Observed in run 25484102037 (heym 2026-05-07T08:23).
+  workflows: write
 
 concurrency:
   group: migrate-${{ inputs.slug }}
@@ -58,6 +64,28 @@ jobs:
               exit 1
               ;;
           esac
+
+      - name: Configure podman to resolve unqualified short names
+        # full_migrate.py → run_build.py shells out to `docker build`. The
+        # runner image auto-bridges that to podman, which by default refuses
+        # short FROM lines like `oven/bun:1` / `node:20` / `python:3.11`
+        # unless /etc/containers/registries.conf declares search registries.
+        # Without this, run 25484102037 (heym 2026-05-07T08:23) failed 4×
+        # with "short-name 'oven/bun:1' did not resolve to an alias and no
+        # unqualified-search registries are defined", landing the slug
+        # build_failed before any code path ran. Idempotent: only appends
+        # if the directive isn't already present.
+        run: |
+          set -euo pipefail
+          conf=/etc/containers/registries.conf
+          mkdir -p "$(dirname "$conf")"
+          if [ -f "$conf" ] && grep -qE '^[[:space:]]*unqualified-search-registries[[:space:]]*=' "$conf"; then
+            echo "registries.conf already declares unqualified-search-registries:"
+            grep -E '^[[:space:]]*unqualified-search-registries[[:space:]]*=' "$conf"
+          else
+            printf '\n# added by auto-migrate-worker.yml\nunqualified-search-registries = ["docker.io"]\n' >> "$conf"
+            echo "appended unqualified-search-registries=[\"docker.io\"] to $conf"
+          fi
 
       - name: Ensure migration/${{ inputs.slug }} branch is up-to-date with template
         run: |
@@ -210,6 +238,12 @@ jobs:
             installed|browser_pending)                                status="Browser-Test";    next="verify" ;;
             scaffolded)                                               status="$rerun_status";   next="rerun" ;;
             ready)                                                    status="$rerun_status";   next="rerun" ;;
+            # advance_discovery_reviewer demotes ready items that lack a
+            # verdict back to discovery_review for AI re-evaluation. Send
+            # them to Inbox so the next auto-discover cycle picks them up
+            # for review — Blocked would burn a real candidate. Observed
+            # in run 25484105991 (cosmos-server 2026-05-07T08:23).
+            discovery_review)                                         status="Inbox";           next="re-review" ;;
             build_failed|codex_failed)                                status="Blocked";         next="blocked" ;;
             browser_failed)                                           status="Awaiting-Human";  next="wait" ;;
             browser_passed|copy_ready|publish_ready|waiting_for_human) status="Awaiting-Human";  next="wait" ;;
