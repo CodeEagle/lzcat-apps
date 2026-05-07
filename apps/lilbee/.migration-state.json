@@ -239,8 +239,10 @@
       "step": 2,
       "description": "检测到该仓库更像原生客户端/CLI/SDK 项目，而不是提供 HTTP 入口的 LazyCat Web 微服。 依据：根目录存在 CLI/SDK 打包文件：pyproject.toml；README 明显描述为原生客户端/多平台桌面应用：embedded, macos, metal, pip install , sdk, vulkan；仅发现脚本/辅助目录下的 Dockerfile：packaging/docker/Dockerfile。",
       "category": "unknown",
-      "status": "open",
-      "created_at": "2026-05-07T18:56:58.846976+00:00"
+      "status": "resolved",
+      "created_at": "2026-05-07T18:56:58.846976+00:00",
+      "resolution": "lilbee exposes an HTTP REST API server via `lilbee serve` (port 8000) — it IS a web service. CLI/SDK detection was a false positive triggered by pyproject.toml + multi-platform keywords. The full_migrate.py analyze_source bypass (commit c5177f1) was correct. Build succeeded at v0.6.66b456.",
+      "resolved_at": "2026-05-07T20:09:55Z"
     },
     {
       "id": "p7",
