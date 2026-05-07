@@ -474,12 +474,44 @@ def write_notification(
     return path
 
 
-def run_codex(config: CodexWorkerConfig, prompt: str, command: list[str]) -> CodexRunResult:
+def run_codex(
+    config: CodexWorkerConfig,
+    prompt: str,
+    command: list[str],
+    *,
+    slug: str = "",
+    mode: str = "",
+) -> CodexRunResult:
+    """Invoke claude --print and capture stdout/stderr.
+
+    Logs go two places:
+      1. <task_dir>/claude.std{out,err}.log — canonical, but the
+         task_dir lives under registry/auto-migration/codex-tasks/
+         which is gitignored. Lost when the runner shuts down.
+      2. apps/<slug>/.last-claude-{mode}.{stdout,stderr}.log when
+         slug+mode are provided — survives worker.yml's WIP commit
+         (which scopes to apps/<slug>/) so the operator can post-
+         mortem debug a planner / repair failure right from the
+         migration branch. Truncated to 64 KB each.
+    """
     stdout_path = config.task_dir / "claude.stdout.log"
     stderr_path = config.task_dir / "claude.stderr.log"
     result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=False)
     stdout_path.write_text(result.stdout or "", encoding="utf-8")
     stderr_path.write_text(result.stderr or "", encoding="utf-8")
+
+    if slug and mode:
+        app_dir = config.repo_root / "apps" / slug
+        try:
+            app_dir.mkdir(parents=True, exist_ok=True)
+            cap = 64 * 1024
+            stdout_tail = (result.stdout or "")[-cap:]
+            stderr_tail = (result.stderr or "")[-cap:]
+            (app_dir / f".last-claude-{mode}.stdout.log").write_text(stdout_tail, encoding="utf-8")
+            (app_dir / f".last-claude-{mode}.stderr.log").write_text(stderr_tail, encoding="utf-8")
+        except OSError:
+            pass
+
     session_id = extract_session_id_from_jsonl(result.stdout or "") or config.session_id.strip()
     return CodexRunResult(returncode=result.returncode, session_id=session_id)
 
@@ -570,7 +602,11 @@ def main() -> int:
     returncode = 0
     session_id = config.session_id.strip()
     if config.execute:
-        codex_result = run_codex(config, prompt, command)
+        codex_result = run_codex(
+            config, prompt, command,
+            slug=str(item.get("slug", "")).strip(),
+            mode=args.mode,
+        )
         returncode = codex_result.returncode
         session_id = codex_result.session_id or session_id
         status = "completed" if codex_result.returncode == 0 else "failed"
