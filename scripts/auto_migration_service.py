@@ -23,6 +23,7 @@ try:
     from .migration_workspace import build_worktree_command, migration_branch_name, migration_workspace_path
     from .publication_status import load_publication_index
     from .project_config import load_project_config
+    from .state_history import record_state_transition
 except ImportError:  # pragma: no cover - direct script execution
     from auto_migrate import infer_slug_from_source
     from discovery_gate import load_exclude_slugs, reconcile_queue_items
@@ -33,6 +34,7 @@ except ImportError:  # pragma: no cover - direct script execution
     from migration_workspace import build_worktree_command, migration_branch_name, migration_workspace_path
     from publication_status import load_publication_index
     from project_config import load_project_config
+    from state_history import record_state_transition
 
 
 DEFAULT_CANDIDATE_SNAPSHOT = "registry/candidates/latest.json"
@@ -274,8 +276,6 @@ def upsert_candidates(queue: dict[str, Any], candidates: list[dict[str, Any]], *
         existing = by_id.get(item_id)
         if existing:
             state = str(existing.get("state", "")).strip()
-            if state not in PROTECTED_STATES:
-                existing["state"] = next_state
             existing.update(
                 {
                     "source": source,
@@ -285,20 +285,35 @@ def upsert_candidates(queue: dict[str, Any], candidates: list[dict[str, Any]], *
                     "updated_at": now,
                 }
             )
+            if state not in PROTECTED_STATES and state != next_state:
+                record_state_transition(
+                    existing,
+                    next_state,
+                    reason=f"upsert_candidates: refreshed candidate (status={candidate.get('status','')!r})",
+                    source="auto_migration_service.upsert",
+                    now=now,
+                )
             by_id[item_id] = existing
             continue
 
-        by_id[item_id] = {
+        new_item: dict[str, Any] = {
             "id": item_id,
             "source": source,
             "slug": slug,
-            "state": next_state,
             "candidate_status": str(candidate.get("status", "")).strip(),
             "candidate": candidate,
             "attempts": 0,
             "created_at": now,
             "updated_at": now,
         }
+        record_state_transition(
+            new_item,
+            next_state,
+            reason=f"upsert_candidates: new candidate (status={candidate.get('status','')!r})",
+            source="auto_migration_service.upsert",
+            now=now,
+        )
+        by_id[item_id] = new_item
         ordered_ids.append(item_id)
 
     queue["schema_version"] = 1
@@ -354,6 +369,8 @@ def update_item_state(
     state: str,
     now: str,
     last_error: str = "",
+    reason: str | None = None,
+    source: str = "auto_migration_service.update_item_state",
 ) -> None:
     items = queue.get("items")
     if not isinstance(items, list):
@@ -361,8 +378,13 @@ def update_item_state(
     for item in items:
         if not isinstance(item, dict) or item.get("id") != item_id:
             continue
-        item["state"] = state
-        item["updated_at"] = now
+        record_state_transition(
+            item,
+            state,
+            reason=reason or (f"transition to {state} (last_error={last_error!r})" if last_error else f"transition to {state}"),
+            source=source,
+            now=now,
+        )
         item["attempts"] = int(item.get("attempts") or 0) + 1
         if last_error:
             item["last_error"] = last_error
@@ -841,17 +863,24 @@ def update_item_codex_result(
         if task_dir:
             codex["last_task_dir"] = task_dir
         item["codex"] = codex
-        item["updated_at"] = now
         if returncode == 0:
-            item["state"] = status
             if status == "ready":
                 item.pop("last_error", None)
             elif status == "browser_failed":
                 item["last_error"] = "Browser Use acceptance failed after codex repair"
             elif status == "browser_pending":
                 item.pop("last_error", None)
+            record_state_transition(
+                item,
+                status,
+                reason=f"codex_worker rc=0 advanced to {status}"
+                + (f" (session={session_id})" if session_id else ""),
+                source="auto_migration_service.codex_worker",
+                now=now,
+            )
         else:
             item["last_error"] = f"claude repair worker exited {returncode}"
+            item["updated_at"] = now
         break
 
 

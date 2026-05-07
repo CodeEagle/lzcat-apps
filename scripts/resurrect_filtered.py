@@ -45,6 +45,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+try:
+    from .state_history import record_state_transition
+except ImportError:  # pragma: no cover - direct script execution
+    from state_history import record_state_transition
+
 
 RESET_REASONS_DIRECT = {"ai_discovery_skip"}
 EXCLUDED_PROMPT_PREFIX_RESET = "Likely not a deployable self-hosted app/service"
@@ -73,15 +78,20 @@ def reset_item(item: dict[str, Any], *, now: str) -> None:
     candidate_repo = str(cand.get("full_name") or item.get("source") or "")
     repo_url = str(cand.get("repo_url") or "")
 
-    item["state"] = "discovery_review"
     item["candidate_status"] = "needs_review"
     item["resurrected_at"] = now
     item["resurrected_from_reason"] = audit_reason
-    item["updated_at"] = now
     item.pop("filtered_reason", None)
     item.pop("last_error", None)
     item.pop("human_request", None)
     item.pop("human_response", None)
+    record_state_transition(
+        item,
+        "discovery_review",
+        reason=f"resurrected from filtered_out: {audit_reason}",
+        source="resurrect_filtered",
+        now=now,
+    )
 
     review = item.get("discovery_review") if isinstance(item.get("discovery_review"), dict) else {}
     review["codex_attempts"] = 0

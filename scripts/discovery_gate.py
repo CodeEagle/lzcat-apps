@@ -6,8 +6,10 @@ from typing import Any
 
 try:
     from .publication_status import normalize_repo
+    from .state_history import record_state_transition
 except ImportError:  # pragma: no cover - direct script execution
     from publication_status import normalize_repo
+    from state_history import record_state_transition
 
 
 FILTERED_CANDIDATE_STATUSES = {"already_migrated", "already_migrated_by_other", "excluded"}
@@ -93,7 +95,6 @@ def _publication_match(item: dict[str, Any], publication_index: dict[str, dict[s
 
 
 def _mark_filtered(item: dict[str, Any], *, now: str, reason: str, last_error: str) -> None:
-    item["state"] = "filtered_out"
     item["candidate_status"] = (
         "already_migrated_by_other"
         if reason in {"published_upstream", "candidate_already_migrated", "candidate_already_migrated_by_other"}
@@ -101,9 +102,15 @@ def _mark_filtered(item: dict[str, Any], *, now: str, reason: str, last_error: s
     )
     item["last_error"] = last_error
     item["filtered_reason"] = reason
-    item["updated_at"] = now
     item.pop("human_request", None)
     item.pop("human_response", None)
+    record_state_transition(
+        item,
+        "filtered_out",
+        reason=f"discovery_gate:{reason}: {last_error}".strip(": "),
+        source="discovery_gate.filter",
+        now=now,
+    )
 
 
 def _mark_discovery_review(item: dict[str, Any], *, now: str) -> None:
@@ -112,7 +119,6 @@ def _mark_discovery_review(item: dict[str, Any], *, now: str) -> None:
     repo_url = str(candidate.get("repo_url", "")).strip()
     reason = str(candidate.get("status_reason") or "Needs AI discovery review").strip()
     store_hit_lines = _store_hit_prompt_lines(candidate)
-    item["state"] = "discovery_review"
     item["candidate_status"] = "needs_review"
     item["discovery_review"] = {
         "created_at": now,
@@ -126,7 +132,13 @@ def _mark_discovery_review(item: dict[str, Any], *, now: str) -> None:
             + "\n请判断：migrate / skip / needs_human，并给出证据。"
         ),
     }
-    item["updated_at"] = now
+    record_state_transition(
+        item,
+        "discovery_review",
+        reason=f"queued for AI review: {reason}",
+        source="discovery_gate.queue",
+        now=now,
+    )
 
 
 def _store_hit_prompt_lines(candidate: dict[str, Any]) -> list[str]:
