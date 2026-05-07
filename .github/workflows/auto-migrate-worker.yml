@@ -218,17 +218,28 @@ jobs:
         continue-on-error: true
         run: |
           set +e
-          # WIP commit before push: capture EVERYTHING the cycle wrote
-          # (apps/<slug>/, registry/repos/<slug>.json, queue mutations,
-          # ai-reviews / state-history appends) on the branch even when
-          # the cycle ended in build_failed and full_migrate's
-          # --commit-scaffold never fired. Without this, claude's planner
-          # output and bootstrap_migration's scaffold both evaporate on
-          # any failed cycle — observed in stellaclaw runs 25491577249
-          # and 25492174092 where apps/stellaclaw/ was created on the
-          # runner FS but never committed, so the migration/stellaclaw
-          # branch tip stayed at template.
-          git add -A apps/ registry/ scripts/ 2>/dev/null
+          # WIP commit before push: persist what the cycle wrote into
+          # apps/<slug>/ and the slug's registry/repos/<slug>.json so
+          # claude's planner output + bootstrap_migration's scaffold +
+          # codex repair edits survive even when the cycle ended in
+          # build_failed and full_migrate's --commit-scaffold never
+          # fired. Observed in stellaclaw runs 25491577249 / 25492174092.
+          #
+          # Scope is INTENTIONALLY narrow:
+          #   * apps/<slug>/         — per-slug working tree (fine)
+          #   * registry/repos/<slug>.json — per-slug build config (fine)
+          #
+          # We DELIBERATELY do NOT add queue.json / ai-reviews.jsonl /
+          # state-history.jsonl / registry/candidates/. Those are
+          # template-level globals owned by auto-discover.yml's commit
+          # step. If a cycle's local mutations to those landed on a
+          # migration/<slug> branch, the next worker pulling that branch
+          # would see a stale snapshot of the global state — observed in
+          # stellaclaw run 25496216697 where queue.state=build_failed got
+          # captured into migration/stellaclaw, then locked the slug out
+          # because the branch's queue.json never refreshed even after
+          # template's queue.json was reset to ready.
+          git add "apps/$SLUG/" "registry/repos/$SLUG.json" 2>/dev/null
           if ! git diff --cached --quiet; then
             git commit -m "wip(worker): cycle artifacts from run ${GITHUB_RUN_ID:-?} (${SLUG})" || true
           fi
