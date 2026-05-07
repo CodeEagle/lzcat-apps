@@ -412,6 +412,14 @@ def prepare_migration_workspace(
     if workspace_path.exists():
         return CommandResult(returncode=0)
 
+    # If the worker's checkout is ALREADY on migration/<slug>, git refuses to
+    # create a second worktree for the same branch ("'migration/<slug>' is
+    # already used by worktree at <main repo>"). In that case the migration
+    # can run in-place against repo_root — no worktree needed.
+    if _git_current_branch(config.repo_root, runner=runner) == branch:
+        item["workspace_path"] = str(config.repo_root)
+        return CommandResult(returncode=0)
+
     # If the branch already exists (e.g. CI worker pre-fetched it), check it
     # out into the worktree without creating a fresh one. Otherwise, fork a
     # new branch from template (legacy local-dev path).
@@ -431,6 +439,15 @@ def _git_local_branch_exists(repo_root: Path, branch: str, *, runner: CommandRun
         "git", "-C", str(repo_root), "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}",
     ])
     return result.returncode == 0
+
+
+def _git_current_branch(repo_root: Path, *, runner: CommandRunner) -> str:
+    result = runner([
+        "git", "-C", str(repo_root), "symbolic-ref", "--short", "--quiet", "HEAD",
+    ])
+    if result.returncode != 0:
+        return ""
+    return (result.stdout or "").strip()
 
 
 def build_auto_migrate_command(config: ServiceConfig, item: dict[str, Any]) -> list[str]:

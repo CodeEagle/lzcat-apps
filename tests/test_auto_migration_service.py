@@ -888,6 +888,53 @@ class AutoMigrationServiceTest(unittest.TestCase):
         self.assertEqual(queue["items"][0]["branch"], "migration/piclaw")
         self.assertEqual(queue["items"][0]["workspace_path"], str(workspace_path))
 
+    def test_run_cycle_skips_worktree_when_repo_already_at_target_branch(self) -> None:
+        # CI worker scenario: actions/checkout has already put repo_root on
+        # migration/<slug>. git worktree add for the same branch would fail
+        # ("already used by worktree at <main>"). We detect via
+        # `git symbolic-ref --short HEAD` and run migration in-place instead.
+        repo_root = self.make_repo_root()
+        workspace_root = repo_root / "migration-workspaces"
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True, exist_ok=True)
+        queue_path.write_text(
+            json.dumps({
+                "schema_version": 1,
+                "items": [
+                    {"id": "github:owner/piclaw", "source": "owner/piclaw", "slug": "piclaw", "state": "ready"},
+                ],
+            }),
+            encoding="utf-8",
+        )
+        calls: list[list[str]] = []
+
+        def runner(command: list[str]) -> CommandResult:
+            calls.append(command)
+            if "symbolic-ref" in command:
+                return CommandResult(returncode=0, stdout="migration/piclaw\n")
+            return CommandResult(returncode=0)
+
+        summary = run_cycle(
+            ServiceConfig(
+                repo_root=repo_root,
+                queue_path=queue_path,
+                skip_status_sync=True,
+                skip_scout=True,
+                template_branch="template",
+                workspace_root=workspace_root,
+            ),
+            runner=runner,
+            now="2026-04-26T00:00:00Z",
+        )
+
+        # No worktree calls because repo is already at the target branch.
+        self.assertFalse([c for c in calls if "worktree" in c],
+                         f"unexpected worktree calls: {[c for c in calls if 'worktree' in c]}")
+        # auto_migrate.py runs against repo_root directly.
+        auto_migrate_call = next(c for c in calls if c[:1] == ["python3"])
+        self.assertEqual(auto_migrate_call[auto_migrate_call.index("--repo-root") + 1], str(repo_root))
+        self.assertEqual(summary["migration"]["status"], "scaffolded")
+
     def test_codex_worker_uses_migration_worktree_for_failed_item(self) -> None:
         repo_root = self.make_repo_root()
         workspace_root = repo_root / "migration-workspaces"
