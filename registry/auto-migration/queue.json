@@ -2853,15 +2853,32 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "Shell language repo with only 1 star — personal infrastructure scripts, not a distributable app",
+          "Description describes VPS automation tooling and 'executable LLM runbooks', not a web service",
+          "No LazyCat store hits match this repo; all 5 hits are unrelated products",
+          "Shell script collections cannot be packaged as LazyCat .lpk apps (no deployable web service)",
+          "Zero external signals, no Docker image, no web UI evidence"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-06T23:51:29Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：calvinombati/self-hosted-ai-lab\n仓库：https://github.com/calvinombati/self-hosted-ai-lab\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- labradorite-notebook Labradorite-notebook is a self-hosted note taking application that supports attachment uploading and MarkDown format. 1 https://lazycat.cloud/appstore/detail/wcloud.gblw.app.labradorite\n- label-studio Data tagging tool 5 https://lazycat.cloud/appstore/detail/mcloud.mg.app.label-studio\n- E-Label An open source application for wine bottle electronic labeling 5 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.elabel\n- Encrypt-labs Front-end encrypted confrontation practice range 5 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.encryptlabs\n- RCE-labs An RCE command based on alpine+php7.3 executes the shooting range, including basic commands, shell features, common poses, and common waf bypasses 2 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.rce-labs\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "Shell-based personal VPS automation toolkit (1 star) with no deployable web service — 'executable LLM runbooks' describes DevOps scripts, not a packagable app. No store hits match this repo.",
+        "reviewed_at": "2026-05-06T23:50:00Z",
+        "reviewer": "claude",
+        "score": 0.05,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:calvinombati/self-hosted-ai-lab",
+      "last_error": "Not a deployable app: Shell script collection for personal VPS AI automation with 1 star; no web service, no Docker image, no LazyCat store match.",
       "slug": "self-hosted-ai-lab",
       "source": "calvinombati/self-hosted-ai-lab",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-06T23:51:29Z"
     },
     {
       "attempts": 1,
@@ -2939,11 +2956,11 @@
       "candidate_status": "portable",
       "created_at": "2026-05-06T17:24:31Z",
       "id": "github:jeremyguo/stellaclaw",
-      "last_error": "auto_migrate exited 1",
+      "last_error": "docker build unavailable in sandbox (rootless podman lacks namespace support); precheck passes and Dockerfile is real — retry build in CI",
       "slug": "stellaclaw",
       "source": "JeremyGuo/StellaClaw",
       "state": "build_failed",
-      "updated_at": "2026-05-06T22:47:27Z",
+      "updated_at": "2026-05-07T00:09:52Z",
       "workspace_path": "/__w/lzcat-apps/lzcat-apps/../migration-workspaces/migration-stellaclaw"
     },
     {
@@ -3362,15 +3379,32 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "0 total stars — no community adoption",
+          "All LazyCat store hits are unrelated products (navigation page, finance app, game servers, book manager); no store match for personal-life-os-core",
+          "Description ('genealogy/media evidence, operator-guided agents, RAG/GraphRAG') indicates early-stage, highly personal niche project",
+          "No Docker deployment signals in description or candidate metadata",
+          "Local publication status empty — not previously migrated"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-06T23:51:29Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：bherald/personal-life-os-core\n仓库：https://github.com/bherald/personal-life-os-core\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- gotab-personal GoTab's new tab is a free, simple, beautiful and highly customized navigation/start page that meets your requirements! Support docker one-click deployment! Easily create a personalized browser home/start page! Personalized navigation page/navigation website/home page/welcome page/NAS navigation page for private deployment! 20 https://lazycat.cloud/appstore/detail/com.lxy.app.gotab-personal\n- Personal-Finance-App A personal finance app that lets you track transactions with the best user interface. 1 https://lazycat.cloud/appstore/detail/wcloud.gblw.app.personal-finance\n- half-life Half-Life Game Server 2 https://lazycat.cloud/appstore/detail/com.liaobinbin.half-life\n- TaleBook-Personal Calibre WebServer TaleBook is a Calibre-based personal book management and online reading system. The front end uses Vue and the back end integrates Calibre capabilities. It provides multi-user, OPDS, email push, simultaneous search of simple and traditional texts, cover and metadata maintenance, and Kindle-friendly export (epub/azw3 mutual conversion, embedded fonts) and other features; and integrates MCP Service to facilitate collaboration with AI tools to expand the knowledge base. 14 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.talebook1\n- Half-Life Opposing Force Half-Life: tit-for-tat game server 1 https://lazycat.cloud/appstore/detail/com.liaobinbin.half-life-opposing-force\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "0-star early-stage personal project with no community adoption; store hits are all unrelated apps; description indicates highly niche personal tooling (genealogy, RAG/GraphRAG, operator agents) not suitable for general LazyCat store migration.",
+        "reviewed_at": "2026-05-06T18:32:35Z",
+        "reviewer": "claude",
+        "score": 0.08,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:bherald/personal-life-os-core",
+      "last_error": "0-star personal niche project; no deployable evidence; no store match",
       "slug": "personal-life-os-core",
       "source": "bherald/personal-life-os-core",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T18:32:34Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-06T23:51:29Z"
     },
     {
       "attempts": 0,
@@ -3686,15 +3720,32 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "Only 1 total star — negligible adoption",
+          "Description explicitly states 'without a server' — pure browser-side MTProto client, not a self-hosted service",
+          "No LazyCat store hits match a Telegram WebApp Proxy (48 unrelated hits, none relevant)",
+          "Requires user-provided Telegram API credentials; not a turnkey self-hosted app",
+          "Language is JavaScript but no server component — would only serve static files"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-06T23:51:29Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：kamzy01/TG-WebApp-Proxy\n仓库：https://github.com/kamzy01/TG-WebApp-Proxy\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- simple-webapp 🔌 Infrastructure monitoring Web application| Test connections and system resources| zero dependence| Docker ready 1 https://lazycat.cloud/appstore/detail/top.killmytime.simple-webapp\n- ChatGPT-on-WeChat CowAgent is a super AI assistant based on a large model that can proactively think and plan tasks, operate computers and external resources, create and execute Skills, have long-term memory and continue to grow 10 https://lazycat.cloud/appstore/detail/com.selfstudio.chatgpt-on-wechat\n- claude-code-hub Intelligent AI API proxy transfer service platform, a multi-vendor unified access, flexible scheduling and refined operation center for teams 45 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.claude-code-hub\n- copilot-api-plus Convert GitHub Copilot into an OpenAI/Anthropic API compatible server. 5 https://lazycat.cloud/appstore/detail/fun.selfstudio.app.migration.copilot-api-plus\n- Tic-Tac-Toe Tic-Tac-Toe is a lightweight online tic-tac-toe Mini games based on React + Redux on the front end and Express + socket.ioon the back end. Through WebSocket, the two parties can synchronize the decisions and the outcome decisions in real time. It can be played out of the box and deployed in a single container. 1 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.tic-tac-toe\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "Pure browser-side Telegram MTProto client with 1 star and no server component; 'without a server' in description means it is not a self-hosted service worth packaging.",
+        "reviewed_at": "2026-05-06T23:55:00Z",
+        "reviewer": "claude",
+        "score": 0.1,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:kamzy01/tg-webapp-proxy",
+      "last_error": "Not a deployable self-hosted service: browser-only MTProto client with 1 star and no server component.",
       "slug": "tg-webapp-proxy",
       "source": "kamzy01/TG-WebApp-Proxy",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-06T23:51:29Z"
     },
     {
       "attempts": 0,
@@ -3923,15 +3974,32 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "infinito-nexus/core is a Docker+Ansible+ActivityPub infrastructure orchestration framework, not a single self-hosted app",
+          "Designed to BE a deployment platform (LDAP IAM + Keycloak SSO + multi-app hosting) — conflicts with LazyCat's own platform model",
+          "All LazyCat store hits for 'core' are coincidental keyword matches (Kali Linux Core, corekeeper game, .NET Core apps) — none match this product",
+          "Only 12 total stars — very low adoption",
+          "No Docker image published; deployment is via Ansible playbooks, incompatible with LazyCat's container-based packaging"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-06T23:51:29Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：infinito-nexus/core\n仓库：https://github.com/infinito-nexus/core\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- Kali Linux Core Kali Linux Core version. 23 https://lazycat.cloud/appstore/detail/in.zhaoj.kalilinuxcore\n- corekeeper Nuclear Era/Core Keeper game server 1 https://lazycat.cloud/appstore/detail/white.lazycat.app.corekeeper\n- tidal core TidalCore is an open source, free, pure Web pelvic floor muscle (levator anus/Kegel exercise) training platform. Its naming is inspired by the rhythm of the pelvic floor muscles contracting and relaxing, which is as rhythmic and powerful as the tide. 8 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.tidalcore\n- RKTimeTrack RKTimeTrack is a time tracking tool based on ASP.NET Core and Vue.js. It is suitable for freelancers and technical teams to manage project hours and record work. It supports multi-platform access, has a concise interface and easy to use, and helps users efficiently record, analyze and review daily work content and project progress. 1 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.rktimetrack\n- JxAudio JxAudio is a self-hosted music management and playback system. It is built based on. NET Core, supports local and online audio sources, is compatible with the Subsonic protocol, provides core capabilities such as upload, download, delete, song list and search, and is extended through plug-ins. Directly connect to AList and other online disks to achieve a lightweight and reliable music library for families and small teams. 6 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.jxaudio\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "Infinito.Nexus/core is a Docker+Ansible infrastructure orchestration framework that acts as a deployment platform itself (LDAP, Keycloak SSO, multi-app hosting via Ansible). It is not a packagable single self-hosted app, conflicts conceptually with LazyCat's platform model, has only 12 stars, and all store search hits for 'core' are coincidental keyword matches unrelated to this product.",
+        "reviewed_at": "2026-05-06T23:50:00Z",
+        "reviewer": "claude",
+        "score": 0.05,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:infinito-nexus/core",
+      "last_error": "Not a packagable app: infrastructure orchestration framework (Docker+Ansible+Keycloak platform), 12 stars, not deployable as a LazyCat package",
       "slug": "core",
       "source": "infinito-nexus/core",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-06T23:51:29Z"
     },
     {
       "attempts": 0,
@@ -4357,15 +4425,32 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "Description explicitly requires Azure SQL Server and Azure App Service — cloud-native, not self-hostable without major rework",
+          "0 total stars — student/demo project with no community adoption",
+          "No Docker or container deployment evidence in description",
+          "48 LazyCat store search hits are all unrelated apps; no match for biblioteca-aurea or library management system",
+          "Not present in local-publication-status.json"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-06T23:51:29Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：felipe-frc/biblioteca-aurea\n仓库：https://github.com/felipe-frc/biblioteca-aurea\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- mermaid-live-editor Edit, preview and share mermaid flowcharts 33 https://lazycat.cloud/appstore/detail/io.zeroc.app.mermaid\n- Hello-Java-Sec Java Security_javasec Range 4 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.javasec\n- yt-dlp-web video download tool 80 https://lazycat.cloud/appstore/detail/wcloud.gblw.app.yt-dlp-web\n- our-shopping-list A simple shared list application 3 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.our-shopping-list\n- PeiQi-WIKI-Book Knowledge base for cybersecurity practitioners 5 https://lazycat.cloud/appstore/detail/wcloud.gblw.app.peiqi\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "Azure-specific student project (Azure SQL Server + Azure App Service dependencies); 0 stars; no Docker/container support; not a self-hostable app.",
+        "reviewed_at": "2026-05-06T23:51:30Z",
+        "reviewer": "claude",
+        "score": 0.05,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:felipe-frc/biblioteca-aurea",
+      "last_error": "Not a self-hostable app: designed for Azure SQL Server + Azure App Service, 0 stars, no Docker evidence, student/demo project",
       "slug": "biblioteca-aurea",
       "source": "felipe-frc/biblioteca-aurea",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-06T23:51:29Z"
     },
     {
       "attempts": 0,
@@ -4783,15 +4868,32 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "Described as 'Web app for managing bookmarks on Readeck server' — it is a companion/client app requiring an external Readeck server, not a standalone deployable service",
+          "0 total stars — no community adoption, personal/experimental project",
+          "48 store search hits for 'console' keyword all unrelated to this app (system monitors, Easysearch tools, etc.) — no conflict but no match either",
+          "Not present in local publication status",
+          "Svelte frontend with no mentioned Docker/server component — no deployment evidence"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-06T23:51:29Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：NateEaton/mydeck-console\n仓库：https://github.com/NateEaton/mydeck-console\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- console-web console-web is a minimalist system status panel built using Flask and psutil. The interface adopts a terminal style and displays CPU, memory, disk, network and other information in real time. (Currently, the author has not set a logo, but uses the default logo[generated by AI])(This is an early project, and it was transplanted when it was particularly interesting. The focus of attention needs to be entered when entering the line to be effective, but generally look at the terminal interface as a monitoring. Good) 2 https://lazycat.cloud/appstore/detail/top.killmytime.console-web\n- Console An Easysearch visualization tool developed by Extreme Technology that replaces Kibana and is also compatible with Elasticsearch 10 https://lazycat.cloud/appstore/detail/xu.infinilabs.console\n- video-tomp3-converter A basic self-hosted docker container that supports drag-and-drop, used to convert video files and audio to MP3, and has download capabilities. Support FLV, MPEG, AVI, MP4 3 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.video-to-mp3-converter\n- lark-to-md Professional editor for transferring flying book documents to Weixin Official Accounts 8 https://lazycat.cloud/appstore/detail/io.zeroc.app.larktomd\n- mermaid-live-editor Edit, preview and share mermaid flowcharts 33 https://lazycat.cloud/appstore/detail/io.zeroc.app.mermaid\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "Companion client app for Readeck (an external bookmark server) — not a standalone self-hosted service. Zero stars, no deployment evidence, and no matching store hit.",
+        "reviewed_at": "2026-05-06T23:50:00Z",
+        "reviewer": "claude",
+        "score": 0.1,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:nateeaton/mydeck-console",
+      "last_error": "Not a standalone deployable app: companion web UI for Readeck server, 0 stars, no Docker/deployment evidence",
       "slug": "mydeck-console",
       "source": "NateEaton/mydeck-console",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T22:15:24Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-06T23:51:29Z"
     },
     {
       "attempts": 0,
@@ -4875,15 +4977,32 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "No Dockerfile or docker-compose.yml in repository — no containerization support",
+          "0 total stars — no community traction",
+          "Description explicitly says 'local Python server' — designed for localhost use only",
+          "Personal/early-stage project with ~10 commits",
+          "Very niche use case: Emacs Org file editing web UI"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-06T23:51:29Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：bym-ok/Org-Web-Adapter\n仓库：https://github.com/bym-ok/Org-Web-Adapter\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- yt-dlp-web video download tool 80 https://lazycat.cloud/appstore/detail/wcloud.gblw.app.yt-dlp-web\n- simple-webapp 🔌 Infrastructure monitoring Web application| Test connections and system resources| zero dependence| Docker ready 1 https://lazycat.cloud/appstore/detail/top.killmytime.simple-webapp\n- WebStack-Go WebStack-Go is an open source website navigation system developed based on the Go language. It supports complete foreground display and background management, helping users efficiently organize and manage common website collections. 3 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.webstackgo\n- Nut-WebGUI UPS monitoring and management 92 https://lazycat.cloud/appstore/detail/in.zhaoj.nutwebgui\n- woli-webgui Wake on Internet software 11 https://lazycat.cloud/appstore/detail/wcloud.gblw.app.woli-webgui\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "No containerization artifacts (no Dockerfile/docker-compose), 0 stars, designed for local-only use, and very niche Org file editing functionality — insufficient deployment evidence and community interest for LazyCat migration.",
+        "reviewed_at": "2026-05-06T23:55:00Z",
+        "reviewer": "claude",
+        "score": 0.1,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:bym-ok/org-web-adapter",
+      "last_error": "No Dockerfile/containerization, 0 stars, local-only design — not suitable for LazyCat deployment.",
       "slug": "org-web-adapter",
       "source": "bym-ok/Org-Web-Adapter",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-06T23:51:29Z"
     },
     {
       "attempts": 0,
@@ -4958,15 +5077,32 @@
       "candidate_status": "portable",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:34:32Z",
+        "evidence": [
+          "0 stars, 0 forks — no community engagement",
+          "No Dockerfile or docker-compose.yml present",
+          "Deployment instructions are local-only: git clone + go run ./cmd/web",
+          "README confirms this is a personal learning exercise following Alex Edwards' 'Let's Go' tutorial book",
+          "Not a fork (marked as original) but is a tutorial reproduction, not a production-ready app"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-06T23:51:29Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：theolujay/snippetbox\n仓库：https://github.com/theolujay/snippetbox\n发现原因：Search failed for one or more terms; manual review required.\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "This is a personal tutorial reproduction of Alex Edwards' 'Let's Go' book example app ('snippetbox'). It has 0 stars, no Docker deployment infrastructure, and is explicitly an educational learning exercise — not a production self-hosted app worth packaging.",
+        "reviewed_at": "2026-05-06T23:55:00Z",
+        "reviewer": "claude",
+        "score": 0.05,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:theolujay/snippetbox",
+      "last_error": "Tutorial/learning project: personal reproduction of Alex Edwards' 'Let's Go' book snippetbox example; no Docker, 0 stars, not a deployable self-hosted app.",
       "slug": "snippetbox",
       "source": "theolujay/snippetbox",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-06T23:51:29Z"
     },
     {
       "attempts": 0,
