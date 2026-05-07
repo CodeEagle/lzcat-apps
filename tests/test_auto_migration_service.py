@@ -316,8 +316,19 @@ class AutoMigrationServiceTest(unittest.TestCase):
         # With target, picks the matching slug only.
         self.assertEqual(select_next_ready_item(queue, target_slug="bravo")["slug"], "bravo")
         self.assertEqual(select_next_ready_item(queue, target_slug="charlie")["slug"], "charlie")
-        # With target whose state is non-resumable (build_failed), returns None.
+        # build_failed and codex_failed ARE resumable under --target-slug —
+        # the targeted resume's whole purpose is to retry slugs that hit
+        # those states. Open scan (no target) still excludes them.
         queue["items"][1]["state"] = "build_failed"
+        self.assertEqual(select_next_ready_item(queue, target_slug="bravo")["slug"], "bravo")
+        queue["items"][1]["state"] = "codex_failed"
+        self.assertEqual(select_next_ready_item(queue, target_slug="bravo")["slug"], "bravo")
+        # States that aren't resumable (terminal / pre-promotion) still
+        # return None even under --target-slug — those need a different
+        # code path.
+        queue["items"][1]["state"] = "discovery_review"
+        self.assertIsNone(select_next_ready_item(queue, target_slug="bravo"))
+        queue["items"][1]["state"] = "published"
         self.assertIsNone(select_next_ready_item(queue, target_slug="bravo"))
         # With unknown target, returns None.
         self.assertIsNone(select_next_ready_item(queue, target_slug="zulu"))
