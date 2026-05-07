@@ -400,12 +400,12 @@ class BuildItemIndexTest(unittest.TestCase):
             )
 
             responses: list = [_items_page([])]   # one and only list call
-            # 50 slugs * (add_item + Slug + Status=Inbox + Upstream) = 200 mutations
+            # Per slug: add_item + Slug + Status=Inbox + Upstream + Status=Approved
             for _ in range(50):
                 responses.append({"addProjectV2DraftIssue": {"projectItem": {"id": "PVTI_x"}}})
                 responses.extend([
                     {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_x"}}}
-                ] * 3)
+                ] * 4)
 
             fake = FakeRun(responses)
             buf = io.StringIO()
@@ -448,19 +448,17 @@ class SyncTest(unittest.TestCase):
         }
         root = self._setup(queue)
         responses: list = [
-            # _ensure_item -> find_item_by_slug -> list_project_items (empty)
+            # _build_item_index -> list_project_items (empty)
             _items_page([]),
             # add_item
             {"addProjectV2DraftIssue": {"projectItem": {"id": "PVTI_new"}}},
-            # set Slug
+            # set Slug, Status=Inbox, Upstream, Build Strategy, AI Score
             {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_new"}}},
-            # set Status=Inbox
             {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_new"}}},
-            # set Upstream
             {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_new"}}},
-            # set Build Strategy
             {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_new"}}},
-            # set AI Score
+            {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_new"}}},
+            # state="ready" triggers auto-approve → Status=Approved
             {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_new"}}},
         ]
         fake = FakeRun(responses)
@@ -470,7 +468,7 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(rc, 0)
         summary = json.loads(buf.getvalue())
         self.assertEqual(summary["created"], ["demo"])
-        self.assertEqual(summary["approved"], [])
+        self.assertEqual(summary["approved"], ["demo"])  # state=ready → auto-approved
 
     def test_sync_promotes_inbox_to_approved_when_score_meets_threshold(self) -> None:
         queue = {
@@ -505,6 +503,72 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(rc, 0)
         summary = json.loads(buf.getvalue())
         self.assertEqual(summary["approved"], ["demo"])
+
+    def test_sync_auto_approves_ready_items_without_score(self) -> None:
+        # state="ready" means discovery_gate already passed it without needing
+        # AI review. These must auto-approve too, otherwise the dispatcher
+        # never sees the bulk of the queue.
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/demo",
+                    "slug": "demo",
+                    "state": "ready",
+                    "candidate": {"repo_url": "https://github.com/owner/demo"},
+                    # No discovery_review.score field at all
+                }
+            ]
+        }
+        root = self._setup(queue)
+        existing = _item_node(
+            "PVTI_demo",
+            {
+                "Slug": "demo",
+                "Status": {"name": "Inbox", "optionId": "opt_inbox"},
+                "Upstream": "https://github.com/owner/demo",
+            },
+        )
+        responses: list = [
+            _items_page([existing]),  # _build_item_index
+            {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_demo"}}},  # Status=Approved
+        ]
+        fake = FakeRun(responses)
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertEqual(summary["approved"], ["demo"])
+
+    def test_sync_does_not_auto_approve_discovery_review_items(self) -> None:
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/demo",
+                    "slug": "demo",
+                    "state": "discovery_review",   # awaiting AI verdict
+                    "candidate": {"repo_url": "https://github.com/owner/demo"},
+                }
+            ]
+        }
+        root = self._setup(queue)
+        existing = _item_node(
+            "PVTI_demo",
+            {
+                "Slug": "demo",
+                "Status": {"name": "Inbox", "optionId": "opt_inbox"},
+                "Upstream": "https://github.com/owner/demo",   # already-set; no mutation needed
+            },
+        )
+        # _build_item_index only; no Status=Approved because state is
+        # discovery_review (awaiting AI) and no score is set yet.
+        fake = FakeRun([_items_page([existing])])
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertEqual(summary["approved"], [])
 
     def test_sync_does_not_demote_in_progress_item(self) -> None:
         queue = {
