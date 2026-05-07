@@ -86,20 +86,34 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Run discovery + triage cycle (no migrations)
-        timeout-minutes: 25
+        timeout-minutes: 22
+        # Critical: never block sync / commit on this step. Even when
+        # the cycle hits its budget mid-AI-review, advance_discovery_reviewer
+        # already write_json'd the queue after each completed review, so the
+        # next steps still publish that progress to the board.
+        continue-on-error: true
         run: |
           set -euo pipefail
           ARGS=(
             --once
-            --limit 500
+            --limit 200
             --max-migrations-per-cycle 0
-            --max-discovery-reviews-per-cycle 8
+            --max-discovery-reviews-per-cycle 6
             --no-env-file
             --disable-local-agent
             --disable-discord
           )
+          # While the LocalAgent backlog (869 discovery_review items) drains,
+          # default to skipping scout on cron runs to free up the 22-min
+          # budget for AI review. workflow_dispatch with skip_scout=false
+          # explicitly opts back into scouting.
+          skip_scout="${{ inputs.skip_scout }}"
+          # On schedule events, inputs are not provided → empty string →
+          # default to true. workflow_dispatch always sets either "true"
+          # or "false" so this only affects cron.
+          if [ -z "$skip_scout" ]; then skip_scout="true"; fi
           if [ "${{ inputs.skip_status_sync }}" = "true" ]; then ARGS+=(--skip-status-sync); fi
-          if [ "${{ inputs.skip_scout }}" = "true" ]; then ARGS+=(--skip-scout); fi
+          if [ "$skip_scout" = "true" ]; then ARGS+=(--skip-scout); fi
           if [ "${{ inputs.enable_codex }}" = "true" ]; then ARGS+=(--enable-codex-worker); fi
           python3 scripts/auto_migration_service.py "${ARGS[@]}"
 
