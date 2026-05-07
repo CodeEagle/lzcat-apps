@@ -1,0 +1,8 @@
+params:
+  - name: web_token
+    type: secret
+    default: "$random(len=32)"
+    label: "Web Channel Token"
+    label_zh: "Web 频道令牌"
+    description: "Bearer token for authenticating API clients (e.g. Stellacode desktop). Keep this secret."
+    description_zh: "用于 API 客户端（如 Stellacode 桌面端）认证的 Bearer 令牌，请妥善保管。"

@@ -1,0 +1,25 @@
+migration/stellaclaw
+branch 'template' set up to track 'origin/template'.
+HEAD is now at c1c5550 fix(automation/F8): runner image needs procps + describe_process resilience
+Preparing worktree (new branch 'template')
+{
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T220053Z-github-tobocop2-lilbee.md",
+  "resumed": false,
+  "returncode": 0,
+  "session_id": "b7ca0554-12fe-4651-bda2-06c58f87c7ac",
+  "status": "completed",
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T220053Z-github-tobocop2-lilbee"
+}
+obscura binary not found in PATH
+/__w/lzcat-apps/lzcat-apps/registry/candidates/latest.json
+/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T222105Z.jsonl
+{"already_migrated_count": 2, "candidate_count": 50, "counts_by_status": {"already_migrated": 2, "excluded": 2, "needs_review": 24, "portable": 22}, "excluded_count": 2, "generated_at": "2026-05-07T22:21:05Z", "needs_review_count": 24, "portable_count": 22}
+migration/stellaclaw
+{
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T223031Z-github-jeremyguo-stellaclaw.md",
+  "resumed": false,
+  "returncode": 0,
+  "session_id": "9df2fcc9-2a5f-4ef3-89ac-b9c468cf2a48",
+  "status": "completed",
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T223031Z-github-jeremyguo-stellaclaw"
+}

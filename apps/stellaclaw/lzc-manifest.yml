@@ -1,0 +1,40 @@
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+package: fun.selfstudio.app.migration.stellaclaw
+name: StellaClaw
+version: 1.0.2
+description: A self-hosted, multi-agent service framework built in Rust. Agents as services, not scripts.
+homepage: https://github.com/JeremyGuo/StellaClaw
+license: UNLICENSED
+author: JeremyGuo
+
+application:
+  subdomain: stellaclaw
+  public_path:
+    - /
+  upstreams:
+    - location: /
+      backend: http://stellaclaw:3111/
+
+locales:
+  en:
+    name: StellaClaw
+    description: A self-hosted, multi-agent service framework built in Rust. Agents as services, not scripts.
+  zh:
+    name: StellaClaw
+    description: 基于 Rust 构建的自托管多智能体服务框架，将智能体作为常驻服务而非脚本运行。
+
+services:
+  stellaclaw:
+    image: registry.lazycat.cloud/placeholder/stellaclaw:bootstrap
+    environment:
+      - STELLACLAW_WEB_TOKEN=${web_token}
+      - STELLACLAW_WORKDIR=/workdir
+    binds:
+      - /lzcapp/var/data/stellaclaw:/workdir
+    healthcheck:
+      test: ["CMD-SHELL", "/bin/bash -c '</dev/tcp/127.0.0.1/3111'"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s

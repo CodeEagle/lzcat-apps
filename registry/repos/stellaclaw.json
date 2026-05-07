@@ -1,0 +1,20 @@
+{
+  "build_context": ".",
+  "build_strategy": "upstream_with_target_template",
+  "check_strategy": "commit_sha",
+  "dependencies": [],
+  "docker_platform": "linux/amd64",
+  "dockerfile_path": "Dockerfile.template",
+  "dockerfile_type": "custom",
+  "enabled": true,
+  "image_owner": "CodeEagle",
+  "image_targets": [
+    "stellaclaw"
+  ],
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "publish_to_store": false,
+  "service_cmd": [],
+  "service_port": 3111,
+  "upstream_repo": "JeremyGuo/StellaClaw"
+}
