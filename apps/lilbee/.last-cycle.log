@@ -1,19 +1,19 @@
 migration/lilbee
 branch 'template' set up to track 'origin/template'.
-HEAD is now at 6167ada chore(auto-discover): refresh queue + candidates 2026-05-07T21:22Z
+HEAD is now at c1c5550 fix(automation/F8): runner image needs procps + describe_process resilience
 Preparing worktree (new branch 'template')
 {
-  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T212539Z-github-jsierra87-engram.md",
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T220202Z-github-jsierra87-engram.md",
   "resumed": true,
   "returncode": 1,
-  "session_id": "ecca6928-c205-41ca-abe4-0f910b1579f4",
+  "session_id": "9ebd3da8-dd42-4406-9519-2fc8c8d5d0c4",
   "status": "failed",
-  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T212539Z-github-jsierra87-engram"
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T220202Z-github-jsierra87-engram"
 }
 obscura binary not found in PATH
 /__w/lzcat-apps/lzcat-apps/registry/candidates/latest.json
-/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T212540Z.jsonl
-{"already_migrated_count": 1, "candidate_count": 50, "counts_by_status": {"already_migrated": 1, "excluded": 3, "needs_review": 24, "portable": 22}, "excluded_count": 3, "generated_at": "2026-05-07T21:25:40Z", "needs_review_count": 24, "portable_count": 22}
+/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T220204Z.jsonl
+{"already_migrated_count": 1, "candidate_count": 50, "counts_by_status": {"already_migrated": 1, "excluded": 3, "needs_review": 30, "portable": 16}, "excluded_count": 3, "generated_at": "2026-05-07T22:02:04Z", "needs_review_count": 30, "portable_count": 16}
 {
   "browser_recheck": [],
   "codex_worker": [
@@ -54,127 +54,162 @@ obscura binary not found in PATH
       "status": "discovery_review"
     },
     {
+      "id": "github:wyxos/atlas",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:appakappak/phlist-server",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:asihgdfas/rate-cloud",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
       "id": "github:lkasdorf/financeos_template",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:pat-the-geek/be-clear",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:jakobaiodev/vintrack-vinted-monitor",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:david-crty/databasement",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:h3rb3rn/moe-sovereign",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:sree-sanak/minty",
+      "id": "github:chirpz-ai/pandaprobe",
       "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
-      "id": "github:bmanturner/foglet-bbs",
+      "id": "github:alexpipiska/ev-savings-vs-fuel-dashboard-teslamate",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:superior-kqller/wishlist-app",
+      "id": "github:a-ayad96/ansible-role-forgejo",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:tsega-fikre/tsega-fikre",
+      "id": "github:le0-star/searxng-docker-tavily-adapter",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:photo2story/my-flask-app",
+      "id": "github:dlexion/phone-server",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:areebwajahat/git_test",
+      "id": "github:maciejb2k/open-banking-rails",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:luis-octavius/invoice_management_system",
+      "id": "github:setiawan007/website-downloader",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:samfoy/pi-memory",
+      "id": "github:hudsonpifer1217/csc466-lab3",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:vanderoliver-ia/site-omd",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:rizalfatoni594/daily-workout-planner-01",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:mahfuzahammedahad143-afk/virtual-trail-room-",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:davicaamano/water-writing",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:teravoxai/ai_exam_generator",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:mloda-ai/mloda",
+      "id": "github:nvidia/stdexec",
       "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
-      "id": "github:cartridge-gg/controller",
+      "id": "github:aisaf8873/abc",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:johnan/local-chat-agent",
+      "id": "github:turkikh8/omni-verse",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:vectorsigmaomega/guardian",
-      "reason": "candidate_already_migrated",
+      "id": "github:silverfrogdhnpagd/curve-pool-tracker",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:michaelpjob/ai-infrastructure-thesis-sandbox",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:paulosardinha/pipeline",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:sokihayashi/artoone-thumbnail-analysis",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:jonathanperis/rinha4-back-end-dotnet",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:su-bro/alpha-engine",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:groundlypro/v1",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:bhavya-analytics-ai/web-intel",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:faserf/ha-openwrt",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:joaquincardonaruiz/joaquincardonaruiz.github.io",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:justinribs/ribs-plex-newsletter",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:jedi-vision/jedi-vision-nano-code",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:opensin-code/infra-sin-opencode-stack",
+      "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
-      "id": "github:leela0o5/knowledgenav.io",
+      "id": "github:project-ceti/whale-tag-v3-firmware",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:im-saif/machine-fault-recognition",
+      "id": "github:davidbudnick/redis-tui",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:nvidia-nemo/export-deploy",
+      "id": "github:antonyho/docker-opencode",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:bashyrov/wallet-monitor",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     }
@@ -189,5 +224,5 @@ obscura binary not found in PATH
   },
   "post_acceptance": [],
   "selected": null,
-  "started_at": "2026-05-07T21:25:38Z"
+  "started_at": "2026-05-07T22:02:02Z"
 }
