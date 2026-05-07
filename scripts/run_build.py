@@ -1027,11 +1027,12 @@ def ensure_registry_anonymous_pullable(image: str) -> None:
         raise RuntimeError(f"Anonymous pull preflight failed for {image}: {exc}") from exc
 
 
-def get_image_digest(image: str) -> str:
+def get_image_digest(image: str, env: dict[str, str] | None = None) -> str:
     """Get the local Docker image ID (content hash) for deduplication."""
+    cli = resolve_container_cli(env or {})
     try:
-        return sh(["docker", "inspect", "--format", "{{.Id}}", image]).strip()
-    except RuntimeError:
+        return sh([cli, "inspect", "--format", "{{.Id}}", image]).strip()
+    except (RuntimeError, FileNotFoundError, OSError):
         return ""
 
 
@@ -2060,7 +2061,7 @@ def main() -> int:
                 write_report(report, report_path)
                 accelerated_images: dict[str, str] = {}
                 for target_service, built_image in built_images.items():
-                    source_service_digests[target_service] = get_image_digest(built_image)
+                    source_service_digests[target_service] = get_image_digest(built_image, env)
                     if args.dry_run:
                         accelerated_images[target_service] = f"registry.lazycat.cloud/dry-run/{app_name.lower()}-{target_service}:dry-run"
                     else:
@@ -2110,7 +2111,7 @@ def main() -> int:
                 target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name, dry_run=args.dry_run)
                 report["target_image"] = target_image
                 write_report(report, report_path)
-                cur_digest = get_image_digest(target_image)
+                cur_digest = get_image_digest(target_image, env)
                 source_service_digests["_primary"] = cur_digest
 
                 report["phase"] = "copy_image"

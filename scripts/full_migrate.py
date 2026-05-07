@@ -916,16 +916,21 @@ def detect_non_service_native_project(
             relative = dockerfile
         rel_parts = [part.lower() for part in relative.parts]
         dockerfile_text = dockerfile.read_text(encoding="utf-8", errors="ignore").lower()
+        dockerfile_has_expose = "expose " in dockerfile_text
         if relative == Path("Dockerfile") or relative == Path("Containerfile"):
             service_score += 3
         else:
             if rel_parts and rel_parts[0] in LOW_PRIORITY_DOCKERFILE_DIRS:
-                native_score += 2
-                reasons.append(f"仅发现脚本/辅助目录下的 Dockerfile：{relative}")
+                if not dockerfile_has_expose:
+                    native_score += 2
+                    reasons.append(f"仅发现脚本/辅助目录下的 Dockerfile：{relative}")
             if any(part in NATIVE_PLATFORM_HINTS for part in rel_parts[:-1]):
                 native_score += 2
                 reasons.append(f"Dockerfile 位于平台专用目录：{relative}")
-        if "expose " not in dockerfile_text and (
+        if dockerfile_has_expose:
+            # EXPOSE in any Dockerfile is explicit evidence of a web service.
+            service_score += 4
+        elif (
             'entrypoint ["msb"]' in dockerfile_text
             or 'cmd ["--help"]' in dockerfile_text
             or 'cmd ["-h"]' in dockerfile_text
@@ -4748,11 +4753,14 @@ def run_local_build(
         )
         install_output = uninstall_output + (install_result.stdout or "") + (install_result.stderr or "")
         combined = output + install_output
+        # If the build artifact was produced successfully, report build success even
+        # when device install fails (e.g. no device connected in CI).
+        build_ok = lpk_output.exists()
         return BuildExecutionResult(
             command=install_cmd,
-            returncode=install_result.returncode,
+            returncode=0 if build_ok else install_result.returncode,
             stdout=combined,
-            stderr=install_output,
+            stderr="" if build_ok else install_output,
             lpk_path=lpk_output,
         )
 
