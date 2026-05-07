@@ -136,7 +136,7 @@ Decision rules:
   (e) already-published in the LazyCat app store (covered by store-search hits — see below)
   (f) someone's personal homepage / résumé / blog content (not a deployable app)
   (g) blatant SaaS wrapper that ONLY works against a paid third-party API with no self-host path
-  (h) the candidate is a programming-language standard library, web framework (React, Vue, Express), or developer SDK with no end-user app
+  (h) the candidate is JUST a programming-language standard library, web framework (React, Vue, Express), or developer SDK, with literally NOTHING runnable as an end-user service. Caveat: many real apps' descriptions mention they're "built on Django" or "a CTF framework" or "an X framework for Y" — those are END-USER APPS that USE/PROVIDE a framework, NOT naked frameworks. dpaste (pasteboard app built on Django), ctfd (CTF competition platform), nuclio (serverless platform with dashboard) are all `migrate`. Only fire (h) when the repo is purely a library imported by other code with no service / web UI / dashboard at all.
 - `needs_human`: ambiguous app-store match where the upstream MIGHT already be listed (operator should confirm), or licensing red flags. Do NOT use `needs_human` just because you're unsure about quality; default to `migrate` and let the worker confirm by attempting a build.
 
 LazyCat app-store search review:
