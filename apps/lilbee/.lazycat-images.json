@@ -3,26 +3,27 @@
   "app": "lilbee",
   "source_version": "v0.6.66b456",
   "build_version": "0.6.66",
-  "head_sha": "f18c4efe5b0c",
+  "head_sha": "09ae856e5420",
   "build_recipe_hash": "53ef0c48e7e3d50dbc62ca1f02fa865469e028da3732a32690bfb270f65d052c",
-  "updated_at": "2026-05-07T18:16:52.392864+00:00",
+  "updated_at": "2026-05-07T18:17:02.966319+00:00",
   "images": {
     "lilbee": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:89eba47aa14e9ed2"
   },
   "source_images": {
-    "lilbee": "ghcr.io/codeeagle/lazycatimages:lilbee_f18c4efe5b0c"
+    "lilbee": "ghcr.io/codeeagle/lazycatimages:lilbee_09ae856e5420"
   },
   "source_digests": {
     "_primary": "00cefd670891a313807721a763a16557e2595aef89e2084b42bfb91ee7849635"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:lilbee_f18c4efe5b0c",
+      "source_image": "ghcr.io/codeeagle/lazycatimages:lilbee_09ae856e5420",
       "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:89eba47aa14e9ed2",
-      "elapsed_seconds": 85.127,
+      "elapsed_seconds": 0.0,
       "saw_waiting": false,
       "saw_upload_started": false,
-      "reused_existing": false,
+      "reused_existing": true,
+      "reused_by_digest": true,
       "kind": "primary"
     }
   ]
