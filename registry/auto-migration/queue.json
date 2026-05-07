@@ -5229,15 +5229,30 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "LazyCat store hit: 'BackApp' at cloud.lazycat.app.backapp — exact name match",
+          "Store description matches upstream: SSH-based backup automation tool via SSH",
+          "Search term 'BackApp' returned 1 result, directly matching this repo"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-07T00:19:13Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：Royer234/BackApp\n仓库：https://github.com/Royer234/BackApp\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- BackApp SSH-based backup automation tool that replaces custom Shell scripts and Cron configurations, binary file less than 50 MB 10 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.backapp\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "App is already published on the LazyCat store as 'BackApp' (cloud.lazycat.app.backapp). The store listing name and SSH-based backup automation description are an exact match for the upstream Royer234/BackApp repo.",
+        "reviewed_at": "2026-05-07T00:00:00Z",
+        "reviewer": "claude",
+        "score": 0.05,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:royer234/backapp",
+      "last_error": "Already published on LazyCat store as cloud.lazycat.app.backapp (exact name + description match).",
       "slug": "backapp",
       "source": "Royer234/BackApp",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-07T00:19:13Z"
     },
     {
       "attempts": 0,
@@ -5291,15 +5306,31 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "Described explicitly as a Chrome browser extension — not a server-side application",
+          "No Docker, docker-compose, or self-hosting deployment evidence",
+          "0 total stars, 0 stars today — no community traction",
+          "LazyCat store hits (Douyin downloader, get_my shopping list, markdown_wiki) are entirely unrelated to RSC_Detector"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-07T00:19:13Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：VISHUKS/RSC_Detector\n仓库：https://github.com/VISHUKS/RSC_Detector\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- Douyin_TikTok_Download_API Shake audio and video download tool 105 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.download.douyin\n- get_my A home shopping list app 2 https://lazycat.cloud/appstore/detail/wcloud.gblw.app.getmy\n- markdown_wiki The markdown_wiki app is similar to Wikipedia, but it uses Django's view model template. Users can edit entries in Markdown language and save them to the server. 2 https://lazycat.cloud/appstore/detail/wcloud.gblw.app.markdownwiki\n- Font Generator Font Generator 4 https://lazycat.cloud/appstore/detail/xyz.mxue.fontgenerator\n- DailyTxT Encrypted diary 13 https://lazycat.cloud/appstore/detail/xyz.mxue.dailytxt\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "RSC_Detector is a Chrome browser extension that detects React Server Components fingerprints on web pages. Browser extensions are not deployable as containerized server-side applications and cannot be packaged as LazyCat .lpk files. The repo has 0 stars and no server-side component. The three store search hits are completely unrelated products — no duplicate publication concern.",
+        "reviewed_at": "2026-05-07T00:00:00Z",
+        "reviewer": "claude",
+        "score": 0.03,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:vishuks/rsc_detector",
+      "last_error": "Chrome browser extension, not a self-hosted server app; cannot be packaged as a LazyCat containerized .lpk",
       "slug": "rsc_detector",
       "source": "VISHUKS/RSC_Detector",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-07T00:19:13Z"
     },
     {
       "attempts": 0,
@@ -5575,15 +5606,32 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "App requires OES serial controllers (physical hardware) to function — not deployable without specific hardware",
+          "0 total stars, extremely niche use case (sports scoreboard display via serial port)",
+          "No Docker/container deployment evidence found",
+          "None of the 48 LazyCat store search hits match this product — all are generic 'server' keyword matches unrelated to sports scoreboards",
+          "Not present in local publication status"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-07T00:19:13Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：furrymayo/unc-virtual-score-server\n仓库：https://github.com/furrymayo/unc-virtual-score-server\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- ratel-online-server Command-line fishing game 5 https://lazycat.cloud/appstore/detail/white.lazycat.app.ratel-online-server\n- ip-query-server Bulk IP Home Query Service is a lightweight IP query system based on Docker that supports rapid deployment to local or intranet environments. After starting the container, you can query the IP address attribution through the intuitive Web interface, without additional configuration or external dependence. 2 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.ip-query-server\n- ark-server ARK: Survival Evolved Ark: Survival Evolution Server 7 https://lazycat.cloud/appstore/detail/white.lazycat.app.ark-server\n- dns-server Host your own DNS server to ensure privacy and security and block ads and malware across the entire network at the DNS level! 6 https://lazycat.cloud/appstore/detail/mcloud.mg.app.dnsserver\n- dst-server Famine Online Edition Server 14 https://lazycat.cloud/appstore/detail/white.lazycat.app.dst-server\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "Hardware-dependent app requiring OES serial controllers; not a general-purpose self-hosted service. Zero stars, no container support, and no matching LazyCat store entries.",
+        "reviewed_at": "2026-05-07T00:00:00Z",
+        "reviewer": "claude",
+        "score": 0.05,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:furrymayo/unc-virtual-score-server",
+      "last_error": "Hardware-dependent Flask app requiring physical OES serial controllers; not deployable as a general containerized service. 0 stars, no Docker support.",
       "slug": "unc-virtual-score-server",
       "source": "furrymayo/unc-virtual-score-server",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T18:03:25Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-07T00:19:13Z"
     },
     {
       "attempts": 0,
@@ -6009,15 +6057,31 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "Description explicitly targets AWS-managed services: Lambda, DynamoDB, S3, CloudFront — none containerizable for LazyCat",
+          "Language is HTML with 0 stars — tutorial/demo project, not a deployable self-hosted service",
+          "No LazyCat app-store hits match this app (all hits are unrelated products)",
+          "Not in local publication status — but moot, app is not self-hostable by design"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-07T00:19:13Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：Anorak064/cloudify-serverless-app\n仓库：https://github.com/Anorak064/cloudify-serverless-app\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- Personal-Finance-App A personal finance app that lets you track transactions with the best user interface. 1 https://lazycat.cloud/appstore/detail/wcloud.gblw.app.personal-finance\n- Vulnerable-DJango-App **Vulnerable Django App** is an example of an extremely fragile Django application. The project was created for demonstration and educational purposes to help developers identify and understand common Web application vulnerabilities. 3 https://lazycat.cloud/appstore/detail/in.zhaoj.vulnerable-django-app\n- simple-webapp 🔌 Infrastructure monitoring Web application| Test connections and system resources| zero dependence| Docker ready 1 https://lazycat.cloud/appstore/detail/top.killmytime.simple-webapp\n- video-tomp3-converter A basic self-hosted docker container that supports drag-and-drop, used to convert video files and audio to MP3, and has download capabilities. Support FLV, MPEG, AVI, MP4 3 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.video-to-mp3-converter\n- mermaid-live-editor Edit, preview and share mermaid flowcharts 33 https://lazycat.cloud/appstore/detail/io.zeroc.app.mermaid\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "AWS-specific serverless tutorial project (Lambda, DynamoDB, S3, CloudFront) — not self-hostable in a LazyCat container. Zero stars, HTML-only, educational/demo purpose.",
+        "reviewed_at": "2026-05-07T00:00:00Z",
+        "reviewer": "claude",
+        "score": 0.05,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:anorak064/cloudify-serverless-app",
+      "last_error": "AWS-only serverless demo (Lambda/DynamoDB/S3/CloudFront); not containerizable or self-hostable on LazyCat.",
       "slug": "cloudify-serverless-app",
       "source": "Anorak064/cloudify-serverless-app",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-07T00:19:13Z"
     },
     {
       "attempts": 0,
@@ -6053,15 +6117,31 @@
       "candidate_status": "portable",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:34:32Z",
+        "evidence": [
+          "Description explicitly calls it a 'framework' for building mobile UIs via Server-Driven UI",
+          "Contains client-side rendering SDKs for iOS, Android, and Web — no standalone server to deploy",
+          "Primary language is Kotlin (mobile SDK), not a web service",
+          "No self-hosted server application concept; it is a library developers embed in their own apps"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-07T00:19:13Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：divkit/divkit\n仓库：https://github.com/divkit/divkit\n发现原因：Search failed for one or more terms; manual review required.\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "DivKit is a Server-Driven UI framework/SDK, not a deployable self-hosted service. It provides client-side rendering engines for mobile platforms and web but has no server application component intended for independent self-hosting.",
+        "reviewed_at": "2026-05-07T00:00:00Z",
+        "reviewer": "claude",
+        "score": 0.05,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:divkit/divkit",
+      "last_error": "DivKit is a UI framework/SDK (Server-Driven UI), not a deployable self-hosted service.",
       "slug": "divkit",
       "source": "divkit/divkit",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-07T00:19:13Z"
     },
     {
       "attempts": 0,
@@ -6455,15 +6535,32 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "Specialized beamline control UI for LNLS/Sirius synchrotron (CNPEM, Brazil) — not a general-purpose app",
+          "Requires running Bluesky HTTP server connected to real scientific hardware (EPICS/Ophyd control system)",
+          "Also requires PVWS WebSocket server and Redis as infrastructure dependencies",
+          "Only 4 total stars; niche audience (accelerator facility scientists)",
+          "No LazyCat store hits match sophys-web; all 80+ hits are unrelated false positives on '-web' substring"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-07T00:19:13Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：cnpem/sophys-web\n仓库：https://github.com/cnpem/sophys-web\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- yt-dlp-web video download tool 80 https://lazycat.cloud/appstore/detail/wcloud.gblw.app.yt-dlp-web\n- simple-webapp 🔌 Infrastructure monitoring Web application| Test connections and system resources| zero dependence| Docker ready 1 https://lazycat.cloud/appstore/detail/top.killmytime.simple-webapp\n- WebStack-Go WebStack-Go is an open source website navigation system developed based on the Go language. It supports complete foreground display and background management, helping users efficiently organize and manage common website collections. 3 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.webstackgo\n- woli-webgui Wake on Internet software 11 https://lazycat.cloud/appstore/detail/wcloud.gblw.app.woli-webgui\n- Nut-WebGUI UPS monitoring and management 92 https://lazycat.cloud/appstore/detail/in.zhaoj.nutwebgui\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "sophys-web is a collection of Next.js web UIs for controlling scientific experiments at the LNLS Sirius synchrotron beamlines (CNPEM, Brazil). It is tightly coupled to the scientific Bluesky experiment-control framework and requires a running Bluesky HTTP server connected to real accelerator hardware (Ophyd/EPICS control system), plus PVWS and Redis. This makes it undeployable in a meaningful way on a home server without that infrastructure. It is ultra-niche scientific instrumentation software with 4 total stars, not a general self-hosted app.",
+        "reviewed_at": "2026-05-07T00:00:00Z",
+        "reviewer": "claude",
+        "score": 0.04,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:cnpem/sophys-web",
+      "last_error": "Specialized synchrotron beamline control UI (LNLS/CNPEM); requires Bluesky HTTP server + EPICS hardware — not a general self-hosted app",
       "slug": "sophys-web",
       "source": "cnpem/sophys-web",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-07T00:19:13Z"
     },
     {
       "attempts": 0,
@@ -7045,15 +7142,33 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "Project description: 'Production-grade EKS cluster' — this is AWS Kubernetes infrastructure, not a self-hosted app",
+          "Requires AWS EKS / Kubernetes cluster to run; cannot be packaged as a LazyCat .lpk container",
+          "48 LazyCat store search hits are all unrelated apps — zero hits match this specific project",
+          "Not present in local publication status",
+          "Only 2 GitHub stars — personal/portfolio DevOps demo",
+          "Infrastructure/fault-injection orchestration demo is fundamentally incompatible with LazyCat's app model"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-07T00:19:13Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：h-vance/self-healing-microservices-cluster\n仓库：https://github.com/h-vance/self-healing-microservices-cluster\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- our-shopping-list A simple shared list application 3 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.our-shopping-list\n- react-image-editor Image editor implemented by React + Konva (similar to Figma or Canva) 4 https://lazycat.cloud/appstore/detail/wcloud.gblw.app.react-image-editor\n- dst-admin-go Don't Starve Together game server control panel 8 https://lazycat.cloud/appstore/detail/white.lazycat.app.dst-admin-go\n- ip-query-server Bulk IP Home Query Service is a lightweight IP query system based on Docker that supports rapid deployment to local or intranet environments. After starting the container, you can query the IP address attribution through the intuitive Web interface, without additional configuration or external dependence. 2 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.ip-query-server\n- gemini-watermark-remover Remove watermarks from images generated by Google Gemini AI 30 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.gemini-watermark-remover\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "AWS EKS cluster infrastructure/DevOps demo — runs on Kubernetes, not a deployable self-hosted app. Cannot be packaged as a LazyCat .lpk. No store hits match this project.",
+        "reviewed_at": "2026-05-07T00:00:00Z",
+        "reviewer": "claude",
+        "score": 0.04,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:h-vance/self-healing-microservices-cluster",
+      "last_error": "Not a self-hosted app: AWS EKS infrastructure/DevOps demo that runs on Kubernetes, not deployable as a LazyCat container",
       "slug": "self-healing-microservices-cluster",
       "source": "h-vance/self-healing-microservices-cluster",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-07T00:19:13Z"
     },
     {
       "attempts": 0,
@@ -7287,15 +7402,32 @@
       "candidate_status": "needs_review",
       "created_at": "2026-05-06T17:24:31Z",
       "discovery_review": {
+        "codex_attempts": 1,
         "created_at": "2026-05-06T17:24:31Z",
+        "evidence": [
+          "0 stars — not a popular or maintained project",
+          "Architecture designed for cloud (Vercel + Railway), not self-hosted NAS",
+          "Hard dependency on OpenAI API key; not self-contained",
+          "Use case is business customer-support widget, not personal self-hosted tool",
+          "No LazyCat store hit matches this specific product (Chat9 / AI support bot)"
+        ],
+        "last_returncode": 0,
+        "last_run_at": "2026-05-07T00:19:13Z",
+        "last_status": "filtered_out",
         "prompt": "判断是否值得迁移这个 LazyCat 候选项目。\n上游：tabularasa31/ai-chatbot\n仓库：https://github.com/tabularasa31/ai-chatbot\n发现原因：LazyCat app-store search returned matches; AI discovery review required.\n懒猫商店搜索命中：\n请只基于这些商店搜索结果和上游信息判断是否已经上架；命中不明确时选 needs_human，不要猜。\n- Airsonic Refix A modern, responsive Web front end for Subsonic/OpenSubsonic compatible music services (such as Navidrome, Airsonic‑Advanced, Gonic), providing a smooth browsing and playback experience. 3 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.airsonicrefix\n- AI as Workspace Full-featured, lightweight, scalable AI client 28 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.aiaw\n- Dual AI Chat An advanced chat application demonstrates a unique dialogue paradigm: a user's query is first debated and refined by two different artificial intelligence roles before providing a final comprehensive answer. The project leverages the Google Gemini API to drive a logical AI (Cognito) and a skeptical AI (Muse), which work together to generate more robust, accurate and vetted responses. 11 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.dualaichat\n- Drawio Next AI A next.js-based web application that integrates AI with draw.io charts. You can create, modify, and beautify charts using natural language commands. 13 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.drawio-next-ai\n- AI Bookmark Service A lightweight AI-enhanced bookmark management service that is compatible with the Linkding API and supports third-party clients (such as Linkdy App). 1 https://lazycat.cloud/appstore/detail/cloud.lazycat.app.ai-bookmark-service\n请判断：migrate / skip / needs_human，并给出证据。",
-        "status": "pending"
+        "reason": "Zero-star cloud-native business chatbot (Chat9) designed for Vercel+Railway deployment with hard OpenAI API dependency; not a suitable self-hosted NAS app for LazyCat users.",
+        "reviewed_at": "2026-05-07T00:00:00Z",
+        "reviewer": "claude",
+        "score": 0.2,
+        "status": "skip"
       },
+      "filtered_reason": "ai_discovery_skip",
       "id": "github:tabularasa31/ai-chatbot",
+      "last_error": "Zero-star cloud-native SaaS chatbot widget (Chat9) targeting business use; designed for Vercel+Railway, requires OpenAI API key, not a fit for self-hosted LazyCat NAS deployment.",
       "slug": "ai-chatbot",
       "source": "tabularasa31/ai-chatbot",
-      "state": "discovery_review",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "state": "filtered_out",
+      "updated_at": "2026-05-07T00:19:13Z"
     },
     {
       "attempts": 0,
