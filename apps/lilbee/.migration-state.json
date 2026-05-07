@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "tobocop2/lilbee",
   "created_at": "2026-05-07T18:10:46.039724+00:00",
-  "updated_at": "2026-05-07T18:17:48.165617+00:00",
+  "updated_at": "2026-05-07T19:05:28.350456+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -21,6 +21,7 @@
       "build_strategy": "upstream_with_target_template",
       "check_strategy": "github_release",
       "risks": [
+        "planner override: native-project detection bypassed because apps/lilbee/Dockerfile.template already exists (检测到该仓库更像原生客户端/CLI/SDK 项目，而不是提供 HTTP 入口的 LazyCat Web 微服。 依据：根目录存在 CLI/SDK 打包文件：pyproject.toml；README 明显描述为原生客户端/多平台桌面应用：embedded, macos, metal, pip install , sdk, vulkan；仅发现脚本/辅助目录下的 Dockerfile：packaging/docker/Dockerfile。)",
         "planner override: apps/lilbee/Dockerfile.template already exists — using upstream_with_target_template instead of analyzed route"
       ]
     },
@@ -119,12 +120,12 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-05-07T18:17:42.470027+00:00",
+      "completed_at": "2026-05-07T19:04:40.489899+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-05-07T18:17:43.244261+00:00",
+      "completed_at": "2026-05-07T19:04:41.097314+00:00",
       "conclusion": "已自动推断构建路线为 `upstream_with_target_template`"
     },
     "3": {
@@ -157,26 +158,26 @@
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-05-07T18:17:43.385630+00:00",
+      "completed_at": "2026-05-07T19:04:41.390312+00:00",
       "conclusion": "预检通过",
       "all_passed": true
     },
     "8": {
       "completed": true,
-      "completed_at": "2026-05-07T18:17:48.163977+00:00",
+      "completed_at": "2026-05-07T19:05:28.349045+00:00",
       "conclusion": "构建成功",
       "build_mode": "build"
     },
     "9": {
       "completed": true,
-      "completed_at": "2026-05-07T18:17:48.165006+00:00",
+      "completed_at": "2026-05-07T19:05:28.349925+00:00",
       "conclusion": "lpk 已验证",
       "lpk_sha256": "255a4ac98a6f46de0537c2ee5610da450d7fcc7bc95d61f234ee506b8bc52176",
       "lpk_size_bytes": 770
     },
     "10": {
       "completed": true,
-      "completed_at": "2026-05-07T18:17:48.165605+00:00",
+      "completed_at": "2026-05-07T19:05:28.350448+00:00",
       "conclusion": "验收完成",
       "pending_backports": []
     }
@@ -221,6 +222,22 @@
       "category": "build",
       "status": "open",
       "created_at": "2026-05-07T18:17:10.963818+00:00"
+    },
+    {
+      "id": "p6",
+      "step": 2,
+      "description": "检测到该仓库更像原生客户端/CLI/SDK 项目，而不是提供 HTTP 入口的 LazyCat Web 微服。 依据：根目录存在 CLI/SDK 打包文件：pyproject.toml；README 明显描述为原生客户端/多平台桌面应用：embedded, macos, metal, pip install , sdk, vulkan；仅发现脚本/辅助目录下的 Dockerfile：packaging/docker/Dockerfile。",
+      "category": "unknown",
+      "status": "open",
+      "created_at": "2026-05-07T18:56:58.846976+00:00"
+    },
+    {
+      "id": "p7",
+      "step": 7,
+      "description": "lilbee.json not registered in registry/repos/index.json",
+      "category": "preflight",
+      "status": "open",
+      "created_at": "2026-05-07T19:03:05.794315+00:00"
     }
   ],
   "verification": {}

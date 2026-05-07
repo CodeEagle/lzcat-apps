@@ -4962,7 +4962,39 @@ def main() -> int:
         ms.mark_step_completed(state, 1, conclusion=f"已识别输入类型为 `{normalized.kind}`")
 
         step_state.current_step = 2
-        analysis = analyze_source(normalized, source_dir, gh_token)
+        try:
+            analysis = analyze_source(normalized, source_dir, gh_token)
+        except ValueError as _native_project_exc:
+            # analyze_source raises ValueError when it detects a native/CLI/SDK
+            # project. But if the planner already wrote a Dockerfile.template
+            # (e.g. during an earlier Claude planner phase or a prior migration
+            # run), the route decision was already made and we must not block a
+            # resume on a false-positive detection. Reconstruct an AnalysisResult
+            # from the cached migration-state context when the template exists.
+            _inferred_slug = (
+                (existing_state or {}).get("context", {}).get("finalized", {}).get("slug")
+                or (normalized.upstream_repo or "").rsplit("/", 1)[-1]
+            )
+            _inferred_slug = re.sub(r"[^0-9a-zA-Z_.-]+", "-", _inferred_slug).strip("-").lower()
+            _template_path = repo_root / "apps" / _inferred_slug / "Dockerfile.template"
+            if _template_path.exists():
+                _cached_finalized = (existing_state or {}).get("context", {}).get("finalized", {})
+                analysis = AnalysisResult(
+                    slug=_inferred_slug,
+                    route="upstream_with_target_template",
+                    spec={
+                        **_cached_finalized,
+                        "build_strategy": "upstream_with_target_template",
+                        "dockerfile_path": "Dockerfile.template",
+                    },
+                    risks=[
+                        f"planner override: native-project detection bypassed because "
+                        f"apps/{_inferred_slug}/Dockerfile.template already exists "
+                        f"({_native_project_exc})"
+                    ],
+                )
+            else:
+                raise
         # Planner override: if apps/<slug>/Dockerfile.template exists in the
         # target repo (claude's planner phase wrote it before this step ran),
         # the route MUST be `upstream_with_target_template` so run_build.py
