@@ -1,19 +1,19 @@
 migration/lilbee
 branch 'template' set up to track 'origin/template'.
-HEAD is now at b84a015 chore(auto-discover): refresh queue + candidates 2026-05-07T22:49Z
+HEAD is now at 134bd54 chore(auto-discover): refresh queue + candidates 2026-05-07T23:19Z
 Preparing worktree (new branch 'template')
 {
-  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T230116Z-github-jsierra87-engram.md",
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T234448Z-github-jsierra87-engram.md",
   "resumed": true,
   "returncode": 1,
-  "session_id": "e21dba1d-192a-42c2-9367-15e3fcf0dcd4",
+  "session_id": "27f7e268-bad1-4ee1-9e8b-f6da3673e4cd",
   "status": "failed",
-  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T230116Z-github-jsierra87-engram"
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T234448Z-github-jsierra87-engram"
 }
 obscura binary not found in PATH
 /__w/lzcat-apps/lzcat-apps/registry/candidates/latest.json
-/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T230118Z.jsonl
-{"already_migrated_count": 1, "candidate_count": 50, "counts_by_status": {"already_migrated": 1, "excluded": 2, "needs_review": 29, "portable": 18}, "excluded_count": 2, "generated_at": "2026-05-07T23:01:18Z", "needs_review_count": 29, "portable_count": 18}
+/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T234449Z.jsonl
+{"already_migrated_count": 4, "candidate_count": 50, "counts_by_status": {"already_migrated": 4, "excluded": 8, "needs_review": 22, "portable": 16}, "excluded_count": 8, "generated_at": "2026-05-07T23:44:49Z", "needs_review_count": 22, "portable_count": 16}
 {
   "browser_recheck": [],
   "codex_worker": [
@@ -49,157 +49,172 @@ obscura binary not found in PATH
   "discord_replies": [],
   "discovery_gate": [
     {
-      "id": "github:inference-gateway/inference-gateway",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:karnstack/tempo",
-      "reason": "candidate_already_migrated",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:media-centarr/media-centarr",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:osnux/nio-voice-agent-sdk",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:darkmatter2222/heltec-wireless-tracker-2.0-rediacode-gps-recorder",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:ribeirogab/zeno-agent",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:jxss001/acoes-treemap-b3",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:overshard/analytics",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:sudhanshu9315/acoes-treemap-b3",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:geiserx/whisper-subs",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:skynet-claims-org/test3.24x7.com.ru",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:goal651/discord-bot",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:lasagnafelidae/balatro-ezinstaller",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:stevenflanagan1/social-ai-team",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:hintime/cs2-dashboard",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:octimonteagudo-kova/kova-ring",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:daveedge1/presto-lmr-17781032127899638",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:yousseffaruk2-prog/test",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:skynet-claims-org/ghssm.tooling.travix.com",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:cimbrandon/data",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:ghosr55/jhon-bee",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:lucasarlen/focus-fitness-app",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:voroninayanina/free-nodes",
+      "id": "github:miles990/mini-agent",
       "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
-      "id": "github:amatgil/uiua-15puzzle",
+      "id": "github:wyxos/atlas",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:elsakkk/mnemos-mcp",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:lucagerlich/asset-tracker",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:dock0/pkgforge-golang-cross",
+      "id": "github:rubilao/orch",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:garudust-org/garudust-agent",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:ozkrnrike/homelab-infrastructure-monitor",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:66xx5120/iptv-api",
+      "id": "github:maddawwwg/zapunlocked-api",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:docker-hardened-images/catalog",
+      "id": "github:helloworld718/git-history-timeline",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:carlosh7/check",
+      "id": "github:tinkerbell-r/geanos-phantom-performance",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:alstonsz/tv-",
+      "id": "github:siddueswar/doc-crawler-rag",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:baditaflorin/hum-to-orchestra",
+      "id": "github:ancsemi/haven",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:karixmas/intellectual-dna",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:hassanqureshi6/wa-akg",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:damentz/liquorix-package",
+      "id": "github:projeto-intregrador/.github",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:pixelbit-marketing/n8n",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:a99275800/clizk2",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:verlet-robotics/homebrew-verlet",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:algotables/algotables.github.io",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:liuike1/cs1710-final-project",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:regro/cf-graph-countyfair",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:guimontcosta/meu-site-incrivel",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:nyf-smartlab/test",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:eyayq/eliv",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:kharacternyk/univ-mqr",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:jgagraphicdesigner/chicky-boom-operations",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:yuuki215/design-news-app",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ravelox/wotlwedu-ui",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:sidoniemouela/campus-voice",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:molten-bot/moltenhub-code",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:jwkidd3/devsecops",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ldom1/ai-dotfiles",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:matsuksket/ostis-smart-home",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:colin-geo/local-coding-agents-testing",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     }
@@ -214,5 +229,5 @@ obscura binary not found in PATH
   },
   "post_acceptance": [],
   "selected": null,
-  "started_at": "2026-05-07T23:01:16Z"
+  "started_at": "2026-05-07T23:44:47Z"
 }
