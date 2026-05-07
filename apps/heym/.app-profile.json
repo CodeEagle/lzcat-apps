@@ -1,0 +1,274 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "heymrun/heym",
+  "fixes": {
+    "project_name": "heym",
+    "description": "Self-hosted AI workflow automation platform with visual canvas, agents, RAG, HITL, MCP, and observability in one runtime",
+    "description_zh": "（迁移初稿）Heym 的懒猫微服版本",
+    "homepage": "https://heym.run",
+    "author": "heymrun",
+    "package": "fun.selfstudio.app.migration.heym",
+    "check_strategy": "github_release",
+    "build_strategy": "upstream_dockerfile",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "docker_platform": "linux/amd64",
+    "image_owner": "CodeEagle",
+    "image_targets": [
+      "backend",
+      "frontend"
+    ],
+    "dependencies": [
+      {
+        "target_service": "postgres",
+        "source_image": "postgres:16"
+      }
+    ],
+    "service_builds": [
+      {
+        "target_service": "frontend",
+        "build_strategy": "upstream_dockerfile",
+        "source_dockerfile_path": "frontend/Dockerfile",
+        "build_context": ".",
+        "build_args": {
+          "VITE_HEYM_WEB_URL": "${VITE_HEYM_WEB_URL:-https://heym.run}"
+        },
+        "image_name": "heym-frontend"
+      },
+      {
+        "target_service": "backend",
+        "build_strategy": "upstream_dockerfile",
+        "source_dockerfile_path": "backend/Dockerfile",
+        "build_context": ".",
+        "build_args": {},
+        "image_name": "heym-backend"
+      }
+    ],
+    "build_args": {
+      "VITE_HEYM_WEB_URL": "${VITE_HEYM_WEB_URL:-https://heym.run}"
+    },
+    "service_port": 4017,
+    "services": {
+      "backend": {
+        "image": "registry.lazycat.cloud/placeholder/heym:backend",
+        "environment": [
+          "TZ=Europe/Berlin",
+          "TIMEZONE=Europe/Berlin",
+          "DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-heym}",
+          "SECRET_KEY",
+          "ENCRYPTION_KEY",
+          "JWT_ALGORITHM=HS256",
+          "JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30",
+          "JWT_REFRESH_TOKEN_EXPIRE_DAYS=7",
+          "CORS_ORIGINS=http://localhost:4017  # pragma: allowlist secret",
+          "FRONTEND_URL=http://localhost:4017  # pragma: allowlist secret",
+          "ALLOW_REGISTER=true",
+          "OAUTH_ISSUER"
+        ],
+        "binds": [
+          "/lzcapp/var/data/heym/backend/files:/app/data/files"
+        ],
+        "depends_on": [
+          "postgres"
+        ]
+      },
+      "frontend": {
+        "image": "registry.lazycat.cloud/placeholder/heym:frontend",
+        "environment": [
+          "TZ=Europe/Berlin",
+          "VITE_API_TARGET=http://backend:10105"
+        ],
+        "depends_on": [
+          "backend"
+        ]
+      },
+      "postgres": {
+        "image": "registry.lazycat.cloud/placeholder/heym:postgres",
+        "environment": [
+          "TZ=Europe/Berlin",
+          "POSTGRES_USER=postgres",
+          "POSTGRES_PASSWORD=postgres",
+          "POSTGRES_DB=heym"
+        ],
+        "binds": [
+          "/lzcapp/var/db/heym/postgres:/var/lib/postgresql/data"
+        ],
+        "healthcheck": {
+          "test": [
+            "CMD-SHELL",
+            "pg_isready -U ${POSTGRES_USER:-postgres}"
+          ],
+          "interval": "15s",
+          "timeout": "5s",
+          "retries": 5
+        }
+      }
+    },
+    "application": {
+      "subdomain": "heym",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://frontend:4017/"
+        }
+      ]
+    },
+    "env_vars": [
+      {
+        "name": "TZ",
+        "description": "From compose service frontend",
+        "required": false,
+        "value": "Europe/Berlin"
+      },
+      {
+        "name": "POSTGRES_USER",
+        "description": "From compose service postgres",
+        "required": false,
+        "value": "postgres"
+      },
+      {
+        "name": "POSTGRES_PASSWORD",
+        "description": "From compose service postgres",
+        "required": false,
+        "value": "postgres"
+      },
+      {
+        "name": "POSTGRES_DB",
+        "description": "From compose service postgres",
+        "required": false,
+        "value": "heym"
+      },
+      {
+        "name": "TIMEZONE",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "Europe/Berlin"
+      },
+      {
+        "name": "DATABASE_URL",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-heym}"
+      },
+      {
+        "name": "SECRET_KEY",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "your-super-secret-key-change-in-production-min-32-chars"
+      },
+      {
+        "name": "ENCRYPTION_KEY",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "change_this_to_a_random_32_byte_hex_value"
+      },
+      {
+        "name": "JWT_ALGORITHM",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "HS256"
+      },
+      {
+        "name": "JWT_ACCESS_TOKEN_EXPIRE_MINUTES",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "30"
+      },
+      {
+        "name": "JWT_REFRESH_TOKEN_EXPIRE_DAYS",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "7"
+      },
+      {
+        "name": "CORS_ORIGINS",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "http://localhost:4017"
+      },
+      {
+        "name": "FRONTEND_URL",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "http://localhost:4017  # pragma: allowlist secret"
+      },
+      {
+        "name": "ALLOW_REGISTER",
+        "description": "From compose service backend",
+        "required": false,
+        "value": "false"
+      },
+      {
+        "name": "VITE_API_TARGET",
+        "description": "From compose service frontend",
+        "required": false,
+        "value": "http://backend:10105"
+      },
+      {
+        "name": "POSTGRES_HOST",
+        "description": "From .env.example",
+        "required": false,
+        "value": "localhost"
+      },
+      {
+        "name": "POSTGRES_PORT",
+        "description": "From .env.example",
+        "required": false,
+        "value": "6543"
+      },
+      {
+        "name": "BACKEND_PORT",
+        "description": "From .env.example",
+        "required": false,
+        "value": "10105"
+      },
+      {
+        "name": "BACKEND_BIND_HOST",
+        "description": "From .env.example",
+        "required": false,
+        "value": "127.0.0.1"
+      },
+      {
+        "name": "BACKEND_PROXY_HOST",
+        "description": "From .env.example",
+        "required": false,
+        "value": "127.0.0.1"
+      },
+      {
+        "name": "AUTO_REWRITE_LOCAL_DATABASE_HOST",
+        "description": "From .env.example",
+        "required": false,
+        "value": "true"
+      },
+      {
+        "name": "FRONTEND_PORT",
+        "description": "From .env.example",
+        "required": false,
+        "value": "4017"
+      }
+    ],
+    "data_paths": [
+      {
+        "host": "/lzcapp/var/db/heym/postgres",
+        "container": "/var/lib/postgresql/data",
+        "description": "From compose service postgres"
+      },
+      {
+        "host": "/lzcapp/var/data/heym/backend/files",
+        "container": "/app/data/files",
+        "description": "From compose service backend"
+      }
+    ],
+    "startup_notes": [
+      "自动扫描到 compose 文件：docker-compose.yml",
+      "主服务推断为 `frontend`，入口端口 `4017`。",
+      "依赖服务镜像已写入 dependencies，首次完整构建时会自动 copy-image。",
+      "扫描到 env 示例文件：.env.example",
+      "扫描到 README：README.md"
+    ],
+    "include_content": false
+  }
+}

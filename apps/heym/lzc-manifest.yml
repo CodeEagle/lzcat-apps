@@ -1,0 +1,66 @@
+application:
+  public_path:
+    - /
+  subdomain: heym
+  upstreams:
+    -
+      backend: http://frontend:4017/
+      location: /
+author: heymrun
+description: Self-hosted AI workflow automation platform with visual canvas, agents, RAG, HITL, MCP, and observability in one runtime
+homepage: https://heym.run
+locales:
+  en:
+    description: Self-hosted AI workflow automation platform with visual canvas, agents, RAG, HITL, MCP, and observability in one runtime
+    name: heym
+  zh:
+    description: （迁移初稿）Heym 的懒猫微服版本
+    name: heym
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+name: heym
+package: fun.selfstudio.app.migration.heym
+services:
+  backend:
+    binds:
+      - /lzcapp/var/data/heym/backend/files:/app/data/files
+    depends_on:
+      - postgres
+    environment:
+      - TZ=Europe/Berlin
+      - TIMEZONE=Europe/Berlin
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-heym}
+      - SECRET_KEY
+      - ENCRYPTION_KEY
+      - JWT_ALGORITHM=HS256
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+      - "CORS_ORIGINS=http://localhost:4017  # pragma: allowlist secret"
+      - "FRONTEND_URL=http://localhost:4017  # pragma: allowlist secret"
+      - ALLOW_REGISTER=true
+      - OAUTH_ISSUER
+    image: registry.lazycat.cloud/placeholder/heym:backend
+  frontend:
+    depends_on:
+      - backend
+    environment:
+      - TZ=Europe/Berlin
+      - VITE_API_TARGET=http://backend:10105
+    image: registry.lazycat.cloud/placeholder/heym:frontend
+  postgres:
+    binds:
+      - /lzcapp/var/db/heym/postgres:/var/lib/postgresql/data
+    environment:
+      - TZ=Europe/Berlin
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=heym
+    healthcheck:
+      interval: 15s
+      retries: 5
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-postgres}
+      timeout: 5s
+    image: registry.lazycat.cloud/placeholder/heym:postgres
+version: 0.0.16

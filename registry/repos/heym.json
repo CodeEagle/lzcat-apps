@@ -1,0 +1,47 @@
+{
+  "build_args": {
+    "VITE_HEYM_WEB_URL": "${VITE_HEYM_WEB_URL:-https://heym.run}"
+  },
+  "build_strategy": "upstream_dockerfile",
+  "check_strategy": "github_release",
+  "dependencies": [
+    {
+      "source_image": "postgres:16",
+      "target_service": "postgres"
+    }
+  ],
+  "docker_platform": "linux/amd64",
+  "dockerfile_type": "custom",
+  "enabled": true,
+  "image_owner": "CodeEagle",
+  "image_targets": [
+    "backend",
+    "frontend"
+  ],
+  "official_image_registry": "",
+  "precompiled_binary_url": "",
+  "publish_to_store": false,
+  "service_builds": [
+    {
+      "build_args": {
+        "VITE_HEYM_WEB_URL": "${VITE_HEYM_WEB_URL:-https://heym.run}"
+      },
+      "build_context": ".",
+      "build_strategy": "upstream_dockerfile",
+      "image_name": "heym-frontend",
+      "source_dockerfile_path": "frontend/Dockerfile",
+      "target_service": "frontend"
+    },
+    {
+      "build_args": {},
+      "build_context": ".",
+      "build_strategy": "upstream_dockerfile",
+      "image_name": "heym-backend",
+      "source_dockerfile_path": "backend/Dockerfile",
+      "target_service": "backend"
+    }
+  ],
+  "service_cmd": [],
+  "service_port": 4017,
+  "upstream_repo": "heymrun/heym"
+}
