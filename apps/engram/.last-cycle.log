@@ -23,3 +23,309 @@ migration/engram
   "status": "completed",
   "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T183617Z-github-jsierra87-engram"
 }
+[migration/engram 6bea12f] chore(planner): engram ok
+ 8 files changed, 135 insertions(+)
+ create mode 100644 apps/engram/.last-claude-planning.stderr.log
+ create mode 100644 apps/engram/.last-claude-planning.stdout.log
+ create mode 100644 apps/engram/.last-cycle.log
+ create mode 100644 apps/engram/Dockerfile.template
+ create mode 100644 apps/engram/README.md
+ create mode 100644 apps/engram/lzc-build.yml
+ create mode 100644 apps/engram/lzc-manifest.yml
+ create mode 100644 registry/repos/engram.json
+[1/10] 收集上游信息
+
+- 当前结论：已识别输入类型为 `github_repo`，并准备好可分析的上游材料。
+- 当前产出：source=jsierra87/engram; kind=github_repo; build_mode=reinstall; gh_token_source=GH_TOKEN; lzc_token_source=env:LZC_CLI_TOKEN; image_owner=CodeEagle; /tmp/lzcat-full-migrate-36wce5jx/engram-main
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; git clone
+- 阻塞/风险：无
+- 下一步：进入 [2/10] 选择移植路线
+
+[2/10] 自动迁移失败
+
+- 当前结论：自动流程在当前步骤抛出异常。
+- 当前产出：未发现 compose、Dockerfile、可识别的前端应用或 release binary
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py
+- 阻塞/风险：未发现 compose、Dockerfile、可识别的前端应用或 release binary
+- 下一步：停止
+
+Traceback (most recent call last):
+  File "/__w/lzcat-apps/lzcat-apps/scripts/full_migrate.py", line 4973, in main
+    analysis = analyze_source(normalized, source_dir, gh_token)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/__w/lzcat-apps/lzcat-apps/scripts/full_migrate.py", line 3006, in analyze_source
+    raise ValueError("未发现 compose、Dockerfile、可识别的前端应用或 release binary")
+ValueError: 未发现 compose、Dockerfile、可识别的前端应用或 release binary
+{
+  "browser_recheck": [],
+  "codex_worker": [
+    {
+      "id": "github:tobocop2/lilbee",
+      "returncode": 0,
+      "status": "installed"
+    }
+  ],
+  "commands": [
+    {
+      "command": [
+        "python3",
+        "scripts/status_sync.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps"
+      ],
+      "returncode": 1
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/scout.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "scan",
+        "--limit",
+        "50"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/codex_migration_worker.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "--queue-path",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/queue.json",
+        "--task-root",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks",
+        "--outbox-dir",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications",
+        "--item-json",
+        "{\"attempts\": 1, \"branch\": \"migration/engram\", \"candidate\": {\"description\": \"Provide your AI with persistent memory by managing past conversations across multiple sessions using simple markdown files.\", \"external_signal\": \"\", \"external_url\": \"\", \"full_name\": \"jsierra87/engram\", \"language\": \"HTML\", \"last_checked_at\": \"2026-05-06T17:24:32Z\", \"lazycat_hits\": [], \"owner\": \"jsierra87\", \"repo\": \"engram\", \"repo_url\": \"https://github.com/jsierra87/engram\", \"searches\": [{\"result_count\": 0, \"search_url\": \"https://lazycat.cloud/appstore/search?keyword=engram\", \"term\": \"engram\"}], \"source_labels\": [\"GitHub Search Self-hosted\"], \"sources\": [\"github_search_self_hosted_recent\"], \"stars_today\": 0, \"status\": \"portable\", \"status_reason\": \"No matching app found in LazyCat app store search.\", \"total_stars\": 1}, \"candidate_status\": \"portable\", \"codex\": {\"attempts\": 1, \"last_returncode\": 1, \"last_run_at\": \"2026-05-06T17:46:47Z\", \"last_status\": \"codex_failed\", \"last_task_dir\": \"/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260506T174650Z-github-jsierra87-engram\", \"session_id\": \"545d7ebb-0a3d-4b78-8fcc-5a675fcf603a\"}, \"created_at\": \"2026-05-06T17:24:31Z\", \"id\": \"github:jsierra87/engram\", \"last_error\": \"claude repair worker exited 1\", \"slug\": \"engram\", \"source\": \"jsierra87/engram\", \"state\": \"build_failed\", \"updated_at\": \"2026-05-06T17:46:47Z\", \"workspace_path\": \"/__w/lzcat-apps/lzcat-apps\"}",
+        "--mode",
+        "planning",
+        "--model",
+        "claude-sonnet-4-6"
+      ],
+      "phase": "planning",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/auto_migrate.py",
+        "jsierra87/engram",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "--build-mode",
+        "reinstall",
+        "--resume",
+        "--commit-scaffold",
+        "--allow-existing"
+      ],
+      "phase": "build",
+      "returncode": 1
+    }
+  ],
+  "discord_replies": [],
+  "discovery_gate": [
+    {
+      "id": "github:alex11x/lynx",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:stirling-tools/stirling-pdf",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:estarking57/scripts",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:k8nstantin/openpraxis",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:gameryest0574/awesome-vercel-alternatives",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:lkasdorf/financeos_template",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:josephfawzy/api20",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:kapilkaushik1/second-brain-stack",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:aditya-konda/prox",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:sidcorp-co/forge",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:greenote/xsukax-gpg-pgp-key-generator",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:puppet007521/workout_challenge",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ayeshah63094-cmyk/votevision-ai",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:andersnbe/kereby-scraper",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:thomas-william16/basic-calculator",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:radekpskowski-ship-it/inpost-home-assistant",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:zrosenbauer/skills",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:damahua18256/tech-rnahgkmo",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:silly-dotcom/silly-dotcom",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ashish-langhe/devops-multicloud-journey",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:williamlusk9-jpg/cw-pm-tools",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:flickmint/post-streaming",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:siddhantshr/gravity-simulator",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:semmozhiyan-dev/semmozhiyan-dev",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:slriv/balance",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:empowereddld/wix-whisper-layer",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:priyanshi-2603/my-catalogue",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:laurenlev10/lauren-agent-hub-data",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:jakubrusin03/docker-compose",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:tlesh989/homelab",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:stoa-platform/stoa",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:bwbush/midnight-env",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:rahul-rama-dev/taski-tech-assignment",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:jonlabelle/pwsh-profile",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:serhatsoruklu/serhat-soruklu-web",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:kolobashek/rag-semantic-search",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:notyouranony-dev/jeahy-dev",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    }
+  ],
+  "discovery_reviewer": [],
+  "local_agent": {
+    "status": "disabled"
+  },
+  "local_agent_commands": [],
+  "migration": {
+    "returncode": 1,
+    "status": "build_failed"
+  },
+  "post_acceptance": [],
+  "selected": "github:jsierra87/engram",
+  "started_at": "2026-05-07T18:07:13Z"
+}
