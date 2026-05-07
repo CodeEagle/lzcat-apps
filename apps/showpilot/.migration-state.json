@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "source_input": "ShowPilotFPP/ShowPilot",
+  "created_at": "2026-05-07T09:22:53.708953+00:00",
+  "updated_at": "2026-05-07T09:22:55.710278+00:00",
+  "context": {
+    "source": {
+      "kind": "github_repo",
+      "url": "ShowPilotFPP/ShowPilot",
+      "upstream_repo": "ShowPilotFPP/ShowPilot",
+      "homepage": "https://github.com/ShowPilotFPP/ShowPilot"
+    },
+    "environment": {
+      "gh_token_source": "GH_TOKEN",
+      "lzc_cli_token_source": "env:LZC_CLI_TOKEN",
+      "container_runtime": "podman",
+      "image_owner": "CodeEagle"
+    },
+    "route_decision": {
+      "route": "upstream_dockerfile",
+      "build_strategy": "upstream_dockerfile",
+      "check_strategy": "github_release",
+      "risks": []
+    },
+    "version": {
+      "upstream": "",
+      "normalized": "0.33.135"
+    },
+    "finalized": {
+      "slug": "showpilot",
+      "project_name": "ShowPilot",
+      "description": "Self-hosted Remote Falcon alternative for FPP — queue, control, and stream all in one place",
+      "description_zh": "（迁移初稿）Showpilot 的懒猫微服版本",
+      "upstream_repo": "ShowPilotFPP/ShowPilot",
+      "homepage": "https://github.com/ShowPilotFPP/ShowPilot",
+      "license": "MIT",
+      "author": "ShowPilotFPP",
+      "version": "0.33.135",
+      "package": "fun.selfstudio.app.migration.showpilot",
+      "min_os_version": "1.3.8",
+      "check_strategy": "github_release",
+      "build_strategy": "upstream_dockerfile",
+      "official_image_registry": "",
+      "precompiled_binary_url": "",
+      "dockerfile_type": "custom",
+      "dockerfile_path": "",
+      "build_context": ".",
+      "docker_platform": "linux/amd64",
+      "image_owner": "CodeEagle",
+      "overlay_paths": [],
+      "upstream_submodules": [],
+      "image_targets": [
+        "showpilot"
+      ],
+      "dependencies": [],
+      "service_builds": [],
+      "build_args": {},
+      "service_cmd": [],
+      "service_port": 3100,
+      "services": {
+        "showpilot": {
+          "image": "registry.lazycat.cloud/placeholder/showpilot:bootstrap",
+          "healthcheck": {
+            "test": [
+              "CMD-SHELL",
+              "node -e \"require('http').get('http://127.0.0.1:3100/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""
+            ],
+            "interval": "30s",
+            "timeout": "10s",
+            "retries": 5
+          },
+          "binds": [
+            "/lzcapp/var/data/showpilot:/app/data",
+            "/lzcapp/var/data/showpilot/showpilot:/data"
+          ]
+        }
+      },
+      "application": {
+        "subdomain": "showpilot",
+        "public_path": [
+          "/"
+        ],
+        "upstreams": [
+          {
+            "location": "/",
+            "backend": "http://showpilot:3100/"
+          }
+        ]
+      },
+      "env_vars": [],
+      "data_paths": [
+        {
+          "host": "/lzcapp/var/data/showpilot",
+          "container": "/app/data",
+          "description": "From Dockerfile VOLUME"
+        },
+        {
+          "host": "/lzcapp/var/data/showpilot/showpilot",
+          "container": "/data",
+          "description": "From common data path pattern"
+        }
+      ],
+      "startup_notes": [
+        "自动扫描到 Dockerfile：Dockerfile",
+        "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
+        "未扫描到 env 示例文件",
+        "扫描到 README：README.md"
+      ],
+      "include_content": false,
+      "ai_pod_service": "",
+      "ai_pod_service_name": "showpilot",
+      "ai_pod_service_port": 3100,
+      "ai_pod_image": "registry.lazycat.cloud/placeholder/showpilot-ai:bootstrap",
+      "aipod": {},
+      "usage": "",
+      "icon_path": "",
+      "source_version": "",
+      "default_branch": ""
+    },
+    "registration": {
+      "slug": "showpilot",
+      "monorepo_path": "apps/showpilot",
+      "config_path": "registry/repos/showpilot.json"
+    }
+  },
+  "steps": {
+    "1": {
+      "completed": true,
+      "completed_at": "2026-05-07T09:22:54.628836+00:00",
+      "conclusion": "已识别输入类型为 `github_repo`"
+    },
+    "2": {
+      "completed": true,
+      "completed_at": "2026-05-07T09:22:55.566438+00:00",
+      "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
+    },
+    "3": {
+      "completed": true,
+      "completed_at": "2026-05-07T09:22:55.567427+00:00",
+      "conclusion": "已完成 monorepo 注册"
+    },
+    "4": {
+      "completed": true,
+      "completed_at": "2026-05-07T09:22:55.709315+00:00",
+      "conclusion": "骨架文件已生成",
+      "files_written": [
+        "/__w/lzcat-apps/lzcat-apps/apps/showpilot/lzc-manifest.yml",
+        "/__w/lzcat-apps/lzcat-apps/apps/showpilot/lzc-build.yml",
+        "/__w/lzcat-apps/lzcat-apps/apps/showpilot/README.md",
+        "/__w/lzcat-apps/lzcat-apps/apps/showpilot/UPSTREAM_DEPLOYMENT_CHECKLIST.md",
+        "/__w/lzcat-apps/lzcat-apps/apps/showpilot/icon.png",
+        "/__w/lzcat-apps/lzcat-apps/registry/repos/showpilot.json"
+      ]
+    },
+    "5": {
+      "completed": true,
+      "completed_at": "2026-05-07T09:22:55.709802+00:00",
+      "conclusion": "manifest 初稿已生成"
+    },
+    "6": {
+      "completed": true,
+      "completed_at": "2026-05-07T09:22:55.710270+00:00",
+      "conclusion": "剩余文件已补齐"
+    }
+  },
+  "problems": [],
+  "verification": {}
+}

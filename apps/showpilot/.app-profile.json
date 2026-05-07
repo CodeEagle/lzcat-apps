@@ -1,0 +1,72 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "ShowPilotFPP/ShowPilot",
+  "fixes": {
+    "project_name": "ShowPilot",
+    "description": "Self-hosted Remote Falcon alternative for FPP — queue, control, and stream all in one place",
+    "description_zh": "（迁移初稿）Showpilot 的懒猫微服版本",
+    "homepage": "https://github.com/ShowPilotFPP/ShowPilot",
+    "license": "MIT",
+    "author": "ShowPilotFPP",
+    "package": "fun.selfstudio.app.migration.showpilot",
+    "check_strategy": "github_release",
+    "build_strategy": "upstream_dockerfile",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "docker_platform": "linux/amd64",
+    "image_owner": "CodeEagle",
+    "image_targets": [
+      "showpilot"
+    ],
+    "service_port": 3100,
+    "services": {
+      "showpilot": {
+        "image": "registry.lazycat.cloud/placeholder/showpilot:bootstrap",
+        "healthcheck": {
+          "test": [
+            "CMD-SHELL",
+            "node -e \"require('http').get('http://127.0.0.1:3100/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""
+          ],
+          "interval": "30s",
+          "timeout": "10s",
+          "retries": 5
+        },
+        "binds": [
+          "/lzcapp/var/data/showpilot:/app/data",
+          "/lzcapp/var/data/showpilot/showpilot:/data"
+        ]
+      }
+    },
+    "application": {
+      "subdomain": "showpilot",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://showpilot:3100/"
+        }
+      ]
+    },
+    "data_paths": [
+      {
+        "host": "/lzcapp/var/data/showpilot",
+        "container": "/app/data",
+        "description": "From Dockerfile VOLUME"
+      },
+      {
+        "host": "/lzcapp/var/data/showpilot/showpilot",
+        "container": "/data",
+        "description": "From common data path pattern"
+      }
+    ],
+    "startup_notes": [
+      "自动扫描到 Dockerfile：Dockerfile",
+      "当前路线按源码构建处理，后续需确认真实入口、初始化命令和写路径。",
+      "未扫描到 env 示例文件",
+      "扫描到 README：README.md"
+    ],
+    "include_content": false
+  }
+}
