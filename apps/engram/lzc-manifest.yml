@@ -1,0 +1,25 @@
+application:
+  public_path:
+    - /
+  subdomain: engram
+  upstreams:
+    - backend: http://engram:80/
+      location: /
+author: jsierra87
+description: Visualize and explore AI conversation memory files managed by the engram MCP server — session timelines, decisions, and workstreams
+homepage: https://github.com/jsierra87/engram
+locales:
+  en:
+    description: Drag-and-drop your engram memory markdown files to visualize session timelines, decision logs, workstreams, and agent registries in your browser
+    name: Engram Visualizer
+  zh:
+    description: 拖入 engram 记忆 Markdown 文件，在浏览器中可视化会话历程、决策记录、工作流和代理注册表
+    name: Engram 可视化器
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+name: engram
+package: fun.selfstudio.app.migration.engram
+services:
+  engram:
+    image: registry.lazycat.cloud/placeholder/engram:bootstrap
+version: 0.1.0

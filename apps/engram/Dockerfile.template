@@ -1,0 +1,10 @@
+FROM nginx:alpine
+
+ARG SOURCE_VERSION
+RUN test -n "${SOURCE_VERSION}" || (echo "SOURCE_VERSION build arg required" && exit 1)
+
+COPY VISUALIZER.html /usr/share/nginx/html/index.html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

@@ -1,0 +1,25 @@
+migration/engram
+branch 'template' set up to track 'origin/template'.
+HEAD is now at f18c4ef chore(auto-discover): refresh queue + candidates 2026-05-07T18:04Z
+Preparing worktree (new branch 'template')
+{
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T180713Z-github-tobocop2-lilbee.md",
+  "resumed": false,
+  "returncode": 0,
+  "session_id": "ff1d9793-01c4-465d-a22e-5870c544d248",
+  "status": "completed",
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T180713Z-github-tobocop2-lilbee"
+}
+obscura binary not found in PATH
+/__w/lzcat-apps/lzcat-apps/registry/candidates/latest.json
+/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T182726Z.jsonl
+{"already_migrated_count": 4, "candidate_count": 50, "counts_by_status": {"already_migrated": 4, "excluded": 4, "needs_review": 30, "portable": 12}, "excluded_count": 4, "generated_at": "2026-05-07T18:27:26Z", "needs_review_count": 30, "portable_count": 12}
+migration/engram
+{
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T183617Z-github-jsierra87-engram.md",
+  "resumed": false,
+  "returncode": 0,
+  "session_id": "eef7f0a9-186e-4c6a-ba82-434af12954b4",
+  "status": "completed",
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T183617Z-github-jsierra87-engram"
+}
