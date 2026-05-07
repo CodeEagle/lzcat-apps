@@ -23,3 +23,266 @@ migration/pressyard
   "status": "completed",
   "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T212845Z-github-codemasters999-pressyard"
 }
+[migration/pressyard 59704d4] chore(planner): pressyard ok
+ 2 files changed, 33 insertions(+), 291 deletions(-)
+[1/10] 收集上游信息
+
+- 当前结论：已识别输入类型为 `github_repo`，并准备好可分析的上游材料。
+- 当前产出：source=CodeMasters999/PressYard; kind=github_repo; build_mode=reinstall; gh_token_source=GH_TOKEN; lzc_token_source=env:LZC_CLI_TOKEN; image_owner=CodeEagle; /tmp/lzcat-full-migrate-4o9r4n08/PressYard-main
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; git clone
+- 阻塞/风险：无
+- 下一步：进入 [2/10] 选择移植路线
+
+[2/10] 自动迁移失败
+
+- 当前结论：自动流程在当前步骤抛出异常。
+- 当前产出：未发现 compose、Dockerfile、可识别的前端应用或 release binary
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py
+- 阻塞/风险：未发现 compose、Dockerfile、可识别的前端应用或 release binary
+- 下一步：停止
+
+Traceback (most recent call last):
+  File "/__w/lzcat-apps/lzcat-apps/scripts/full_migrate.py", line 4966, in main
+    analysis = analyze_source(normalized, source_dir, gh_token)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/__w/lzcat-apps/lzcat-apps/scripts/full_migrate.py", line 3001, in analyze_source
+    raise ValueError("未发现 compose、Dockerfile、可识别的前端应用或 release binary")
+ValueError: 未发现 compose、Dockerfile、可识别的前端应用或 release binary
+{
+  "browser_recheck": [],
+  "codex_worker": [
+    {
+      "id": "github:jsierra87/engram",
+      "returncode": 1,
+      "status": "codex_failed"
+    }
+  ],
+  "commands": [
+    {
+      "command": [
+        "python3",
+        "scripts/status_sync.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps"
+      ],
+      "returncode": 1
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/scout.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "scan",
+        "--limit",
+        "50"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/codex_migration_worker.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "--queue-path",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/queue.json",
+        "--task-root",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks",
+        "--outbox-dir",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications",
+        "--item-json",
+        "{\"attempts\": 1, \"branch\": \"migration/pressyard\", \"candidate\": {\"description\": \"Create local WordPress setups with isolated containers, automatic installs, and project-based hostnames for easy development and testing.\", \"external_signal\": \"\", \"external_url\": \"\", \"full_name\": \"CodeMasters999/PressYard\", \"language\": \"\", \"last_checked_at\": \"2026-05-06T17:24:32Z\", \"lazycat_hits\": [], \"owner\": \"CodeMasters999\", \"repo\": \"PressYard\", \"repo_url\": \"https://github.com/CodeMasters999/PressYard\", \"searches\": [{\"result_count\": 0, \"search_url\": \"https://lazycat.cloud/appstore/search?keyword=PressYard\", \"term\": \"PressYard\"}], \"source_labels\": [\"GitHub Search Self-hosted\"], \"sources\": [\"github_search_self_hosted_recent\"], \"stars_today\": 0, \"status\": \"portable\", \"status_reason\": \"No matching app found in LazyCat app store search.\", \"total_stars\": 0}, \"candidate_status\": \"portable\", \"codex\": {\"attempts\": 1, \"last_returncode\": 1, \"last_run_at\": \"2026-05-06T18:03:25Z\", \"last_status\": \"codex_failed\", \"last_task_dir\": \"/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260506T180329Z-github-codemasters999-pressyard\", \"session_id\": \"8dba1c43-8ab2-4264-8f3a-3bfe5c2bbf64\"}, \"created_at\": \"2026-05-06T17:24:31Z\", \"id\": \"github:codemasters999/pressyard\", \"last_error\": \"claude repair worker exited 1\", \"slug\": \"pressyard\", \"source\": \"CodeMasters999/PressYard\", \"state\": \"build_failed\", \"updated_at\": \"2026-05-06T18:03:25Z\", \"workspace_path\": \"/__w/lzcat-apps/lzcat-apps\"}",
+        "--mode",
+        "planning",
+        "--model",
+        "claude-sonnet-4-6"
+      ],
+      "phase": "planning",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/auto_migrate.py",
+        "CodeMasters999/PressYard",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "--build-mode",
+        "reinstall",
+        "--resume",
+        "--commit-scaffold",
+        "--allow-existing"
+      ],
+      "phase": "build",
+      "returncode": 1
+    }
+  ],
+  "discord_replies": [],
+  "discovery_gate": [
+    {
+      "id": "github:miles990/mini-agent",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:go-gitea/gitea",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:clickhouse/clickhouse",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:jakobaiodev/vintrack-vinted-monitor",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:h3rb3rn/moe-sovereign",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:sree-sanak/minty",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:bmanturner/foglet-bbs",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:superior-kqller/wishlist-app",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:atomantic/portos",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:rszamszur/home-ops",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:k8nstantin/openpraxis",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:drag0n141/containers",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:mark-invincible-edit/mark-invincible-edit.github.io",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:akhayam99/kay-am",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:yannbertrand/orange-bleue-attendance-prediction",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:john27052001/realtime-chat-system",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ytsmoke733-commits/scripts",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:silaesme/petrolistan-api",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:pilotdanielj/julie-card",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:towabii/nas-status",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:heymishy/skills-repo",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:dimo-network/b2b-fleet-mgr-app",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:direwolf-github/ephemeral-ci-f20a46ea",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:kobelcyril-cell/monitoring-plots",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:prolexis/egresados-system",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:bastowj/dangerclose-page",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:al-mighty/patternquest-demo",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ulysn/smartspirit-case",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:gautampachnanda101/mypass",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:division7/table-materializer",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    }
+  ],
+  "discovery_reviewer": [],
+  "local_agent": {
+    "status": "disabled"
+  },
+  "local_agent_commands": [],
+  "migration": {
+    "returncode": 1,
+    "status": "build_failed"
+  },
+  "post_acceptance": [],
+  "selected": "github:codemasters999/pressyard",
+  "started_at": "2026-05-07T21:23:10Z"
+}
