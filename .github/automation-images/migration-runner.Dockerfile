@@ -36,6 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential pkg-config gnupg lsb-release \
         docker.io podman buildah skopeo fuse-overlayfs nftables \
         openssh-client rsync \
+        procps \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # ---- containers/registries.conf --------------------------------------------

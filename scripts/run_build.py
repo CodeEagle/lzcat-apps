@@ -118,12 +118,23 @@ def parse_int_env(env: dict[str, str], name: str, default: int) -> int:
 
 
 def describe_process(pid: int) -> str:
-    probe = subprocess.run(
-        ["ps", "-p", str(pid), "-o", "pid=,etime=,%cpu=,%mem=,state=,command="],
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    """Probe for a running process via `ps`. Best-effort: if `ps` is
+    missing from the runner image (procps not installed), fall back to
+    a bare pid summary instead of raising. Without this guard, the
+    idle-timeout monitor in run_streaming would crash the entire build
+    and trigger a useless build-strategy fallback. Stellaclaw run
+    25507247502 hit this DURING cargo build of a successfully-planned
+    Rust workspace — the build was healthy, the monitor wasn't.
+    """
+    try:
+        probe = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "pid=,etime=,%cpu=,%mem=,state=,command="],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return f"pid={pid} (ps unavailable)"
     summary = probe.stdout.strip()
     return summary or f"pid={pid}"
 
