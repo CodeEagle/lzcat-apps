@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "source_input": "pinkysworld/Wardex",
+  "created_at": "2026-05-07T09:08:12.480581+00:00",
+  "updated_at": "2026-05-07T09:08:14.485005+00:00",
+  "context": {
+    "source": {
+      "kind": "github_repo",
+      "url": "pinkysworld/Wardex",
+      "upstream_repo": "pinkysworld/Wardex",
+      "homepage": "https://github.com/pinkysworld/Wardex"
+    },
+    "environment": {
+      "gh_token_source": "GH_TOKEN",
+      "lzc_cli_token_source": "env:LZC_CLI_TOKEN",
+      "container_runtime": "podman",
+      "image_owner": "CodeEagle"
+    },
+    "route_decision": {
+      "route": "upstream_dockerfile",
+      "build_strategy": "upstream_dockerfile",
+      "check_strategy": "github_release",
+      "risks": []
+    },
+    "version": {
+      "upstream": "",
+      "normalized": "1.0.5"
+    },
+    "finalized": {
+      "slug": "wardex",
+      "project_name": "Wardex",
+      "description": "Private-cloud XDR and SIEM platform in Rust for detection engineering, SOC workflows, fleet operations, and self-hosted browser security operations",
+      "description_zh": "（迁移初稿）Wardex 的懒猫微服版本",
+      "upstream_repo": "pinkysworld/Wardex",
+      "homepage": "https://minh.systems/Wardex/site",
+      "license": "",
+      "author": "pinkysworld",
+      "version": "1.0.5",
+      "package": "fun.selfstudio.app.migration.wardex",
+      "min_os_version": "1.3.8",
+      "check_strategy": "github_release",
+      "build_strategy": "upstream_dockerfile",
+      "official_image_registry": "",
+      "precompiled_binary_url": "",
+      "dockerfile_type": "custom",
+      "dockerfile_path": "",
+      "build_context": ".",
+      "docker_platform": "linux/amd64",
+      "image_owner": "CodeEagle",
+      "overlay_paths": [],
+      "upstream_submodules": [],
+      "image_targets": [
+        "wardex"
+      ],
+      "dependencies": [],
+      "service_builds": [
+        {
+          "target_service": "wardex",
+          "build_strategy": "upstream_dockerfile",
+          "source_dockerfile_path": "Dockerfile",
+          "build_context": ".",
+          "build_args": {},
+          "image_name": "wardex-wardex"
+        }
+      ],
+      "build_args": {},
+      "service_cmd": [],
+      "service_port": 9077,
+      "services": {
+        "wardex": {
+          "image": "registry.lazycat.cloud/placeholder/wardex:wardex",
+          "environment": [
+            "SENTINEL_CORS_ORIGIN=http://localhost:8080"
+          ],
+          "binds": [
+            "/lzcapp/var/data/wardex:/app/var"
+          ],
+          "healthcheck": {
+            "test": [
+              "CMD",
+              "/app/wardex",
+              "status-json"
+            ],
+            "interval": "30s",
+            "timeout": "5s",
+            "retries": 3,
+            "start_period": "10s"
+          }
+        }
+      },
+      "application": {
+        "subdomain": "wardex",
+        "public_path": [
+          "/"
+        ],
+        "upstreams": [
+          {
+            "location": "/",
+            "backend": "http://wardex:9077/"
+          }
+        ]
+      },
+      "env_vars": [
+        {
+          "name": "SENTINEL_CORS_ORIGIN",
+          "description": "From compose service wardex",
+          "required": false,
+          "value": "http://localhost:8080"
+        },
+        {
+          "name": "WARDEX_PORT",
+          "description": "From .env.example",
+          "required": false,
+          "value": "8080"
+        },
+        {
+          "name": "WARDEX_HOST",
+          "description": "From .env.example",
+          "required": false,
+          "value": "127.0.0.1"
+        },
+        {
+          "name": "WARDEX_TOKEN",
+          "description": "From .env.example",
+          "required": false,
+          "value": "change-me-to-a-random-secret"
+        },
+        {
+          "name": "WARDEX_AGENT_TOKEN",
+          "description": "From .env.example",
+          "required": false,
+          "value": "change-me-to-another-secret"
+        },
+        {
+          "name": "RUST_LOG",
+          "description": "From .env.example",
+          "required": false,
+          "value": "info"
+        }
+      ],
+      "data_paths": [
+        {
+          "host": "/lzcapp/var/data/wardex",
+          "container": "/app/var",
+          "description": "From compose service wardex"
+        }
+      ],
+      "startup_notes": [
+        "自动扫描到 compose 文件：docker-compose.yml",
+        "主服务推断为 `wardex`，入口端口 `9077`。",
+        "扫描到 env 示例文件：.env.example",
+        "扫描到 README：README.md, README.md, README.md"
+      ],
+      "include_content": false,
+      "ai_pod_service": "",
+      "ai_pod_service_name": "wardex",
+      "ai_pod_service_port": 9077,
+      "ai_pod_image": "registry.lazycat.cloud/placeholder/wardex-ai:bootstrap",
+      "aipod": {},
+      "usage": "",
+      "icon_path": "",
+      "source_version": "",
+      "default_branch": ""
+    },
+    "registration": {
+      "slug": "wardex",
+      "monorepo_path": "apps/wardex",
+      "config_path": "registry/repos/wardex.json"
+    }
+  },
+  "steps": {
+    "1": {
+      "completed": true,
+      "completed_at": "2026-05-07T09:08:13.405216+00:00",
+      "conclusion": "已识别输入类型为 `github_repo`"
+    },
+    "2": {
+      "completed": true,
+      "completed_at": "2026-05-07T09:08:14.366301+00:00",
+      "conclusion": "已自动推断构建路线为 `upstream_dockerfile`"
+    },
+    "3": {
+      "completed": true,
+      "completed_at": "2026-05-07T09:08:14.367134+00:00",
+      "conclusion": "已完成 monorepo 注册"
+    },
+    "4": {
+      "completed": true,
+      "completed_at": "2026-05-07T09:08:14.484193+00:00",
+      "conclusion": "骨架文件已生成",
+      "files_written": [
+        "/__w/lzcat-apps/lzcat-apps/apps/wardex/lzc-manifest.yml",
+        "/__w/lzcat-apps/lzcat-apps/apps/wardex/lzc-build.yml",
+        "/__w/lzcat-apps/lzcat-apps/apps/wardex/README.md",
+        "/__w/lzcat-apps/lzcat-apps/apps/wardex/UPSTREAM_DEPLOYMENT_CHECKLIST.md",
+        "/__w/lzcat-apps/lzcat-apps/apps/wardex/icon.png",
+        "/__w/lzcat-apps/lzcat-apps/registry/repos/wardex.json"
+      ]
+    },
+    "5": {
+      "completed": true,
+      "completed_at": "2026-05-07T09:08:14.484633+00:00",
+      "conclusion": "manifest 初稿已生成"
+    },
+    "6": {
+      "completed": true,
+      "completed_at": "2026-05-07T09:08:14.484999+00:00",
+      "conclusion": "剩余文件已补齐"
+    }
+  },
+  "problems": [],
+  "verification": {}
+}

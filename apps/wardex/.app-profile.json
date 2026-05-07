@@ -1,0 +1,118 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "pinkysworld/Wardex",
+  "fixes": {
+    "project_name": "Wardex",
+    "description": "Private-cloud XDR and SIEM platform in Rust for detection engineering, SOC workflows, fleet operations, and self-hosted browser security operations",
+    "description_zh": "（迁移初稿）Wardex 的懒猫微服版本",
+    "homepage": "https://minh.systems/Wardex/site",
+    "author": "pinkysworld",
+    "package": "fun.selfstudio.app.migration.wardex",
+    "check_strategy": "github_release",
+    "build_strategy": "upstream_dockerfile",
+    "dockerfile_type": "custom",
+    "build_context": ".",
+    "docker_platform": "linux/amd64",
+    "image_owner": "CodeEagle",
+    "image_targets": [
+      "wardex"
+    ],
+    "service_builds": [
+      {
+        "target_service": "wardex",
+        "build_strategy": "upstream_dockerfile",
+        "source_dockerfile_path": "Dockerfile",
+        "build_context": ".",
+        "build_args": {},
+        "image_name": "wardex-wardex"
+      }
+    ],
+    "service_port": 9077,
+    "services": {
+      "wardex": {
+        "image": "registry.lazycat.cloud/placeholder/wardex:wardex",
+        "environment": [
+          "SENTINEL_CORS_ORIGIN=http://localhost:8080"
+        ],
+        "binds": [
+          "/lzcapp/var/data/wardex:/app/var"
+        ],
+        "healthcheck": {
+          "test": [
+            "CMD",
+            "/app/wardex",
+            "status-json"
+          ],
+          "interval": "30s",
+          "timeout": "5s",
+          "retries": 3,
+          "start_period": "10s"
+        }
+      }
+    },
+    "application": {
+      "subdomain": "wardex",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://wardex:9077/"
+        }
+      ]
+    },
+    "env_vars": [
+      {
+        "name": "SENTINEL_CORS_ORIGIN",
+        "description": "From compose service wardex",
+        "required": false,
+        "value": "http://localhost:8080"
+      },
+      {
+        "name": "WARDEX_PORT",
+        "description": "From .env.example",
+        "required": false,
+        "value": "8080"
+      },
+      {
+        "name": "WARDEX_HOST",
+        "description": "From .env.example",
+        "required": false,
+        "value": "127.0.0.1"
+      },
+      {
+        "name": "WARDEX_TOKEN",
+        "description": "From .env.example",
+        "required": false,
+        "value": "change-me-to-a-random-secret"
+      },
+      {
+        "name": "WARDEX_AGENT_TOKEN",
+        "description": "From .env.example",
+        "required": false,
+        "value": "change-me-to-another-secret"
+      },
+      {
+        "name": "RUST_LOG",
+        "description": "From .env.example",
+        "required": false,
+        "value": "info"
+      }
+    ],
+    "data_paths": [
+      {
+        "host": "/lzcapp/var/data/wardex",
+        "container": "/app/var",
+        "description": "From compose service wardex"
+      }
+    ],
+    "startup_notes": [
+      "自动扫描到 compose 文件：docker-compose.yml",
+      "主服务推断为 `wardex`，入口端口 `9077`。",
+      "扫描到 env 示例文件：.env.example",
+      "扫描到 README：README.md, README.md, README.md"
+    ],
+    "include_content": false
+  }
+}

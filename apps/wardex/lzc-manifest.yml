@@ -1,0 +1,39 @@
+application:
+  public_path:
+    - /
+  subdomain: wardex
+  upstreams:
+    -
+      backend: http://wardex:9077/
+      location: /
+author: pinkysworld
+description: Private-cloud XDR and SIEM platform in Rust for detection engineering, SOC workflows, fleet operations, and self-hosted browser security operations
+homepage: https://minh.systems/Wardex/site
+locales:
+  en:
+    description: Private-cloud XDR and SIEM platform in Rust for detection engineering, SOC workflows, fleet operations, and self-hosted browser security operations
+    name: Wardex
+  zh:
+    description: （迁移初稿）Wardex 的懒猫微服版本
+    name: Wardex
+lzc-sdk-version: '0.1'
+min_os_version: 1.3.8
+name: Wardex
+package: fun.selfstudio.app.migration.wardex
+services:
+  wardex:
+    binds:
+      - /lzcapp/var/data/wardex:/app/var
+    environment:
+      - SENTINEL_CORS_ORIGIN=http://localhost:8080
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 10s
+      test:
+        - CMD
+        - /app/wardex
+        - status-json
+      timeout: 5s
+    image: registry.lazycat.cloud/placeholder/wardex:wardex
+version: 1.0.5
