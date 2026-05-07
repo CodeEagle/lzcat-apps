@@ -11,9 +11,14 @@ model via `migration.codex_worker_model` in project-config.json — defaults to
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import json
+import os
 import re
 import subprocess
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -86,12 +91,116 @@ def lazycat_store_search_guidance(item: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def fetch_license_info(item: dict[str, Any], *, timeout: float = 10.0) -> dict[str, Any]:
+    """Live-fetch the upstream repo's LICENSE via the GitHub REST API.
+
+    Discovery review previously told Claude to "inspect the LICENSE file"
+    but didn't actually give it the file — the candidate dict scout
+    builds carries no license metadata, and at discovery time no upstream
+    clone exists locally either. This function plugs that hole: it hits
+    ``GET /repos/{owner}/{name}/license`` and returns the SPDX id, the
+    license display name, and a snippet of the raw LICENSE text. The
+    result is injected verbatim into the prompt so the Step 0 commercial-
+    use check has actual evidence to work with.
+
+    Returns a dict with ``fetch_status`` ∈ {ok, not_found, skip, error}.
+    Best-effort: any network/auth/decode error is swallowed and surfaced
+    via ``error`` so a flaky GitHub never blocks a discovery cycle.
+    """
+    candidate = item.get("candidate") if isinstance(item.get("candidate"), dict) else {}
+    full_name = str(candidate.get("full_name") or "").strip()
+    if "/" not in full_name:
+        # Some scout sources stash owner/repo in item.source instead.
+        source = str(item.get("source") or "").strip()
+        if "/" in source and not source.startswith("http"):
+            full_name = source
+    if "/" not in full_name:
+        return {"fetch_status": "skip", "error": "no upstream owner/repo on item"}
+
+    token = os.environ.get("GH_PAT") or os.environ.get("GH_TOKEN") or ""
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "lzcat-discovery-reviewer",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    url = f"https://api.github.com/repos/{full_name}/license"
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 - URL is constructed
+            payload = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return {"fetch_status": "not_found", "spdx": "", "name": "", "snippet": ""}
+        return {"fetch_status": "error", "error": f"HTTP {exc.code} {exc.reason}"}
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        return {"fetch_status": "error", "error": f"network: {exc}"}
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        return {"fetch_status": "error", "error": f"decode: {exc}"}
+
+    license_obj = payload.get("license") if isinstance(payload, dict) else None
+    spdx = ""
+    name = ""
+    if isinstance(license_obj, dict):
+        spdx = str(license_obj.get("spdx_id") or "").strip()
+        name = str(license_obj.get("name") or "").strip()
+
+    snippet = ""
+    content = payload.get("content") if isinstance(payload, dict) else ""
+    encoding = payload.get("encoding") if isinstance(payload, dict) else ""
+    if isinstance(content, str) and encoding == "base64":
+        try:
+            snippet = base64.b64decode(content).decode("utf-8", errors="replace")[:4000]
+        except (binascii.Error, ValueError):
+            snippet = ""
+
+    return {"fetch_status": "ok", "spdx": spdx, "name": name, "snippet": snippet}
+
+
+def format_license_block(info: dict[str, Any]) -> str:
+    """Render fetch_license_info() result into a human-readable Markdown
+    block to splice into the discovery prompt.
+    """
+    status = str(info.get("fetch_status") or "").strip()
+    if status == "ok":
+        spdx = str(info.get("spdx") or "").strip() or "(no SPDX id detected)"
+        name = str(info.get("name") or "").strip() or "(no name)"
+        snippet = str(info.get("snippet") or "").strip()
+        lines = [f"- SPDX: `{spdx}`", f"- Name: {name}"]
+        if snippet:
+            lines.append("- LICENSE file (first 4 KB):")
+            lines.append("```")
+            lines.append(snippet)
+            lines.append("```")
+        return "\n".join(lines)
+    if status == "not_found":
+        return (
+            "- **No LICENSE file found in the upstream repo.** "
+            "Apply the NO LICENSE / UNLICENSED branch of Step 0 — "
+            "default verdict is `needs_human`."
+        )
+    if status == "skip":
+        return (
+            f"- License fetch skipped: {info.get('error') or 'unknown'}. "
+            "If the candidate dict / README excerpt does not surface a license, "
+            "default verdict is `needs_human`."
+        )
+    return (
+        f"- License fetch failed: {info.get('error') or 'unknown'}. "
+        "If you cannot determine the license from other signals (README excerpt, "
+        "candidate metadata), default verdict is `needs_human`."
+    )
+
+
 def build_codex_prompt(
     repo_root: Path,
     queue_path: Path,
     item: dict[str, Any],
     *,
     developer_url: str = "",
+    license_info: dict[str, Any] | None = None,
 ) -> str:
     item_json = json.dumps(item, ensure_ascii=False, indent=2, sort_keys=True)
     publication_status = read_text_if_exists(repo_root / "registry" / "status" / "local-publication-status.json", max_chars=12000)
@@ -101,6 +210,9 @@ def build_codex_prompt(
         max_chars=12000,
     )
     store_search_guidance = lazycat_store_search_guidance(item)
+    if license_info is None:
+        license_info = fetch_license_info(item)
+    license_block = format_license_block(license_info)
 
     return f"""You are Claude, the discovery reviewer for the LazyCat lzcat-apps auto-migration pipeline.
 
@@ -128,9 +240,16 @@ web-accessible service on a user's personal cloud, including:
 
 Step 0 — Commercial-use license check (RUN THIS FIRST, BEFORE any other decision):
 LazyCat is a commercial app store; only candidates whose upstream license permits
-commercial redistribution can ship there. Inspect the upstream LICENSE file (and
-`license` field in package.json / Cargo.toml / pyproject.toml / go.mod when
-present). Classify into:
+commercial redistribution can ship there.
+
+Upstream license (live-fetched from GitHub `/repos/<owner>/<repo>/license`):
+{license_block}
+
+Use the SPDX id and LICENSE excerpt above as your primary evidence. If
+`/license` returned 404 or empty, fall back to: (a) the `license` field in
+package.json / Cargo.toml / pyproject.toml / go.mod when present in the
+candidate dict, (b) any explicit license phrasing in the README. Classify
+into:
 
   * COMMERCIAL-OK — proceed with normal `migrate`/`skip` evaluation:
       MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Unlicense, CC0, MPL-2.0,
