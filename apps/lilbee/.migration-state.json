@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "tobocop2/lilbee",
   "created_at": "2026-05-07T18:10:46.039724+00:00",
-  "updated_at": "2026-05-07T19:05:28.350456+00:00",
+  "updated_at": "2026-05-07T19:47:41.913345+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -120,12 +120,12 @@
   "steps": {
     "1": {
       "completed": true,
-      "completed_at": "2026-05-07T19:04:40.489899+00:00",
+      "completed_at": "2026-05-07T19:47:18.620280+00:00",
       "conclusion": "已识别输入类型为 `github_repo`"
     },
     "2": {
       "completed": true,
-      "completed_at": "2026-05-07T19:04:41.097314+00:00",
+      "completed_at": "2026-05-07T19:47:19.358881+00:00",
       "conclusion": "已自动推断构建路线为 `upstream_with_target_template`"
     },
     "3": {
@@ -158,7 +158,7 @@
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-05-07T19:04:41.390312+00:00",
+      "completed_at": "2026-05-07T19:47:19.500636+00:00",
       "conclusion": "预检通过",
       "all_passed": true
     },
@@ -170,16 +170,22 @@
     },
     "9": {
       "completed": true,
-      "completed_at": "2026-05-07T19:05:28.349925+00:00",
+      "completed_at": "2026-05-07T19:47:19.501473+00:00",
       "conclusion": "lpk 已验证",
-      "lpk_sha256": "255a4ac98a6f46de0537c2ee5610da450d7fcc7bc95d61f234ee506b8bc52176",
-      "lpk_size_bytes": 770
+      "lpk_sha256": "64ea8f20912d1a9cafa3832298fa30304d7656f2483bbf0b0f982b907cfddd43",
+      "lpk_size_bytes": 794
     },
     "10": {
       "completed": true,
-      "completed_at": "2026-05-07T19:05:28.350448+00:00",
+      "completed_at": "2026-05-07T19:47:19.503261+00:00",
       "conclusion": "验收完成",
-      "pending_backports": []
+      "pending_backports": [
+        "p1",
+        "p2",
+        "p3",
+        "p4",
+        "p7"
+      ]
     }
   },
   "problems": [
@@ -188,40 +194,45 @@
       "step": 7,
       "description": "configured dockerfile_path points to a placeholder Dockerfile: /__w/lzcat-apps/lzcat-apps/apps/lilbee/Dockerfile.template; replace it with a real upstream build before installing or submitting",
       "category": "preflight",
-      "status": "open",
-      "created_at": "2026-05-07T18:10:47.814318+00:00"
+      "status": "resolved",
+      "created_at": "2026-05-07T18:10:47.814318+00:00",
+      "resolution": "Dockerfile.template is a real precompiled-binary downloader, not a placeholder stub"
     },
     {
       "id": "p2",
       "step": 7,
       "description": "configured dockerfile_path points to a placeholder Dockerfile: /__w/lzcat-apps/lzcat-apps/apps/lilbee/Dockerfile.template; replace it with a real upstream build before installing or submitting",
       "category": "preflight",
-      "status": "open",
-      "created_at": "2026-05-07T18:11:54.374689+00:00"
+      "status": "resolved",
+      "created_at": "2026-05-07T18:11:54.374689+00:00",
+      "resolution": "Dockerfile.template is a real precompiled-binary downloader, not a placeholder stub"
     },
     {
       "id": "p3",
       "step": 8,
       "description": "Setting up libsasl2-2:amd64 (2.1.28+dfsg1-9) ...\nSetting up libnghttp3-9:amd64 (1.8.0-1) ...\nSetting up libffi8:amd64 (3.4.8-2) ...\nSetting up libtasn1-6:amd64 (4.20.0-2) ...\nSetting up libkrb5-3:amd64 (1.21.3-5) ...\nSetting up libssh2-1t64:amd64 (1.11.1-1) ...\nSetting up openssl (3.5.5-1~deb13u2) ...\nSetting up libldap2:amd64 (2.6.10+dfsg-1) ...\nSetting up libidn2-0:amd64 (2.3.8-2) ...\nSetting up ca-certificates (20250419) ...\ndebconf: unable to initialize frontend: Dialog\ndebconf: (TERM is not set, so the dialog frontend is not usable.)\ndebconf: falling back to frontend: Readline\ndebconf: unable to initialize frontend: Readline\ndebconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.40.1 /usr/local/share/perl/5.40.1 /usr/lib/x86_64-linux-gnu/perl5/5.40 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.40 /usr/share/perl/5.40 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8.)\ndebconf: falling back to frontend: Teletype\ndebconf: unable to initialize frontend: Teletype\ndebconf: (This frontend requires a controlling tty.)\ndebconf: falling back to frontend: Noninteractive\nUpdating certificates in /etc/ssl/certs...\n150 added, 0 removed; done.\nSetting up libp11-kit0:amd64 (0.25.5-3) ...\nSetting up libgssapi-krb5-2:amd64 (1.21.3-5) ...\nSetting up libgnutls30t64:amd64 (3.8.9-3+deb13u2) ...\nSetting up libpsl5t64:amd64 (0.21.2-1.1+b1) ...\nSetting up librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2+b5) ...\nSetting up libcurl4t64:amd64 (8.14.1-2+deb13u2) ...\nSetting up curl (8.14.1-2+deb13u2) ...\nProcessing triggers for libc-bin (2.41-12+deb13u2) ...\nProcessing triggers for ca-certificates (20250419) ...\nUpdating certificates in /etc/ssl/certs...\n0 added, 0 removed; done.\nRunning hooks in /etc/ca-certificates/update.d...\ndone.\n--> 225be4c628b6\nSTEP 3/12: ARG SOURCE_VERSION\n--> e35bd6dc0d5b\nSTEP 4/12: RUN test -n \"${SOURCE_VERSION}\" || (echo \"SOURCE_VERSION build arg required\" && exit 1) &&     curl -fsSL -o /usr/local/bin/lilbee         \"https://github.com/tobocop2/lilbee/releases/download/v${SOURCE_VERSION}/lilbee-linux-x86_64\" &&     chmod +x /usr/local/bin/lilbee &&     /usr/local/bin/lilbee --version\ncurl: (22) The requested URL returned error: 404\nError: building at STEP \"RUN test -n \"${SOURCE_VERSION}\" || (echo \"SOURCE_VERSION build arg required\" && exit 1) &&     curl -fsSL -o /usr/local/bin/lilbee         \"https://github.com/tobocop2/lilbee/releases/download/v${SOURCE_VERSION}/lilbee-linux-x86_64\" &&     chmod +x /usr/local/bin/lilbee &&     /usr/local/bin/lilbee --version\": while running runtime: exit status 22",
       "category": "build",
-      "status": "open",
-      "created_at": "2026-05-07T18:13:40.613231+00:00"
+      "status": "resolved",
+      "created_at": "2026-05-07T18:13:40.613231+00:00",
+      "resolution": "Superseded by successful build at 2026-05-07T19:05:28"
     },
     {
       "id": "p4",
       "step": 8,
       "description": "[18:13:49] Cloning upstream: tobocop2/lilbee\nCloning into '/tmp/lzcat-upstream-kp0_a7q2'...\n[18:13:51] Building Docker image: ghcr.io/codeeagle/lazycatimages:lilbee_f18c4efe5b0c\nSTEP 1/12: FROM debian:trixie-slim\nSTEP 2/12: RUN apt-get update && apt-get install -y --no-install-recommends         ca-certificates         curl         libgomp1     && rm -rf /var/lib/apt/lists/*\n--> Using cache 225be4c628b6a77231d1ad943bcf9c62c37eeb413e4ea2cb245db6cb9a57ebeb\n--> 225be4c628b6\nSTEP 3/12: ARG SOURCE_VERSION\n--> Using cache e35bd6dc0d5b83b58ccb67d89eb2768bd691dcae50932d19233bc934265243b0\n--> e35bd6dc0d5b\nSTEP 4/12: RUN test -n \"${SOURCE_VERSION}\" || (echo \"SOURCE_VERSION build arg required\" && exit 1) &&     curl -fsSL -o /usr/local/bin/lilbee         \"https://github.com/tobocop2/lilbee/releases/download/v${SOURCE_VERSION}/lilbee-linux-x86_64\" &&     chmod +x /usr/local/bin/lilbee &&     /usr/local/bin/lilbee --version\ncurl: (22) The requested URL returned error: 404\nError: building at STEP \"RUN test -n \"${SOURCE_VERSION}\" || (echo \"SOURCE_VERSION build arg required\" && exit 1) &&     curl -fsSL -o /usr/local/bin/lilbee         \"https://github.com/tobocop2/lilbee/releases/download/v${SOURCE_VERSION}/lilbee-linux-x86_64\" &&     chmod +x /usr/local/bin/lilbee &&     /usr/local/bin/lilbee --version\": while running runtime: exit status 22\n[18:13:52] [lilbee] Failure artifacts preserved at: /tmp/lzcat-artifacts-zctvrm3k\nTraceback (most recent call last):\n  File \"/__w/lzcat-apps/lzcat-apps/scripts/run_build.py\", line 2408, in <module>\n    raise SystemExit(main())\n                     ^^^^^^\n  File \"/__w/lzcat-apps/lzcat-apps/scripts/run_build.py\", line 2110, in main\n    target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name, dry_run=args.dry_run)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/__w/lzcat-apps/lzcat-apps/scripts/run_build.py\", line 1703, in build_target_image\n    return build_with_dockerfile(\n           ^^^^^^^^^^^^^^^^^^^^^^\n  File \"/__w/lzcat-apps/lzcat-apps/scripts/run_build.py\", line 1431, in build_with_dockerfile\n    run_streaming(\n  File \"/__w/lzcat-apps/lzcat-apps/scripts/run_build.py\", line 205, in run_streaming\n    raise RuntimeError(\nRuntimeError: Command failed (22): ['docker', 'build', '--platform', 'linux/amd64', '-f', '/tmp/lzcat-upstream-kp0_a7q2/Dockerfile', '-t', 'ghcr.io/codeeagle/lazycatimages:lilbee_f18c4efe5b0c', '--label', 'org.opencontainers.image.source=https://github.com/CodeEagle/lzcat-apps', '--build-arg', 'SOURCE_VERSION=v0.6.66b456', '--build-arg', 'BUILD_VERSION=0.6.66', '/tmp/lzcat-upstream-kp0_a7q2']\noutput:\nSTEP 1/12: FROM debian:trixie-slim\nSTEP 2/12: RUN apt-get update && apt-get install -y --no-install-recommends         ca-certificates         curl         libgomp1     && rm -rf /var/lib/apt/lists/*\n--> Using cache 225be4c628b6a77231d1ad943bcf9c62c37eeb413e4ea2cb245db6cb9a57ebeb\n--> 225be4c628b6\nSTEP 3/12: ARG SOURCE_VERSION\n--> Using cache e35bd6dc0d5b83b58ccb67d89eb2768bd691dcae50932d19233bc934265243b0\n--> e35bd6dc0d5b\nSTEP 4/12: RUN test -n \"${SOURCE_VERSION}\" || (echo \"SOURCE_VERSION build arg required\" && exit 1) &&     curl -fsSL -o /usr/local/bin/lilbee         \"https://github.com/tobocop2/lilbee/releases/download/v${SOURCE_VERSION}/lilbee-linux-x86_64\" &&     chmod +x /usr/local/bin/lilbee &&     /usr/local/bin/lilbee --version\ncurl: (22) The requested URL returned error: 404\nError: building at STEP \"RUN test -n \"${SOURCE_VERSION}\" || (echo \"SOURCE_VERSION build arg required\" && exit 1) &&     curl -fsSL -o /usr/local/bin/lilbee         \"https://github.com/tobocop2/lilbee/releases/download/v${SOURCE_VERSION}/lilbee-linux-x86_64\" &&     chmod +x /usr/local/bin/lilbee &&     /usr/local/bin/lilbee --version\": while running runtime: exit status 22",
       "category": "build",
-      "status": "open",
-      "created_at": "2026-05-07T18:13:59.303516+00:00"
+      "status": "resolved",
+      "created_at": "2026-05-07T18:13:59.303516+00:00",
+      "resolution": "Superseded by successful build at 2026-05-07T19:05:28"
     },
     {
       "id": "p5",
       "step": 8,
       "description": "WARN:: 读取不到以下路径中的文件，无法连接客户端自动判读盒子名称和盒子用户，\n/github/home/.config/hportal-client/shellapi_addr 盒子的连接地址\n/github/home/.config/hportal-client/shellapi_cred 盒子的连接凭证\n但可使用环境变量指定:\n  - BOX_NAME=foo 指定盒子的名称\n  - BOX_UID=bar 指定盒子的用户\nNOTE：在指定环境变量的模式下，有些接口依旧不能访问，为了更好的开发体验，建议尽量在同主机的环境下启动客户端\nWARN:: 读取不到以下路径中的文件，无法连接客户端自动判读盒子名称和盒子用户，\n/github/home/.config/hportal-client/shellapi_addr 盒子的连接地址\n/github/home/.config/hportal-client/shellapi_cred 盒子的连接凭证\n但可使用环境变量指定:\n  - BOX_NAME=foo 指定盒子的名称\n  - BOX_UID=bar 指定盒子的用户\nNOTE：在指定环境变量的模式下，有些接口依旧不能访问，为了更好的开发体验，建议尽量在同主机的环境下启动客户端",
       "category": "build",
-      "status": "open",
-      "created_at": "2026-05-07T18:17:10.963818+00:00"
+      "status": "resolved",
+      "created_at": "2026-05-07T18:17:10.963818+00:00",
+      "resolution": "Expected warning in CI — no LazyCat box connected; not a build failure"
     },
     {
       "id": "p6",
@@ -236,8 +247,18 @@
       "step": 7,
       "description": "lilbee.json not registered in registry/repos/index.json",
       "category": "preflight",
-      "status": "open",
-      "created_at": "2026-05-07T19:03:05.794315+00:00"
+      "status": "resolved",
+      "created_at": "2026-05-07T19:03:05.794315+00:00",
+      "resolution": "lilbee.json is now present in registry/repos/index.json"
+    },
+    {
+      "id": "p8",
+      "step": 8,
+      "description": "WARN:: 读取不到以下路径中的文件，无法连接客户端自动判读盒子名称和盒子用户，\n/github/home/.config/hportal-client/shellapi_addr 盒子的连接地址\n/github/home/.config/hportal-client/shellapi_cred 盒子的连接凭证\n但可使用环境变量指定:\n  - BOX_NAME=foo 指定盒子的名称\n  - BOX_UID=bar 指定盒子的用户\nNOTE：在指定环境变量的模式下，有些接口依旧不能访问，为了更好的开发体验，建议尽量在同主机的环境下启动客户端\nWARN:: 读取不到以下路径中的文件，无法连接客户端自动判读盒子名称和盒子用户，\n/github/home/.config/hportal-client/shellapi_addr 盒子的连接地址\n/github/home/.config/hportal-client/shellapi_cred 盒子的连接凭证\n但可使用环境变量指定:\n  - BOX_NAME=foo 指定盒子的名称\n  - BOX_UID=bar 指定盒子的用户\nNOTE：在指定环境变量的模式下，有些接口依旧不能访问，为了更好的开发体验，建议尽量在同主机的环境下启动客户端",
+      "category": "build",
+      "status": "resolved",
+      "created_at": "2026-05-07T19:31:48.356879+00:00",
+      "resolution": "Expected warning in CI — no LazyCat box connected; not a build failure"
     }
   ],
   "verification": {}
