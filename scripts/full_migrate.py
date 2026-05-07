@@ -4963,6 +4963,28 @@ def main() -> int:
 
         step_state.current_step = 2
         analysis = analyze_source(normalized, source_dir, gh_token)
+        # Planner override: if apps/<slug>/Dockerfile.template exists in the
+        # target repo (claude's planner phase wrote it before this step ran),
+        # the route MUST be `upstream_with_target_template` so run_build.py
+        # picks up that template. Otherwise analyze_source — which only
+        # examines the upstream tree — defaults to target_repo_dockerfile
+        # and the planner's hard work is silently ignored.
+        # Observed in stellaclaw run 25498684547: planner wrote a real
+        # Rust multi-stage Dockerfile.template, route still came out
+        # `target_repo_dockerfile` → build used the alpine placeholder
+        # Dockerfile and failed. The override below honors any planner
+        # output without requiring claude to remember to also tweak
+        # lzc-build.yml's build_strategy field.
+        target_template_path = repo_root / "apps" / analysis.slug / "Dockerfile.template"
+        if target_template_path.exists():
+            analysis.spec["build_strategy"] = "upstream_with_target_template"
+            analysis.spec["dockerfile_path"] = "Dockerfile.template"
+            analysis.route = "upstream_with_target_template"
+            analysis.risks.append(
+                f"planner override: apps/{analysis.slug}/Dockerfile.template "
+                "already exists — using upstream_with_target_template instead "
+                "of analyzed route"
+            )
         step2_outputs = [
             f"slug={analysis.slug}",
             f"route={analysis.route}",
