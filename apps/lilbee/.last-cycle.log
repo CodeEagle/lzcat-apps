@@ -1,19 +1,19 @@
 migration/lilbee
 branch 'template' set up to track 'origin/template'.
-HEAD is now at 693bca6 chore(auto-discover): refresh queue + candidates 2026-05-07T22:23Z
+HEAD is now at b84a015 chore(auto-discover): refresh queue + candidates 2026-05-07T22:49Z
 Preparing worktree (new branch 'template')
 {
-  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T223637Z-github-jsierra87-engram.md",
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T230116Z-github-jsierra87-engram.md",
   "resumed": true,
   "returncode": 1,
-  "session_id": "de126011-c885-4616-88ea-20cafd7f846e",
+  "session_id": "e21dba1d-192a-42c2-9367-15e3fcf0dcd4",
   "status": "failed",
-  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T223637Z-github-jsierra87-engram"
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T230116Z-github-jsierra87-engram"
 }
 obscura binary not found in PATH
 /__w/lzcat-apps/lzcat-apps/registry/candidates/latest.json
-/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T223638Z.jsonl
-{"already_migrated_count": 3, "candidate_count": 50, "counts_by_status": {"already_migrated": 3, "excluded": 4, "needs_review": 25, "portable": 18}, "excluded_count": 4, "generated_at": "2026-05-07T22:36:38Z", "needs_review_count": 25, "portable_count": 18}
+/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T230118Z.jsonl
+{"already_migrated_count": 1, "candidate_count": 50, "counts_by_status": {"already_migrated": 1, "excluded": 2, "needs_review": 29, "portable": 18}, "excluded_count": 2, "generated_at": "2026-05-07T23:01:18Z", "needs_review_count": 29, "portable_count": 18}
 {
   "browser_recheck": [],
   "codex_worker": [
@@ -49,44 +49,9 @@ obscura binary not found in PATH
   "discord_replies": [],
   "discovery_gate": [
     {
-      "id": "github:kdcube/kdcube-ai-app",
+      "id": "github:inference-gateway/inference-gateway",
       "reason": "needs_ai_review",
       "status": "discovery_review"
-    },
-    {
-      "id": "github:eloqks1452/termix",
-      "reason": "candidate_already_migrated",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:harryzcy/mailbox",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:ironmist45/tg-vps-bot",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:scobru/shogun-tunecamp",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:alfianapriansyadp/logging-monitoring",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:appakappak/phlist-server",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:ancsemi/haven",
-      "reason": "candidate_already_migrated",
-      "status": "filtered_out"
     },
     {
       "id": "github:karnstack/tempo",
@@ -94,9 +59,19 @@ obscura binary not found in PATH
       "status": "filtered_out"
     },
     {
-      "id": "github:danroc/geoblock",
-      "reason": "candidate_excluded",
-      "status": "filtered_out"
+      "id": "github:media-centarr/media-centarr",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:osnux/nio-voice-agent-sdk",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:darkmatter2222/heltec-wireless-tracker-2.0-rediacode-gps-recorder",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
     },
     {
       "id": "github:ribeirogab/zeno-agent",
@@ -104,97 +79,127 @@ obscura binary not found in PATH
       "status": "discovery_review"
     },
     {
-      "id": "github:gravi-ctrl/homelab-blueprint",
+      "id": "github:jxss001/acoes-treemap-b3",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:famousleads/safecadence-network-risk",
+      "id": "github:overshard/analytics",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:cvsloane/infra-dashboard",
+      "id": "github:sudhanshu9315/acoes-treemap-b3",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:almightymoorman-svg/seir-1-homework",
+      "id": "github:geiserx/whisper-subs",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:jjamesmartiin/bash",
+      "id": "github:skynet-claims-org/test3.24x7.com.ru",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:okhuyag/ai-assisted-development-guide",
+      "id": "github:goal651/discord-bot",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:danielpederzini/seq-modeling-from-scratch",
+      "id": "github:lasagnafelidae/balatro-ezinstaller",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:jopilot83/turni-voli-ics",
+      "id": "github:stevenflanagan1/social-ai-team",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:habougames/tracker",
+      "id": "github:hintime/cs2-dashboard",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:jasonvassallo/ai-tools-mcp",
+      "id": "github:octimonteagudo-kova/kova-ring",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:daveedge1/presto-lmr-17781032127899638",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:yousseffaruk2-prog/test",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:skynet-claims-org/ghssm.tooling.travix.com",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:cimbrandon/data",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ghosr55/jhon-bee",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:lucasarlen/focus-fitness-app",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:voroninayanina/free-nodes",
       "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
-      "id": "github:nullman/config",
+      "id": "github:amatgil/uiua-15puzzle",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:ch-kumar-kartik/ch-kumar-kartik",
+      "id": "github:dock0/pkgforge-golang-cross",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:upoojar/itai-2372-ai-applications",
+      "id": "github:66xx5120/iptv-api",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:webmax88/my-telegram-web-app",
+      "id": "github:docker-hardened-images/catalog",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:fortuneod/malaria-app",
+      "id": "github:carlosh7/check",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:materialyzeai/matgl",
-      "reason": "candidate_excluded",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:damoncdance/rent-comp-tracker",
+      "id": "github:alstonsz/tv-",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:say-5/doc-index-service",
+      "id": "github:baditaflorin/hum-to-orchestra",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:memorasolutions/laveille-ai",
+      "id": "github:damentz/liquorix-package",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     }
@@ -209,5 +214,5 @@ obscura binary not found in PATH
   },
   "post_acceptance": [],
   "selected": null,
-  "started_at": "2026-05-07T22:36:36Z"
+  "started_at": "2026-05-07T23:01:16Z"
 }
