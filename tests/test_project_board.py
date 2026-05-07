@@ -611,6 +611,50 @@ class SyncTest(unittest.TestCase):
         summary = json.loads(buf.getvalue())
         self.assertIn("demo->Blocked", summary["auto_terminal"])
 
+    def test_sync_max_creates_caps_new_card_creations_per_run(self) -> None:
+        # 5 new slugs in queue, max-creates=2 → only 2 cards added; the
+        # other 3 land in summary['create_skipped'] for next cycle.
+        queue = {"items": [
+            {"id": f"github:demo/s{i}", "slug": f"slug-{i}", "state": "ready",
+             "candidate": {"repo_url": f"https://github.com/demo/s{i}"}}
+            for i in range(5)
+        ]}
+        root = self._setup(queue)
+        responses: list = [_items_page([])]
+        # 2 new cards × (add_item + Slug + Status=Inbox + Upstream) = 8 mutations
+        for _ in range(2):
+            responses.append({"addProjectV2DraftIssue": {"projectItem": {"id": "PVTI_x"}}})
+            responses.extend([
+                {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_x"}}}
+            ] * 3)
+        fake = FakeRun(responses)
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root, max_creates=2))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertEqual(len(summary["created"]), 2)
+        self.assertEqual(len(summary["create_skipped"]), 3)
+
+    def test_sync_max_creates_zero_means_unlimited(self) -> None:
+        queue = {"items": [
+            {"id": "github:demo/s0", "slug": "slug-0", "state": "ready",
+             "candidate": {"repo_url": "https://github.com/demo/s0"}},
+        ]}
+        root = self._setup(queue)
+        responses: list = [_items_page([])]
+        responses.append({"addProjectV2DraftIssue": {"projectItem": {"id": "PVTI_x"}}})
+        responses.extend([
+            {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_x"}}}
+        ] * 3)
+        fake = FakeRun(responses)
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root, max_creates=0))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertEqual(len(summary["created"]), 1)
+
     def test_sync_does_not_auto_approve_discovery_review_items(self) -> None:
         queue = {
             "items": [

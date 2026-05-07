@@ -1053,6 +1053,8 @@ def cmd_sync(args: argparse.Namespace) -> int:
     exclude = load_exclude_slugs(repo_root)
     queue = load_queue(repo_root)
     items = [i for i in queue.get("items", []) if isinstance(i, dict)]
+    max_creates = max(0, int(getattr(args, "max_creates", 0) or 0))
+    creates_remaining = max_creates if max_creates > 0 else None
 
     # Single fetch up-front; everything below is in-memory lookup. Newly-added
     # items get folded into the index as we create them, so duplicate slugs in
@@ -1096,9 +1098,17 @@ def cmd_sync(args: argparse.Namespace) -> int:
 
         existing = index.get(slug)
         if existing is None:
+            if creates_remaining is not None and creates_remaining <= 0:
+                # Hit the per-run create cap. Skip; the next cron cycle picks
+                # up the backlog. Existing items still get their fields
+                # updated below in the same run.
+                summary.setdefault("create_skipped", []).append(slug)
+                continue
             item_id = add_item(project_id, slug)
             flat: dict[str, Any] = {}
             created = True
+            if creates_remaining is not None:
+                creates_remaining -= 1
         else:
             node, flat = existing
             item_id = node["id"]
@@ -1364,6 +1374,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Convert each draft card to a real GitHub Issue with a markdown body "
              "(verdict + evidence + store hits + dates). Subsequent runs update existing issues.",
+    )
+    s.add_argument(
+        "--max-creates",
+        type=int,
+        default=0,
+        help="Cap the number of new Project cards created in this run (0 = unlimited). "
+             "Useful when a large queue.json import would burn through GraphQL quota; "
+             "remaining items roll over to subsequent cron cycles.",
     )
     s.set_defaults(func=cmd_sync)
 

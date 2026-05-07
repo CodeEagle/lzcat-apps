@@ -107,7 +107,10 @@ jobs:
         run: python3 scripts/project_board.py bootstrap
 
       - name: Sync queue → GitHub Project
-        run: python3 scripts/project_board.py sync
+        # --max-creates 200 caps per-cycle GraphQL spend; the LocalAgent
+        # import (1287 new candidates) trickles onto the board over a few
+        # cycles instead of burning the entire 5000/hr GraphQL budget at once.
+        run: python3 scripts/project_board.py sync --max-creates 200
 
       - name: Commit canonical state back to template
         run: |
