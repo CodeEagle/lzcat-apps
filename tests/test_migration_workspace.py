@@ -26,7 +26,7 @@ class MigrationWorkspaceTest(unittest.TestCase):
 
         self.assertEqual(path, root / "migration-piclaw")
 
-    def test_build_worktree_command_starts_from_template_branch(self) -> None:
+    def test_build_worktree_command_creates_new_branch_when_requested(self) -> None:
         repo_root = Path("/repo/lzcat-apps")
         workspace_root = Path("/repo/workspaces")
 
@@ -35,6 +35,7 @@ class MigrationWorkspaceTest(unittest.TestCase):
             workspace_root=workspace_root,
             slug="piclaw",
             template_ref="template",
+            create_new=True,
         )
 
         self.assertEqual(
@@ -49,6 +50,30 @@ class MigrationWorkspaceTest(unittest.TestCase):
                 "migration/piclaw",
                 "/repo/workspaces/migration-piclaw",
                 "template",
+            ],
+        )
+
+    def test_build_worktree_command_uses_existing_branch_by_default(self) -> None:
+        # CI flow: the migration branch is forked from template by an
+        # earlier workflow step, so the worktree command should just check
+        # it out — `git worktree add <path> migration/<slug>`.
+        command = build_worktree_command(
+            repo_root=Path("/repo/lzcat-apps"),
+            workspace_root=Path("/repo/workspaces"),
+            slug="piclaw",
+            template_ref="template",
+        )
+
+        self.assertEqual(
+            command,
+            [
+                "git",
+                "-C",
+                "/repo/lzcat-apps",
+                "worktree",
+                "add",
+                "/repo/workspaces/migration-piclaw",
+                "migration/piclaw",
             ],
         )
 

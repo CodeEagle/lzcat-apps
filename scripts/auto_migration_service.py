@@ -405,13 +405,25 @@ def prepare_migration_workspace(
     if workspace_path.exists():
         return CommandResult(returncode=0)
 
+    # If the branch already exists (e.g. CI worker pre-fetched it), check it
+    # out into the worktree without creating a fresh one. Otherwise, fork a
+    # new branch from template (legacy local-dev path).
+    branch_exists = _git_local_branch_exists(config.repo_root, branch, runner=runner)
     command = build_worktree_command(
         repo_root=config.repo_root,
         workspace_root=config.workspace_root,
         slug=slug,
         template_ref=config.template_branch,
+        create_new=not branch_exists,
     )
     return runner(command)
+
+
+def _git_local_branch_exists(repo_root: Path, branch: str, *, runner: CommandRunner) -> bool:
+    result = runner([
+        "git", "-C", str(repo_root), "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}",
+    ])
+    return result.returncode == 0
 
 
 def build_auto_migrate_command(config: ServiceConfig, item: dict[str, Any]) -> list[str]:

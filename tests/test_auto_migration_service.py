@@ -798,8 +798,12 @@ class AutoMigrationServiceTest(unittest.TestCase):
 
         def runner(command: list[str]) -> CommandResult:
             calls.append(command)
-            if command[:3] == ["git", "-C", str(repo_root)]:
-                (workspace_root / "migration-piclaw").mkdir(parents=True)
+            if "worktree" in command:
+                (workspace_root / "migration-piclaw").mkdir(parents=True, exist_ok=True)
+            # `rev-parse --verify` returns non-zero when the branch doesn't
+            # exist locally — that's the signal to take the create-new path.
+            if "rev-parse" in command:
+                return CommandResult(returncode=1)
             return CommandResult(returncode=0)
 
         summary = run_cycle(
@@ -817,11 +821,12 @@ class AutoMigrationServiceTest(unittest.TestCase):
 
         workspace_path = workspace_root / "migration-piclaw"
         self.assertEqual(summary["migration"]["status"], "scaffolded")
+        worktree_calls = [c for c in calls if "worktree" in c]
         self.assertEqual(
-            calls[0],
+            worktree_calls[0],
             ["git", "-C", str(repo_root), "worktree", "add", "-b", "migration/piclaw", str(workspace_path), "template"],
         )
-        auto_migrate_call = calls[1]
+        auto_migrate_call = next(c for c in calls if c[:1] == ["python3"])
         self.assertEqual(auto_migrate_call[:2], ["python3", "scripts/auto_migrate.py"])
         self.assertEqual(auto_migrate_call[auto_migrate_call.index("--repo-root") + 1], str(workspace_path))
         queue = json.loads((repo_root / "registry" / "auto-migration" / "queue.json").read_text(encoding="utf-8"))
@@ -856,8 +861,10 @@ class AutoMigrationServiceTest(unittest.TestCase):
 
         def runner(command: list[str]) -> CommandResult:
             calls.append(command)
-            if command[:3] == ["git", "-C", str(repo_root)]:
-                (workspace_root / "migration-piclaw").mkdir(parents=True)
+            if "worktree" in command:
+                (workspace_root / "migration-piclaw").mkdir(parents=True, exist_ok=True)
+            if "rev-parse" in command:
+                return CommandResult(returncode=1)
             return CommandResult(returncode=0)
 
         summary = run_cycle(
@@ -877,11 +884,12 @@ class AutoMigrationServiceTest(unittest.TestCase):
 
         workspace_path = workspace_root / "migration-piclaw"
         self.assertEqual(summary["codex_worker"][0]["status"], "ready")
+        worktree_calls = [c for c in calls if "worktree" in c]
         self.assertEqual(
-            calls[0],
+            worktree_calls[0],
             ["git", "-C", str(repo_root), "worktree", "add", "-b", "migration/piclaw", str(workspace_path), "template"],
         )
-        codex_call = calls[1]
+        codex_call = next(c for c in calls if c[:1] == ["python3"])
         self.assertEqual(codex_call[:2], ["python3", "scripts/codex_migration_worker.py"])
         self.assertEqual(codex_call[codex_call.index("--repo-root") + 1], str(workspace_path))
         self.assertEqual(codex_call[codex_call.index("--queue-path") + 1], str(queue_path))

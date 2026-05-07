@@ -25,15 +25,21 @@ def build_worktree_command(
     workspace_root: Path,
     slug: str,
     template_ref: str = "template",
+    create_new: bool = False,
 ) -> list[str]:
-    return [
-        "git",
-        "-C",
-        str(repo_root),
-        "worktree",
-        "add",
-        "-b",
-        migration_branch_name(slug),
-        str(migration_workspace_path(workspace_root, slug)),
-        template_ref,
-    ]
+    """Build a `git worktree add` command for the slug's migration branch.
+
+    create_new=True   →  `git worktree add -b migration/<slug> <path> <template_ref>`
+                          (legacy local-dev mode; fails if the branch already exists).
+    create_new=False  →  `git worktree add <path> migration/<slug>`
+                          (CI mode: branch was forked from template ahead of time
+                          by the workflow, just check it out into a worktree).
+    """
+    branch = migration_branch_name(slug)
+    workspace = str(migration_workspace_path(workspace_root, slug))
+    cmd = ["git", "-C", str(repo_root), "worktree", "add"]
+    if create_new:
+        cmd.extend(["-b", branch, workspace, template_ref])
+    else:
+        cmd.extend([workspace, branch])
+    return cmd
