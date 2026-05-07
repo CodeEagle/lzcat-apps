@@ -1,23 +1,26 @@
 migration/lilbee
+branch 'template' set up to track 'origin/template'.
+HEAD is now at 12cf0a1 chore(auto-discover): refresh queue + candidates 2026-05-07T20:02Z
+Preparing worktree (new branch 'template')
 {
-  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T195948Z-github-tobocop2-lilbee.md",
-  "resumed": false,
-  "returncode": 0,
-  "session_id": "1fa73e77-d518-49a4-8708-e5af1887d534",
-  "status": "completed",
-  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T195948Z-github-tobocop2-lilbee"
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T201848Z-github-jsierra87-engram.md",
+  "resumed": true,
+  "returncode": 1,
+  "session_id": "40dd8fc2-52f0-4259-817b-50334443866a",
+  "status": "failed",
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T201848Z-github-jsierra87-engram"
 }
 obscura binary not found in PATH
 /__w/lzcat-apps/lzcat-apps/registry/candidates/latest.json
-/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T201111Z.jsonl
-{"already_migrated_count": 2, "candidate_count": 50, "counts_by_status": {"already_migrated": 2, "excluded": 3, "needs_review": 25, "portable": 20}, "excluded_count": 3, "generated_at": "2026-05-07T20:11:11Z", "needs_review_count": 25, "portable_count": 20}
+/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T201850Z.jsonl
+{"already_migrated_count": 0, "candidate_count": 50, "counts_by_status": {"excluded": 5, "needs_review": 31, "portable": 14}, "excluded_count": 5, "generated_at": "2026-05-07T20:18:50Z", "needs_review_count": 31, "portable_count": 14}
 {
   "browser_recheck": [],
   "codex_worker": [
     {
-      "id": "github:tobocop2/lilbee",
-      "returncode": 0,
-      "status": "installed"
+      "id": "github:jsierra87/engram",
+      "returncode": 1,
+      "status": "codex_failed"
     }
   ],
   "commands": [
@@ -46,29 +49,59 @@ obscura binary not found in PATH
   "discord_replies": [],
   "discovery_gate": [
     {
-      "id": "github:straight-scalar733/shareflow-kvm",
-      "reason": "candidate_excluded",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:jdpangilinan02/family-book",
-      "reason": "candidate_already_migrated",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:elkrun26/yt-to-mp4",
+      "id": "github:codeby-red/homelab_dashboard_mcp_integrated",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:birdofparadisecallin337/ni-mail",
+      "id": "github:fmind/self.fmind.me",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:significant-mi454/n2-qln",
+      "id": "github:minded-nakuru841/headscale-install",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:batistai4724/zero-cost-ops",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:abigaelacrocarpous465/ai-fitness-coach",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:surpliced-horsebean256/closeinbox.email",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ritchiearistotelian98/docker-headscale",
       "reason": "candidate_excluded",
       "status": "filtered_out"
+    },
+    {
+      "id": "github:badressalemmouffek-coder/frank-bot",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:h3rb3rn/moe-sovereign",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:kerrimoral221/mcp-scorecard",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:inclement-enthusiasm598/romhex14-ecu-tuning",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
     },
     {
       "id": "github:acoseac/1-bit-bridge",
@@ -76,87 +109,122 @@ obscura binary not found in PATH
       "status": "discovery_review"
     },
     {
-      "id": "github:kacper7011/homelab-platform",
+      "id": "github:garboiluniversity170/nessus-to-excel-nte",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:sweetmeats83/memories",
+      "id": "github:ivana8079/homelab-vlan-refactor-configs",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:thtopher/th-fleet-dashboard",
+      "id": "github:05rahmet/hi-hi",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:chriscantu/claude-config",
+      "id": "github:idabetic/librum-kviz",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:necromantic-piedmont947/jido_claw",
+      "id": "github:alicia272320/mi-proyecto-de-sda2",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:jeremyqapace/pacemate-qa-web20-dashboard",
+      "id": "github:erickviann1-dev/usdcny-tracker",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:darkfrothlazydweqn/dapp-wallet-modal",
+      "id": "github:gianmarcobertolini/soccer-player-scouting-system",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:name02358/trendradar",
-      "reason": "candidate_already_migrated",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:bashbunni/load-balancer",
+      "id": "github:alvarbolliger-create/elektroniker-lexikon",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:osmanbeyoglulab/gbm_data_v2",
+      "id": "github:brashakg/bettervision-inventory",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:kooreshok/trend",
+      "id": "github:chenxi750328ai/agent-jianghu",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:flora131/atomic",
+      "id": "github:lefebvresebastien-jpg/monjardin-ai",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:asifmuzammil/desi_devops",
+      "id": "github:gedankenadvancedconcepts/topos-quantum-gravity",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:rebeccaforever1/sales_pipeline",
+      "id": "github:evgengithab/javascript-playground",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:mk-knight23/ai-sdk-crewai",
+      "id": "github:brdeb/usr_share_wallpapers",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:tcelestino/rt-ranking-endurance",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:acymz/autovpn",
       "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
-      "id": "github:janmikes/fajnesklady.cz",
+      "id": "github:jstxia/it6l-final-submittion",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:ddelorez/docsearch-frontend",
+      "id": "github:flat447/v2ray-lists",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:kyledurieux/selenium-service",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:anchejeez/market_simulator_daw",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:juancarlodev/steve-os-engine",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:bimross/skills-mcp-server",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:watchakorn-18k/watchakorn-18k",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:hamid2010/spring-boot-rest-api",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     }
@@ -171,5 +239,5 @@ obscura binary not found in PATH
   },
   "post_acceptance": [],
   "selected": null,
-  "started_at": "2026-05-07T19:59:48Z"
+  "started_at": "2026-05-07T20:18:48Z"
 }
