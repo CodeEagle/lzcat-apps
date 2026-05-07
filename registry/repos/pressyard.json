@@ -5,12 +5,18 @@
   "build_strategy": "official_image",
   "publish_to_store": false,
   "official_image_registry": "docker.io/library/wordpress",
+  "official_image_fallback_tag": "latest",
   "precompiled_binary_url": "",
   "service_port": 80,
   "service_cmd": [],
   "image_targets": [
     "wordpress"
   ],
-  "dependencies": [],
+  "dependencies": [
+    {
+      "target_service": "db",
+      "source_image": "docker.io/library/mariadb:10.11"
+    }
+  ],
   "migration_status": "waiting_for_human"
 }

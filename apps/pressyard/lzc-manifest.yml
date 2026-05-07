@@ -28,7 +28,7 @@ services:
     environment:
       - WORDPRESS_DB_HOST=db:3306
       - WORDPRESS_DB_USER=wordpress
-      - WORDPRESS_DB_PASSWORD=wordpress_secret
+      - 'WORDPRESS_DB_PASSWORD={{ index .U "db_password" }}'
       - WORDPRESS_DB_NAME=wordpress
     binds:
       - /lzcapp/var/data/pressyard/wp-content:/var/www/html/wp-content
@@ -44,8 +44,8 @@ services:
     environment:
       - MYSQL_DATABASE=wordpress
       - MYSQL_USER=wordpress
-      - MYSQL_PASSWORD=wordpress_secret
-      - MYSQL_ROOT_PASSWORD=root_secret
+      - 'MYSQL_PASSWORD={{ index .U "db_password" }}'
+      - 'MYSQL_ROOT_PASSWORD={{ index .U "db_root_password" }}'
     binds:
       - /lzcapp/var/db/pressyard/mysql:/var/lib/mysql
     healthcheck:

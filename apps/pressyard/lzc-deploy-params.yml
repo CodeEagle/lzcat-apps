@@ -1,0 +1,23 @@
+params:
+  - id: login_user
+    type: string
+    name: WordPress Admin Username
+    description: "Username for the WordPress admin account. You must use this exact value when completing the WordPress setup wizard on first launch."
+    default_value: admin
+  - id: login_password
+    type: secret
+    name: WordPress Admin Password
+    description: "Password for the WordPress admin account. Record it before completing the WordPress setup wizard."
+    default_value: "$random(len=20)"
+  - id: db_password
+    type: secret
+    name: Database Password
+    description: "Internal MariaDB password for the WordPress database user. Shared between wordpress and db containers."
+    default_value: "$random(len=20)"
+    optional: true
+  - id: db_root_password
+    type: secret
+    name: Database Root Password
+    description: "Internal MariaDB root password."
+    default_value: "$random(len=20)"
+    optional: true
