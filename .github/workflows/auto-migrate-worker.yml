@@ -211,6 +211,15 @@ jobs:
         id: cycle
         run: |
           set -euo pipefail
+          # Tee combined stdout+stderr to apps/<slug>/.last-cycle.log
+          # so the operator can read the full cycle transcript on the
+          # migration branch — every full_migrate "[N/10]" step, every
+          # tool invocation, every error from auto_migrate.py /
+          # run_build.py / codex_migration_worker. Without this the
+          # cycle output evaporates with the runner; the WIP commit
+          # only catches files claude/scripts wrote, not the live
+          # log of the run that wrote them.
+          mkdir -p "apps/$SLUG"
           python3 scripts/auto_migration_service.py \
             --once \
             --target-slug "$SLUG" \
@@ -223,7 +232,13 @@ jobs:
             --commit-scaffold \
             --no-env-file \
             --disable-discord \
-            --disable-local-agent
+            --disable-local-agent \
+            2>&1 | tee "apps/$SLUG/.last-cycle.log"
+          # Truncate to last 256 KB so big log doesn't bloat the
+          # branch over time (multiple successive runs each leave a
+          # snapshot here).
+          tail -c 262144 "apps/$SLUG/.last-cycle.log" > "apps/$SLUG/.last-cycle.log.tmp"
+          mv "apps/$SLUG/.last-cycle.log.tmp" "apps/$SLUG/.last-cycle.log"
 
       - name: Push migration/${{ inputs.slug }}
         if: always() && steps.preempt.outputs.rc != '3'
