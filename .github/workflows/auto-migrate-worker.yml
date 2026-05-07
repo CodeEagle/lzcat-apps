@@ -59,6 +59,23 @@ jobs:
               ;;
           esac
 
+      - name: Ensure migration/${{ inputs.slug }} branch exists
+        run: |
+          set -euo pipefail
+          ref="migration/${SLUG}"
+          repo="${{ github.repository }}"
+          if gh api "/repos/${repo}/branches/${ref}" >/dev/null 2>&1; then
+            echo "branch exists: ${ref}"
+            exit 0
+          fi
+          # Fork from template tip so the worker has the latest scripts +
+          # registry state; full_migrate will scaffold apps/<slug>/ on top.
+          sha=$(gh api "/repos/${repo}/branches/template" --jq .commit.sha)
+          gh api -X POST "/repos/${repo}/git/refs" \
+            -f "ref=refs/heads/${ref}" \
+            -f "sha=${sha}"
+          echo "created ${ref} from template@${sha}"
+
       - name: Checkout migration/${{ inputs.slug }}
         uses: actions/checkout@v4
         with:
