@@ -99,11 +99,11 @@ jobs:
           python3 scripts/browser_acceptance_plan.py "$SLUG" \
             --box-domain "$LAZYCAT_BOX_DOMAIN"
 
-      - name: Capture home screenshot
-        continue-on-error: true   # screenshots are best-effort; functional check is authoritative
+      - name: Walk the app with Playwright (writes .browser-acceptance.json)
+        id: walk
+        continue-on-error: true   # exit code 2 = walk found issues; we still want functional check + AI to weigh in
         run: |
-          python3 scripts/capture_web_screenshot.py "$SLUG" \
-            --url "${{ steps.url.outputs.entry_url }}" \
+          python3 scripts/browser_acceptance_runner.py "$SLUG" \
             --timeout-ms 60000
 
       - name: Run functional check
