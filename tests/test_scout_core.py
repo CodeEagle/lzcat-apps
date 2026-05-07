@@ -28,18 +28,18 @@ class ScoutCoreTest(unittest.TestCase):
     def test_build_search_terms_includes_dash_and_space_variants(self) -> None:
         self.assertEqual(build_search_terms("paperclip-ai"), ["paperclip-ai", "paperclip ai"])
 
-    def test_github_search_sources_gate_by_stars_and_push_date(self) -> None:
+    def test_github_search_sources_gate_by_recency_only(self) -> None:
         queries = [source["query_template"] for source in GITHUB_SEARCH_SOURCES]
         self.assertTrue(queries, "no GitHub search sources configured")
         for query in queries:
-            # Every search now demands a star floor + recency window so the
-            # queue isn't flooded with 0-star personal repos.
-            self.assertIn("stars:>", query)
+            # AI reviewer judges quality per-candidate; mechanical filter
+            # only enforces freshness so we don't pay tokens on dead repos.
+            self.assertNotIn("stars:>", query)
             self.assertIn("pushed:>=", query)
             self.assertIn("archived:false", query)
 
-    def test_awesome_selfhosted_source_gates_by_stars_and_update_date(self) -> None:
-        self.assertGreaterEqual(AWESOME_SELFHOSTED_SOURCE.get("min_stars", 0), 100)
+    def test_awesome_selfhosted_source_gates_by_recency_only(self) -> None:
+        self.assertNotIn("min_stars", AWESOME_SELFHOSTED_SOURCE)
         self.assertGreaterEqual(AWESOME_SELFHOSTED_SOURCE.get("recent_days", 0), 30)
 
     def test_classify_lazycat_hit_as_already_migrated_on_strong_match(self) -> None:

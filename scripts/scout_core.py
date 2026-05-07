@@ -52,30 +52,27 @@ TRENDING_SOURCES = (
 
 GITHUB_SEARCH_SOURCES = (
     {
-        # Curated self-hosted topic with quality + freshness gates. Borrowed
-        # back from CodeEagle/LocalAgent — the previous lzcat-apps version
-        # dropped these filters and the queue filled with 0-star personal
-        # repos like `aaronflorey/aaronflorey`.
+        # Curated self-hosted topic. AI reviewer judges quality; mechanical
+        # filter only enforces recency so we don't waste tokens on dead repos.
         "name": "github_search_self_hosted_recent",
         "label": "GitHub Search Self-hosted",
-        "query_template": "topic:self-hosted stars:>500 pushed:>={recent_date} archived:false fork:false",
+        "query_template": "topic:self-hosted pushed:>={recent_date} archived:false fork:false",
         "sort": "updated",
         "per_page": 20,
     },
     {
-        # Recently-active high-signal generic repos.
+        # Recently-active generic web/server projects.
         "name": "github_search_high_star_recent",
-        "label": "GitHub Search High Star",
-        "query_template": "stars:>2000 pushed:>={recent_date} archived:false fork:false",
+        "label": "GitHub Search Recent",
+        "query_template": "pushed:>={recent_date} archived:false fork:false",
         "sort": "updated",
         "per_page": 20,
     },
     {
-        # Dockerized + active. Lowered from "stars:>1000" to ">500" since
-        # many genuine self-hosted apps live in the 500-1000 range.
+        # Dockerized + recently active.
         "name": "github_search_docker_recent",
         "label": "GitHub Search Dockerized",
-        "query_template": "docker in:readme stars:>500 pushed:>={recent_date} archived:false fork:false",
+        "query_template": "docker in:readme pushed:>={recent_date} archived:false fork:false",
         "sort": "updated",
         "per_page": 20,
     },
@@ -85,11 +82,8 @@ AWESOME_SELFHOSTED_SOURCE = {
     "name": "awesome_selfhosted_high_star",
     "label": "Awesome Self-Hosted",
     "snapshot_url": "https://codeload.github.com/awesome-selfhosted/awesome-selfhosted-data/tar.gz/refs/heads/master",
-    # Inherited from LocalAgent: only ingest curated entries with at least
-    # `min_stars` stars whose upstream has been pushed within the last
-    # `recent_days` days. Without this, the awesome list dumps several
-    # thousand low-signal entries into the queue.
-    "min_stars": 1000,
+    # No star floor — AI reviewer decides per-candidate. Recency window
+    # filters stale entries so the queue stays a sensible size.
     "recent_days": 540,
 }
 

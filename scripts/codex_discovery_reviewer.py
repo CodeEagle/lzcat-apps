@@ -334,8 +334,50 @@ def main() -> int:
         "notification_path": str(notification_path),
     }
     (task_dir / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    # Append the verdict to the cross-cycle audit log so periodic review of
+    # AI calibration is possible. The reviewer writes its decision back into
+    # queue.json (queue_path), so we read it out to capture model/score.
+    try:
+        from ai_review_log import append_review
+    except ImportError:  # pragma: no cover
+        from .ai_review_log import append_review  # type: ignore[no-redef]
+    review = _read_back_discovery_verdict(queue_path, args.item_id)
+    append_review(
+        repo_root,
+        reviewer="discovery",
+        slug=str(item.get("slug", "")).strip(),
+        item_id=args.item_id,
+        model=config.model,
+        verdict=str(review.get("status") or ""),
+        score=review.get("score"),
+        reason=str(review.get("reason") or ""),
+        evidence=review.get("evidence") if isinstance(review.get("evidence"), list) else None,
+        task_dir=str(task_dir),
+        returncode=returncode,
+        ts=now,
+        extra={"source": str(item.get("source") or "")},
+    )
+
     print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     return returncode
+
+
+def _read_back_discovery_verdict(queue_path: Path, item_id: str) -> dict[str, Any]:
+    """Pull the discovery_review object Claude wrote back for this item."""
+    try:
+        payload = json.loads(queue_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+    items = payload.get("items") if isinstance(payload, dict) else None
+    if not isinstance(items, list):
+        return {}
+    target = item_id.strip()
+    for entry in items:
+        if isinstance(entry, dict) and str(entry.get("id", "")).strip() == target:
+            review = entry.get("discovery_review")
+            return review if isinstance(review, dict) else {}
+    return {}
 
 
 if __name__ == "__main__":

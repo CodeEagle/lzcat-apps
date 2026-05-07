@@ -187,7 +187,7 @@ class AutoMigrationServiceTest(unittest.TestCase):
             repo_root.resolve() / "registry" / "candidates" / "local-agent-latest.json",
         )
 
-    def test_upsert_candidates_records_ready_and_filtered_items(self) -> None:
+    def test_upsert_candidates_routes_portable_to_ai_review_and_excluded_to_filtered(self) -> None:
         queue = {"schema_version": 1, "items": []}
         candidates = [
             {"full_name": "owner/demo", "repo": "demo", "repo_url": "https://github.com/owner/demo", "status": "portable"},
@@ -197,7 +197,10 @@ class AutoMigrationServiceTest(unittest.TestCase):
         updated = upsert_candidates(queue, candidates, now="2026-04-26T00:00:00Z")
 
         states = {item["id"]: item["state"] for item in updated["items"]}
-        self.assertEqual(states["github:owner/demo"], "ready")
+        # Portable candidates now require an AI verdict before they reach
+        # `ready` — so they enter the discovery_review queue instead of
+        # being auto-promoted to migration.
+        self.assertEqual(states["github:owner/demo"], "discovery_review")
         self.assertEqual(states["github:owner/sdk"], "filtered_out")
         self.assertEqual(updated["items"][0]["source"], "owner/demo")
         self.assertEqual(updated["items"][0]["slug"], "demo")
@@ -393,11 +396,13 @@ class AutoMigrationServiceTest(unittest.TestCase):
             now="2026-04-26T00:00:00Z",
         )
 
-        self.assertEqual(len(calls), 2)
-        self.assertEqual(summary["selected"], "github:owner/demo")
-        self.assertEqual(summary["migration"]["status"], "dry_run")
+        # Portable candidates now require AI review before reaching `ready`.
+        # The dry_run cycle still scans and writes queue.json but no
+        # migration is selected — the only item sits in discovery_review.
+        self.assertEqual(summary["migration"]["status"], "idle")
+        self.assertIsNone(summary.get("selected"))
         queue = json.loads((repo_root / "registry" / "auto-migration" / "queue.json").read_text(encoding="utf-8"))
-        self.assertEqual(queue["items"][0]["state"], "ready")
+        self.assertEqual(queue["items"][0]["state"], "discovery_review")
 
     def test_run_cycle_migrates_one_ready_candidate(self) -> None:
         repo_root = self.make_repo_root()
@@ -415,6 +420,21 @@ class AutoMigrationServiceTest(unittest.TestCase):
             + "\n",
             encoding="utf-8",
         )
+        # Pre-seed the queue with ready items as if the AI reviewer had
+        # already promoted them. PROTECTED_STATES preserves "ready" through
+        # upsert, so run_cycle's migration loop runs as before.
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True, exist_ok=True)
+        queue_path.write_text(
+            json.dumps({
+                "schema_version": 1,
+                "items": [
+                    {"id": "github:owner/one", "source": "owner/one", "slug": "one", "state": "ready"},
+                    {"id": "github:owner/two", "source": "owner/two", "slug": "two", "state": "ready"},
+                ],
+            }),
+            encoding="utf-8",
+        )
         calls: list[list[str]] = []
 
         def runner(command: list[str]) -> CommandResult:
@@ -424,7 +444,7 @@ class AutoMigrationServiceTest(unittest.TestCase):
         summary = run_cycle(
             ServiceConfig(
                 repo_root=repo_root,
-                queue_path=repo_root / "registry" / "auto-migration" / "queue.json",
+                queue_path=queue_path,
             ),
             runner=runner,
             now="2026-04-26T00:00:00Z",
@@ -670,6 +690,19 @@ class AutoMigrationServiceTest(unittest.TestCase):
             json.dumps({"candidates": [{"full_name": "owner/piclaw", "repo": "piclaw", "status": "portable"}]}) + "\n",
             encoding="utf-8",
         )
+        # Pre-seed queue with state="ready" so the migration loop fires
+        # without waiting on AI review (PROTECTED_STATES preserves it).
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True, exist_ok=True)
+        queue_path.write_text(
+            json.dumps({
+                "schema_version": 1,
+                "items": [
+                    {"id": "github:owner/piclaw", "source": "owner/piclaw", "slug": "piclaw", "state": "ready"},
+                ],
+            }),
+            encoding="utf-8",
+        )
 
         class FakeDiscordNotifier:
             def __init__(self) -> None:
@@ -714,6 +747,17 @@ class AutoMigrationServiceTest(unittest.TestCase):
         snapshot_path.parent.mkdir(parents=True)
         snapshot_path.write_text(
             json.dumps({"candidates": [{"full_name": "owner/piclaw", "repo": "piclaw", "status": "portable"}]}) + "\n",
+            encoding="utf-8",
+        )
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True, exist_ok=True)
+        queue_path.write_text(
+            json.dumps({
+                "schema_version": 1,
+                "items": [
+                    {"id": "github:owner/piclaw", "source": "owner/piclaw", "slug": "piclaw", "state": "ready"},
+                ],
+            }),
             encoding="utf-8",
         )
 
@@ -792,6 +836,17 @@ class AutoMigrationServiceTest(unittest.TestCase):
         snapshot_path.parent.mkdir(parents=True)
         snapshot_path.write_text(
             json.dumps({"candidates": [{"full_name": "owner/piclaw", "repo": "piclaw", "status": "portable"}]}) + "\n",
+            encoding="utf-8",
+        )
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True, exist_ok=True)
+        queue_path.write_text(
+            json.dumps({
+                "schema_version": 1,
+                "items": [
+                    {"id": "github:owner/piclaw", "source": "owner/piclaw", "slug": "piclaw", "state": "ready"},
+                ],
+            }),
             encoding="utf-8",
         )
         calls: list[list[str]] = []
@@ -906,6 +961,17 @@ class AutoMigrationServiceTest(unittest.TestCase):
         (repo_root / "registry" / "candidates").mkdir(parents=True)
         (repo_root / "registry" / "candidates" / "latest.json").write_text(
             json.dumps({"candidates": [{"full_name": "owner/demo", "repo": "demo", "status": "portable"}]}) + "\n",
+            encoding="utf-8",
+        )
+        queue_path = repo_root / "registry" / "auto-migration" / "queue.json"
+        queue_path.parent.mkdir(parents=True, exist_ok=True)
+        queue_path.write_text(
+            json.dumps({
+                "schema_version": 1,
+                "items": [
+                    {"id": "github:owner/demo", "source": "owner/demo", "slug": "demo", "state": "ready"},
+                ],
+            }),
             encoding="utf-8",
         )
         (repo_root / "apps" / "demo").mkdir(parents=True)

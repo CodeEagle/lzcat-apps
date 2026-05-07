@@ -256,6 +256,28 @@ def main() -> int:
         return 2
     normalized = normalize_verdict(payload)
     out_path = write_review(repo_root, args.slug, normalized, model=args.model)
+
+    # Audit trail: every verify verdict goes into the cross-cycle log so
+    # we can spot drift / Awaiting-Human items that AI confidently passed.
+    try:
+        from ai_review_log import append_review
+    except ImportError:  # pragma: no cover
+        from .ai_review_log import append_review  # type: ignore[no-redef]
+    append_review(
+        repo_root,
+        reviewer="verify",
+        slug=args.slug,
+        item_id=args.slug,
+        model=args.model,
+        verdict=str(normalized.get("verdict") or ""),
+        score=normalized.get("score"),
+        reason=str(normalized.get("reasoning") or ""),
+        evidence=list(normalized.get("blocking_issues") or []) or None,
+        task_dir=str(out_path.parent),
+        returncode=0,
+        extra={"next_action": str(normalized.get("next_action") or "")},
+    )
+
     print(json.dumps({**normalized, "path": str(out_path)}, ensure_ascii=False, indent=2))
     return 0
 

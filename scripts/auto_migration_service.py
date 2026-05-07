@@ -43,6 +43,7 @@ DEFAULT_LOCAL_AGENT_STORE_SEARCH_CACHE = "registry/auto-migration/local-agent-st
 DEFAULT_LOCAL_AGENT_STORE_SEARCH_TTL_SECONDS = 24 * 60 * 60
 FILTERED_CANDIDATE_STATUSES = {"already_migrated", "already_migrated_by_other", "excluded", "in_progress"}
 PROTECTED_STATES = {
+    "ready",            # AI reviewer (or human) already promoted; respect it.
     "scaffolded",
     "build_failed",
     "installed",
@@ -224,8 +225,14 @@ def candidate_state(candidate: dict[str, Any]) -> str:
             if candidate.get("lazycat_hits") or isinstance(candidate.get("ai_store_review"), dict):
                 return "discovery_review"
             return "local_agent_needs_decision"
+    # Both `portable` (no app-store hits) and `needs_review` (hits found)
+    # now go through the AI reviewer first. AI promotes to `ready` if the
+    # candidate is genuinely worth migrating; otherwise it lands in
+    # `filtered_out`. Mechanical filters can't tell a real self-hosted
+    # service from a personal homepage / SDK / dotfiles repo at the
+    # candidate-discovery stage.
     if status == "portable":
-        return "ready"
+        return "discovery_review"
     if status == "needs_review":
         return "discovery_review"
     if status in FILTERED_CANDIDATE_STATUSES:

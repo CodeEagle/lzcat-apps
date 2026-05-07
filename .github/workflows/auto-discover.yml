@@ -117,6 +117,7 @@ jobs:
             registry/candidates/local-agent-latest.json
             registry/auto-migration/queue.json
             registry/auto-migration/exclude-list.json
+            registry/auto-migration/ai-reviews.jsonl
             registry/status/local-publication-status.json
             registry/status/developer-apps.json
           )
