@@ -48,6 +48,18 @@ jobs:
       LZC_PWD: ${{ secrets.LZC_PWD }}
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       LAZYCAT_BOX_DOMAIN: ${{ secrets.LAZYCAT_BOX_DOMAIN }}
+      # Container runs as root; claude CLI refuses
+      # --dangerously-skip-permissions under root unless IS_SANDBOX=1
+      # is set. CI is a disposable runner behind GitHub's sandboxing —
+      # safe to assert. Without this, codex_migration_worker
+      # (planner + repair) silently exits rc=1 with stderr:
+      #   "--dangerously-skip-permissions cannot be used with root/sudo
+      #    privileges for security reasons"
+      # which is what bricked every planner run for stellaclaw
+      # (25491577249 → 25498098782, 8 consecutive runs). auto-discover.yml
+      # already sets this for codex_discovery_reviewer; worker.yml had
+      # been missing it ever since codex_migration_worker was added.
+      IS_SANDBOX: "1"
 
     steps:
       - name: Validate slug
