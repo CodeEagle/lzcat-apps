@@ -587,6 +587,40 @@ uses the word "framework". Examples that are migrate despite the
 deployable runtime), and any "X framework for Y" where X ships a
 runnable binary.
 
+Strong positive signals — frontend / display project (auto-migrate):
+A frontend project that exists to DISPLAY something is almost always
+deployable as a LazyCat app — either via static hosting (nginx / caddy
+serving `dist/` or `_site/`) or by running its dev/preview server in
+a container. When the source-code signals above show ANY of the
+following, default to `migrate` with `score >= 0.80`, regardless of
+how the description phrases the project:
+
+  * `index.html` at the repo root (a vanilla HTML/JS app, viewer, or
+    demo page that nginx can serve directly)
+  * Build-output directory in the root tree (`dist/` / `build/` /
+    `out/` / `_site/` / `public/` / `www/` / `docs/` when used as a
+    GitHub-Pages site) — even if absent locally the build script in
+    `package.json` is enough
+  * Static-site-generator config in the root tree: `_config.yml`
+    (Jekyll), `gatsby-config.*`, `astro.config.*`, `next.config.*`,
+    `nuxt.config.*`, `vite.config.*`, `mkdocs.yml`, `book.toml`
+    (mdBook), `hugo.toml` / `hugo.yaml` / `config.toml` with Hugo
+    layout, `eleventy.config.*` / `.eleventy.js`
+  * `package.json` with any of these deps/devDeps: gatsby, astro,
+    remix, @remix-run/*, eleventy, @11ty/*, vitepress, vuepress,
+    docusaurus, @docusaurus/*, storybook, @storybook/*, preact,
+    solid-js, @qwik.dev/*, lit, alpinejs, retypeapp
+  * `.storybook/`, `demo/`, `examples/`, `playground/` directory at
+    the root — these are explicit "for display" surfaces
+  * GitHub-Pages markers: `.nojekyll`, `CNAME`
+
+Rationale: a "frontend project for display" has the clearest possible
+container path — copy the build output into an nginx image and ship.
+False positives here cost nothing (build_failed, recoverable); false
+negatives are the dominant pipeline loss. Treat these signals as
+sufficient for `migrate` even when description text or repo name uses
+"library" / "framework" / "toolkit" / "starter-style" wording.
+
 Decision rules (only when Step 0 says COMMERCIAL-OK):
 - `migrate`: the upstream is a real software project (not abandoned spam) AND the README / description / **source-code signals** suggest there is functionality a user might want to run on their personal cloud. Stars / language / size / age do NOT disqualify. If you can imagine ANY way to wrap it into a web-accessible container, choose `migrate`.
 - `skip`: ONLY when one of these EXPLICIT disqualifiers applies —
