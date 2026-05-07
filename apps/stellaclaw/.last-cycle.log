@@ -23,3 +23,15 @@ migration/stellaclaw
   "status": "completed",
   "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T223031Z-github-jeremyguo-stellaclaw"
 }
+[migration/stellaclaw 958951a] chore(planner): stellaclaw ok
+ 10 files changed, 281 insertions(+)
+ create mode 100644 apps/stellaclaw/.last-claude-planning.stderr.log
+ create mode 100644 apps/stellaclaw/.last-claude-planning.stdout.log
+ create mode 100644 apps/stellaclaw/.last-cycle.log
+ create mode 100644 apps/stellaclaw/Dockerfile.template
+ create mode 100644 apps/stellaclaw/README.md
+ create mode 100644 apps/stellaclaw/icon.png
+ create mode 100644 apps/stellaclaw/lzc-build.yml
+ create mode 100644 apps/stellaclaw/lzc-deploy-params.yml
+ create mode 100644 apps/stellaclaw/lzc-manifest.yml
+ create mode 100644 registry/repos/stellaclaw.json

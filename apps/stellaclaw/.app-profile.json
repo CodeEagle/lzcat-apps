@@ -1,0 +1,50 @@
+{
+  "managed_by": "full_migrate",
+  "generated_from_upstream": "JeremyGuo/StellaClaw",
+  "fixes": {
+    "project_name": "StellaClaw",
+    "description": "A self-hosted, multi-agent service framework built in Rust",
+    "description_zh": "（迁移初稿）StellaClaw 的懒猫微服前端版本",
+    "homepage": "https://github.com/JeremyGuo/StellaClaw",
+    "author": "JeremyGuo",
+    "package": "fun.selfstudio.app.migration.stellaclaw",
+    "check_strategy": "github_release",
+    "build_strategy": "upstream_with_target_template",
+    "dockerfile_type": "custom",
+    "dockerfile_path": "Dockerfile.template",
+    "build_context": ".",
+    "docker_platform": "linux/amd64",
+    "image_owner": "CodeEagle",
+    "image_targets": [
+      "stellaclaw-web"
+    ],
+    "service_port": 80,
+    "services": {
+      "stellaclaw-web": {
+        "image": "registry.lazycat.cloud/placeholder/stellaclaw:bootstrap"
+      }
+    },
+    "application": {
+      "subdomain": "stellaclaw",
+      "public_path": [
+        "/"
+      ],
+      "upstreams": [
+        {
+          "location": "/",
+          "backend": "http://stellaclaw-web:80/"
+        }
+      ]
+    },
+    "startup_notes": [
+      "检测到前端应用目录 `apps/stellacodeX/electron` 使用静态站构建，可按 nginx 托管产物封装。",
+      "构建目录：`apps/stellacodeX/electron`；安装根目录：`apps/stellacodeX/electron`。",
+      "自动推断构建命令：`npm run build`。",
+      "运行时按静态站处理，由 nginx 托管构建产物目录。",
+      "未扫描到 env 示例文件",
+      "扫描到 README：README.md, README_zh.md, README.md",
+      "扫描到上游图标：apps/stellacodeX/ios/StellaCodeX/StellaCodeX/Assets.xcassets/AppIcon.appiconset/Icon-App-256x256@1x.png"
+    ],
+    "include_content": false
+  }
+}

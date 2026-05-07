@@ -1,70 +1,48 @@
-# StellaClaw — LazyCat Migration
+# StellaClaw
 
-Upstream: [JeremyGuo/StellaClaw](https://github.com/JeremyGuo/StellaClaw)
+本目录由 `scripts/bootstrap_migration.py` 生成，用于把上游 `JeremyGuo/StellaClaw` 初始化为懒猫微服迁移项目。
 
-A self-hosted, multi-agent service framework built in Rust. Runs agents as durable long-running services rather than one-shot scripts. Supports Telegram, Web API, and the Stellacode desktop client as conversation surfaces.
+## 上游项目
+- Upstream Repo: JeremyGuo/StellaClaw
+- Homepage: https://github.com/JeremyGuo/StellaClaw
+- License: 
+- Author: JeremyGuo
+- Version Strategy: `github_release` -> 当前初稿版本 `1.25.0`
 
-## Access
+## 当前迁移骨架
+- Build Strategy: `upstream_with_target_template`
+- Primary Subdomain: `stellaclaw`
+- Image Targets: `stellaclaw-web`
+- Service Port: `80`
 
-The web channel REST API is exposed at:
+### Services
+- `stellaclaw-web` -> `registry.lazycat.cloud/placeholder/stellaclaw:bootstrap`
 
-```
-https://stellaclaw.<your-box>.heiyu.space/
-```
+## AIPod
 
-API endpoints are available under `/api/`. Authentication uses a Bearer token:
+当前未启用 AIPod / AI 服务。
 
-```
-Authorization: Bearer <web_token>
-```
+## 环境变量
 
-The `web_token` is generated automatically at install time (random 32-character secret). Retrieve it from the app's deploy parameters in the LazyCat management interface.
+当前未预填环境变量，待补充。
 
-## Connecting Stellacode
+## 数据目录
 
-Configure the Stellacode desktop client to connect to the LazyCat-hosted URL with the `web_token` as the access token.
+当前未声明持久化目录，待从上游部署清单补充。
 
-## Configuring LLM Providers
+## 首次启动/验收提醒
 
-The default container starts with no LLM models configured. To add providers, mount a custom `config.json` to `/app/config.json` or edit the config inside the container.
+- 检测到前端应用目录 `apps/stellacodeX/electron` 使用静态站构建，可按 nginx 托管产物封装。
+- 构建目录：`apps/stellacodeX/electron`；安装根目录：`apps/stellacodeX/electron`。
+- 自动推断构建命令：`npm run build`。
+- 运行时按静态站处理，由 nginx 托管构建产物目录。
+- 未扫描到 env 示例文件
+- 扫描到 README：README.md, README_zh.md, README.md
+- 扫描到上游图标：apps/stellacodeX/ios/StellaCodeX/StellaCodeX/Assets.xcassets/AppIcon.appiconset/Icon-App-256x256@1x.png
 
-Example model entry (add to the `"models"` object in `/app/config.json`):
+## 下一步
 
-```json
-"main": {
-  "provider_type": "open_router_completion",
-  "model_name": "openai/gpt-4.1-mini",
-  "url": "https://openrouter.ai/api/v1/chat/completions",
-  "api_key_env": "OPENROUTER_API_KEY",
-  "capabilities": ["chat", "image_in"],
-  "token_max_context": 1048576
-}
-```
-
-Set `available_agent_models` to `["main"]` and pass `OPENROUTER_API_KEY` as an environment variable.
-
-## Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `STELLACLAW_WEB_TOKEN` | Yes | Bearer token for web channel auth (set via deploy param `web_token`) |
-| `STELLACLAW_WORKDIR` | No | Workdir path inside container (default: `/workdir`) |
-| `OPENROUTER_API_KEY` | Optional | API key if using OpenRouter models |
-| `TELEGRAM_BOT_TOKEN` | Optional | Telegram bot token (requires custom config.json with Telegram channel) |
-
-## Data Paths
-
-| Container path | Host path | Contents |
-|---|---|---|
-| `/workdir` | `/lzcapp/var/data/stellaclaw` | Conversations, sessions, skills, logs, migration data |
-
-## Build Notes
-
-- Build strategy: `upstream_with_target_template` — Rust workspace compiled from source in a multi-stage Docker build.
-- Build time: Expect 10–20 minutes on first build (full Rust workspace compilation).
-- check_strategy: `commit_sha` — tracks latest commit; no GitHub releases present.
-- Sandbox: disabled (`"mode": "none"`) — bubblewrap is not available inside containers.
-
-## License
-
-**Upstream has no LICENSE file.** Distribution and use terms are undefined. Operator manually approved this migration for E2E testing. Do not publish to the app store until upstream licensing is clarified.
+1. 补完 `UPSTREAM_DEPLOYMENT_CHECKLIST.md`，把真实入口、环境变量、写路径和初始化动作全部核实清楚。
+2. 按真实部署拓扑修正 `lzc-manifest.yml`，不要直接沿用占位镜像、端口或命令。
+3. 如果是源码构建，补齐 `Dockerfile` / `Dockerfile.template`、`content/`、`overlay_paths` 等资产。
+4. 初稿补全后执行 `./scripts/local_build.sh stellaclaw --check-only`，再进入实际构建与验收。
