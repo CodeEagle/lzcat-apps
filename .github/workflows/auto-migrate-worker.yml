@@ -217,6 +217,21 @@ jobs:
         if: always() && steps.preempt.outputs.rc != '3'
         continue-on-error: true
         run: |
+          set +e
+          # WIP commit before push: capture EVERYTHING the cycle wrote
+          # (apps/<slug>/, registry/repos/<slug>.json, queue mutations,
+          # ai-reviews / state-history appends) on the branch even when
+          # the cycle ended in build_failed and full_migrate's
+          # --commit-scaffold never fired. Without this, claude's planner
+          # output and bootstrap_migration's scaffold both evaporate on
+          # any failed cycle — observed in stellaclaw runs 25491577249
+          # and 25492174092 where apps/stellaclaw/ was created on the
+          # runner FS but never committed, so the migration/stellaclaw
+          # branch tip stayed at template.
+          git add -A apps/ registry/ scripts/ 2>/dev/null
+          if ! git diff --cached --quiet; then
+            git commit -m "wip(worker): cycle artifacts from run ${GITHUB_RUN_ID:-?} (${SLUG})" || true
+          fi
           git push origin "migration/$SLUG" || true
 
       - name: Map queue state -> Project Status
