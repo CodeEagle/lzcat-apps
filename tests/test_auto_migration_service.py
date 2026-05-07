@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.auto_migration_service import (
     CommandResult,
     ServiceConfig,
+    advance_discovery_reviewer,
     build_codex_discovery_review_command,
     build_codex_worker_command,
     build_config,
@@ -49,6 +50,7 @@ class AutoMigrationServiceTest(unittest.TestCase):
             developer_url="",
             max_migrations_per_cycle=1,
             max_discovery_reviews_per_cycle=1,
+            target_slug="",
             commit_scaffold=False,
             resume=False,
             enable_codex_worker=False,
@@ -295,6 +297,27 @@ class AutoMigrationServiceTest(unittest.TestCase):
         }
 
         self.assertEqual(select_next_ready_item(queue)["id"], "github:owner/demo")
+
+    def test_select_next_ready_item_filters_by_target_slug(self) -> None:
+        queue = {
+            "schema_version": 1,
+            "items": [
+                {"id": "github:owner/alpha", "slug": "alpha", "state": "ready"},
+                {"id": "github:owner/bravo", "slug": "bravo", "state": "ready"},
+                {"id": "github:owner/charlie", "slug": "charlie", "state": "ready"},
+            ],
+        }
+
+        # Without target, picks first ready.
+        self.assertEqual(select_next_ready_item(queue)["slug"], "alpha")
+        # With target, picks the matching slug only.
+        self.assertEqual(select_next_ready_item(queue, target_slug="bravo")["slug"], "bravo")
+        self.assertEqual(select_next_ready_item(queue, target_slug="charlie")["slug"], "charlie")
+        # With target that isn't ready, returns None even if the slug exists in another state.
+        queue["items"][1]["state"] = "build_failed"
+        self.assertIsNone(select_next_ready_item(queue, target_slug="bravo"))
+        # With unknown target, returns None.
+        self.assertIsNone(select_next_ready_item(queue, target_slug="zulu"))
 
     def test_build_auto_migrate_command_defaults_to_validate_only(self) -> None:
         repo_root = self.make_repo_root()

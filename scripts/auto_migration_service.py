@@ -82,6 +82,7 @@ class ServiceConfig:
     developer_url: str = ""
     max_migrations_per_cycle: int = 1
     max_discovery_reviews_per_cycle: int = 1
+    target_slug: str = ""   # restrict migration selection to this single slug
     commit_scaffold: bool = False
     resume: bool = False
     enable_codex_worker: bool = False
@@ -302,13 +303,21 @@ def upsert_candidates(queue: dict[str, Any], candidates: list[dict[str, Any]], *
     return queue
 
 
-def select_next_ready_item(queue: dict[str, Any]) -> dict[str, Any] | None:
+def select_next_ready_item(
+    queue: dict[str, Any],
+    *,
+    target_slug: str = "",
+) -> dict[str, Any] | None:
     items = queue.get("items")
     if not isinstance(items, list):
         return None
+    target = (target_slug or "").strip()
     for item in items:
-        if isinstance(item, dict) and item.get("state") == "ready":
-            return item
+        if not isinstance(item, dict) or item.get("state") != "ready":
+            continue
+        if target and str(item.get("slug", "")).strip() != target:
+            continue
+        return item
     return None
 
 
@@ -994,7 +1003,9 @@ def advance_discovery_reviewer(
 ) -> list[dict[str, Any]]:
     if not config.enable_codex_worker:
         return []
-    budget = max(1, getattr(config, "max_discovery_reviews_per_cycle", 1) or 1)
+    budget = max(0, getattr(config, "max_discovery_reviews_per_cycle", 1) or 0)
+    if budget == 0:
+        return []
     results: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     while len(results) < budget:
@@ -1293,7 +1304,7 @@ def run_cycle(
                 now=now,
                 discord_notifier=discord_notifier,
             )
-    selected = select_next_ready_item(queue)
+    selected = select_next_ready_item(queue, target_slug=config.target_slug)
     if not selected:
         write_json(config.queue_path, queue)
         summary["migration"] = {"status": "idle"}
@@ -1327,7 +1338,7 @@ def run_cycle(
         return summary
 
     for _ in range(config.max_migrations_per_cycle):
-        selected = select_next_ready_item(queue)
+        selected = select_next_ready_item(queue, target_slug=config.target_slug)
         if not selected:
             break
         workspace_result = prepare_migration_workspace(config, selected, runner=runner)
@@ -1449,6 +1460,12 @@ def parse_args() -> argparse.Namespace:
         default=1,
         help="Cap the number of codex/claude discovery review invocations per cycle (default 1).",
     )
+    parser.add_argument(
+        "--target-slug",
+        default="",
+        help="Restrict migration selection to a specific slug; cycle picks "
+             "this item or skips migration entirely if it isn't in state=ready.",
+    )
     parser.add_argument("--commit-scaffold", action="store_true")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--enable-codex-worker", action="store_true")
@@ -1514,7 +1531,8 @@ def build_config(args: argparse.Namespace) -> ServiceConfig:
         box_domain=args.box_domain,
         developer_url=developer_url,
         max_migrations_per_cycle=max(0, args.max_migrations_per_cycle),
-        max_discovery_reviews_per_cycle=max(1, args.max_discovery_reviews_per_cycle),
+        max_discovery_reviews_per_cycle=max(0, args.max_discovery_reviews_per_cycle),
+        target_slug=str(getattr(args, "target_slug", "") or "").strip(),
         commit_scaffold=args.commit_scaffold,
         resume=args.resume,
         enable_codex_worker=args.enable_codex_worker,
