@@ -148,6 +148,15 @@ jobs:
         continue-on-error: true
         run: python3 scripts/needs_human_to_issues.py --max-issues 10
 
+      - name: Mirror state_history to per-slug GitHub Issues
+        # One GitHub Issue per migrating slug; every state_history entry
+        # appended on disk auto-posts as a comment on the next cron tick.
+        # Capped at 20 slugs per run so the first roll-out (when the
+        # backlog of historical entries is largest) doesn't hit GitHub
+        # API quota — the tail catches up on subsequent crons.
+        continue-on-error: true
+        run: python3 scripts/state_history_to_issues.py --max-slugs-per-run 20
+
       - name: Commit canonical state back to template
         run: |
           set -euo pipefail
