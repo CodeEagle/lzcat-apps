@@ -14,7 +14,9 @@ from scripts.codex_discovery_reviewer import (
     build_codex_command,
     build_codex_prompt,
     fetch_license_info,
+    fetch_repo_signals,
     format_license_block,
+    format_repo_signals_block,
     run_codex,
     safe_task_name,
     write_task_bundle,
@@ -320,9 +322,198 @@ class BuildCodexPromptLicenseInjectionTest(unittest.TestCase):
         repo_root = Path(tempfile.mkdtemp(prefix="codex-prompt-no-net-"))
         queue_path = repo_root / "queue.json"
         item = {"id": "x", "slug": "x", "candidate": {"full_name": "owner/demo"}}
-        with patch("scripts.codex_discovery_reviewer.fetch_license_info") as mocked:
-            build_codex_prompt(repo_root, queue_path, item, license_info={"fetch_status": "skip"})
-            self.assertFalse(mocked.called)
+        with patch("scripts.codex_discovery_reviewer.fetch_license_info") as l_mock, \
+             patch("scripts.codex_discovery_reviewer.fetch_repo_signals") as s_mock:
+            build_codex_prompt(
+                repo_root, queue_path, item,
+                license_info={"fetch_status": "skip"},
+                repo_signals={"fetch_status": "skip"},
+            )
+            self.assertFalse(l_mock.called)
+            self.assertFalse(s_mock.called)
+
+
+class FetchRepoSignalsTest(unittest.TestCase):
+    def _fake_response(self, payload: object) -> object:
+        class _Resp:
+            def __init__(self, data: bytes) -> None:
+                self._data = data
+            def read(self) -> bytes:
+                return self._data
+            def __enter__(self) -> object:
+                return self
+            def __exit__(self, *exc: object) -> bool:
+                return False
+        return _Resp(json.dumps(payload).encode("utf-8"))
+
+    def _b64(self, text: str) -> str:
+        import base64
+        return base64.b64encode(text.encode()).decode()
+
+    def test_returns_skip_when_no_owner_repo(self) -> None:
+        info = fetch_repo_signals({"candidate": {}})
+        self.assertEqual(info["fetch_status"], "skip")
+
+    def test_returns_not_found_when_repo_missing(self) -> None:
+        import urllib.error
+        item = {"candidate": {"full_name": "owner/gone"}}
+        err = urllib.error.HTTPError("u", 404, "Not Found", {}, None)
+        with patch("scripts.codex_discovery_reviewer.urllib.request.urlopen", side_effect=err):
+            info = fetch_repo_signals(item)
+        self.assertEqual(info["fetch_status"], "not_found")
+
+    def test_collects_root_tree_readme_dockerfile_and_package_json(self) -> None:
+        item = {"candidate": {"full_name": "owner/demo"}}
+        # Use endswith for URL matching — /contents/ would otherwise be a
+        # prefix of /contents/Dockerfile and the wrong response would win.
+        responses_by_suffix: dict[str, object] = {
+            "/repos/owner/demo/contents/": [
+                {"name": "Dockerfile", "type": "file", "size": 200},
+                {"name": "package.json", "type": "file", "size": 800},
+                {"name": "src", "type": "dir"},
+                {"name": "README.md", "type": "file", "size": 4096},
+            ],
+            "/repos/owner/demo/readme": {
+                "encoding": "base64",
+                "content": self._b64("# Demo\n\nA self-hosted web app for X."),
+            },
+            "/repos/owner/demo/contents/Dockerfile": {
+                "encoding": "base64",
+                "content": self._b64("FROM node:20\nWORKDIR /app\nCOPY . .\nCMD ['node', 'server.js']\n"),
+            },
+            "/repos/owner/demo/contents/package.json": {
+                "encoding": "base64",
+                "content": self._b64(json.dumps({
+                    "name": "demo",
+                    "scripts": {"start": "node server.js", "build": "vite build"},
+                    "dependencies": {"express": "^4", "react": "^18"},
+                    "devDependencies": {"vite": "^5"},
+                })),
+            },
+        }
+
+        def fake_urlopen(req, **_):  # noqa: ANN001
+            for suffix, payload in responses_by_suffix.items():
+                if req.full_url.endswith(suffix):
+                    return self._fake_response(payload)
+            # any other URL → 404
+            import urllib.error as e
+            raise e.HTTPError(req.full_url, 404, "Not Found", {}, None)
+
+        with patch("scripts.codex_discovery_reviewer.urllib.request.urlopen", side_effect=fake_urlopen):
+            info = fetch_repo_signals(item)
+
+        self.assertEqual(info["fetch_status"], "ok")
+        self.assertEqual(info["full_name"], "owner/demo")
+        names = {f["name"] for f in info["files"]}
+        self.assertEqual(names, {"Dockerfile", "package.json", "src", "README.md"})
+        self.assertIn("FROM node:20", info["dockerfile"])
+        self.assertIn("# Demo", info["readme"])
+        pkg = info["package_json"]
+        self.assertIsInstance(pkg, dict)
+        self.assertIn("express", pkg["dependencies_top"])
+        self.assertIn("react", pkg["dependencies_top"])
+        self.assertIn("vite", pkg["devDependencies_top"])
+        self.assertTrue(pkg["has_start"])
+        self.assertIn("react", pkg["framework_hits"])
+        self.assertIn("express", pkg["framework_hits"])
+
+    def test_does_not_fetch_signal_files_missing_from_tree(self) -> None:
+        # Tree only has README — should not try to fetch Dockerfile etc.
+        item = {"candidate": {"full_name": "owner/demo"}}
+        responses_by_suffix: dict[str, object] = {
+            "/repos/owner/demo/contents/": [
+                {"name": "README.md", "type": "file", "size": 200},
+            ],
+            "/repos/owner/demo/readme": {
+                "encoding": "base64",
+                "content": self._b64("# Just a doc"),
+            },
+        }
+        called_urls: list[str] = []
+
+        def fake_urlopen(req, **_):  # noqa: ANN001
+            called_urls.append(req.full_url)
+            for suffix, payload in responses_by_suffix.items():
+                if req.full_url.endswith(suffix):
+                    return self._fake_response(payload)
+            import urllib.error as e
+            raise e.HTTPError(req.full_url, 404, "Not Found", {}, None)
+
+        with patch("scripts.codex_discovery_reviewer.urllib.request.urlopen", side_effect=fake_urlopen):
+            info = fetch_repo_signals(item)
+
+        self.assertEqual(info["fetch_status"], "ok")
+        self.assertEqual(info["dockerfile"], "")
+        self.assertEqual(info["package_json"], None)
+        # exactly 2 calls: tree + readme
+        self.assertEqual(len(called_urls), 2)
+
+
+class FormatRepoSignalsBlockTest(unittest.TestCase):
+    def test_renders_tree_dockerfile_pkg_and_readme(self) -> None:
+        signals = {
+            "fetch_status": "ok",
+            "files": [
+                {"name": "Dockerfile", "type": "file", "size": 100},
+                {"name": "package.json", "type": "file", "size": 200},
+                {"name": "src", "type": "dir"},
+            ],
+            "dockerfile": "FROM node:20\nCMD ['node']",
+            "compose": "",
+            "package_json": {
+                "scripts": {"start": "node server.js"},
+                "dependencies_top": ["express", "react"],
+                "devDependencies_top": [],
+                "has_start": True,
+                "framework_hits": ["express", "react"],
+            },
+            "pyproject": "", "setup_py": "", "requirements": "",
+            "go_mod": "", "cargo_toml": "",
+            "readme": "# Demo\n\nA web service.",
+            "errors": [],
+        }
+        block = format_repo_signals_block(signals)
+        self.assertIn("Root file tree", block)
+        self.assertIn("Dockerfile", block)
+        self.assertIn("FROM node:20", block)
+        self.assertIn("package.json", block)
+        self.assertIn("express, react", block)
+        self.assertIn("has_start_script: True", block)
+        self.assertIn("# Demo", block)
+
+    def test_renders_skip_status(self) -> None:
+        block = format_repo_signals_block({"fetch_status": "skip", "error": "no upstream"})
+        self.assertIn("skipped", block)
+
+    def test_renders_not_found(self) -> None:
+        block = format_repo_signals_block({"fetch_status": "not_found"})
+        self.assertIn("404", block)
+        self.assertIn("skip", block)
+
+
+class BuildCodexPromptRepoSignalsInjectionTest(unittest.TestCase):
+    def test_prompt_injects_repo_signals_block(self) -> None:
+        repo_root = Path(tempfile.mkdtemp(prefix="codex-prompt-rs-"))
+        queue_path = repo_root / "queue.json"
+        item = {"id": "x", "slug": "x", "candidate": {"full_name": "owner/demo"}}
+        prompt = build_codex_prompt(
+            repo_root, queue_path, item,
+            license_info={"fetch_status": "skip"},
+            repo_signals={
+                "fetch_status": "ok",
+                "files": [{"name": "Dockerfile", "type": "file", "size": 100}],
+                "dockerfile": "FROM node:20",
+                "compose": "", "package_json": None,
+                "pyproject": "", "setup_py": "", "requirements": "",
+                "go_mod": "", "cargo_toml": "",
+                "readme": "# something", "errors": [],
+            },
+        )
+        self.assertIn("FROM node:20", prompt)
+        self.assertIn("source-code signals", prompt)
+        # naked-framework guidance updated to reference the signals
+        self.assertIn("naked framework", prompt)
 
 
 if __name__ == "__main__":

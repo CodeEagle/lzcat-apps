@@ -91,6 +91,283 @@ def lazycat_store_search_guidance(item: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _resolve_full_name(item: dict[str, Any]) -> str:
+    candidate = item.get("candidate") if isinstance(item.get("candidate"), dict) else {}
+    full_name = str(candidate.get("full_name") or "").strip()
+    if "/" not in full_name:
+        source = str(item.get("source") or "").strip()
+        if "/" in source and not source.startswith("http"):
+            full_name = source
+    return full_name
+
+
+def _gh_headers() -> dict[str, str]:
+    token = os.environ.get("GH_PAT") or os.environ.get("GH_TOKEN") or ""
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "lzcat-discovery-reviewer",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+def _gh_get_json(url: str, *, timeout: float, headers: dict[str, str] | None = None) -> Any:
+    req = urllib.request.Request(url, headers=headers or _gh_headers())
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 - URL is constructed
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _gh_decode_content_base64(payload: dict[str, Any], *, max_bytes: int) -> str:
+    content = payload.get("content")
+    encoding = payload.get("encoding")
+    if not isinstance(content, str) or encoding != "base64":
+        return ""
+    try:
+        raw = base64.b64decode(content)
+    except (binascii.Error, ValueError):
+        return ""
+    return raw.decode("utf-8", errors="replace")[:max_bytes]
+
+
+# Files we always pre-fetch when present in the upstream repo's root tree
+# (claude needs to see source code, not just description text — otherwise
+# the "naked framework" disqualifier (h) misfires on items whose
+# description happens to say "framework" but whose source is clearly a
+# deployable service). Each maps to a target field on the signals dict
+# and a cap on body size to keep the prompt token budget reasonable.
+_REPO_SIGNAL_FILES: tuple[tuple[str, str, int], ...] = (
+    ("Dockerfile",          "dockerfile",  3000),
+    ("Containerfile",       "dockerfile",  3000),
+    ("dockerfile",          "dockerfile",  3000),
+    ("docker-compose.yml",  "compose",     3000),
+    ("docker-compose.yaml", "compose",     3000),
+    ("compose.yml",         "compose",     3000),
+    ("compose.yaml",        "compose",     3000),
+    ("pyproject.toml",      "pyproject",   2000),
+    ("setup.py",            "setup_py",    2000),
+    ("requirements.txt",    "requirements", 1500),
+    ("go.mod",              "go_mod",      1500),
+    ("Cargo.toml",          "cargo_toml",  2000),
+)
+
+
+def fetch_repo_signals(item: dict[str, Any], *, timeout: float = 10.0) -> dict[str, Any]:
+    """Pre-fetch deployability signals from the upstream GitHub repo.
+
+    Returns a dict with the root file tree, README excerpt, and excerpts
+    of common containerization / service-runtime indicator files
+    (Dockerfile, docker-compose, package.json deps + scripts,
+    pyproject/setup/requirements, go.mod, Cargo.toml). The result is
+    spliced into the discovery prompt so claude judges based on actual
+    source-code shape rather than just the description text.
+
+    Rate-limit aware: at most ~6 GitHub API calls per item.
+    Best-effort: every fetch is wrapped — partial data still beats no
+    data, and a flaky API never blocks an entire discovery cycle.
+    """
+    full_name = _resolve_full_name(item)
+    if "/" not in full_name:
+        return {"fetch_status": "skip", "error": "no upstream owner/repo on item"}
+
+    out: dict[str, Any] = {
+        "fetch_status": "ok",
+        "full_name": full_name,
+        "files": [],          # [{name, type, size}, ...] root listing
+        "dockerfile": "",
+        "compose": "",
+        "package_json": None, # {scripts, dependencies, devDependencies, has_start, framework_hits}
+        "pyproject": "",
+        "setup_py": "",
+        "requirements": "",
+        "go_mod": "",
+        "cargo_toml": "",
+        "readme": "",
+        "errors": [],
+    }
+    headers = _gh_headers()
+
+    # 1. Root tree (lists top-level entries; tells us which signal files
+    # actually exist before we burn API calls fetching them).
+    try:
+        tree = _gh_get_json(
+            f"https://api.github.com/repos/{full_name}/contents/",
+            timeout=timeout, headers=headers,
+        )
+        if isinstance(tree, list):
+            out["files"] = [
+                {"name": e.get("name"), "type": e.get("type"), "size": e.get("size")}
+                for e in tree[:300] if isinstance(e, dict)
+            ]
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return {"fetch_status": "not_found", "full_name": full_name, "errors": []}
+        out["errors"].append(f"tree: HTTP {exc.code}")
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        out["errors"].append(f"tree: {exc}")
+
+    file_names = {str(f.get("name") or "") for f in out["files"]}
+
+    # 2. README via the dedicated /readme endpoint (handles README.md,
+    # README.rst, README.txt and case variants without us guessing).
+    try:
+        readme_payload = _gh_get_json(
+            f"https://api.github.com/repos/{full_name}/readme",
+            timeout=timeout, headers=headers,
+        )
+        if isinstance(readme_payload, dict):
+            out["readme"] = _gh_decode_content_base64(readme_payload, max_bytes=6000)
+    except urllib.error.HTTPError as exc:
+        if exc.code != 404:
+            out["errors"].append(f"readme: HTTP {exc.code}")
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        out["errors"].append(f"readme: {exc}")
+
+    # 3. Signal files. Only fetch when present in the tree to avoid
+    # burning quota on 404s.
+    for fname, field, cap in _REPO_SIGNAL_FILES:
+        if out[field]:  # already populated by an earlier alias
+            continue
+        if fname not in file_names:
+            continue
+        try:
+            payload = _gh_get_json(
+                f"https://api.github.com/repos/{full_name}/contents/{fname}",
+                timeout=timeout, headers=headers,
+            )
+            if isinstance(payload, dict):
+                out[field] = _gh_decode_content_base64(payload, max_bytes=cap)
+        except urllib.error.HTTPError as exc:
+            out["errors"].append(f"{fname}: HTTP {exc.code}")
+        except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+            out["errors"].append(f"{fname}: {exc}")
+
+    # 4. package.json — structured parse so claude doesn't have to read JSON.
+    if "package.json" in file_names:
+        try:
+            payload = _gh_get_json(
+                f"https://api.github.com/repos/{full_name}/contents/package.json",
+                timeout=timeout, headers=headers,
+            )
+            body = _gh_decode_content_base64(payload, max_bytes=12000) if isinstance(payload, dict) else ""
+            if body:
+                data = json.loads(body)
+                if isinstance(data, dict):
+                    deps = list((data.get("dependencies") or {}).keys())
+                    dev_deps = list((data.get("devDependencies") or {}).keys())
+                    scripts = data.get("scripts") if isinstance(data.get("scripts"), dict) else {}
+                    framework_hits = sorted({
+                        d for d in (deps + dev_deps)
+                        if d in {
+                            "react", "vue", "@vue/cli", "next", "nuxt", "svelte",
+                            "@sveltejs/kit", "angular", "@angular/core",
+                            "express", "fastify", "koa", "hono", "@nestjs/core",
+                            "vite", "webpack", "parcel",
+                        }
+                    })
+                    out["package_json"] = {
+                        "scripts": scripts,
+                        "dependencies_top": deps[:20],
+                        "devDependencies_top": dev_deps[:20],
+                        "has_start": "start" in scripts or "serve" in scripts or "dev" in scripts,
+                        "framework_hits": framework_hits,
+                    }
+        except urllib.error.HTTPError as exc:
+            out["errors"].append(f"package.json: HTTP {exc.code}")
+        except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError, ValueError) as exc:
+            out["errors"].append(f"package.json: {exc}")
+
+    return out
+
+
+def format_repo_signals_block(signals: dict[str, Any]) -> str:
+    """Render fetch_repo_signals() into a markdown block for the prompt."""
+    status = str(signals.get("fetch_status") or "").strip()
+    if status == "skip":
+        return f"- Source-code signals skipped: {signals.get('error') or 'unknown'}."
+    if status == "not_found":
+        return (
+            "- Upstream repo returned 404 — repo may have been deleted or made private. "
+            "Default verdict is `skip` with reason citing the missing upstream."
+        )
+
+    lines: list[str] = []
+    files = signals.get("files") or []
+    if files:
+        # Compact: show first 60 entries with type + size
+        listings = []
+        for f in files[:60]:
+            n = f.get("name") or ""
+            t = f.get("type") or ""
+            sz = f.get("size") or 0
+            sz_str = f" {sz}b" if t == "file" and sz else ""
+            listings.append(f"{n}{'/' if t == 'dir' else ''}{sz_str}")
+        lines.append("- Root file tree (first 60 entries):")
+        lines.append("  ```")
+        # 4 columns
+        for i in range(0, len(listings), 4):
+            lines.append("  " + "  ".join(listings[i:i+4]))
+        lines.append("  ```")
+
+    pkg = signals.get("package_json")
+    if isinstance(pkg, dict):
+        lines.append("- `package.json` summary:")
+        scripts = pkg.get("scripts") or {}
+        if scripts:
+            keys = ", ".join(sorted(scripts.keys())[:10])
+            lines.append(f"  - scripts: `{keys}`")
+        if pkg.get("framework_hits"):
+            lines.append(f"  - framework deps: {', '.join(pkg['framework_hits'])}")
+        if pkg.get("dependencies_top"):
+            lines.append(f"  - dependencies (top 20): {', '.join(pkg['dependencies_top'])}")
+        lines.append(f"  - has_start_script: {pkg.get('has_start', False)}")
+
+    if signals.get("dockerfile"):
+        lines.append("- Dockerfile excerpt:")
+        lines.append("  ```")
+        for line in signals["dockerfile"].splitlines()[:40]:
+            lines.append("  " + line)
+        lines.append("  ```")
+
+    if signals.get("compose"):
+        lines.append("- docker-compose excerpt:")
+        lines.append("  ```")
+        for line in signals["compose"].splitlines()[:40]:
+            lines.append("  " + line)
+        lines.append("  ```")
+
+    for field, label in (
+        ("pyproject", "pyproject.toml"),
+        ("setup_py", "setup.py"),
+        ("requirements", "requirements.txt"),
+        ("go_mod", "go.mod"),
+        ("cargo_toml", "Cargo.toml"),
+    ):
+        body = signals.get(field) or ""
+        if body:
+            lines.append(f"- {label} excerpt:")
+            lines.append("  ```")
+            for line in body.splitlines()[:30]:
+                lines.append("  " + line)
+            lines.append("  ```")
+
+    readme = signals.get("readme") or ""
+    if readme:
+        lines.append("- README excerpt (first 6 KB):")
+        lines.append("  ```")
+        for line in readme.splitlines()[:80]:
+            lines.append("  " + line)
+        lines.append("  ```")
+
+    if signals.get("errors"):
+        lines.append(f"- (partial fetch — errors: {'; '.join(signals['errors'][:3])})")
+
+    if not lines:
+        return "- No source-code signals fetched."
+    return "\n".join(lines)
+
+
 def fetch_license_info(item: dict[str, Any], *, timeout: float = 10.0) -> dict[str, Any]:
     """Live-fetch the upstream repo's LICENSE via the GitHub REST API.
 
@@ -201,6 +478,7 @@ def build_codex_prompt(
     *,
     developer_url: str = "",
     license_info: dict[str, Any] | None = None,
+    repo_signals: dict[str, Any] | None = None,
 ) -> str:
     item_json = json.dumps(item, ensure_ascii=False, indent=2, sort_keys=True)
     publication_status = read_text_if_exists(repo_root / "registry" / "status" / "local-publication-status.json", max_chars=12000)
@@ -213,6 +491,9 @@ def build_codex_prompt(
     if license_info is None:
         license_info = fetch_license_info(item)
     license_block = format_license_block(license_info)
+    if repo_signals is None:
+        repo_signals = fetch_repo_signals(item)
+    repo_signals_block = format_repo_signals_block(repo_signals)
 
     return f"""You are Claude, the discovery reviewer for the LazyCat lzcat-apps auto-migration pipeline.
 
@@ -285,8 +566,29 @@ into:
 If Step 0 says skip or needs_human, the rest of the decision rules below are
 moot — write the verdict and stop.
 
+Upstream source-code signals (live-fetched from GitHub — root file
+tree + key file excerpts):
+{repo_signals_block}
+
+You MUST use the source-code signals above (NOT the description text
+alone) when judging disqualifier (h) "naked framework / SDK". A repo
+that has any of:
+  * Dockerfile / Containerfile / docker-compose
+  * package.json with a `start` / `serve` / `dev` script OR a web
+    framework dep (react/vue/next/svelte/express/fastify/nest/...)
+  * a backend entrypoint (main.py / server.py / app.py / cmd/server/
+    main.go / src/main.rs / etc.) AND a web framework dep
+    (FastAPI / Flask / Django / actix-web / axum / gin / fiber)
+  * an `index.html` / `public/`/`static/` directory at root
+… is NOT a naked framework, regardless of whether the description
+uses the word "framework". Examples that are migrate despite the
+"framework" wording: ctfd, dpaste, nuclio, agent-runtime servers
+("multi-agent service framework" — the SERVICE part means it's a
+deployable runtime), and any "X framework for Y" where X ships a
+runnable binary.
+
 Decision rules (only when Step 0 says COMMERCIAL-OK):
-- `migrate`: the upstream is a real software project (not abandoned spam) AND the README / description suggests there is functionality a user might want to run on their personal cloud. Stars / language / size / age do NOT disqualify. If you can imagine ANY way to wrap it into a web-accessible container, choose `migrate`.
+- `migrate`: the upstream is a real software project (not abandoned spam) AND the README / description / **source-code signals** suggest there is functionality a user might want to run on their personal cloud. Stars / language / size / age do NOT disqualify. If you can imagine ANY way to wrap it into a web-accessible container, choose `migrate`.
 - `skip`: ONLY when one of these EXPLICIT disqualifiers applies —
   (a) academic coursework / homework / graduation thesis with no real users
   (b) literal "template" / "skeleton" / "boilerplate" / "starter" repo
