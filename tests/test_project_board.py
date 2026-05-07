@@ -539,6 +539,78 @@ class SyncTest(unittest.TestCase):
         summary = json.loads(buf.getvalue())
         self.assertEqual(summary["approved"], [])
 
+    def test_sync_moves_filtered_out_queue_items_to_filtered_status(self) -> None:
+        # AI said "skip" → state=filtered_out. Card should slide to the
+        # Filtered column automatically so dispatcher / human aren't
+        # distracted by dead cards.
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/demo",
+                    "slug": "demo",
+                    "state": "filtered_out",
+                    "filtered_reason": "ai_discovery_skip",
+                    "candidate": {"repo_url": "https://github.com/owner/demo"},
+                    "discovery_review": {"score": 0.1, "status": "skip"},
+                }
+            ]
+        }
+        root = self._setup(queue)
+        existing = _item_node(
+            "PVTI_demo",
+            {
+                "Slug": "demo",
+                "Status": {"name": "Inbox", "optionId": "opt_inbox"},
+                "Upstream": "https://github.com/owner/demo",
+                "AI Score": 0.1,
+            },
+        )
+        responses: list = [
+            _items_page([existing]),
+            {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_demo"}}},  # Status=Filtered
+        ]
+        fake = FakeRun(responses)
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertIn("demo->Filtered", summary["auto_terminal"])
+
+    def test_sync_moves_build_failed_queue_items_to_blocked_status(self) -> None:
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/demo",
+                    "slug": "demo",
+                    "state": "build_failed",
+                    "candidate": {"repo_url": "https://github.com/owner/demo"},
+                    "discovery_review": {"score": 0.85, "status": "migrate"},
+                }
+            ]
+        }
+        root = self._setup(queue)
+        existing = _item_node(
+            "PVTI_demo",
+            {
+                "Slug": "demo",
+                "Status": {"name": "In-Progress", "optionId": "opt_ip"},
+                "Upstream": "https://github.com/owner/demo",
+                "AI Score": 0.85,
+            },
+        )
+        responses: list = [
+            _items_page([existing]),
+            {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_demo"}}},  # Status=Blocked
+        ]
+        fake = FakeRun(responses)
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertIn("demo->Blocked", summary["auto_terminal"])
+
     def test_sync_does_not_auto_approve_discovery_review_items(self) -> None:
         queue = {
             "items": [

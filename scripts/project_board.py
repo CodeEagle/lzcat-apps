@@ -1158,7 +1158,37 @@ def cmd_sync(args: argparse.Namespace) -> int:
         current_status_name = (
             current_status.get("name") if isinstance(current_status, dict) else current_status
         )
-        downstream = {"In-Progress", "Browser-Test", "Awaiting-Human"} | TERMINAL_STATUSES
+        # "Blocked" is a terminal-ish hold — auto-approve must not override it
+        # when the queue says the migration / repair attempts have failed.
+        downstream = {"In-Progress", "Browser-Test", "Awaiting-Human", "Blocked"} | TERMINAL_STATUSES
+
+        # Mirror queue terminal/error states onto the Project board so the
+        # dispatcher's "Approved" column doesn't accumulate dead cards. The
+        # mapping is:
+        #   filtered_out  →  Filtered  (AI said skip, or excluded by gate)
+        #   build_failed  →  Blocked   (worker hit a build error, no auto-fix)
+        #   codex_failed  →  Blocked   (claude repair worker exhausted attempts)
+        #   published     →  Published (terminal success)
+        # Items in the middle of the migration pipeline (scaffolded /
+        # browser_pending / etc.) are left to the worker workflow's own
+        # status updates.
+        item_state = str(item.get("state") or "").strip()
+        terminal_map = {
+            "filtered_out": "Filtered",
+            "build_failed": "Blocked",
+            "codex_failed": "Blocked",
+            "published": "Published",
+        }
+        target_terminal = terminal_map.get(item_state)
+        if target_terminal and current_status_name != target_terminal:
+            try:
+                set_field(project_id, item_id, cache, "Status", target_terminal)
+                flat["Status"] = {"name": target_terminal}
+                summary.setdefault("auto_terminal", []).append(f"{slug}->{target_terminal}")
+                current_status_name = target_terminal
+            except RuntimeError:
+                pass
+
         # Auto-approve ONLY when the AI reviewer scored the item past the
         # threshold. Earlier we also auto-approved on bare state="ready" —
         # mechanical gate said "deployable", no app-store hit, no excluded
