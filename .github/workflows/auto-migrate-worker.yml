@@ -59,22 +59,50 @@ jobs:
               ;;
           esac
 
-      - name: Ensure migration/${{ inputs.slug }} branch exists
+      - name: Ensure migration/${{ inputs.slug }} branch is up-to-date with template
         run: |
           set -euo pipefail
           ref="migration/${SLUG}"
           repo="${{ github.repository }}"
-          if gh api "/repos/${repo}/branches/${ref}" >/dev/null 2>&1; then
-            echo "branch exists: ${ref}"
+          template_sha=$(gh api "/repos/${repo}/branches/template" --jq .commit.sha)
+
+          if ! gh api "/repos/${repo}/branches/${ref}" >/dev/null 2>&1; then
+            # Branch missing — fork from template tip.
+            gh api -X POST "/repos/${repo}/git/refs" \
+              -f "ref=refs/heads/${ref}" \
+              -f "sha=${template_sha}"
+            echo "created ${ref} from template@${template_sha}"
             exit 0
           fi
-          # Fork from template tip so the worker has the latest scripts +
-          # registry state; full_migrate will scaffold apps/<slug>/ on top.
-          sha=$(gh api "/repos/${repo}/branches/template" --jq .commit.sha)
-          gh api -X POST "/repos/${repo}/git/refs" \
-            -f "ref=refs/heads/${ref}" \
-            -f "sha=${sha}"
-          echo "created ${ref} from template@${sha}"
+
+          # Branch exists. If it has no slug-specific commits (i.e. it's a
+          # stale fork of an older template tip), fast-forward to current
+          # template HEAD so the worker runs the latest scripts. If it has
+          # diverged commits (real WIP), leave it alone.
+          # GitHub compare URL is /compare/{base}...{head}; .status describes
+          # head's relationship to base. So compare/<ref>...template:
+          #   ahead     → template has commits ref doesn't → safe to FF ref → template
+          #   behind    → ref has commits template doesn't → real WIP, don't touch
+          #   diverged  → both have unique commits → don't touch
+          #   identical → no-op
+          status=$(gh api "/repos/${repo}/compare/${ref}...template" --jq .status)
+          echo "compare ${ref}...template: status=${status}"
+          case "$status" in
+            identical)
+              echo "${ref} already at template@${template_sha}"
+              ;;
+            ahead)
+              gh api -X PATCH "/repos/${repo}/git/refs/heads/${ref}" \
+                -f "sha=${template_sha}" -F force=false
+              echo "fast-forwarded ${ref} to template@${template_sha}"
+              ;;
+            behind|diverged)
+              echo "::warning::${ref} has slug-specific commits (status=${status}); not auto-updating"
+              ;;
+            *)
+              echo "::warning::unexpected compare status ${status}; leaving ${ref} alone"
+              ;;
+          esac
 
       - name: Checkout migration/${{ inputs.slug }}
         uses: actions/checkout@v4
