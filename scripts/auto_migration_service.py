@@ -522,6 +522,18 @@ def build_auto_migrate_command(config: ServiceConfig, item: dict[str, Any]) -> l
         command.append("--resume")
     if config.commit_scaffold:
         command.append("--commit-scaffold")
+    # Always pass --allow-existing when the worker invokes auto_migrate.
+    # The proactive planner phase may leave apps/<slug>/ partially
+    # populated (claude wrote a Dockerfile.template / lzc-build.yml
+    # tweak but not .migration-state.json), and bootstrap_migration
+    # otherwise refuses to touch the dir. Without this flag the cycle
+    # aborts with "apps/<slug> already exists but has no .migration-
+    # state.json" — observed in stellaclaw run 25497490084 where the
+    # planner created an empty apps/stellaclaw/ then bootstrap refused
+    # to proceed. The worker is the canonical owner of apps/<slug>/
+    # within a cycle so re-writing is safe; --resume separately
+    # protects against losing real progress.
+    command.append("--allow-existing")
     if config.enable_build_install and config.functional_check:
         command.extend(["--functional-check", "--slug", str(item["slug"]), "--box-domain", config.box_domain])
     return command
