@@ -1,0 +1,1 @@
+{"slug": "stellaclaw", "id": "github:jeremyguo/stellaclaw", "from": "ready", "to": "ready", "reason": "manual E2E promote: prove the worker chain end-to-end despite license=null and missing Dockerfile", "source": "operator.manual_promote", "ts": "2026-05-07T10:17:06Z"}
