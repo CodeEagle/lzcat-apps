@@ -18,6 +18,17 @@ on:
   schedule:
     # F7: every 10 min — pick the oldest ≤2 Approved cards and fire workers.
     - cron: "*/10 * * * *"
+  workflow_run:
+    # Event-driven re-trigger: as soon as ANY worker / verify / publish run
+    # finishes (success, failure, or cancellation), fire the dispatcher to
+    # backfill the In-Progress slot with the next Approved candidate. Pairs
+    # with the cron schedule so we hit the 2-parallel target without waiting
+    # up to 10 minutes between migrations.
+    workflows:
+      - "Auto-Migrate Worker"
+      - "Auto-Verify"
+      - "Auto-Publish"
+    types: [completed]
 
 permissions:
   actions: write          # gh workflow run auto-migrate-worker.yml
@@ -54,13 +65,25 @@ jobs:
         run: python3 scripts/project_board.py bootstrap
 
       - id: pick
-        name: Read approved slugs
+        name: Read approved slugs (capped to keep ≤max_concurrent in flight)
         run: |
           set -euo pipefail
-          limit="${{ inputs.max_concurrent || 2 }}"
-          slugs="$(python3 scripts/project_board.py list-approved --limit "$limit" --format json)"
-          count="$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])))" "$slugs")"
-          echo "Approved slugs: $slugs (count=$count)"
+          target="${{ inputs.max_concurrent || 2 }}"
+          # Count slugs already mid-migration so we don't over-dispatch.
+          # In-Progress = worker running, Browser-Test = verify running.
+          inflight_slugs="$(python3 scripts/project_board.py list-by-status \
+            --status 'In-Progress,Browser-Test' --format json)"
+          inflight="$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])))" "$inflight_slugs")"
+          remaining=$((target - inflight))
+          echo "target=$target inflight=$inflight remaining=$remaining (slugs in flight: $inflight_slugs)"
+          if [ "$remaining" -le 0 ]; then
+            slugs="[]"
+            count=0
+          else
+            slugs="$(python3 scripts/project_board.py list-approved --limit "$remaining" --format json)"
+            count="$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])))" "$slugs")"
+          fi
+          echo "Approved slugs to dispatch: $slugs (count=$count)"
           {
             echo "slugs=$slugs"
             echo "count=$count"

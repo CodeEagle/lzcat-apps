@@ -768,6 +768,40 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(summary["filtered_excluded"], ["codex-web"])
 
 
+class ListByStatusTest(unittest.TestCase):
+    def test_returns_slugs_matching_any_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _seed_cache(root)
+            items = [
+                _item_node("PVTI_a", {"Slug": "alpha", "Status": {"name": "In-Progress"}}),
+                _item_node("PVTI_b", {"Slug": "bravo", "Status": {"name": "Browser-Test"}}),
+                _item_node("PVTI_c", {"Slug": "charlie", "Status": {"name": "Inbox"}}),
+                _item_node("PVTI_d", {"Slug": "delta", "Status": {"name": "Approved"}}),
+            ]
+            fake = FakeRun([_items_page(items)])
+            buf = io.StringIO()
+            with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+                rc = project_board.cmd_list_by_status(_ns(root, status="In-Progress,Browser-Test", format="json"))
+            self.assertEqual(rc, 0)
+            self.assertEqual(json.loads(buf.getvalue()), ["alpha", "bravo"])
+
+    def test_skips_archived(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _seed_cache(root)
+            items = [
+                _item_node("PVTI_a", {"Slug": "alpha", "Status": {"name": "In-Progress"}}, archived=True),
+                _item_node("PVTI_b", {"Slug": "bravo", "Status": {"name": "In-Progress"}}),
+            ]
+            fake = FakeRun([_items_page(items)])
+            buf = io.StringIO()
+            with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+                rc = project_board.cmd_list_by_status(_ns(root, status="In-Progress", format="json"))
+            self.assertEqual(rc, 0)
+            self.assertEqual(json.loads(buf.getvalue()), ["bravo"])
+
+
 class ListApprovedTest(unittest.TestCase):
     def test_list_approved_emits_oldest_last_run_first(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

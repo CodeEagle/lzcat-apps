@@ -1289,6 +1289,35 @@ def cmd_list_approved(args: argparse.Namespace) -> int:
     return 0
 
 
+def _items_with_status(project_id: str, statuses: set[str]) -> list[tuple[str, dict[str, Any]]]:
+    out: list[tuple[str, dict[str, Any]]] = []
+    for item in list_project_items(project_id):
+        if item.get("isArchived"):
+            continue
+        flat = _item_field_map(item)
+        s = flat.get("Status")
+        name = s.get("name") if isinstance(s, dict) else s
+        if name in statuses:
+            out.append((str(flat.get("Slug") or "").strip(), flat))
+    return [pair for pair in out if pair[0]]
+
+
+def cmd_list_by_status(args: argparse.Namespace) -> int:
+    _, _, project_id = _load_for_command(args)
+    targets = {s.strip() for s in (args.status or "").split(",") if s.strip()}
+    if not targets:
+        raise SystemExit("--status must be a comma-separated list of Status names")
+    pairs = _items_with_status(project_id, targets)
+    pairs.sort(key=lambda p: p[0])
+    slugs = [s for s, _ in pairs]
+    if args.format == "json":
+        print(json.dumps(slugs))
+    else:
+        for s in slugs:
+            print(s)
+    return 0
+
+
 def cmd_read(args: argparse.Namespace) -> int:
     _, _, project_id = _load_for_command(args)
     node, flat = find_item_by_slug(project_id, args.slug)
@@ -1389,6 +1418,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("-n", "--limit", type=int, default=2)
     s.add_argument("--format", choices=["text", "json"], default="text")
     s.set_defaults(func=cmd_list_approved)
+
+    s = sub.add_parser("list-by-status", help="Print slugs whose Project Status is in the given set")
+    s.add_argument(
+        "--status",
+        required=True,
+        help="Comma-separated Status names, e.g. 'In-Progress,Browser-Test'",
+    )
+    s.add_argument("--format", choices=["text", "json"], default="text")
+    s.set_defaults(func=cmd_list_by_status)
 
     s = sub.add_parser("read", help="Print item fields by slug")
     s.add_argument("slug")
