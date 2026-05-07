@@ -1,19 +1,19 @@
 migration/lilbee
 branch 'template' set up to track 'origin/template'.
-HEAD is now at 12cf0a1 chore(auto-discover): refresh queue + candidates 2026-05-07T20:02Z
+HEAD is now at 59319f5 chore(auto-discover): refresh queue + candidates 2026-05-07T20:52Z
 Preparing worktree (new branch 'template')
 {
-  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T201848Z-github-jsierra87-engram.md",
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260507T211153Z-github-jsierra87-engram.md",
   "resumed": true,
   "returncode": 1,
-  "session_id": "40dd8fc2-52f0-4259-817b-50334443866a",
+  "session_id": "91cb8e56-dcb0-49ae-87ed-fbd5ef4222c8",
   "status": "failed",
-  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T201848Z-github-jsierra87-engram"
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260507T211153Z-github-jsierra87-engram"
 }
 obscura binary not found in PATH
 /__w/lzcat-apps/lzcat-apps/registry/candidates/latest.json
-/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T201850Z.jsonl
-{"already_migrated_count": 0, "candidate_count": 50, "counts_by_status": {"excluded": 5, "needs_review": 31, "portable": 14}, "excluded_count": 5, "generated_at": "2026-05-07T20:18:50Z", "needs_review_count": 31, "portable_count": 14}
+/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260507T211154Z.jsonl
+{"already_migrated_count": 1, "candidate_count": 50, "counts_by_status": {"already_migrated": 1, "excluded": 3, "needs_review": 23, "portable": 23}, "excluded_count": 3, "generated_at": "2026-05-07T21:11:54Z", "needs_review_count": 23, "portable_count": 23}
 {
   "browser_recheck": [],
   "codex_worker": [
@@ -49,182 +49,127 @@ obscura binary not found in PATH
   "discord_replies": [],
   "discovery_gate": [
     {
-      "id": "github:codeby-red/homelab_dashboard_mcp_integrated",
+      "id": "github:clickhouse/clickhouse",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:letehaha/budget-tracker",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:fmind/self.fmind.me",
+      "id": "github:self-hosters-by-night/helm-charts",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:minded-nakuru841/headscale-install",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:batistai4724/zero-cost-ops",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:abigaelacrocarpous465/ai-fitness-coach",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:surpliced-horsebean256/closeinbox.email",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:ritchiearistotelian98/docker-headscale",
+      "id": "github:atomantic/portos",
       "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
-      "id": "github:badressalemmouffek-coder/frank-bot",
+      "id": "github:pat-the-geek/be-clear",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:h3rb3rn/moe-sovereign",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:kerrimoral221/mcp-scorecard",
+      "id": "github:k8nstantin/openpraxis",
       "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
-      "id": "github:inclement-enthusiasm598/romhex14-ecu-tuning",
+      "id": "github:mati-l33t/lan-tracker-network-sonar",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:acoseac/1-bit-bridge",
+      "id": "github:nyf-smartlab/test",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:garboiluniversity170/nessus-to-excel-nte",
+      "id": "github:vecens/signal-permafrost",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:ivana8079/homelab-vlan-refactor-configs",
+      "id": "github:inside4ndroid/cinema-hq",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:05rahmet/hi-hi",
+      "id": "github:luizlene28/severino-master-clean",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:idabetic/librum-kviz",
+      "id": "github:cookie-blue/blinky-dogears",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:alicia272320/mi-proyecto-de-sda2",
+      "id": "github:4bl4ze/expo-mobile-app-coded",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:erickviann1-dev/usdcny-tracker",
+      "id": "github:jansebarkley/ps312-survey-data",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:gianmarcobertolini/soccer-player-scouting-system",
+      "id": "github:yanishmk/aster",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:alvarbolliger-create/elektroniker-lexikon",
+      "id": "github:oshiolema/needleman-wunsch",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:brashakg/bettervision-inventory",
+      "id": "github:prananand/stock-market-prediction-model",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:chenxi750328ai/agent-jianghu",
+      "id": "github:ersnozturk/greeno-mobile-app",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:lefebvresebastien-jpg/monjardin-ai",
+      "id": "github:mediaforgethailand/mediaforge-workspace-frontend",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:gedankenadvancedconcepts/topos-quantum-gravity",
+      "id": "github:analyst-muneeza/codealpha-internship",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:evgengithab/javascript-playground",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:brdeb/usr_share_wallpapers",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:tcelestino/rt-ranking-endurance",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:acymz/autovpn",
+      "id": "github:gallowaysoftware/murmur",
       "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
-      "id": "github:jstxia/it6l-final-submittion",
+      "id": "github:thibaud200personal/boardgame-dashboard",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:flat447/v2ray-lists",
-      "reason": "candidate_excluded",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:kyledurieux/selenium-service",
+      "id": "github:behrangalavi/backup-operator",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:anchejeez/market_simulator_daw",
+      "id": "github:developers-together/a-type",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:juancarlodev/steve-os-engine",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:bimross/skills-mcp-server",
-      "reason": "candidate_excluded",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:watchakorn-18k/watchakorn-18k",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:hamid2010/spring-boot-rest-api",
+      "id": "github:bcgov/reserve-rec-api",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     }
@@ -239,5 +184,5 @@ obscura binary not found in PATH
   },
   "post_acceptance": [],
   "selected": null,
-  "started_at": "2026-05-07T20:18:48Z"
+  "started_at": "2026-05-07T21:11:52Z"
 }
