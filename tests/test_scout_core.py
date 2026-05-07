@@ -28,26 +28,45 @@ class ScoutCoreTest(unittest.TestCase):
     def test_build_search_terms_includes_dash_and_space_variants(self) -> None:
         self.assertEqual(build_search_terms("paperclip-ai"), ["paperclip-ai", "paperclip ai"])
 
-    def test_github_search_sources_do_not_gate_by_stars_or_push_date(self) -> None:
+    def test_github_search_sources_gate_by_stars_and_push_date(self) -> None:
         queries = [source["query_template"] for source in GITHUB_SEARCH_SOURCES]
-
-        self.assertTrue(any("game" in query.lower() for query in queries))
+        self.assertTrue(queries, "no GitHub search sources configured")
         for query in queries:
-            self.assertNotIn("stars:", query)
-            self.assertNotIn("pushed:", query)
+            # Every search now demands a star floor + recency window so the
+            # queue isn't flooded with 0-star personal repos.
+            self.assertIn("stars:>", query)
+            self.assertIn("pushed:>=", query)
+            self.assertIn("archived:false", query)
 
-    def test_awesome_selfhosted_source_does_not_gate_by_stars_or_update_date(self) -> None:
-        self.assertNotIn("min_stars", AWESOME_SELFHOSTED_SOURCE)
-        self.assertNotIn("recent_days", AWESOME_SELFHOSTED_SOURCE)
+    def test_awesome_selfhosted_source_gates_by_stars_and_update_date(self) -> None:
+        self.assertGreaterEqual(AWESOME_SELFHOSTED_SOURCE.get("min_stars", 0), 100)
+        self.assertGreaterEqual(AWESOME_SELFHOSTED_SOURCE.get("recent_days", 0), 30)
 
-    def test_classify_lazycat_hit_as_needs_review_for_ai(self) -> None:
+    def test_classify_lazycat_hit_as_already_migrated_on_strong_match(self) -> None:
+        # Hit label starts with the repo name → mechanical short-circuit.
         status, reason = classify_search_hits(
             {"repo": "paperclip", "full_name": "paperclipai/paperclip"},
             [{"raw_label": "Paperclip AI", "detail_url": "https://lazycat.cloud/appstore/detail/x"}],
         )
+        self.assertEqual(status, "already_migrated")
+        self.assertIn("Strong app-store match", reason)
 
+    def test_classify_lazycat_hit_as_needs_review_when_ambiguous(self) -> None:
+        # Hit label doesn't reference the repo by name → escalate to AI.
+        status, reason = classify_search_hits(
+            {"repo": "ledger-cli", "full_name": "owner/ledger-cli"},
+            [{"raw_label": "Family Budget", "detail_url": "https://lazycat.cloud/appstore/detail/y"}],
+        )
         self.assertEqual(status, "needs_review")
         self.assertIn("AI", reason)
+
+    def test_classify_lazycat_hit_strong_match_with_exact_label(self) -> None:
+        # Hit label equals the repo name → strong match.
+        status, _ = classify_search_hits(
+            {"repo": "calibre-web", "full_name": "janeczku/calibre-web"},
+            [{"raw_label": "calibre web", "detail_url": "https://lazycat.cloud/appstore/detail/z"}],
+        )
+        self.assertEqual(status, "already_migrated")
 
     def test_merge_repositories_combines_sources(self) -> None:
         repos = [
@@ -103,7 +122,8 @@ Python[1,234](http://github.com/owner/demo/stargazers) 5 stars today
         self.assertEqual(repos[0]["stars_today"], 5)
 
     @patch("scripts.scout_core.fetch_text")
-    def test_search_lazycat_returns_needs_review_for_strong_hit(self, fetch_text_mock) -> None:
+    def test_search_lazycat_returns_already_migrated_on_strong_hit(self, fetch_text_mock) -> None:
+        # Strong-match: hit label starts with the repo name → short-circuit.
         fetch_text_mock.return_value = """
 [![Image 0](x) Paperclip AI](http://lazycat.cloud/appstore/detail/fun.selfstudio.app.migration.paperclip)
 """
@@ -111,9 +131,22 @@ Python[1,234](http://github.com/owner/demo/stargazers) 5 stars today
 
         result = search_lazycat(repo)
 
-        self.assertEqual(result["status"], "needs_review")
+        self.assertEqual(result["status"], "already_migrated")
         self.assertEqual(result["hits"][0]["raw_label"], "Paperclip AI")
         self.assertEqual(result["searches"][0]["term"], "paperclip")
+
+    @patch("scripts.scout_core.fetch_text")
+    def test_search_lazycat_returns_needs_review_when_ambiguous(self, fetch_text_mock) -> None:
+        # Hit label doesn't match repo name → escalate to AI review.
+        fetch_text_mock.return_value = """
+[![Image 0](x) Family Budget](http://lazycat.cloud/appstore/detail/cloud.example.app.unrelated)
+"""
+        repo = {"repo": "ledger-cli", "full_name": "owner/ledger-cli"}
+
+        result = search_lazycat(repo)
+
+        self.assertEqual(result["status"], "needs_review")
+        self.assertEqual(result["hits"][0]["raw_label"], "Family Budget")
 
     @patch("scripts.scout_core.search_lazycat")
     def test_check_candidate_writes_structured_decision_log(self, search_mock) -> None:

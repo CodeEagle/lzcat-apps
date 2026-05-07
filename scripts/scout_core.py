@@ -52,30 +52,30 @@ TRENDING_SOURCES = (
 
 GITHUB_SEARCH_SOURCES = (
     {
+        # Curated self-hosted topic with quality + freshness gates. Borrowed
+        # back from CodeEagle/LocalAgent — the previous lzcat-apps version
+        # dropped these filters and the queue filled with 0-star personal
+        # repos like `aaronflorey/aaronflorey`.
         "name": "github_search_self_hosted_recent",
         "label": "GitHub Search Self-hosted",
-        "query_template": "topic:self-hosted archived:false fork:false",
+        "query_template": "topic:self-hosted stars:>500 pushed:>={recent_date} archived:false fork:false",
         "sort": "updated",
         "per_page": 20,
     },
     {
+        # Recently-active high-signal generic repos.
         "name": "github_search_high_star_recent",
-        "label": "GitHub Search Web App",
-        "query_template": "web app server archived:false fork:false",
+        "label": "GitHub Search High Star",
+        "query_template": "stars:>2000 pushed:>={recent_date} archived:false fork:false",
         "sort": "updated",
         "per_page": 20,
     },
     {
+        # Dockerized + active. Lowered from "stars:>1000" to ">500" since
+        # many genuine self-hosted apps live in the 500-1000 range.
         "name": "github_search_docker_recent",
         "label": "GitHub Search Dockerized",
-        "query_template": "docker OR docker-compose in:readme archived:false fork:false",
-        "sort": "updated",
-        "per_page": 20,
-    },
-    {
-        "name": "github_search_self_hosted_games",
-        "label": "GitHub Search Self-hosted Games",
-        "query_template": "self-hosted game OR browser game OR multiplayer server archived:false fork:false",
+        "query_template": "docker in:readme stars:>500 pushed:>={recent_date} archived:false fork:false",
         "sort": "updated",
         "per_page": 20,
     },
@@ -85,6 +85,12 @@ AWESOME_SELFHOSTED_SOURCE = {
     "name": "awesome_selfhosted_high_star",
     "label": "Awesome Self-Hosted",
     "snapshot_url": "https://codeload.github.com/awesome-selfhosted/awesome-selfhosted-data/tar.gz/refs/heads/master",
+    # Inherited from LocalAgent: only ingest curated entries with at least
+    # `min_stars` stars whose upstream has been pushed within the last
+    # `recent_days` days. Without this, the awesome list dumps several
+    # thousand low-signal entries into the queue.
+    "min_stars": 1000,
+    "recent_days": 540,
 }
 
 
@@ -290,6 +296,21 @@ def parse_appstore_hits(markdown: str) -> list[dict[str, str]]:
 def classify_search_hits(repo: dict[str, Any], hits: list[dict[str, str]]) -> tuple[str, str]:
     if not hits:
         return ("portable", "No matching app found in LazyCat app store search.")
+
+    # Mechanical strong-match detection (borrowed from CodeEagle/LocalAgent).
+    # When an app-store hit's label clearly references the upstream by name,
+    # we can short-circuit to `already_migrated` without paying for an AI
+    # review. Only ambiguous matches escalate to needs_review.
+    repo_norm = normalize(repo.get("repo", "") or "")
+    full_name_norm = normalize(repo.get("full_name", "") or "")
+    for hit in hits:
+        hit_norm = normalize(hit.get("raw_label", "") or "")
+        if not hit_norm:
+            continue
+        if repo_norm and (hit_norm == repo_norm or hit_norm.startswith(repo_norm + " ")):
+            return ("already_migrated", "Strong app-store match found for repository name.")
+        if full_name_norm and full_name_norm in hit_norm:
+            return ("already_migrated", "Strong app-store match found for repository full name.")
     return ("needs_review", "LazyCat app-store search returned matches; AI discovery review required.")
 
 
@@ -662,10 +683,17 @@ def fetch_github_search_candidates() -> list[dict[str, Any]]:
     return repos
 
 
+def _awesome_recent_cutoff_iso(days: int) -> str:
+    return (datetime.now(UTC) - timedelta(days=days)).date().isoformat()
+
+
 def fetch_awesome_selfhosted_candidates() -> list[dict[str, Any]]:
     snapshot_bytes = fetch_bytes(AWESOME_SELFHOSTED_SOURCE["snapshot_url"], timeout=120, retries=4)
     source_name = AWESOME_SELFHOSTED_SOURCE["name"]
     source_label = AWESOME_SELFHOSTED_SOURCE["label"]
+    min_stars = int(AWESOME_SELFHOSTED_SOURCE.get("min_stars", 0) or 0)
+    recent_days = int(AWESOME_SELFHOSTED_SOURCE.get("recent_days", 0) or 0)
+    recent_cutoff = _awesome_recent_cutoff_iso(recent_days) if recent_days else ""
     repos: list[dict[str, Any]] = []
 
     with tarfile.open(fileobj=io.BytesIO(snapshot_bytes), mode="r:gz") as archive:
@@ -684,6 +712,13 @@ def fetch_awesome_selfhosted_candidates() -> list[dict[str, Any]]:
                 continue
             if bool(payload.get("archived", False)):
                 continue
+            stars = int(payload.get("stargazers_count", 0) or 0)
+            if min_stars and stars < min_stars:
+                continue
+            if recent_cutoff:
+                pushed_at = compact_whitespace(payload.get("updated_at", "")) or compact_whitespace(payload.get("pushed_at", ""))
+                if pushed_at and pushed_at[:10] < recent_cutoff:
+                    continue
             owner, repo = parsed
             full_name = f"{owner}/{repo}"
             repos.append(
@@ -697,7 +732,7 @@ def fetch_awesome_selfhosted_candidates() -> list[dict[str, Any]]:
                     "repo_url": source_code_url,
                     "description": compact_whitespace(payload.get("description", "")),
                     "language": "",
-                    "total_stars": int(payload.get("stargazers_count", 0) or 0),
+                    "total_stars": stars,
                     "stars_today": 0,
                     "external_signal": f"Listed on {source_label}",
                     "external_url": compact_whitespace(payload.get("website_url", "")) or source_code_url,
