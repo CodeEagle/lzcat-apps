@@ -529,13 +529,23 @@ def main() -> int:
     if not outbox_dir.is_absolute():
         outbox_dir = repo_root / outbox_dir
     task_dir = task_root / f"{now.replace(':', '').replace('-', '')}-{safe_task_name(str(item.get('id', 'unknown')))}"
+    # Planning mode must always start a fresh claude session. The
+    # repair-mode session_id stored in `item.codex.session_id` belongs
+    # to a completely different prompt (post-build_failed repair) and
+    # could be hours/days old; resuming it from a planning prompt
+    # confuses claude (it sees the resumed conversation, not the new
+    # planning task) and causes silent rc=1 exits with no file edits.
+    # Observed in stellaclaw runs 25491577249 / 25492174092 /
+    # 25492751352 — every planning run resumed a 12-hour-old repair
+    # session and produced nothing.
+    session_id = item_codex_session_id(item) if args.mode == "repair" else ""
     config = CodexWorkerConfig(
         repo_root=repo_root,
         task_dir=task_dir,
         outbox_dir=outbox_dir,
         box_domain=args.box_domain,
         model=args.model,
-        session_id=item_codex_session_id(item),
+        session_id=session_id,
         execute=not args.no_execute,
     )
     if args.mode == "planning":
