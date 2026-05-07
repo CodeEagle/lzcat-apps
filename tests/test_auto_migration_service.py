@@ -368,6 +368,10 @@ class AutoMigrationServiceTest(unittest.TestCase):
                 str(repo_root),
                 "--build-mode",
                 "validate-only",
+                # --allow-existing is unconditional now: planner phase
+                # may leave a partial apps/<slug>/ dir; bootstrap_migration
+                # would otherwise refuse to proceed.
+                "--allow-existing",
             ],
         )
 
