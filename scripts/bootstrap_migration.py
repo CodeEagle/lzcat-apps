@@ -1415,7 +1415,23 @@ def write_files(repo_root: Path, spec: dict[str, Any], force: bool) -> list[Path
         dockerfile_path = app_dir / spec["dockerfile_path"]
         dockerfile_path.parent.mkdir(parents=True, exist_ok=True)
         template_mode = spec["dockerfile_path"].endswith(".template")
-        if force or not dockerfile_path.exists():
+        # NEVER overwrite a non-placeholder Dockerfile / Dockerfile.template,
+        # even when force=True. claude's planner phase may have already
+        # written a tailored multi-stage build (e.g. stellaclaw run
+        # 25502110574 had a real Rust Dockerfile.template). Force was meant
+        # to recover from a half-finished SCAFFOLD, not to clobber a
+        # successfully-planned migration.
+        existing_is_placeholder = False
+        if dockerfile_path.exists():
+            try:
+                existing_text = dockerfile_path.read_text(encoding="utf-8", errors="ignore")
+                existing_is_placeholder = (
+                    "Replace this placeholder Dockerfile before running a real build" in existing_text
+                    or "TODO: replace this placeholder with the real build steps" in existing_text
+                )
+            except OSError:
+                existing_is_placeholder = True
+        if not dockerfile_path.exists() or existing_is_placeholder:
             dockerfile_path.write_text(render_placeholder_dockerfile(spec, template_mode), encoding="utf-8")
             written.append(dockerfile_path)
 
