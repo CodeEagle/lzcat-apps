@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "app": "showpilot",
+  "source_version": "v0.33.135",
+  "build_version": "0.33.135",
+  "head_sha": "9a984398cbc9",
+  "build_recipe_hash": "755da236a3f0ff7bb02cd6846a18b5929edd1e987d32ff9f512b040f6b822644",
+  "updated_at": "2026-05-07T09:24:35.489240+00:00",
+  "images": {
+    "showpilot": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:9bdbb66d676cf5ed"
+  },
+  "source_images": {
+    "showpilot": "ghcr.io/codeeagle/lazycatimages:showpilot_9a984398cbc9"
+  },
+  "source_digests": {
+    "_primary": "67c2696d7c5b5cea2be7c964fb58666f4659136fd11e3fc7527968aed29f3f08"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:showpilot_9a984398cbc9",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:9bdbb66d676cf5ed",
+      "elapsed_seconds": 45.828,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    }
+  ]
+}
