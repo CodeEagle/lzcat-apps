@@ -54,6 +54,25 @@ def _candidate_status(item: dict[str, Any]) -> str:
     return str(item.get("candidate_status") or _candidate(item).get("status") or "").strip().lower()
 
 
+def _has_committed_verdict(item: dict[str, Any]) -> bool:
+    """True when the AI reviewer (or operator) has already issued a final
+    verdict on the item.
+
+    discovery_gate.reconcile_queue_items uses this to skip the
+    "needs_review → discovery_review" demotion path. Without it, items
+    promoted past discovery_review (state=ready / scaffolded / etc.)
+    get bounced back to discovery_review every cycle because their
+    ``candidate_status`` field still reads "needs_review" from scout —
+    a known foot-gun that re-demoted stellaclaw, cosmos-server, and
+    every other AI-promoted ready item.
+    """
+    review = item.get("discovery_review")
+    if not isinstance(review, dict):
+        return False
+    status = str(review.get("status") or "").strip().lower()
+    return status in {"migrate", "skip", "needs_human"}
+
+
 def _candidate_reason(item: dict[str, Any]) -> str:
     return str(_candidate(item).get("status_reason") or item.get("last_error") or "").strip()
 
@@ -230,6 +249,15 @@ def reconcile_queue_items(
             continue
 
         if status == "needs_review" and (state != "discovery_review" or not isinstance(item.get("discovery_review"), dict)):
+            # Critical: don't demote items the AI (or operator) has
+            # already passed a verdict on. Without this guard, every
+            # promoted-to-ready item gets bounced back to
+            # discovery_review every cycle because scout's
+            # candidate_status="needs_review" persists on the item
+            # forever — this re-demoted stellaclaw / cosmos-server
+            # and broke the entire E2E flow.
+            if _has_committed_verdict(item):
+                continue
             _mark_discovery_review(item, now=now)
             changes.append({"id": str(item.get("id", "")).strip(), "status": "discovery_review", "reason": "needs_ai_review"})
     return changes

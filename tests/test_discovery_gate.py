@@ -226,6 +226,85 @@ class DiscoveryGateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(load_exclude_slugs(Path(tmp)), set())
 
+    def test_does_not_demote_ready_with_committed_migrate_verdict(self) -> None:
+        """Once the AI (or operator) issued a verdict, reconcile must
+        leave the item alone — even when scout's candidate_status is
+        still "needs_review" (it always is, until someone overwrites
+        it). Without this guard, every promoted-to-ready item bounces
+        back to discovery_review every cycle. Regression: StellaClaw
+        2026-05-07T10:28Z worker run 25489902826.
+        """
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/demo",
+                    "slug": "demo",
+                    "state": "ready",
+                    "candidate_status": "needs_review",
+                    "candidate": {"status": "portable"},
+                    "discovery_review": {
+                        "status": "migrate",
+                        "score": 0.85,
+                        "reviewer": "claude",
+                    },
+                }
+            ]
+        }
+        changes = reconcile_queue_items(
+            queue, publication_index={}, now="2026-05-07T10:30:00Z",
+        )
+        self.assertEqual(changes, [])
+        self.assertEqual(queue["items"][0]["state"], "ready")
+
+    def test_does_not_demote_other_states_with_committed_skip_or_needs_human(self) -> None:
+        """Same protection for skip + needs_human verdicts."""
+        for verdict, state, filtered_reason in (
+            ("skip", "filtered_out", "ai_discovery_skip"),
+            ("needs_human", "waiting_for_human", None),
+        ):
+            queue = {
+                "items": [
+                    {
+                        "id": "github:owner/demo",
+                        "slug": "demo",
+                        "state": state,
+                        "candidate_status": "needs_review",
+                        "candidate": {"status": "portable"},
+                        "discovery_review": {"status": verdict},
+                    }
+                ]
+            }
+            if filtered_reason:
+                queue["items"][0]["filtered_reason"] = filtered_reason
+            changes = reconcile_queue_items(
+                queue, publication_index={}, now="2026-05-07T10:30:00Z",
+            )
+            self.assertEqual(queue["items"][0]["state"], state, f"verdict={verdict}")
+
+    def test_demotes_ready_lacking_verdict_to_discovery_review(self) -> None:
+        """The protection should apply only to items WITH a verdict.
+        A ready item with no AI verdict (legacy / mechanical promotion)
+        still gets bounced back so the AI can review it properly.
+        """
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/demo",
+                    "slug": "demo",
+                    "state": "ready",
+                    "candidate_status": "needs_review",
+                    "candidate": {"status": "portable"},
+                    # discovery_review absent (no verdict yet)
+                }
+            ]
+        }
+        changes = reconcile_queue_items(
+            queue, publication_index={}, now="2026-05-07T10:30:00Z",
+        )
+        self.assertEqual(len(changes), 1)
+        self.assertEqual(changes[0]["status"], "discovery_review")
+        self.assertEqual(queue["items"][0]["state"], "discovery_review")
+
 
 if __name__ == "__main__":
     unittest.main()
