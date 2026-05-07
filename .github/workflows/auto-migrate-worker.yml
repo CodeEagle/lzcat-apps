@@ -21,13 +21,7 @@ on:
 permissions:
   contents: write
   packages: write
-  actions: write     # to chain auto-verify
-  # Some cycles touch .github/workflows/trigger-build.yml via
-  # sync_trigger_build_options.py. Without workflows: write the post-cycle
-  # `git push migration/<slug>` is rejected by GitHub's GitHub-App push
-  # protection, silently dropping every local mod made during the cycle.
-  # Observed in run 25484102037 (heym 2026-05-07T08:23).
-  workflows: write
+  actions: write   # to chain auto-verify
 
 concurrency:
   group: migrate-${{ inputs.slug }}
@@ -137,6 +131,15 @@ jobs:
         with:
           ref: migration/${{ inputs.slug }}
           fetch-depth: 0
+          # Use GH_PAT (workflow scope) instead of the default GITHUB_TOKEN
+          # so the post-cycle `git push migration/<slug>` is allowed to
+          # update .github/workflows/trigger-build.yml (touched by
+          # sync_trigger_build_options.py during cycle). Without this
+          # the entire push is rejected by GitHub's GitHub-App push
+          # protection ("refusing to allow a GitHub App to ... without
+          # workflows permission") and every cycle local mod is dropped.
+          # Observed in run 25484102037 (heym 2026-05-07T08:23).
+          token: ${{ secrets.GH_PAT }}
 
       - name: Configure git identity
         run: |
