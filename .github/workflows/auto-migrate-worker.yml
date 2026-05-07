@@ -128,7 +128,31 @@ jobs:
         run: |
           python3 scripts/lzc_token_refresh.py
 
+      - name: Pre-flight LazyCat App Store recheck
+        id: preempt
+        continue-on-error: true   # never block on transient store API errors
+        run: |
+          set +e
+          python3 scripts/store_preempt_check.py "$SLUG"
+          rc=$?
+          echo "rc=$rc"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          # rc=3 → preempted (someone else shipped this slug between Approved
+          # and now). rc=0 → clear. rc=1 → could not determine; proceed.
+          exit 0
+
+      - name: Mark Project Filtered if preempted
+        if: steps.preempt.outputs.rc == '3'
+        run: |
+          set -euo pipefail
+          python3 scripts/project_board.py update "$SLUG" \
+            --status=Filtered \
+            --field="Failures=preempted: a LazyCat App Store entry now matches this slug; see ai-reviews.jsonl reviewer=preempt"
+          echo "::notice::aborting migration of $SLUG — already published on LazyCat App Store"
+
       - name: Run one migration cycle
+        if: steps.preempt.outputs.rc != '3'
+        id: cycle
         id: cycle
         run: |
           set -euo pipefail
@@ -147,13 +171,13 @@ jobs:
             --disable-local-agent
 
       - name: Push migration/${{ inputs.slug }}
-        if: always()
+        if: always() && steps.preempt.outputs.rc != '3'
         continue-on-error: true
         run: |
           git push origin "migration/$SLUG" || true
 
       - name: Map queue state -> Project Status
-        if: always()
+        if: always() && steps.preempt.outputs.rc != '3'
         id: post
         run: |
           set -euo pipefail
