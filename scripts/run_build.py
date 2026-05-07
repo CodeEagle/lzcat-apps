@@ -1658,6 +1658,44 @@ def build_target_image(
             content = content.replace("{{SERVICE_PORT}}", str(config.get("service_port", "")))
             (source_root / "Dockerfile").write_text(content)
             copy_overlay_paths(repo_dir, source_root, overlay_paths)
+            # Auto-overlay every sibling file in apps/<slug>/ that the
+            # planner wrote (entrypoint scripts, config templates, etc.)
+            # into the build-context root, so a Dockerfile.template line
+            # like `COPY docker-entrypoint.sh /usr/local/bin/...` finds
+            # the file. Without this, claude has to know the magic path
+            # `apps/<slug>/docker-entrypoint.sh` to put in COPY, which
+            # is easy to forget. Observed failure: stellaclaw run
+            # 25505122416 STEP 6/11 — `COPY docker-entrypoint.sh ...`
+            # failed with "no such file or directory" because the file
+            # was at apps/stellaclaw/docker-entrypoint.sh, not at the
+            # build-context root.
+            #
+            # Skip-list covers LazyCat metadata + forensics; everything
+            # else (shell, python, json, yaml configs) flows into the
+            # build context for the planner-written Dockerfile to
+            # reference by bare filename.
+            app_dir = template_path.parent
+            skip_names = {
+                "Dockerfile", "Dockerfile.template",
+                "lzc-manifest.yml", "lzc-build.yml",
+                "README.md", "UPSTREAM_DEPLOYMENT_CHECKLIST.md", "icon.png",
+                ".app-profile.json", ".migration-state.json",
+                ".lazycat-build.json", ".lazycat-images.json",
+            }
+            for sibling in sorted(app_dir.iterdir()):
+                if sibling.name in skip_names:
+                    continue
+                if sibling.name.startswith(".last-"):  # .last-claude-*.log, .last-cycle.log
+                    continue
+                if sibling.name.startswith(".") and sibling.suffix in {".log", ".json"}:
+                    continue
+                target = source_root / sibling.name
+                if target.exists():
+                    continue  # don't override upstream's own files
+                if sibling.is_dir():
+                    shutil.copytree(sibling, target)
+                else:
+                    shutil.copy2(sibling, target)
             # Run prepare_build_context.py if exists (for frontend API URL replacement)
             prepare_script = source_root / "lazycat" / "prepare_build_context.py"
             if prepare_script.exists():
