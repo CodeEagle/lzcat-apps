@@ -1159,17 +1159,14 @@ def cmd_sync(args: argparse.Namespace) -> int:
             current_status.get("name") if isinstance(current_status, dict) else current_status
         )
         downstream = {"In-Progress", "Browser-Test", "Awaiting-Human"} | TERMINAL_STATUSES
-        # Auto-approve when EITHER the AI reviewer scored this item past the
-        # threshold, OR discovery_gate already classified the candidate as
-        # mechanically-ready (state="ready" — passed all mechanical filters,
-        # didn't need an AI second opinion). Both routes signal "go".
-        item_state = str(item.get("state") or "").strip()
+        # Auto-approve ONLY when the AI reviewer scored the item past the
+        # threshold. Earlier we also auto-approved on bare state="ready" —
+        # mechanical gate said "deployable", no app-store hit, no excluded
+        # keyword. But a 0-star personal homepage like
+        # `aaronflorey/aaronflorey` passes that mechanical filter and ends
+        # up in In-Progress wasting a worker run. AI judgment is mandatory.
         ai_says_go = score is not None and score >= threshold
-        gate_says_go = item_state == "ready"
-        if (
-            (ai_says_go or gate_says_go)
-            and current_status_name not in ({"Approved"} | downstream)
-        ):
+        if ai_says_go and current_status_name not in ({"Approved"} | downstream):
             set_field(project_id, item_id, cache, "Status", "Approved")
             flat["Status"] = {"name": "Approved"}
             summary["approved"].append(slug)

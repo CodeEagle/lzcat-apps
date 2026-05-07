@@ -400,12 +400,13 @@ class BuildItemIndexTest(unittest.TestCase):
             )
 
             responses: list = [_items_page([])]   # one and only list call
-            # Per slug: add_item + Slug + Status=Inbox + Upstream + Status=Approved
+            # Per slug: add_item + Slug + Status=Inbox + Upstream
+            # (no Status=Approved — no AI score, so no auto-approve)
             for _ in range(50):
                 responses.append({"addProjectV2DraftIssue": {"projectItem": {"id": "PVTI_x"}}})
                 responses.extend([
                     {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_x"}}}
-                ] * 4)
+                ] * 3)
 
             fake = FakeRun(responses)
             buf = io.StringIO()
@@ -442,6 +443,7 @@ class SyncTest(unittest.TestCase):
                     "slug": "demo",
                     "state": "ready",
                     "candidate": {"repo_url": "https://github.com/owner/demo", "build_strategy": "official_image"},
+                    # Score is below threshold (0.8) so AI says no.
                     "discovery_review": {"score": 0.5, "status": "migrate"},
                 }
             ]
@@ -458,8 +460,6 @@ class SyncTest(unittest.TestCase):
             {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_new"}}},
             {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_new"}}},
             {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_new"}}},
-            # state="ready" triggers auto-approve → Status=Approved
-            {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_new"}}},
         ]
         fake = FakeRun(responses)
         buf = io.StringIO()
@@ -468,7 +468,8 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(rc, 0)
         summary = json.loads(buf.getvalue())
         self.assertEqual(summary["created"], ["demo"])
-        self.assertEqual(summary["approved"], ["demo"])  # state=ready → auto-approved
+        # state=ready alone is NOT enough — AI score 0.5 < 0.8 threshold.
+        self.assertEqual(summary["approved"], [])
 
     def test_sync_promotes_inbox_to_approved_when_score_meets_threshold(self) -> None:
         queue = {
@@ -504,10 +505,10 @@ class SyncTest(unittest.TestCase):
         summary = json.loads(buf.getvalue())
         self.assertEqual(summary["approved"], ["demo"])
 
-    def test_sync_auto_approves_ready_items_without_score(self) -> None:
-        # state="ready" means discovery_gate already passed it without needing
-        # AI review. These must auto-approve too, otherwise the dispatcher
-        # never sees the bulk of the queue.
+    def test_sync_does_not_auto_approve_ready_items_without_ai_score(self) -> None:
+        # Mechanical state="ready" alone is not enough. AI must score the
+        # item past the threshold first; otherwise low-signal repos like
+        # personal homepages slip into Approved.
         queue = {
             "items": [
                 {
@@ -528,17 +529,15 @@ class SyncTest(unittest.TestCase):
                 "Upstream": "https://github.com/owner/demo",
             },
         )
-        responses: list = [
-            _items_page([existing]),  # _build_item_index
-            {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_demo"}}},  # Status=Approved
-        ]
+        # No mutations — score is missing → no auto-approve, no field changes.
+        responses: list = [_items_page([existing])]
         fake = FakeRun(responses)
         buf = io.StringIO()
         with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
             rc = project_board.cmd_sync(_ns(root))
         self.assertEqual(rc, 0)
         summary = json.loads(buf.getvalue())
-        self.assertEqual(summary["approved"], ["demo"])
+        self.assertEqual(summary["approved"], [])
 
     def test_sync_does_not_auto_approve_discovery_review_items(self) -> None:
         queue = {

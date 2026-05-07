@@ -2966,8 +2966,8 @@
       "id": "github:jeremyguo/stellaclaw",
       "slug": "stellaclaw",
       "source": "JeremyGuo/StellaClaw",
-      "state": "ready",
-      "updated_at": "2026-05-06T23:51:29Z",
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:16Z",
       "workspace_path": "/__w/lzcat-apps/lzcat-apps/../migration-workspaces/migration-stellaclaw"
     },
     {
@@ -3489,8 +3489,8 @@
       "id": "github:the-farshad/minerva",
       "slug": "minerva",
       "source": "the-farshad/Minerva",
-      "state": "ready",
-      "updated_at": "2026-05-06T21:24:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:16Z"
     },
     {
       "attempts": 0,
@@ -4938,8 +4938,8 @@
       "id": "github:rutob42/dnsfilterapp",
       "slug": "dnsfilterapp",
       "source": "rutob42/dnsFilterApp",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:16Z"
     },
     {
       "attempts": 0,
@@ -5047,8 +5047,8 @@
       "id": "github:nduongg110/qdphone",
       "slug": "qdphone",
       "source": "nduongg110/QDPhone",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:17Z"
     },
     {
       "attempts": 0,
@@ -5147,8 +5147,8 @@
       "id": "github:gladiola/webappexperimental26",
       "slug": "webappexperimental26",
       "source": "gladiola/WebAppExperimental26",
-      "state": "ready",
-      "updated_at": "2026-05-06T21:24:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:17Z"
     },
     {
       "attempts": 0,
@@ -5368,8 +5368,8 @@
       "id": "github:vercel-labs/dev3000",
       "slug": "dev3000",
       "source": "vercel-labs/dev3000",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:17Z"
     },
     {
       "attempts": 0,
@@ -6598,8 +6598,8 @@
       "id": "github:hanikazmi1011/studentportalweb",
       "slug": "studentportalweb",
       "source": "hanikazmi1011/StudentPortalWeb",
-      "state": "ready",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:18Z"
     },
     {
       "attempts": 0,
@@ -6637,8 +6637,8 @@
       "id": "github:michalcapo/libro",
       "slug": "libro",
       "source": "michalCapo/libro",
-      "state": "ready",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:18Z"
     },
     {
       "attempts": 0,
@@ -6676,8 +6676,8 @@
       "id": "github:jeppsontaylor/jankurai",
       "slug": "jankurai",
       "source": "jeppsontaylor/Jankurai",
-      "state": "ready",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:18Z"
     },
     {
       "attempts": 0,
@@ -6715,8 +6715,8 @@
       "id": "github:erikkins/rigacap",
       "slug": "rigacap",
       "source": "erikkins/rigacap",
-      "state": "ready",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:19Z"
     },
     {
       "attempts": 0,
@@ -7939,8 +7939,8 @@
       "id": "github:getsentry/firetower",
       "slug": "firetower",
       "source": "getsentry/firetower",
-      "state": "ready",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:19Z"
     },
     {
       "attempts": 0,
@@ -7978,8 +7978,8 @@
       "id": "github:icssc/antalmanac",
       "slug": "antalmanac",
       "source": "icssc/AntAlmanac",
-      "state": "ready",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:20Z"
     },
     {
       "attempts": 0,
@@ -8443,8 +8443,8 @@
       "id": "github:meutax/sergio",
       "slug": "sergio",
       "source": "meutax/sergio",
-      "state": "ready",
-      "updated_at": "2026-05-06T17:24:31Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:20Z"
     },
     {
       "attempts": 0,
@@ -10415,8 +10415,8 @@
       "id": "github:istota-project/istota",
       "slug": "istota",
       "source": "istota-project/istota",
-      "state": "ready",
-      "updated_at": "2026-05-06T18:32:34Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:20Z"
     },
     {
       "attempts": 0,
@@ -11163,8 +11163,8 @@
       "id": "github:vijay1731/personalforge",
       "slug": "personalforge",
       "source": "Vijay1731/personalforge",
-      "state": "ready",
-      "updated_at": "2026-05-06T18:03:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:21Z"
     },
     {
       "attempts": 0,
@@ -12159,8 +12159,8 @@
       "id": "github:eroseleafgrowth612/siliao",
       "slug": "siliao",
       "source": "Eroseleafgrowth612/siliao",
-      "state": "ready",
-      "updated_at": "2026-05-06T18:03:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:21Z"
     },
     {
       "attempts": 0,
@@ -14546,8 +14546,8 @@
       "id": "github:emircanozdemirdev/taskqueuemini",
       "slug": "taskqueuemini",
       "source": "emircanozdemirdev/TaskQueueMini",
-      "state": "ready",
-      "updated_at": "2026-05-06T18:03:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:21Z"
     },
     {
       "attempts": 0,
@@ -14999,8 +14999,8 @@
       "id": "github:mrredstoney/taskflow",
       "slug": "taskflow",
       "source": "MrRedstoneY/TaskFlow",
-      "state": "ready",
-      "updated_at": "2026-05-06T18:03:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:22Z"
     },
     {
       "attempts": 0,
@@ -15038,8 +15038,8 @@
       "id": "github:jesuscastromtz/jesuscastromtz",
       "slug": "jesuscastromtz",
       "source": "jesuscastromtz/jesuscastromtz",
-      "state": "ready",
-      "updated_at": "2026-05-06T18:03:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:22Z"
     },
     {
       "attempts": 0,
@@ -15077,8 +15077,8 @@
       "id": "github:wilsonnjoroge/wilsonnjoroge",
       "slug": "wilsonnjoroge",
       "source": "wilsonnjoroge/wilsonnjoroge",
-      "state": "ready",
-      "updated_at": "2026-05-06T18:03:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:22Z"
     },
     {
       "attempts": 0,
@@ -15353,8 +15353,8 @@
       "id": "github:andatoshiki/telecast",
       "slug": "telecast",
       "source": "andatoshiki/telecast",
-      "state": "ready",
-      "updated_at": "2026-05-06T18:32:34Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:23Z"
     },
     {
       "attempts": 0,
@@ -15818,8 +15818,8 @@
       "id": "github:rockballslab/saaskit",
       "slug": "saaskit",
       "source": "rockballslab/SAASKIT",
-      "state": "ready",
-      "updated_at": "2026-05-06T18:32:34Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:23Z"
     },
     {
       "attempts": 0,
@@ -15857,8 +15857,8 @@
       "id": "github:cullis-security/cullis",
       "slug": "cullis",
       "source": "cullis-security/cullis",
-      "state": "ready",
-      "updated_at": "2026-05-06T18:32:34Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:23Z"
     },
     {
       "attempts": 0,
@@ -15957,8 +15957,8 @@
       "id": "github:jesssullivan/tummycrypt",
       "slug": "tummycrypt",
       "source": "Jesssullivan/tummycrypt",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:24Z"
     },
     {
       "attempts": 0,
@@ -15996,8 +15996,8 @@
       "id": "github:brockamer/findajob",
       "slug": "findajob",
       "source": "brockamer/findajob",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:15:24Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:24Z"
     },
     {
       "attempts": 0,
@@ -17145,8 +17145,8 @@
       "id": "github:mitshe/mitshe",
       "slug": "mitshe",
       "source": "mitshe/mitshe",
-      "state": "ready",
-      "updated_at": "2026-05-06T18:32:34Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:25Z"
     },
     {
       "attempts": 0,
@@ -18171,8 +18171,8 @@
       "id": "github:thezupzup/nova",
       "slug": "nova",
       "source": "TheZupZup/Nova",
-      "state": "ready",
-      "updated_at": "2026-05-06T18:32:34Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:25Z"
     },
     {
       "attempts": 0,
@@ -18210,8 +18210,8 @@
       "id": "github:vipinnairv/myeestockbuddy",
       "slug": "myeestockbuddy",
       "source": "vipinnairv/MyeeStockBuddy",
-      "state": "ready",
-      "updated_at": "2026-05-06T21:24:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:25Z"
     },
     {
       "attempts": 0,
@@ -19101,8 +19101,8 @@
       "id": "github:misreadingrhinotracheitis1012/remotex",
       "slug": "remotex",
       "source": "Misreadingrhinotracheitis1012/RemoteX",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:26Z"
     },
     {
       "attempts": 0,
@@ -19426,8 +19426,8 @@
       "id": "github:manzolo/bashcollection",
       "slug": "bashcollection",
       "source": "manzolo/BashCollection",
-      "state": "ready",
-      "updated_at": "2026-05-06T18:32:34Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:26Z"
     },
     {
       "attempts": 0,
@@ -21796,8 +21796,8 @@
       "id": "github:cloudillo/cloudillo",
       "slug": "cloudillo",
       "source": "cloudillo/cloudillo",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:27Z"
     },
     {
       "attempts": 0,
@@ -21835,8 +21835,8 @@
       "id": "github:anis-marrouchi/agentx",
       "slug": "agentx",
       "source": "anis-marrouchi/agentx",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:27Z"
     },
     {
       "attempts": 0,
@@ -22109,8 +22109,8 @@
       "id": "github:aliyevaladddin/aladdinai",
       "slug": "aladdinai",
       "source": "aliyevaladddin/AladdinAI",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:27Z"
     },
     {
       "attempts": 0,
@@ -22148,8 +22148,8 @@
       "id": "github:nunooliveiraqwe/torii",
       "slug": "torii",
       "source": "nunoOliveiraqwe/torii",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:28Z"
     },
     {
       "attempts": 0,
@@ -22899,8 +22899,8 @@
       "id": "github:wshm-dev/wshm",
       "slug": "wshm",
       "source": "wshm-dev/wshm",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:28Z"
     },
     {
       "attempts": 0,
@@ -23366,8 +23366,8 @@
       "id": "github:skyfay/skysend",
       "slug": "skysend",
       "source": "Skyfay/SkySend",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:28Z"
     },
     {
       "attempts": 0,
@@ -23405,8 +23405,8 @@
       "id": "github:buddyholly007/syntaur",
       "slug": "syntaur",
       "source": "buddyholly007/syntaur",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:29Z"
     },
     {
       "attempts": 0,
@@ -23681,8 +23681,8 @@
       "id": "github:openensemble/openensemble",
       "slug": "openensemble",
       "source": "openensemble/openensemble",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:29Z"
     },
     {
       "attempts": 0,
@@ -23760,8 +23760,8 @@
       "id": "github:hamr0/knowless",
       "slug": "knowless",
       "source": "hamr0/knowless",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:30Z"
     },
     {
       "attempts": 0,
@@ -23839,8 +23839,8 @@
       "id": "github:math0898/streamwebapp",
       "slug": "streamwebapp",
       "source": "math0898/StreamWebApp",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:15:24Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:30Z"
     },
     {
       "attempts": 0,
@@ -23878,8 +23878,8 @@
       "id": "github:arumes31/pokget",
       "slug": "pokget",
       "source": "arumes31/pokget",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:30Z"
     },
     {
       "attempts": 0,
@@ -24198,8 +24198,8 @@
       "id": "github:od0015058-glitch/biuecfybyicwyncafciefaciwucyefaaiaciwy",
       "slug": "biuecfybyicwyncafciefaciwucyefaaiaciwy",
       "source": "od0015058-glitch/biuecfybyicwyncafciefaciwucyefaaiaciwy",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:31Z"
     },
     {
       "attempts": 0,
@@ -24667,8 +24667,8 @@
       "id": "github:mallik-code/societyops",
       "slug": "societyops",
       "source": "mallik-code/SocietyOps",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:31Z"
     },
     {
       "attempts": 0,
@@ -24706,8 +24706,8 @@
       "id": "github:namana-97/graphanalytics",
       "slug": "graphanalytics",
       "source": "Namana-97/GraphAnalytics",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:31Z"
     },
     {
       "attempts": 0,
@@ -24785,8 +24785,8 @@
       "id": "github:ryanmercier/opentaoapi",
       "slug": "opentaoapi",
       "source": "RyanMercier/OpenTaoAPI",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:32Z"
     },
     {
       "attempts": 0,
@@ -24824,8 +24824,8 @@
       "id": "github:isard-vdi/isard",
       "slug": "isard",
       "source": "isard-vdi/isard",
-      "state": "ready",
-      "updated_at": "2026-05-06T19:33:26Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:32Z"
     },
     {
       "attempts": 0,
@@ -25301,8 +25301,8 @@
       "id": "github:bah1w23/replexon",
       "slug": "replexon",
       "source": "bah1w23/replexon",
-      "state": "ready",
-      "updated_at": "2026-05-06T21:24:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:32Z"
     },
     {
       "attempts": 0,
@@ -26239,8 +26239,8 @@
       "id": "github:jacobosandres/na1bot",
       "slug": "na1bot",
       "source": "JacoboSandres/NA1Bot",
-      "state": "ready",
-      "updated_at": "2026-05-06T21:24:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:33Z"
     },
     {
       "attempts": 0,
@@ -26278,8 +26278,8 @@
       "id": "github:bluet/arguslm",
       "slug": "arguslm",
       "source": "bluet/arguslm",
-      "state": "ready",
-      "updated_at": "2026-05-06T21:24:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:33Z"
     },
     {
       "attempts": 0,
@@ -26317,8 +26317,8 @@
       "id": "github:malindo77/smartchannels",
       "slug": "smartchannels",
       "source": "malindo77/smartchannels",
-      "state": "ready",
-      "updated_at": "2026-05-06T21:24:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:33Z"
     },
     {
       "attempts": 0,
@@ -27008,8 +27008,8 @@
       "id": "github:yogdunana/deploypilot",
       "slug": "deploypilot",
       "source": "Yogdunana/deploypilot",
-      "state": "ready",
-      "updated_at": "2026-05-06T21:24:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:34Z"
     },
     {
       "attempts": 0,
@@ -27152,8 +27152,8 @@
       "id": "github:manzifouady/minimalerts",
       "slug": "minimalerts",
       "source": "manzifouady/minimalerts",
-      "state": "ready",
-      "updated_at": "2026-05-06T21:24:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:34Z"
     },
     {
       "attempts": 0,
@@ -29070,8 +29070,8 @@
       "id": "github:tonioot/cloudbase",
       "slug": "cloudbase",
       "source": "Tonioot/cloudbase",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:15:24Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:34Z"
     },
     {
       "attempts": 0,
@@ -29109,8 +29109,8 @@
       "id": "github:montacoder/codeharborai",
       "slug": "codeharborai",
       "source": "MontaCoder/CodeHarborAI",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:15:24Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:35Z"
     },
     {
       "attempts": 0,
@@ -30258,8 +30258,8 @@
       "id": "github:biplob14/biplob14",
       "slug": "biplob14",
       "source": "Biplob14/Biplob14",
-      "state": "ready",
-      "updated_at": "2026-05-06T21:24:25Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:35Z"
     },
     {
       "attempts": 0,
@@ -33618,8 +33618,8 @@
       "id": "github:chetanmorey1/papercortex",
       "slug": "papercortex",
       "source": "chetanmorey1/PaperCortex",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:15:24Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:36Z"
     },
     {
       "attempts": 0,
@@ -33699,8 +33699,8 @@
       "id": "github:masseuseherpetology481/keygate",
       "slug": "keygate",
       "source": "masseuseherpetology481/keygate",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:15:24Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:36Z"
     },
     {
       "attempts": 0,
@@ -33738,8 +33738,8 @@
       "id": "github:10legs/hermithost",
       "slug": "hermithost",
       "source": "10Legs/hermithost",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:15:24Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:36Z"
     },
     {
       "attempts": 0,
@@ -33777,8 +33777,8 @@
       "id": "github:ssarunic/dalston",
       "slug": "dalston",
       "source": "ssarunic/dalston",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:15:24Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:37Z"
     },
     {
       "attempts": 0,
@@ -33816,8 +33816,8 @@
       "id": "github:helixml/helix",
       "slug": "helix",
       "source": "helixml/helix",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:15:24Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:37Z"
     },
     {
       "attempts": 0,
@@ -33857,8 +33857,8 @@
       "id": "github:appwrite/appwrite",
       "slug": "appwrite",
       "source": "appwrite/appwrite",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:15:24Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:37Z"
     },
     {
       "attempts": 0,
@@ -38250,8 +38250,8 @@
       "id": "github:nielvid/swiftdeploy",
       "slug": "swiftdeploy",
       "source": "nielvid/swiftdeploy",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:15:24Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:37Z"
     },
     {
       "attempts": 0,
@@ -38351,8 +38351,8 @@
       "id": "github:dnl1/dotfiles",
       "slug": "dotfiles",
       "source": "dnl1/dotfiles",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:15:24Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:38Z"
     },
     {
       "attempts": 0,
@@ -38816,8 +38816,8 @@
       "id": "github:chrisjuarez/ignisai",
       "slug": "ignisai",
       "source": "Chrisjuarez/IgnisAI",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:15:24Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:38Z"
     },
     {
       "attempts": 0,
@@ -39776,8 +39776,8 @@
       "id": "github:vonhex/eyeris",
       "slug": "eyeris",
       "source": "vonhex/Eyeris",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:39Z"
     },
     {
       "attempts": 0,
@@ -39815,8 +39815,8 @@
       "id": "github:hra42/deployer",
       "slug": "deployer",
       "source": "hra42/deployer",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:39Z"
     },
     {
       "attempts": 0,
@@ -40272,8 +40272,8 @@
       "id": "github:convstack/convstack",
       "slug": "convstack",
       "source": "convstack/convstack",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:39Z"
     },
     {
       "attempts": 0,
@@ -40457,8 +40457,8 @@
       "id": "github:jrs-master/firebat",
       "slug": "firebat",
       "source": "JRs-Master/firebat",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:40Z"
     },
     {
       "attempts": 0,
@@ -40496,8 +40496,8 @@
       "id": "github:kenya12345678/nostrgator",
       "slug": "nostrgator",
       "source": "kenya12345678/NostrGator",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:40Z"
     },
     {
       "attempts": 0,
@@ -40947,8 +40947,8 @@
       "id": "github:georgebuilds/kalos",
       "slug": "kalos",
       "source": "georgebuilds/kalos",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:40Z"
     },
     {
       "attempts": 0,
@@ -45578,8 +45578,8 @@
       "id": "github:arzuparreta/arzuparreta",
       "slug": "arzuparreta",
       "source": "Arzuparreta/Arzuparreta",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:41Z"
     },
     {
       "attempts": 0,
@@ -45617,8 +45617,8 @@
       "id": "github:bradmb/hikari",
       "slug": "hikari",
       "source": "bradmb/hikari",
-      "state": "ready",
-      "updated_at": "2026-05-06T22:55:35Z"
+      "state": "discovery_review",
+      "updated_at": "2026-05-07T04:08:41Z"
     },
     {
       "attempts": 0,
