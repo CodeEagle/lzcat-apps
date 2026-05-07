@@ -20,6 +20,7 @@ registry/auto-migration/*
 !registry/auto-migration/exclude-list.json
 !registry/auto-migration/queue.json
 !registry/auto-migration/ai-reviews.jsonl
+!registry/auto-migration/state-history.jsonl
 apps/*/upstream/
 apps/*/.browser-acceptance-plan.json
 apps/*/.functional-check.json

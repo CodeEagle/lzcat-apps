@@ -60,6 +60,7 @@ def test_subsequent_transition_appends_history(tmp_path: Path, isolated_log: Pat
         reason="AI verdict=migrate score=0.9",
         source="project_board.cmd_sync",
         now="2026-05-07T09:00:00Z",
+        log_path=Path("registry/auto-migration/state-history.jsonl"),
         log_root=tmp_path,
     )
     record_state_transition(
@@ -68,6 +69,7 @@ def test_subsequent_transition_appends_history(tmp_path: Path, isolated_log: Pat
         reason="auto_migrate.scaffold rc=0",
         source="auto_migrate.scaffold",
         now="2026-05-07T09:30:00Z",
+        log_path=Path("registry/auto-migration/state-history.jsonl"),
         log_root=tmp_path,
     )
     assert item["state"] == "scaffolded"
@@ -86,6 +88,7 @@ def test_idempotent_repeat_with_same_reason(tmp_path: Path, isolated_log: Path) 
         reason="auto_migrate.scaffold rc=0",
         source="auto_migrate.scaffold",
         now="2026-05-07T09:00:00Z",
+        log_path=Path("registry/auto-migration/state-history.jsonl"),
         log_root=tmp_path,
     )
     # Re-entering the same transition with the same reason should NOT add a
@@ -96,6 +99,7 @@ def test_idempotent_repeat_with_same_reason(tmp_path: Path, isolated_log: Path) 
         reason="auto_migrate.scaffold rc=0",
         source="auto_migrate.scaffold",
         now="2026-05-07T09:05:00Z",
+        log_path=Path("registry/auto-migration/state-history.jsonl"),
         log_root=tmp_path,
     )
     assert len(item["state_history"]) == 1
@@ -107,10 +111,12 @@ def test_idempotent_repeat_with_same_reason(tmp_path: Path, isolated_log: Path) 
 def test_repeat_with_different_reason_creates_new_entry(tmp_path: Path, isolated_log: Path) -> None:
     item: dict[str, Any] = {"id": "github:foo/bar", "slug": "bar", "state": "ready"}
     record_state_transition(
-        item, "scaffolded", reason="first reason",  source="x", now="t1", log_root=tmp_path,
+        item, "scaffolded", reason="first reason",  source="x", now="t1",
+        log_path=Path("registry/auto-migration/state-history.jsonl"), log_root=tmp_path,
     )
     record_state_transition(
-        item, "scaffolded", reason="second reason", source="y", now="t2", log_root=tmp_path,
+        item, "scaffolded", reason="second reason", source="y", now="t2",
+        log_path=Path("registry/auto-migration/state-history.jsonl"), log_root=tmp_path,
     )
     assert len(item["state_history"]) == 2
     assert [e["reason"] for e in item["state_history"]] == ["first reason", "second reason"]
@@ -121,7 +127,8 @@ def test_run_id_picked_from_env(tmp_path: Path, isolated_log: Path, monkeypatch:
     monkeypatch.setenv("GITHUB_RUN_ID", "12345")
     item: dict[str, Any] = {"id": "github:foo/bar", "slug": "bar"}
     entry = record_state_transition(
-        item, "ready", reason="AI verdict", source="src", now="t", log_root=tmp_path,
+        item, "ready", reason="AI verdict", source="src", now="t",
+        log_path=Path("registry/auto-migration/state-history.jsonl"), log_root=tmp_path,
     )
     assert entry["run_id"] == "12345"
     assert _read_log(isolated_log)[0]["run_id"] == "12345"
@@ -131,7 +138,8 @@ def test_run_id_explicit_override_beats_env(tmp_path: Path, isolated_log: Path, 
     monkeypatch.setenv("GITHUB_RUN_ID", "1")
     item: dict[str, Any] = {"id": "github:foo/bar", "slug": "bar"}
     entry = record_state_transition(
-        item, "ready", reason="r", source="s", now="t", run_id="explicit", log_root=tmp_path,
+        item, "ready", reason="r", source="s", now="t", run_id="explicit",
+        log_path=Path("registry/auto-migration/state-history.jsonl"), log_root=tmp_path,
     )
     assert entry["run_id"] == "explicit"
 
