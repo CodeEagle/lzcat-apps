@@ -1229,42 +1229,70 @@ def cmd_sync(args: argparse.Namespace) -> int:
             except RuntimeError:
                 pass
 
-        # Recover stuck "in-flight" items. The worker marks status=In-Progress
-        # at the start of a run; if the run crashes or exits without advancing
-        # queue.state, the slug stays In-Progress forever and the dispatcher
-        # counts it as inflight, exhausting the parallel-worker budget. When
-        # queue.state is ready/scaffolded AND the item hasn't been touched for
-        # STALE_HOURS, no worker is plausibly running anymore — push it back
-        # to Approved so the dispatcher fans out a fresh run, or to Blocked if
-        # it has already burned through MAX_RERUN_ATTEMPTS.
-        if (
-            item_state in {"ready", "scaffolded"}
-            and current_status_name == "In-Progress"
-            and _is_item_stale(item, hours=_STALE_RECOVERY_HOURS)
-        ):
-            attempts = int(item.get("attempts") or 0)
-            recovery_target = "Blocked" if attempts >= _MAX_RERUN_ATTEMPTS else "Approved"
-            try:
-                set_field(project_id, item_id, cache, "Status", recovery_target)
-                flat["Status"] = {"name": recovery_target}
-                summary.setdefault("recovered_stuck", []).append(
-                    f"{slug}({item_state},attempts={attempts})->{recovery_target}"
-                )
-                current_status_name = recovery_target
-                if recovery_target == "Blocked":
-                    try:
-                        set_field(
-                            project_id,
-                            item_id,
-                            cache,
-                            "Failures",
-                            f"stuck at state={item_state} for >{_STALE_RECOVERY_HOURS}h "
-                            f"after {attempts} attempts; auto-blocked by sync",
-                        )
-                    except RuntimeError:
-                        pass
-            except RuntimeError:
-                pass
+        # Recover stuck "in-flight" items. Two scenarios both leave the
+        # dispatcher's Approved column empty even when queue.json has
+        # legitimately-runnable work:
+        #
+        # 1. Inbox-stranded ready/scaffolded slugs. These never reached
+        #    Approved because they came in via the legacy bare-mechanical
+        #    `portable → ready` path (pre-0378d78), or because a worker ran
+        #    them to scaffolded but the next sync never promoted them. Their
+        #    queue state already says "ready to run another cycle" — the
+        #    board just doesn't reflect it. No worker is running on an Inbox
+        #    card, so we can flip them straight to Approved.
+        #
+        # 2. Stale In-Progress slugs. The worker marks In-Progress at start;
+        #    if it crashes/exits without advancing queue.state, the slug
+        #    sits In-Progress forever and the dispatcher counts it as
+        #    inflight. Only act when updated_at is older than STALE_HOURS so
+        #    we never yank an actively-running worker.
+        #
+        # In both cases attempts ≥ MAX flips to Blocked (with a Failures
+        # note) instead of Approved so we don't loop on a structurally
+        # broken slug.
+        # Skip on `created` — freshly added cards always start at Status=Inbox
+        # and shouldn't be recovered the same cycle they're created (no work
+        # has happened yet for them on the board side).
+        #
+        # Inbox-recovery is restricted to state=scaffolded: a worker already
+        # ran scaffold for these slugs, so re-dispatching is safe and
+        # progress shouldn't be lost. state=ready Inbox items are left
+        # alone — they came in via legacy bare-mechanical and should go
+        # through AI verdict (or operator Approve) before consuming a
+        # worker slot, otherwise low-quality repos like 0-star personal
+        # homepages burn cycles.
+        if not created and item_state in {"ready", "scaffolded"}:
+            inbox_stranded = (
+                current_status_name == "Inbox" and item_state == "scaffolded"
+            )
+            in_progress_stale = (
+                current_status_name == "In-Progress"
+                and _is_item_stale(item, hours=_STALE_RECOVERY_HOURS)
+            )
+            if inbox_stranded or in_progress_stale:
+                attempts = int(item.get("attempts") or 0)
+                recovery_target = "Blocked" if attempts >= _MAX_RERUN_ATTEMPTS else "Approved"
+                try:
+                    set_field(project_id, item_id, cache, "Status", recovery_target)
+                    flat["Status"] = {"name": recovery_target}
+                    summary.setdefault("recovered_stuck", []).append(
+                        f"{slug}({current_status_name}/{item_state},attempts={attempts})->{recovery_target}"
+                    )
+                    current_status_name = recovery_target
+                    if recovery_target == "Blocked":
+                        try:
+                            set_field(
+                                project_id,
+                                item_id,
+                                cache,
+                                "Failures",
+                                f"stuck at state={item_state} after {attempts} attempts; "
+                                f"auto-blocked by sync",
+                            )
+                        except RuntimeError:
+                            pass
+                except RuntimeError:
+                    pass
 
         # Auto-approve ONLY when the AI reviewer scored the item past the
         # threshold. Earlier we also auto-approved on bare state="ready" —

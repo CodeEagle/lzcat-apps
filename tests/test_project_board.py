@@ -716,6 +716,79 @@ class SyncTest(unittest.TestCase):
         self.assertEqual(summary["approved"], [])
         self.assertIn("demo", summary["updated"])
 
+    def test_sync_recovers_inbox_stranded_scaffolded_item_to_approved(self) -> None:
+        # scaffolded slugs in the Inbox column = a worker already ran scaffold
+        # but the board status got reset (or never updated). The work is
+        # half-done; sync promotes to Approved so the dispatcher can fan
+        # out a resume run. (state=ready Inbox items are NOT recovered —
+        # they need an AI verdict first.)
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/showpilot",
+                    "slug": "showpilot",
+                    "state": "scaffolded",
+                    "attempts": 1,
+                    "candidate": {"repo_url": "https://github.com/owner/showpilot"},
+                }
+            ]
+        }
+        root = self._setup(queue)
+        existing = _item_node(
+            "PVTI_showpilot",
+            {
+                "Slug": "showpilot",
+                "Status": {"name": "Inbox", "optionId": "opt_inbox"},
+                "Upstream": "https://github.com/owner/showpilot",
+            },
+        )
+        responses: list = [
+            _items_page([existing]),
+            {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_showpilot"}}},  # Status=Approved
+        ]
+        fake = FakeRun(responses)
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertIn(
+            "showpilot(Inbox/scaffolded,attempts=1)->Approved",
+            summary["recovered_stuck"],
+        )
+
+    def test_sync_does_not_recover_inbox_ready_item_without_ai_score(self) -> None:
+        # ready in Inbox stays put — needs AI verdict or operator override.
+        # This guards against the legacy bare-mechanical regression where
+        # 0-star personal homepages slipped into Approved.
+        queue = {
+            "items": [
+                {
+                    "id": "github:owner/aaronflorey",
+                    "slug": "aaronflorey",
+                    "state": "ready",
+                    "attempts": 0,
+                    "candidate": {"repo_url": "https://github.com/owner/aaronflorey"},
+                }
+            ]
+        }
+        root = self._setup(queue)
+        existing = _item_node(
+            "PVTI_aaronflorey",
+            {
+                "Slug": "aaronflorey",
+                "Status": {"name": "Inbox", "optionId": "opt_inbox"},
+                "Upstream": "https://github.com/owner/aaronflorey",
+            },
+        )
+        fake = FakeRun([_items_page([existing])])  # no mutations
+        buf = io.StringIO()
+        with patch.object(project_board.subprocess, "run", fake), redirect_stdout(buf):
+            rc = project_board.cmd_sync(_ns(root))
+        self.assertEqual(rc, 0)
+        summary = json.loads(buf.getvalue())
+        self.assertNotIn("recovered_stuck", summary)
+
     def test_sync_recovers_stale_in_progress_ready_item_to_approved(self) -> None:
         # State that breaks the dispatcher: queue says state=ready but the
         # board says In-Progress, and updated_at is older than the staleness
@@ -755,7 +828,10 @@ class SyncTest(unittest.TestCase):
             rc = project_board.cmd_sync(_ns(root))
         self.assertEqual(rc, 0)
         summary = json.loads(buf.getvalue())
-        self.assertIn("acny(ready,attempts=0)->Approved", summary["recovered_stuck"])
+        self.assertIn(
+            "acny(In-Progress/ready,attempts=0)->Approved",
+            summary["recovered_stuck"],
+        )
 
     def test_sync_blocks_stuck_item_after_max_rerun_attempts(self) -> None:
         from datetime import datetime, timedelta, timezone

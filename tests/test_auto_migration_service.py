@@ -316,11 +316,29 @@ class AutoMigrationServiceTest(unittest.TestCase):
         # With target, picks the matching slug only.
         self.assertEqual(select_next_ready_item(queue, target_slug="bravo")["slug"], "bravo")
         self.assertEqual(select_next_ready_item(queue, target_slug="charlie")["slug"], "charlie")
-        # With target that isn't ready, returns None even if the slug exists in another state.
+        # With target whose state is non-resumable (build_failed), returns None.
         queue["items"][1]["state"] = "build_failed"
         self.assertIsNone(select_next_ready_item(queue, target_slug="bravo"))
         # With unknown target, returns None.
         self.assertIsNone(select_next_ready_item(queue, target_slug="zulu"))
+
+    def test_select_next_ready_item_resumes_scaffolded_with_target_slug(self) -> None:
+        # Without --target-slug, scaffolded items are skipped (open-scan only
+        # picks fresh ready candidates). With --target-slug the worker is
+        # resuming a specific slug — auto_migrate.py --resume can re-enter
+        # at scaffolded, so the selector must hand the item back.
+        queue = {
+            "schema_version": 1,
+            "items": [
+                {"id": "github:owner/showpilot", "slug": "showpilot", "state": "scaffolded"},
+            ],
+        }
+
+        self.assertIsNone(select_next_ready_item(queue))
+        self.assertEqual(
+            select_next_ready_item(queue, target_slug="showpilot")["slug"],
+            "showpilot",
+        )
 
     def test_build_auto_migrate_command_defaults_to_validate_only(self) -> None:
         repo_root = self.make_repo_root()

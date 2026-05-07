@@ -310,19 +310,38 @@ def upsert_candidates(queue: dict[str, Any], candidates: list[dict[str, Any]], *
     return queue
 
 
+_RESUMABLE_MIGRATION_STATES = {"ready", "scaffolded"}
+
+
 def select_next_ready_item(
     queue: dict[str, Any],
     *,
     target_slug: str = "",
 ) -> dict[str, Any] | None:
+    """Pick the next item to feed into auto_migrate.py.
+
+    Without --target-slug we only consider state=ready: the open scan picks
+    the next un-touched candidate. With --target-slug (the worker
+    workflow's mode) we also accept state=scaffolded so resume cycles
+    for slugs whose scaffold succeeded but build didn't finish actually
+    re-enter auto_migrate.py via --resume; otherwise the dispatcher
+    re-fans them out endlessly into a worker that selects nothing and
+    leaves state unchanged.
+    """
     items = queue.get("items")
     if not isinstance(items, list):
         return None
     target = (target_slug or "").strip()
     for item in items:
-        if not isinstance(item, dict) or item.get("state") != "ready":
+        if not isinstance(item, dict):
             continue
-        if target and str(item.get("slug", "")).strip() != target:
+        state = item.get("state")
+        if target:
+            if str(item.get("slug", "")).strip() != target:
+                continue
+            if state not in _RESUMABLE_MIGRATION_STATES:
+                continue
+        elif state != "ready":
             continue
         return item
     return None
