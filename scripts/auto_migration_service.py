@@ -80,6 +80,15 @@ class ServiceConfig:
     skip_awesome_selfhosted: bool = False
     dry_run: bool = False
     enable_build_install: bool = False
+    # When true, the worker runs `--build-mode release`: full real docker
+    # build + image push to ghcr + copy to LazyCat registry + .lpk pack +
+    # commit, but DOES NOT run `lzc-cli app install`. Success state is
+    # `scaffolded` (same as enable_build_install=False) — install is
+    # deferred to a self-hosted runner / human with hportal access.
+    # Bridges the gap between "validate-only" (no real artifacts) and
+    # "reinstall" (full chain that crashes when the CI host can't ssh
+    # to the box).
+    lpk_only: bool = False
     functional_check: bool = False
     box_domain: str = ""
     developer_url: str = ""
@@ -340,7 +349,7 @@ def upsert_candidates(queue: dict[str, Any], candidates: list[dict[str, Any]], *
 # build. Observed in stellaclaw run 25493407661 — planner couldn't
 # fire because the previous cycle's preflight already pinned state
 # to build_failed.
-_RESUMABLE_MIGRATION_STATES = {"ready", "scaffolded", "build_failed", "codex_failed"}
+_RESUMABLE_MIGRATION_STATES = {"ready", "scaffolded", "build_failed", "codex_failed", "lpk_built"}
 
 
 def select_next_ready_item(
@@ -507,7 +516,15 @@ def _git_current_branch(repo_root: Path, *, runner: CommandRunner) -> str:
 
 
 def build_auto_migrate_command(config: ServiceConfig, item: dict[str, Any]) -> list[str]:
-    build_mode = "reinstall" if config.enable_build_install else "validate-only"
+    if config.lpk_only:
+        # release: real build + .lpk, no install. Used when the CI host
+        # cannot reach the LazyCat box (no SSH, no hportal-client config)
+        # but we still want artifacts published to ghcr / lzcat-artifacts.
+        build_mode = "release"
+    elif config.enable_build_install:
+        build_mode = "reinstall"
+    else:
+        build_mode = "validate-only"
     repo_root = item_repo_root(config, item)
     command = [
         "python3",
@@ -691,6 +708,15 @@ def import_local_agent_snapshot(config: ServiceConfig, *, now: str) -> tuple[dic
 
 
 def migration_success_state(config: ServiceConfig) -> str:
+    # lpk_only success is its own terminal state `lpk_built`: real .lpk +
+    # ghcr/LazyCat images published, but install deliberately skipped.
+    # Project-Board mapping (worker.yml) treats it as Awaiting-Human so
+    # the dispatcher doesn't loop on it. Distinct from `scaffolded`
+    # (enable_build_install=False, validate-only / preflight only — no
+    # .lpk produced) and `installed` (full reinstall path through
+    # lzc-cli app install).
+    if config.lpk_only:
+        return "lpk_built"
     if config.enable_build_install:
         return "installed"
     return "scaffolded"
@@ -1669,6 +1695,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-awesome-selfhosted", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--enable-build-install", action="store_true")
+    parser.add_argument(
+        "--lpk-only",
+        action="store_true",
+        help="Run build + image push + .lpk pack; skip lzc-cli app install. "
+             "Use when the CI host cannot reach the LazyCat box (no hportal "
+             "client / no SSH). Success state stays at scaffolded.",
+    )
     parser.add_argument("--functional-check", action="store_true")
     parser.add_argument("--box-domain", default="")
     parser.add_argument("--developer-url", default="")
@@ -1746,6 +1779,7 @@ def build_config(args: argparse.Namespace) -> ServiceConfig:
         skip_awesome_selfhosted=args.skip_awesome_selfhosted,
         dry_run=args.dry_run,
         enable_build_install=args.enable_build_install,
+        lpk_only=args.lpk_only,
         functional_check=args.functional_check,
         box_domain=args.box_domain,
         developer_url=developer_url,

@@ -220,12 +220,22 @@ jobs:
           # only catches files claude/scripts wrote, not the live
           # log of the run that wrote them.
           mkdir -p "apps/$SLUG"
+          # --enable-build-install + --lpk-only: real docker build + push
+          # to ghcr + copy to LazyCat registry + .lpk pack, but skip
+          # `lzc-cli app install`. The CI host (a github-hosted ubuntu
+          # runner) cannot reach the LazyCat box — install requires either
+          # the desktop client's hportal-client config files or SSH access,
+          # neither of which is available in a fresh container. Drop the
+          # `--lpk-only` flag below once self-hosted runner with hportal
+          # access is online; success state will then go from `scaffolded`
+          # back to `installed` and auto-verify.yml will chain.
           python3 scripts/auto_migration_service.py \
             --once \
             --target-slug "$SLUG" \
             --max-migrations-per-cycle 1 \
             --max-discovery-reviews-per-cycle 0 \
             --enable-build-install \
+            --lpk-only \
             --enable-codex-worker \
             --max-codex-attempts "${{ inputs.max_codex_attempts || 3 }}" \
             --resume \
@@ -305,6 +315,11 @@ jobs:
           fi
           case "$state" in
             installed|browser_pending)                                status="Browser-Test";    next="verify" ;;
+            # lpk_built: --lpk-only mode produced real .lpk + images
+            # but skipped install. Treat as a terminal success awaiting
+            # external install (self-hosted runner / human). DO NOT
+            # bounce back through dispatcher — the build is done.
+            lpk_built)                                                status="Awaiting-Human";  next="wait" ;;
             scaffolded)                                               status="$rerun_status";   next="rerun" ;;
             ready)                                                    status="$rerun_status";   next="rerun" ;;
             # advance_discovery_reviewer demotes ready items that lack a
