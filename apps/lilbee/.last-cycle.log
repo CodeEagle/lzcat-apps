@@ -1,19 +1,19 @@
 migration/lilbee
 branch 'template' set up to track 'origin/template'.
-HEAD is now at c107bbc chore(auto-discover): refresh queue + candidates 2026-05-08T01:17Z
+HEAD is now at a5d1f68 Merge claude/monitor-sync-recovery-htP5d: resumeai unblock + bb-browser fixes + stellaclaw demote
 Preparing worktree (new branch 'template')
 {
-  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260508T012233Z-github-jsierra87-engram.md",
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260508T022817Z-github-jsierra87-engram.md",
   "resumed": true,
   "returncode": 1,
-  "session_id": "e40731b1-7f33-4f3a-bbfe-ca0dc154cf3a",
+  "session_id": "d0c8b268-914f-42af-ae46-59932bb26ecb",
   "status": "failed",
-  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260508T012233Z-github-jsierra87-engram"
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260508T022817Z-github-jsierra87-engram"
 }
 obscura binary not found in PATH
 /__w/lzcat-apps/lzcat-apps/registry/candidates/latest.json
-/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260508T012235Z.jsonl
-{"already_migrated_count": 3, "candidate_count": 50, "counts_by_status": {"already_migrated": 3, "excluded": 3, "needs_review": 26, "portable": 18}, "excluded_count": 3, "generated_at": "2026-05-08T01:22:35Z", "needs_review_count": 26, "portable_count": 18}
+/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260508T022818Z.jsonl
+{"already_migrated_count": 0, "candidate_count": 50, "counts_by_status": {"excluded": 2, "needs_review": 34, "portable": 14}, "excluded_count": 2, "generated_at": "2026-05-08T02:28:18Z", "needs_review_count": 34, "portable_count": 14}
 {
   "browser_recheck": [],
   "codex_worker": [
@@ -49,152 +49,177 @@ obscura binary not found in PATH
   "discord_replies": [],
   "discovery_gate": [
     {
-      "id": "github:angellyr/yt-dlp",
-      "reason": "candidate_already_migrated",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:nocobase/nocobase",
-      "reason": "candidate_already_migrated",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:papi-ux/polaris",
-      "reason": "candidate_already_migrated",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:pedroevaldt/recall",
+      "id": "github:cichyez/vercel-seo-audit",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:huskyauto/visionclaw-agent-public-release",
+      "id": "github:harsha1029/vibe-learn",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:asihgdfas/rate-cloud",
+      "id": "github:kakuen9201/rokola_ia",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:atomantic/portos",
+      "id": "github:sundar139/sentinelbudget-local-proactive-finance-agent",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:farkird/translategemma-ui",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:dumb44/creative_tools",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:nabil-alsaadi/ai-supported",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:bjsulaiman01/moxie-bot",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:zeeladysniper/crm-dashboard",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ahmeds66/personal-expense-creator",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:vavallee/bindery",
       "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
-      "id": "github:alexpipiska/ev-savings-vs-fuel-dashboard-teslamate",
+      "id": "github:xtravenation/projct-a-a",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:a-ayad96/ansible-role-forgejo",
+      "id": "github:playmaker025-stack/blog-automation",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:le0-star/searxng-docker-tavily-adapter",
+      "id": "github:iiiiiii000/1",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:seandxd/baize-ip-demo",
+      "id": "github:inasawa/inasawa.github.io",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:devnexuz/python-not-another-tools",
+      "id": "github:toopac01/internvl3.5-8b-npu",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:darkfrothlazydweqn/dapp-wallet-modal",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ashishpawar303/ownstudy-demo",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:uminanarianayeetlwuofvt/contract_creator",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:organicpandarndiesidvhm/ethereum-phantom-wallet-connect",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:fabwinter/svg-snap-sparkle",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:anjanageorge2015/team-task-trakr",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ecodiatate/ecodiaos-frontend",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:andreascaue/andreascaue.github.io",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:sangbeen-nam/meal-planner",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:nexova02/leaddesk-website",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:lucashenrique010/lucashenrique010.github.io",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:correia-jpv/fucking-awesome-rust",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:microsoft/amplifier-eval-harness",
       "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
-      "id": "github:osmanbeyoglulab/gbm_data_v2",
+      "id": "github:mohitkb22/ai-based-resume-analyser",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:domtarapps/sentry4it_kno",
+      "id": "github:srun-sochettra/srun-sochettra",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:angusdark/htmltest.github.io",
+      "id": "github:cmpj-21/reserve-hub",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:brenofariasdasilva/e-commerces-webscraper",
+      "id": "github:pneumoz/codespaces-project-test",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:rust-lang/crates.io-index",
+      "id": "github:nicolastomaschewski/trabalho-final-sistemas-distribuidos",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:sidpasham/neetcode-submissions-sadha",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:ojaq/fruk-v2",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:hurt6465-ai/nodebb-plugin-peipe-video",
-      "reason": "candidate_excluded",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:sashazernin/oni-calculator",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:0poiu789/llm-access-gateway",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:benthingktangk/antimatterai-investment-portal",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:leedongjin9705/ai-api",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:cosychiruka/run-courage-run",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:budgetanalyzer/permission-service",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:virtus-technologies/meus-audios",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:eugene-eee-hongkyu/ai-usage-tracker",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:ddgstar/web_resume_builder",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:kazz0706/auto-split-2026",
+      "id": "github:arevalo0517/voice-ai-platform",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     }
@@ -209,5 +234,5 @@ obscura binary not found in PATH
   },
   "post_acceptance": [],
   "selected": null,
-  "started_at": "2026-05-08T01:22:33Z"
+  "started_at": "2026-05-08T02:28:16Z"
 }
