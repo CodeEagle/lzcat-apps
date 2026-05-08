@@ -18,5 +18,16 @@
       "source_image": "docker.io/library/mariadb:10.11"
     }
   ],
-  "migration_status": "waiting_for_human"
+  "migration_status": "waiting_for_human",
+  "human_request": {
+    "kind": "migration_review",
+    "question": "PressYard (CodeMasters999/PressYard) has no LICENSE file in the upstream repository. Additionally, PressYard is a local-dev CLI management tool (PowerShell + Docker Compose) that spawns multiple isolated WordPress sites using Traefik project-based hostnames — not a standalone web application. This architecture conflicts with LazyCat's single-app container model. How should we proceed?",
+    "options": [
+      "Proceed as a standalone WordPress + MariaDB deployment (one site only; the PressYard management layer is ignored). Set enabled=true to unblock.",
+      "Skip — PressYard's multi-site/Traefik value proposition cannot be preserved in LazyCat's model.",
+      "Investigate ZIP archive contents before deciding (operator will unpack Press_Yard_1.5-alpha.2.zip and report back)."
+    ],
+    "context": "1. No LICENSE file — legal risk unquantified; default verdict is needs_human per Step 0 of migration SOP.\n2. Upstream repo root contains an unrelated Roblox Lua script (AftermathCodemasters), raising repo-integrity concerns.\n3. PressYard's actual release is a ZIP archive in the pinkweed/ directory; source cannot be inspected without download.\n4. If option 1 is chosen, the current scaffold (wordpress:latest + mariadb:10.11, simple-inject-password, lzc-deploy-params.yml with random passwords) is ready — just set enabled=true and remove this human_request block.",
+    "created_at": "2026-05-08T00:00:00Z"
+  }
 }
