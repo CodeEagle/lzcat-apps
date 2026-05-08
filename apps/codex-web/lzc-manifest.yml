@@ -7,20 +7,23 @@ application:
       backend: http://codex-web:8214/
       location: /
 author: "0xcaff"
-description: a browser frontend for codex desktop, running on a machine you control
+description: Browser workspace for Codex CLI on your LazyCat Microserver, with chat, projects, plugins, and persistent session data.
 homepage: https://github.com/0xcaff/codex-web
 license: MIT
 locales:
   en:
-    description: a browser frontend for codex desktop, running on a machine you control
+    description: Browser workspace for Codex CLI on your LazyCat Microserver, with chat, projects, plugins, and persistent session data.
     name: Codex Web
+    usage: Sign in to Codex CLI inside the service container with `codex login --device-auth` before starting real sessions. The app trusts users who can reach its LazyCat route, so keep the entry protected by LazyCat access control.
   zh:
-    description: 在浏览器中访问运行于懒猫微服内的 Codex 桌面桥接服务
+    description: 在懒猫微服上运行 Codex CLI 的浏览器工作台，支持聊天、项目工作区、插件管理和会话状态持久化。
     name: Codex Web
+    usage: 首次使用前，请进入服务容器执行 `codex login --device-auth` 完成 Codex CLI 登录。应用默认信任能访问懒猫入口的用户，请保持入口受懒猫访问控制保护。
 lzc-sdk-version: '0.1'
 min_os_version: 1.3.8
 name: Codex Web
 package: fun.selfstudio.app.migration.codex-web
+usage: 首次使用前，请进入服务容器执行 `codex login --device-auth` 完成 Codex CLI 登录。应用默认信任能访问懒猫入口的用户，请保持入口受懒猫访问控制保护。
 services:
   codex-web:
     binds:
@@ -42,4 +45,4 @@ services:
       retries: 3
       start_period: 30s
     image: registry.lazycat.cloud/placeholder/codex-web:bootstrap
-version: 0.1.1
+version: 0.1.2

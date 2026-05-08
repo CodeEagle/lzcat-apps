@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "slug": "codex-web",
+  "developer_apps_url": "https://lazycat.cloud/appstore/more/developers/178",
+  "package": "fun.selfstudio.app.migration.codex-web",
+  "name": "Codex Web",
+  "version": "0.1.2",
+  "homepage": "https://github.com/0xcaff/codex-web",
+  "license": "MIT",
+  "upstream_attribution": {
+    "original_or_source_author": false,
+    "source_author": "0xcaff",
+    "source_url": "https://github.com/0xcaff/codex-web"
+  },
+  "short_description": "在懒猫微服里打开一个可持久化的 Codex CLI 浏览器工作台。",
+  "description_zh": "在懒猫微服上运行 Codex CLI 的浏览器工作台，支持聊天、项目工作区、插件管理和会话状态持久化。",
+  "description_en": "Browser workspace for Codex CLI on your LazyCat Microserver, with chat, projects, plugins, and persistent session data.",
+  "store_description": "Codex Web 将上游 `0xcaff/codex-web` 打包为可直接安装的懒猫微服应用，让你在浏览器中使用运行于自己设备上的 Codex CLI 工作台。应用提供聊天入口、项目工作区、插件管理和自动化入口，并把 Codex 登录状态、会话数据、缓存和工作目录持久化到懒猫应用数据目录。\n\n适合希望把 Codex 会话放在自有设备中运行、通过浏览器随时接入、并保留项目上下文和插件配置的用户。首次使用前，需要在服务容器内执行 `codex login --device-auth` 完成 Codex CLI 登录；之后登录状态会保存在 `/data/home/.codex` 中并随应用重启保留。",
+  "english_description": "Codex Web packages the upstream `0xcaff/codex-web` project as a LazyCat Microserver app. It gives you a browser workspace for Codex CLI running on your own device, with chat, project workspace access, plugin management, automation entry points, and persistent Codex session data.\n\nBefore starting real sessions, sign in to Codex CLI inside the service container with `codex login --device-auth`. The login state is stored under `/data/home/.codex` and survives app restarts.",
+  "keywords": [
+    "codex-web",
+    "Codex",
+    "Codex CLI",
+    "LazyCat",
+    "self-hosted",
+    "浏览器工作台",
+    "本地部署"
+  ],
+  "lpk": {
+    "path": "dist/codex-web.lpk",
+    "sha256": "c844cf8881ebd475395838f3b18cc301d82ced582eeeee381415cd62d2b99978",
+    "size_bytes": 157626,
+    "manifest": {
+      "name": "Codex Web",
+      "package": "fun.selfstudio.app.migration.codex-web",
+      "version": "0.1.2"
+    }
+  },
+  "assets": {
+    "icon": "apps/codex-web/store-submission/assets/icon.png",
+    "screenshots": [
+      "apps/codex-web/store-submission/assets/screenshots/01-desktop-overview.png",
+      "apps/codex-web/store-submission/assets/screenshots/02-desktop-plugins.png",
+      "apps/codex-web/store-submission/assets/screenshots/03-mobile-overview.png",
+      "apps/codex-web/store-submission/assets/screenshots/04-mobile-project.png",
+      "apps/codex-web/store-submission/assets/screenshots/05-mobile-model.png"
+    ],
+    "source_icon": "apps/codex-web/icon.png",
+    "source_screenshots": [
+      "apps/codex-web/acceptance/01-desktop-overview.png",
+      "apps/codex-web/acceptance/02-desktop-plugins.png",
+      "apps/codex-web/acceptance/03-mobile-overview.png",
+      "apps/codex-web/acceptance/04-mobile-project.png",
+      "apps/codex-web/acceptance/05-mobile-model.png"
+    ],
+    "web_screenshot_metadata": "apps/codex-web/acceptance/web-screenshots.json",
+    "store_copy": "apps/codex-web/copywriting/store-copy.md",
+    "tutorial": "apps/codex-web/copywriting/tutorial.md",
+    "playground": "apps/codex-web/copywriting/playground.md"
+  },
+  "browser_acceptance": {
+    "status": "pass",
+    "result_path": "apps/codex-web/acceptance/browser-use-result.json",
+    "evidence": "Playwright browser opened the installed LazyCat Codex Web 0.1.2 entry URL, rendered chat/project/plugin UI, and recorded no blocking console or network failures."
+  },
+  "reward_opportunities": [
+    {
+      "key": "self_hosted_migration",
+      "title": "开源/自托管应用移植",
+      "note": "确认上游许可证、功能验收和原作者信息后申报。"
+    },
+    {
+      "key": "game_server_migration",
+      "title": "游戏服务器类移植",
+      "note": "仅当项目属于可运行游戏服务端时适用。"
+    },
+    {
+      "key": "playground_guide",
+      "title": "Playground 图文攻略",
+      "note": "每个上架应用都生成图文教程，配套真实网页截图。"
+    },
+    {
+      "key": "lazycat_account_integration",
+      "title": "懒猫账号集成",
+      "note": "若应用支持用户体系或 OAuth，可评估懒猫账号接入。"
+    },
+    {
+      "key": "cloud_drive_integration",
+      "title": "懒猫网盘/右键菜单集成",
+      "note": "若应用处理文件、图片、文档或媒体，优先评估网盘入口。"
+    },
+    {
+      "key": "original_enhancement",
+      "title": "移植后的原创增强",
+      "note": "把通用改进反哺 template 或实现 LazyCat 专属增强。"
+    }
+  ],
+  "submission_steps": [
+    "Open the configured LazyCat developer apps page.",
+    "Create a new app entry.",
+    "Fill name, package id, version, descriptions, keywords, homepage, and license from this JSON.",
+    "Upload icon and screenshots from assets.",
+    "Upload the verified LPK from lpk.path.",
+    "Stop before the final create/submit/publish action and ask for confirmation."
+  ]
+}

@@ -7,7 +7,7 @@ Codex Web is a browser frontend for Codex Desktop. This LazyCat package builds t
 - Repository: https://github.com/0xcaff/codex-web
 - License: MIT
 - Author: 0xcaff
-- Version strategy: upstream commit SHA, packaged as `0.1.1`
+- Version strategy: upstream commit SHA, packaged as `0.1.2`
 
 ## LazyCat Topology
 
