@@ -99,22 +99,25 @@ RUN python3 -m playwright install --with-deps chromium \
     && bb-browser --version \
     && command -v bb-browser-mcp >/dev/null
 
-# ---- developer toolchains (rust + go + bun + openjdk) -----------------------
+# ---- developer toolchains (rust + go + bun) ---------------------------------
 # Pre-bake the common compiled-language toolchains so claude planner /
-# codex repair can `cargo check`, `go build -n`, `npm install --dry-run`,
+# codex repair can `cargo check`, `go build -n`, `bun install --dry-run`,
 # etc. directly on the runner before writing a Dockerfile.template.
 # Without these, the canonical build container (FROM rust:1-slim /
 # golang:1.22-alpine / etc.) is the only place these tools exist —
 # fine for the actual build, but locks the AI repair worker out of
 # any quick local validation.
 #
-# Total bloat: ~1.2 GB. Acceptable for a pre-built shared runner.
+# Total bloat: ~800 MB. Acceptable for a pre-built shared runner.
 #
-#   rust       — rustup w/ stable toolchain (cargo, rustc)
-#   go 1.22    — official release tarball
-#   bun        — JS runtime/package manager (used by oven/bun:1
-#                style upstream Dockerfiles, e.g. heym)
-#   openjdk-17 — Java ecosystem fallback (rare but cheap to include)
+#   rust    — rustup w/ stable toolchain (cargo, rustc)
+#   go 1.22 — official release tarball
+#   bun     — JS runtime/package manager (used by oven/bun:1
+#             style upstream Dockerfiles, e.g. heym)
+#
+# (openjdk-17 was attempted but python:3.12-slim's apt repo doesn't
+# carry it; Java migrations are rare enough we install on-demand
+# via apt at cycle time when actually needed.)
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:/usr/local/go/bin:/root/.bun/bin:${PATH}
@@ -136,11 +139,6 @@ RUN ARCH="$(dpkg --print-architecture)" \
 
 RUN curl -fsSL https://bun.sh/install | bash \
     && bun --version
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        openjdk-17-jdk-headless \
-    && apt-get clean && rm -rf /var/lib/apt/lists/* \
-    && java -version
 
 # ---- runtime config ---------------------------------------------------------
 WORKDIR /repo
