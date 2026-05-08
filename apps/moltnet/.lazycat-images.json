@@ -3,26 +3,27 @@
   "app": "moltnet",
   "source_version": "v0.1.3",
   "build_version": "0.1.3",
-  "head_sha": "8970b44609df",
+  "head_sha": "9577afe785e8",
   "build_recipe_hash": "88bc7650a4342317f7d2624e6eadf83b3a5df137bdf356b9dfc7b8c26c915106",
-  "updated_at": "2026-05-08T04:10:18.991288+00:00",
+  "updated_at": "2026-05-08T04:11:26.874763+00:00",
   "images": {
     "moltnet-web": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:386ddbaa16fb1d91"
   },
   "source_images": {
-    "moltnet-web": "ghcr.io/codeeagle/lazycatimages:moltnet_8970b44609df"
+    "moltnet-web": "ghcr.io/codeeagle/lazycatimages:moltnet_9577afe785e8"
   },
   "source_digests": {
     "_primary": "6030f13c4637565b0051d997fa8c222ac0b0a11e0b30ee54dbdfcfa0f1413641"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:moltnet_8970b44609df",
+      "source_image": "ghcr.io/codeeagle/lazycatimages:moltnet_9577afe785e8",
       "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:386ddbaa16fb1d91",
-      "elapsed_seconds": 21.271,
+      "elapsed_seconds": 0.0,
       "saw_waiting": false,
       "saw_upload_started": false,
-      "reused_existing": false,
+      "reused_existing": true,
+      "reused_by_digest": true,
       "kind": "primary"
     }
   ]
