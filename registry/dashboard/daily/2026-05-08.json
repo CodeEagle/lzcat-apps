@@ -1,0 +1,62 @@
+{
+  "date": "2026-05-08",
+  "failed_items": [
+    {
+      "last_error": "claude repair worker exited 1",
+      "slug": "lilbee",
+      "source": "tobocop2/lilbee",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "claude repair worker exited 1",
+      "slug": "engram",
+      "source": "jsierra87/engram",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "claude repair worker exited 1",
+      "slug": "pressyard",
+      "source": "CodeMasters999/PressYard",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "auto_migrate exited 2",
+      "slug": "moltnet",
+      "source": "noopolis/moltnet",
+      "state": "build_failed"
+    },
+    {
+      "last_error": "auto_migrate exited 2",
+      "slug": "resumeai",
+      "source": "Doomish77/ResumeAI",
+      "state": "build_failed"
+    }
+  ],
+  "generated_at": "2026-05-08T01:44:32Z",
+  "local_agent": {
+    "status_counts": {},
+    "total": 0
+  },
+  "publication": {
+    "status_counts": {},
+    "total": 0
+  },
+  "queue": {
+    "state_counts": {
+      "build_failed": 5,
+      "discovery_review": 1123,
+      "filtered_out": 382,
+      "ready": 9,
+      "scaffolded": 4
+    },
+    "total": 1523
+  },
+  "reward_opportunities": [
+    "完成可上架应用的开发者后台提交",
+    "为每个上架应用补齐 Playground 图文攻略",
+    "补齐桌面 2 张、手机 3 张网页内截图",
+    "把成功经验回写 template 分支提高下一次移植收益"
+  ],
+  "top_candidates": [],
+  "waiting_for_human": []
+}
