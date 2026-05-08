@@ -1,13 +1,26 @@
-migration/lilbee
-branch 'template' set up to track 'origin/template'.
-HEAD is now at 22b5bfa chore(auto-discover): refresh queue + candidates 2026-05-08T05:49Z
-Preparing worktree (new branch 'template')
-{
-  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260508T060723Z-github-jsierra87-engram.md",
-  "resumed": true,
-  "returncode": 1,
-  "session_id": "122af000-a2d1-41e2-851f-cfe671bed401",
-  "status": "failed",
-  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260508T060723Z-github-jsierra87-engram"
-}
-obscura binary not found in PATH
+usage: auto_migration_service.py [-h] [--repo-root REPO_ROOT]
+                                 [--queue-path QUEUE_PATH]
+                                 [--candidate-snapshot CANDIDATE_SNAPSHOT]
+                                 [--env-file ENV_FILE] [--no-env-file]
+                                 [--env-override] [--limit LIMIT] [--once]
+                                 [--daemon]
+                                 [--interval-seconds INTERVAL_SECONDS]
+                                 [--skip-status-sync] [--skip-scout]
+                                 [--skip-github-search]
+                                 [--skip-awesome-selfhosted] [--dry-run]
+                                 [--enable-build-install] [--functional-check]
+                                 [--box-domain BOX_DOMAIN]
+                                 [--developer-url DEVELOPER_URL]
+                                 [--max-migrations-per-cycle MAX_MIGRATIONS_PER_CYCLE]
+                                 [--max-discovery-reviews-per-cycle MAX_DISCOVERY_REVIEWS_PER_CYCLE]
+                                 [--target-slug TARGET_SLUG]
+                                 [--commit-scaffold] [--resume]
+                                 [--enable-codex-worker]
+                                 [--max-codex-attempts MAX_CODEX_ATTEMPTS]
+                                 [--workspace-root WORKSPACE_ROOT]
+                                 [--template-branch TEMPLATE_BRANCH]
+                                 [--codex-worker-model CODEX_WORKER_MODEL]
+                                 [--disable-discord] [--require-discord]
+                                 [--disable-local-agent]
+                                 [--local-agent-store-search-ttl-hours LOCAL_AGENT_STORE_SEARCH_TTL_HOURS]
+auto_migration_service.py: error: unrecognized arguments: --lpk-only
