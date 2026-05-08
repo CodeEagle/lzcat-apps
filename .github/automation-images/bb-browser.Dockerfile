@@ -26,10 +26,25 @@ ARG BB_BROWSER_VERSION=latest
 
 # ---- system tooling ---------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates curl jq xz-utils \
+        ca-certificates curl wget jq xz-utils gnupg lsb-release \
         ffmpeg \
         python3 python3-pip python3-venv \
+        git \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# ---- gh CLI -----------------------------------------------------------------
+# auto-verify.yml's "Map check + AI verdict -> Project Status" step shells
+# out to project_board.py update, which calls `gh graphql ...` to mutate
+# the Project board. Without gh on PATH the step crashes with
+# FileNotFoundError ('gh' missing) — observed in stellaclaw run
+# 25530143338 even after the bootstrap step was added in f109c1f.
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        | gpg --dearmor -o /usr/share/keyrings/githubcli.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli.gpg] https://cli.github.com/packages stable main" \
+        > /etc/apt/sources.list.d/github-cli.list \
+    && apt-get update && apt-get install -y gh \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && gh --version
 
 # ---- bb-browser (npm) -------------------------------------------------------
 # Provides binaries: bb-browser, bb-browser-mcp, bb-browser-provider.
