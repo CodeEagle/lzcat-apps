@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "Doomish77/ResumeAI",
   "created_at": "2026-05-08T07:51:08.850157+00:00",
-  "updated_at": "2026-05-08T07:51:10.793827+00:00",
+  "updated_at": "2026-05-08T07:54:43.140673+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -150,6 +150,31 @@
       "completed": true,
       "completed_at": "2026-05-08T07:51:10.793816+00:00",
       "conclusion": "剩余文件已补齐"
+    },
+    "7": {
+      "completed": true,
+      "completed_at": "2026-05-08T07:51:10.954291+00:00",
+      "conclusion": "预检通过",
+      "all_passed": true
+    },
+    "8": {
+      "completed": true,
+      "completed_at": "2026-05-08T07:54:43.139525+00:00",
+      "conclusion": "构建成功",
+      "build_mode": "release"
+    },
+    "9": {
+      "completed": true,
+      "completed_at": "2026-05-08T07:54:43.140252+00:00",
+      "conclusion": "lpk 已验证",
+      "lpk_sha256": "5eb1d12f87d639a0242ef5808f1cdab7f8acb087afe361ce7d913b09bd6174c1",
+      "lpk_size_bytes": 28497
+    },
+    "10": {
+      "completed": true,
+      "completed_at": "2026-05-08T07:54:43.140665+00:00",
+      "conclusion": "验收完成",
+      "pending_backports": []
     }
   },
   "problems": [],

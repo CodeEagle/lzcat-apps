@@ -35,3 +35,503 @@ migration/resumeai
  create mode 100644 apps/resumeai/lzc-deploy-params.yml
  create mode 100644 apps/resumeai/lzc-manifest.yml
  create mode 100644 registry/repos/resumeai.json
+[1/10] 收集上游信息
+
+- 当前结论：已识别输入类型为 `github_repo`，并准备好可分析的上游材料。
+- 当前产出：source=Doomish77/ResumeAI; kind=github_repo; build_mode=release; gh_token_source=GH_TOKEN; lzc_token_source=env:LZC_CLI_TOKEN; image_owner=CodeEagle; /tmp/lzcat-full-migrate-vp5atrp3/ResumeAI-main
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; git clone
+- 阻塞/风险：无
+- 下一步：进入 [2/10] 选择移植路线
+
+[2/10] 选择移植路线
+
+- 当前结论：已自动推断构建路线为 `upstream_with_target_template`。
+- 当前产出：slug=resumeai; route=upstream_with_target_template
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py
+- 阻塞/风险：analyze_source raised before planner override: 未发现 compose、Dockerfile、可识别的前端应用或 release binary
+- 下一步：进入 [3/10] 注册目标 app
+
+[3/10] 注册目标 app
+
+- 当前结论：目标 app 将注册为 `resumeai`。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/apps/resumeai; /__w/lzcat-apps/lzcat-apps/registry/repos/resumeai.json
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py
+- 阻塞/风险：目标 app 已存在时会自动覆盖当前托管文件
+- 下一步：进入 [4/10] 建立项目骨架
+
+[4/10] 建立项目骨架
+
+- 当前结论：已在 monorepo 中创建 app 目录和 registry 配置。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/apps/resumeai/lzc-manifest.yml; /__w/lzcat-apps/lzcat-apps/apps/resumeai/lzc-build.yml; /__w/lzcat-apps/lzcat-apps/apps/resumeai/README.md; /__w/lzcat-apps/lzcat-apps/apps/resumeai/UPSTREAM_DEPLOYMENT_CHECKLIST.md; /__w/lzcat-apps/lzcat-apps/apps/resumeai/icon.png; /__w/lzcat-apps/lzcat-apps/registry/repos/resumeai.json
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; scripts/bootstrap_migration.py
+- 阻塞/风险：无
+- 下一步：进入 [5/10] 编写 lzc-manifest.yml
+
+[5/10] 编写 lzc-manifest.yml
+
+- 当前结论：manifest 已按自动推断的服务拓扑、入口端口、环境变量和持久化目录生成初稿；构建后的真实镜像地址将由 .lazycat-images.json 管理。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/apps/resumeai/lzc-manifest.yml
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; scripts/bootstrap_migration.py
+- 阻塞/风险：analyze_source raised before planner override: 未发现 compose、Dockerfile、可识别的前端应用或 release binary
+- 下一步：进入 [6/10] 补齐剩余文件
+
+[6/10] 补齐剩余文件
+
+- 当前结论：README、build 配置、checklist 以及需要的模板文件已补齐。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/apps/resumeai/README.md; /__w/lzcat-apps/lzcat-apps/apps/resumeai/lzc-build.yml; /__w/lzcat-apps/lzcat-apps/apps/resumeai/UPSTREAM_DEPLOYMENT_CHECKLIST.md
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; scripts/bootstrap_migration.py
+- 阻塞/风险：无
+- 下一步：进入 [7/10] 运行预检
+
+[git] committed: chore(resumeai): scaffold app via full_migrate
+[7/10] 运行预检
+
+- 当前结论：预检通过，骨架和 registry 注册已满足进入构建阶段的最低条件。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/apps/resumeai/lzc-manifest.yml; /__w/lzcat-apps/lzcat-apps/registry/repos/resumeai.json
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py
+- 阻塞/风险：无
+- 下一步：进入 [8/10] 触发并监听构建
+
+{"repo": "resumeai", "source_version": "c809e47", "build_version": "1.0.1", "update_needed": true, "check_only": false}
+[07:51:11] [resumeai] Update needed: 1.0.0 -> 1.0.1 (source: c809e47)
+[07:51:11] [resumeai] Phase: build_image
+[07:51:11] Cloning upstream: Doomish77/ResumeAI
+Cloning into '/tmp/lzcat-upstream-e46ekx_w'...
+[07:51:12] Building Docker image: ghcr.io/codeeagle/lazycatimages:resumeai_ea4afc823cc4
+[1/2] STEP 1/13: FROM node:20-alpine AS builder
+Resolved "node" as an alias (/etc/containers/registries.conf.d/shortnames.conf)
+Trying to pull docker.io/library/node:20-alpine...
+Getting image source signatures
+Copying blob sha256:fff4e2c1b189bf87d63ad8bd07f7f4eb288d6f2b6a07a8bb44c60e8c075d2096
+Copying blob sha256:6a0ac1617861a677b045b7ff88545213ec31c0ff08763195a70a4a5adda577bb
+Copying blob sha256:4feea04c154301db6f4a496efa397b3db96603b1c009c797cfdde77bea8b3287
+Copying blob sha256:b2cbbfe903b0821005780971ddc5892edcc4ce74c5a48d82e1d2b382edac3122
+Copying config sha256:11cedc39e663e7c5d5cb9cc77a461a0d2adc25537b94e6831a6108f09cb2001b
+Writing manifest to image destination
+[1/2] STEP 2/13: WORKDIR /app
+--> 43134b1dd59b
+[1/2] STEP 3/13: COPY package*.json ./
+--> 3e8cb7aac125
+[1/2] STEP 4/13: RUN npm ci
+npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+
+added 291 packages, and audited 292 packages in 46s
+
+46 packages are looking for funding
+  run `npm fund` for details
+
+15 vulnerabilities (5 moderate, 8 high, 2 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+npm notice
+[07:52:13] [heartbeat] docker build ghcr.io/codeeagle/lazycatimages:resumeai_ea4afc823cc4 still running after 60s (idle=10s, 2553       01:00 16.1  0.4 S podman build --platform linux/amd64 -f /tmp/lzcat-upstream-e46ekx_w/Dockerfile -t ghcr.io/codeeagle/lazycatimages:resumeai_ea4afc823cc4 --label org.opencontainers.image.source=https://github.com/CodeEagle/lzcat-apps --build-arg SOURCE_VERSION=c809e47 --build-arg BUILD_VERSION=1.0.1 /tmp/lzcat-upstream-e46ekx_w)
+npm notice New major version of npm available! 10.8.2 -> 11.14.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.14.0
+npm notice To update run: npm install -g npm@11.14.0
+npm notice
+--> 895ef11cb31f
+[1/2] STEP 5/13: COPY . .
+--> a73b5dd8e38a
+[1/2] STEP 6/13: RUN printf '/** @type {import("next").NextConfig} */\nconst nextConfig = { output: "standalone" };\nexport default nextConfig;\n' > next.config.mjs
+--> 5c2c30fdd64f
+[1/2] STEP 7/13: ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+--> 81f35a59fcd7
+[1/2] STEP 8/13: ARG NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+--> 66a316f23b54
+[1/2] STEP 9/13: ARG NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+--> 6a04eb4b2e62
+[1/2] STEP 10/13: ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+--> d26b1804adc5
+[1/2] STEP 11/13: ENV NEXT_PUBLIC_CLERK_SIGN_IN_URL=$NEXT_PUBLIC_CLERK_SIGN_IN_URL
+--> bac3b16dc43f
+[1/2] STEP 12/13: ENV NEXT_PUBLIC_CLERK_SIGN_UP_URL=$NEXT_PUBLIC_CLERK_SIGN_UP_URL
+--> 7914ebe0bd37
+[1/2] STEP 13/13: RUN npm run build
+
+> resumeai@0.1.0 build
+> next build
+
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+  ▲ Next.js 14.2.35
+  - Environments: .env
+
+   Creating an optimized production build ...
+Browserslist: caniuse-lite is outdated. Please run:
+[07:53:13] [heartbeat] docker build ghcr.io/codeeagle/lazycatimages:resumeai_ea4afc823cc4 still running after 120s (idle=2s, 2553       02:00 24.1  0.5 S podman build --platform linux/amd64 -f /tmp/lzcat-upstream-e46ekx_w/Dockerfile -t ghcr.io/codeeagle/lazycatimages:resumeai_ea4afc823cc4 --label org.opencontainers.image.source=https://github.com/CodeEagle/lzcat-apps --build-arg SOURCE_VERSION=c809e47 --build-arg BUILD_VERSION=1.0.1 /tmp/lzcat-upstream-e46ekx_w)
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/7) ...
+   Generating static pages (1/7) 
+   Generating static pages (3/7) 
+   Generating static pages (5/7) 
+ ✓ Generating static pages (7/7)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ƒ /                                    2.72 kB         121 kB
+├ ƒ /_not-found                          873 B          88.3 kB
+├ ƒ /dashboard                           16.6 kB         201 kB
+├ ƒ /my-resume/[id]/edit                 74.3 kB         262 kB
+├ ƒ /my-resume/[id]/view                 268 kB          397 kB
+├ ƒ /sign-in                             199 B           115 kB
+└ ƒ /sign-up                             199 B           115 kB
++ First Load JS shared by all            87.4 kB
+  ├ chunks/117-82a96b3d39bc951a.js       31.7 kB
+  ├ chunks/fd9d1056-388e0aadd27c66b6.js  53.6 kB
+  └ other shared chunks (total)          2.01 kB
+
+
+ƒ Middleware                             61 kB
+
+ƒ  (Dynamic)  server-rendered on demand
+
+--> c4c0d9f11d20
+[2/2] STEP 1/11: FROM node:20-alpine AS runner
+[2/2] STEP 2/11: WORKDIR /app
+--> Using cache 43134b1dd59b8e1a3cb47b8c2cb7f0e0fe3994f0265e3e91fe0816a3dd44429a
+--> 43134b1dd59b
+[2/2] STEP 3/11: ENV NODE_ENV=production
+--> 09cf1c8871a0
+[2/2] STEP 4/11: ENV PORT=3000
+--> 0ce44f1b449f
+[2/2] STEP 5/11: ENV HOSTNAME=0.0.0.0
+--> eb20889da2d7
+[2/2] STEP 6/11: COPY --from=builder /app/.next/standalone ./
+--> 09e80eeb44a1
+[2/2] STEP 7/11: COPY --from=builder /app/.next/static ./.next/static
+--> fd8f75af2689
+[2/2] STEP 8/11: COPY --from=builder /app/public ./public
+--> 54d748e3f13f
+[2/2] STEP 9/11: EXPOSE 3000
+--> ed1e0c0ae5e3
+[2/2] STEP 10/11: CMD ["node", "server.js"]
+--> a479bb5c4b8e
+[2/2] STEP 11/11: LABEL "org.opencontainers.image.source"="https://github.com/CodeEagle/lzcat-apps"
+[2/2] COMMIT ghcr.io/codeeagle/lazycatimages:resumeai_ea4afc823cc4
+--> 468df3ad0ed1
+[Warning] one or more build args were not consumed: [BUILD_VERSION SOURCE_VERSION]
+Successfully tagged ghcr.io/codeeagle/lazycatimages:resumeai_ea4afc823cc4
+468df3ad0ed13f4a591be6be7c93a4fbd007865df729d2ae57a93ef44b826e95
+[07:54:05] Pushing Docker image: ghcr.io/codeeagle/lazycatimages:resumeai_ea4afc823cc4
+Getting image source signatures
+Copying blob sha256:4983b93ee7967564f02cbf6162b75010ce557404a539fba05ee19a0eae01acbc
+Copying blob sha256:49880c13cddb898a2c9b3fcad883a82fa36298f47a776b3a30f3886ab7523d65
+Copying blob sha256:afa543f85b4685a84338df3e2c429edca49bb372b0f49e0c5cc9724c820ad094
+Copying blob sha256:29df493baa13de438d6d2ece3a8333032e0b7b9b9d8cce4ee82194da255f61e1
+Copying blob sha256:3b633411ea425c807ac816346da448c0499a10b947e405314bdda36b756063b3
+Copying blob sha256:e10358715ead9b47009dd04bcd77ac1c8e247f7249ab06517ff913c473a8e38e
+Copying blob sha256:3e220e74f1fe38a0859f1c3572d18e216aac0d481a4b3d7b1de7df8e6c41d121
+Copying config sha256:468df3ad0ed13f4a591be6be7c93a4fbd007865df729d2ae57a93ef44b826e95
+Writing manifest to image destination
+[07:54:08] [resumeai] Phase: copy_image
+[07:54:11] Copying image to LazyCat registry: ghcr.io/codeeagle/lazycatimages:resumeai_ea4afc823cc4
+registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:fd3e1ddc10c1b3ac
+[07:54:39] [copy-image] Completed in 28.8s: ghcr.io/codeeagle/lazycatimages:resumeai_ea4afc823cc4 -> registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:fd3e1ddc10c1b3ac
+[07:54:39] [copy-image] Reusing existing LazyCat image for mongo:7: registry.lazycat.cloud/invokerlaw/library/mongo:f9dc3c49b06bf845
+[07:54:39] [resumeai] Phase: package (lzc-cli project build from temporary manifest)
+Build config: /tmp/lzcat-artifacts-wt_sn65w/package-workspace/lzc-build.yml
+[lint] Unknown manifest fields detected: `lzc-sdk-version`. Please confirm whether they take effect.
+[lint] Top-level static package fields in lzc-manifest.yml are a legacy LPK v1 layout. Move `package`, `version`, `name`, `description`, `author`, `license`, `homepage`, `locales` to package.yml for LPK v2.
+跳过执行 buildscript
+跳过拷贝 contentdir 内容
+Building legacy LPK v1 metadata layout. Run "lzc-cli migrate" to move static package fields into package.yml.
+输出lpk包 /tmp/lzcat-artifacts-wt_sn65w/resumeai.lpk
+[07:54:40] [resumeai] lpk saved to: /__w/lzcat-apps/lzcat-apps/dist/resumeai.lpk
+[07:54:40] [resumeai] Phase: publish_artifact -> CodeEagle/lzcat-artifacts
+[07:54:43] [resumeai] Phase: commit_target_repo
+[07:54:43] [resumeai] Working tree is dirty; skipping git pull/push
+[07:54:43] [resumeai] Build completed successfully: v1.0.1
+[8/10] 触发并监听构建
+
+- 当前结论：本地构建命令执行成功。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/dist/resumeai.lpk; /__w/lzcat-apps/lzcat-apps/apps/resumeai/.lazycat-images.json
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; scripts/run_build.py
+- 阻塞/风险：当前使用 `podman` 执行 `release`，未覆盖远端 copy-image / install
+- 下一步：进入 [9/10] 下载并核对 .lpk
+
+[9/10] 下载并核对 .lpk
+
+- 当前结论：已拿到本地构建产物并完成基本核对。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/dist/resumeai.lpk (sha256=5eb1d12f87d639a0242ef5808f1cdab7f8acb087afe361ce7d913b09bd6174c1)
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; scripts/run_build.py
+- 阻塞/风险：当前产物来自 `release`，未覆盖真实 release/download 链路
+- 下一步：进入 [10/10] 安装验收并复盘
+
+[10/10] 安装验收并复盘
+
+- 当前结论：release 模式：已产出真实 .lpk 与 LazyCat 镜像，按要求跳过 install 步骤。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/dist/resumeai.lpk
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py
+- 阻塞/风险：release 模式刻意跳过 lzc-cli app install；后续由可访问 box 的 self-hosted runner / 操作员完成实际安装。
+- 下一步：停止；交付物已就绪 (dist/<slug>.lpk + .lazycat-images.json)。
+
+{
+  "browser_recheck": [],
+  "codex_worker": [
+    {
+      "id": "github:tobocop2/lilbee",
+      "returncode": 0,
+      "status": "lpk_built"
+    }
+  ],
+  "commands": [
+    {
+      "command": [
+        "python3",
+        "scripts/status_sync.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps"
+      ],
+      "returncode": 1
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/scout.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "scan",
+        "--limit",
+        "50"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/codex_migration_worker.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "--queue-path",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/queue.json",
+        "--task-root",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks",
+        "--outbox-dir",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications",
+        "--item-json",
+        "{\"attempts\": 0, \"branch\": \"migration/resumeai\", \"candidate\": {\"description\": \"Generate ATS-friendly resumes quickly using AI for tailored content, keyword optimization, and real-time editing with customizable templates.\", \"external_signal\": \"\", \"external_url\": \"\", \"full_name\": \"Doomish77/ResumeAI\", \"language\": \"TypeScript\", \"last_checked_at\": \"2026-05-06T17:24:32Z\", \"lazycat_hits\": [], \"owner\": \"Doomish77\", \"repo\": \"ResumeAI\", \"repo_url\": \"https://github.com/Doomish77/ResumeAI\", \"searches\": [{\"result_count\": 0, \"search_url\": \"https://lazycat.cloud/appstore/search?keyword=ResumeAI\", \"term\": \"ResumeAI\"}], \"source_labels\": [\"GitHub Search Self-hosted\"], \"sources\": [\"github_search_self_hosted_recent\"], \"stars_today\": 0, \"status\": \"portable\", \"status_reason\": \"No matching app found in LazyCat app store search.\", \"total_stars\": 0}, \"candidate_status\": \"portable\", \"codex\": {\"attempts\": 0, \"last_returncode\": 0, \"last_run_at\": \"2026-05-06T22:55:35Z\", \"last_status\": \"\", \"last_task_dir\": \"/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260506T225643Z-github-doomish77-resumeai\", \"session_id\": \"1227c4d4-b5f3-421c-bdd0-a2cfa9b05059\"}, \"codex_run_posted_at\": \"2026-05-06T22:55:35Z\", \"created_at\": \"2026-05-06T17:24:31Z\", \"github_issue_number\": 259, \"id\": \"github:doomish77/resumeai\", \"last_error\": \"\", \"slug\": \"resumeai\", \"source\": \"Doomish77/ResumeAI\", \"state\": \"ready\", \"state_history\": [{\"from\": \"build_failed\", \"reason\": \"operator framework fix: resetting resumeai for retry. Fixed root cause of the original build_failed in scripts/full_migrate.py — analyze_source raised ValueError before the planner-template short-circuit could fire. Also taught scripts/bootstrap_migration.py to preserve planner-written lzc-manifest.yml (multi-service apps), and updated the planner prompt (scripts/codex_migration_worker.py) to use real images for sidecars (mongo:7, postgres:16-alpine, redis:7-alpine) instead of the bootstrap placeholder. Worker should pick this up on next dispatch and complete the planner → scaffold → build → install chain end-to-end.\", \"source\": \"operator.framework_fix\", \"to\": \"ready\", \"ts\": \"2026-05-08T02:08:22Z\"}], \"state_history_posted_count\": 1, \"updated_at\": \"2026-05-08T02:08:22Z\", \"workspace_path\": \"/__w/lzcat-apps/lzcat-apps\"}",
+        "--mode",
+        "planning",
+        "--model",
+        "claude-sonnet-4-6"
+      ],
+      "phase": "planning",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/auto_migrate.py",
+        "Doomish77/ResumeAI",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "--build-mode",
+        "release",
+        "--resume",
+        "--commit-scaffold",
+        "--allow-existing"
+      ],
+      "phase": "build",
+      "returncode": 0
+    }
+  ],
+  "discord_replies": [],
+  "discovery_gate": [
+    {
+      "id": "github:fossbilling/fossbilling",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:m-yoshizawa1179/server-monitor",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:munna-web0ev/homelab",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:sarimkhan021/proxmox-os-autotagger",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:brooksaw/ipmi-dashboard",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:scobru/shogun-tunecamp",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:smithyhaus/outpost",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:outlook84/homer-go",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:azrtydxb/kryton",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:kirill-markin/flashcards-open-source-app",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:hggamegd/self-hosted-ai-starter-kit",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:anto16jose/ai-chat-interface",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:monim279/ai-powered-devops",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:osmanbeyoglulab/gbm_data_v2",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:master-moose/belle-feed",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:k0s24/mystic-tarot",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:pandadefi/lido-exit-queue",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:wohoef/text_mining",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:weicai995/cinderia-wiki-data",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:andersnbe/kereby-scraper",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:denis-ka8/floors-threejs",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:sathwik2407/rmcp",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:esmretty/urban-renewal",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:kai-1130/site-manager",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:kowsikansenthilkumar/bot-bank",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:dmitry-pixel/64dao",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:qf1lzx/railway-hermes-oauth-image",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:nadsb26/spa-project",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:zaylaaurora-byte/agent-browser",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:kookmin-ee-ailab/kookmin-ee-ailab.github.io",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:crit-fumble/cfg-core-server",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:alpesh15gb/labels",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    }
+  ],
+  "discovery_reviewer": [],
+  "local_agent": {
+    "status": "disabled"
+  },
+  "local_agent_commands": [],
+  "migration": {
+    "returncode": 0,
+    "status": "lpk_built"
+  },
+  "post_acceptance": [],
+  "selected": "github:doomish77/resumeai",
+  "started_at": "2026-05-08T07:12:57Z"
+}
