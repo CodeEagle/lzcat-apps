@@ -1,0 +1,25 @@
+migration/moltnet
+branch 'template' set up to track 'origin/template'.
+HEAD is now at 0460e70 fix(automation/F8): auto-verify FF migration/<slug> to template before checkout
+Preparing worktree (new branch 'template')
+{
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260508T005701Z-github-tobocop2-lilbee.md",
+  "resumed": false,
+  "returncode": 0,
+  "session_id": "165b6cbc-ee76-40ed-abdf-8488a8f69a95",
+  "status": "completed",
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260508T005701Z-github-tobocop2-lilbee"
+}
+obscura binary not found in PATH
+/__w/lzcat-apps/lzcat-apps/registry/candidates/latest.json
+/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260508T010023Z.jsonl
+{"already_migrated_count": 1, "candidate_count": 50, "counts_by_status": {"already_migrated": 1, "excluded": 4, "needs_review": 32, "portable": 13}, "excluded_count": 4, "generated_at": "2026-05-08T01:00:23Z", "needs_review_count": 32, "portable_count": 13}
+migration/moltnet
+{
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260508T010632Z-github-noopolis-moltnet.md",
+  "resumed": false,
+  "returncode": 0,
+  "session_id": "e426fc47-d3e7-4f68-b726-914dcf40f371",
+  "status": "completed",
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260508T010632Z-github-noopolis-moltnet"
+}

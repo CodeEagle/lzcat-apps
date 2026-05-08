@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1
+
+# Stage 1: build the embedded web console (Astro/TypeScript in web/)
+FROM node:20-alpine AS console-builder
+WORKDIR /src
+COPY web/package*.json web/
+RUN cd web && npm ci
+COPY web/ web/
+RUN cd web && npm run build
+
+# Stage 2: build the Go binary
+# modernc.org/sqlite is pure Go — CGO_ENABLED=0 is safe.
+# The web console is embedded via go:embed; we overlay web/dist from
+# the previous stage so the directive finds the built assets.
+FROM golang:1.24-alpine AS go-builder
+ARG SOURCE_VERSION
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+COPY --from=console-builder /src/web/dist ./web/dist
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags "-s -w" \
+    -o /moltnet \
+    ./cmd/moltnet
+
+# Stage 3: minimal runtime
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates wget && \
+    mkdir -p /var/lib/moltnet && \
+    printf 'version: moltnet.v1\n' > /etc/Moltnet
+COPY --from=go-builder /moltnet /moltnet
+EXPOSE 8787
+# MOLTNET_CONFIG provides a minimal valid config so the server does not
+# error on startup when no Moltnet file exists in the working directory.
+# All runtime values are overridden by the MOLTNET_* env vars in the manifest.
+ENV MOLTNET_CONFIG=/etc/Moltnet
+CMD ["/moltnet", "start"]
