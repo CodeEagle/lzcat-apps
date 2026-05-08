@@ -3,27 +3,26 @@
   "app": "moltnet",
   "source_version": "v0.1.3",
   "build_version": "0.1.3",
-  "head_sha": "29ca0021277c",
+  "head_sha": "7d27df444b33",
   "build_recipe_hash": "88bc7650a4342317f7d2624e6eadf83b3a5df137bdf356b9dfc7b8c26c915106",
-  "updated_at": "2026-05-08T01:22:25.004204+00:00",
+  "updated_at": "2026-05-08T02:48:41.758861+00:00",
   "images": {
-    "moltnet-web": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:d97806d1afaf3535"
+    "moltnet-web": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:3e3d8b917d32dd4f"
   },
   "source_images": {
-    "moltnet-web": "ghcr.io/codeeagle/lazycatimages:moltnet_29ca0021277c"
+    "moltnet-web": "ghcr.io/codeeagle/lazycatimages:moltnet_7d27df444b33"
   },
   "source_digests": {
-    "_primary": "96238f0757d41acc52290b982d5d3298d6ebbadd9466d57af27a0d05d1acaa9d"
+    "_primary": "d96c89b5342b0605168c3d6c67518523a2d8ec0e19c05d13b249dd3b5fb4cfea"
   },
   "copy_image_events": [
     {
-      "source_image": "ghcr.io/codeeagle/lazycatimages:moltnet_29ca0021277c",
-      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:d97806d1afaf3535",
-      "elapsed_seconds": 0.0,
+      "source_image": "ghcr.io/codeeagle/lazycatimages:moltnet_7d27df444b33",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:3e3d8b917d32dd4f",
+      "elapsed_seconds": 20.327,
       "saw_waiting": false,
       "saw_upload_started": false,
-      "reused_existing": true,
-      "reused_by_digest": true,
+      "reused_existing": false,
       "kind": "primary"
     }
   ]
