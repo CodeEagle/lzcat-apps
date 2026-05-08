@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +17,7 @@ except ImportError:  # pragma: no cover - direct script execution
 
 
 def utc_now_iso() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def build_payload(candidates: list[dict[str, Any]], *, generated_at: str) -> dict[str, Any]:
@@ -42,7 +42,7 @@ def build_payload(candidates: list[dict[str, Any]], *, generated_at: str) -> dic
 
 def write_candidate_files(repo_root: Path, payload: dict[str, Any]) -> dict[str, Path]:
     generated_at = str(payload.get("meta", {}).get("generated_at", ""))
-    date_part = generated_at[:10] if generated_at else datetime.now(UTC).date().isoformat()
+    date_part = generated_at[:10] if generated_at else datetime.now(timezone.utc).date().isoformat()
     output_dir = repo_root / "registry" / "candidates"
     output_dir.mkdir(parents=True, exist_ok=True)
 

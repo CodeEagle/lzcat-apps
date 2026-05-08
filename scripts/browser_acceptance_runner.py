@@ -42,7 +42,7 @@ import argparse
 import asyncio
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -69,7 +69,7 @@ PLATFORM_ERROR_MARKERS = (
 
 
 def _utc_now_iso() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def load_plan(repo_root: Path, slug: str) -> dict[str, Any]:

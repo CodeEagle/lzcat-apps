@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 import urllib.request
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -46,7 +46,7 @@ AttachmentRecognizer = Callable[[dict[str, Any], str], AttachmentRecognitionResu
 
 
 def utc_now_iso() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def run_id_from_now(now: str) -> str:

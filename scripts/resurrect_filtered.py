@@ -41,7 +41,7 @@ import argparse
 import json
 import sys
 from collections import Counter
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -56,7 +56,7 @@ EXCLUDED_PROMPT_PREFIX_RESET = "Likely not a deployable self-hosted app/service"
 
 
 def utc_now_iso() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def should_reset(item: dict[str, Any]) -> tuple[bool, str]:

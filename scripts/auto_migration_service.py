@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -108,7 +108,7 @@ CommandRunner = Callable[[list[str]], CommandResult]
 
 
 def utc_now_iso() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:

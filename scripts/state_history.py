@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -33,7 +33,7 @@ DEFAULT_LOG_PATH = Path("registry/auto-migration/state-history.jsonl")
 
 def utc_now_iso() -> str:
     """UTC timestamp matching the format used elsewhere in the repo."""
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def record_state_transition(

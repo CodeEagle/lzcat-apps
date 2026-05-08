@@ -35,7 +35,7 @@ already runs (we'll opt the file into the .gitignore re-include list).
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +43,7 @@ DEFAULT_LOG_PATH = Path("registry") / "auto-migration" / "ai-reviews.jsonl"
 
 
 def _utc_now_iso() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def append_review(

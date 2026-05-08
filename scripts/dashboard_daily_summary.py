@@ -7,7 +7,7 @@ import json
 import os
 import urllib.error
 from collections import Counter
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +20,7 @@ except ImportError:  # pragma: no cover - direct script execution
 
 
 def utc_now_iso() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:

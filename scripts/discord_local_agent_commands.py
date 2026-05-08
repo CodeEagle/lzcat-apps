@@ -10,7 +10,7 @@ import time
 import urllib.error
 from collections import Counter
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -79,7 +79,7 @@ class DecisionInteractionResult:
 
 
 def utc_now_iso() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def command_channel_name(prefix: str) -> str:

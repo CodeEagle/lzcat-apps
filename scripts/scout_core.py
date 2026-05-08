@@ -11,7 +11,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import OrderedDict
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -194,7 +194,7 @@ DEPLOYABLE_HINTS = (
 class DiscoveryRunLogger:
     def __init__(self, path: Path, *, run_id: str | None = None) -> None:
         self.path = path
-        self.run_id = run_id or datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        self.run_id = run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     def event(
         self,
@@ -212,7 +212,7 @@ class DiscoveryRunLogger:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload: dict[str, Any] = {
             "run_id": self.run_id,
-            "timestamp": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+            "timestamp": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
             "stage": stage,
             "item_id": item_id,
             "repo": repo,
@@ -637,7 +637,7 @@ def parse_trending_repositories_html(document: str, source: dict[str, str]) -> l
 
 
 def build_recent_date(days: int = HIGH_STAR_RECENT_DAYS) -> str:
-    return (datetime.now(UTC) - timedelta(days=days)).date().isoformat()
+    return (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
 
 
 def fetch_github_search_candidates() -> list[dict[str, Any]]:
@@ -678,7 +678,7 @@ def fetch_github_search_candidates() -> list[dict[str, Any]]:
 
 
 def _awesome_recent_cutoff_iso(days: int) -> str:
-    return (datetime.now(UTC) - timedelta(days=days)).date().isoformat()
+    return (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
 
 
 def fetch_awesome_selfhosted_candidates() -> list[dict[str, Any]]:
