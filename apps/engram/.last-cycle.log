@@ -1,21 +1,21 @@
 migration/engram
 {
-  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260508T004215Z-github-jsierra87-engram.md",
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260508T012237Z-github-jsierra87-engram.md",
   "resumed": true,
   "returncode": 1,
-  "session_id": "a0d368a8-0c2b-43eb-8691-cf17f13b3029",
+  "session_id": "8080c978-aa95-4899-a930-317f1461aac4",
   "status": "failed",
-  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260508T004215Z-github-jsierra87-engram"
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260508T012237Z-github-jsierra87-engram"
 }
 obscura binary not found in PATH
 /__w/lzcat-apps/lzcat-apps/registry/candidates/latest.json
-/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260508T004217Z.jsonl
-{"already_migrated_count": 1, "candidate_count": 50, "counts_by_status": {"already_migrated": 1, "excluded": 7, "needs_review": 29, "portable": 13}, "excluded_count": 7, "generated_at": "2026-05-08T00:42:17Z", "needs_review_count": 29, "portable_count": 13}
+/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260508T012239Z.jsonl
+{"already_migrated_count": 4, "candidate_count": 50, "counts_by_status": {"already_migrated": 4, "excluded": 3, "needs_review": 23, "portable": 20}, "excluded_count": 3, "generated_at": "2026-05-08T01:22:39Z", "needs_review_count": 23, "portable_count": 20}
 migration/engram
 [1/10] 收集上游信息
 
 - 当前结论：已识别输入类型为 `github_repo`，并准备好可分析的上游材料。
-- 当前产出：source=jsierra87/engram; kind=github_repo; build_mode=reinstall; gh_token_source=GH_TOKEN; lzc_token_source=env:LZC_CLI_TOKEN; image_owner=CodeEagle; /tmp/lzcat-full-migrate-z01275kj/engram-main
+- 当前产出：source=jsierra87/engram; kind=github_repo; build_mode=reinstall; gh_token_source=GH_TOKEN; lzc_token_source=env:LZC_CLI_TOKEN; image_owner=CodeEagle; /tmp/lzcat-full-migrate-vzobrnyu/engram-main
 - 镜像缓存：无
 - 调用脚本：scripts/full_migrate.py; git clone
 - 阻塞/风险：无
@@ -88,177 +88,142 @@ ValueError: 未发现 compose、Dockerfile、可识别的前端应用或 release
   "discord_replies": [],
   "discovery_gate": [
     {
-      "id": "github:miles990/mini-agent",
-      "reason": "candidate_excluded",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:onloc-app/onloc-ha",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:arifkhan4567/flashalpha-fill-simulator",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:anthonyj5405/homelab-auto-recovery",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:eddieandrei/liqaa-meet",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:olympiangamesgenussynchytrium730/dokploy-tailscale-webhook-relay",
-      "reason": "candidate_excluded",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:clippershiptechnocracy13/bose-soundtouch-hybrid-2026",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:sloughsprayer329/zynox-filehub",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:cheriannebiweekly653/hc-yt-downloader",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:tenuous-hemisphere643/itsweber-tools",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:lophophorawilliamsiigregorynazianzen31/openclaw-paired-skill",
-      "reason": "candidate_excluded",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:spayed-turkmen6590/netlify-relay",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:ramosagustinaolivia23/mcp-upgrade",
-      "reason": "candidate_excluded",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:leoassisslv-bot/api-fastapi-clientes-pedidos",
-      "reason": "candidate_excluded",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:t3tra-dev/t3tra-dev",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:ralphlenal804078/0x0euc5v",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:guilhermeferreira24/portugal-economic-indicators-pipeline",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:automaticcrm/status-page",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:uqekijofacovexxdomlgezrj/oneinch-limit-order-bot",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:tay-won/nong-rental",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:hernangonza/metr1ka-app",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:vpnc9893-gh/rpg",
-      "reason": "candidate_excluded",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:turbocanary/turbotest_jgbpamp9_0799rdww",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:smnayem24/decentiot--smart-water-tank-monitoring-simulation",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:osmanbeyoglulab/gbm_data_v2",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:a99275800/clizk2",
-      "reason": "candidate_excluded",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:fuww/status",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:mateuskolap/notas-fiscais-python",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:samivijarra/10-pokedex",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:crossstreetbreechesbuoy918/ttt",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:brennan-vanderlaan/stash",
+      "id": "github:angellyr/yt-dlp",
       "reason": "candidate_already_migrated",
       "status": "filtered_out"
     },
     {
-      "id": "github:fernando-akdemiapp/akdemiapp-web",
+      "id": "github:nocobase/nocobase",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:papi-ux/polaris",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:pedroevaldt/recall",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:eran-rof/design-calendar-app",
+      "id": "github:huskyauto/visionclaw-agent-public-release",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:marcbernstein0/cisc5550-final-project",
+      "id": "github:asihgdfas/rate-cloud",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:rhtap-rhdh-qe/e2e-tests-java-springboot-zetatjei",
+      "id": "github:atomantic/portos",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:alexpipiska/ev-savings-vs-fuel-dashboard-teslamate",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:a-ayad96/ansible-role-forgejo",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:le0-star/searxng-docker-tavily-adapter",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:caobach369/layout-qc-assets",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:img-0403/app",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:abhimanyubirla/p1",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:rutujasrathod/swift-jxd",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:shaheemme-maker/stock-market-scraper",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:hoaenglish/class8.2",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:seandxd/baize-ip-demo",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:naolmengistu/neattube",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:redondoc/wsj-zh-rss-proxy",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:raph33ai/alphavault-quant",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:emsprouster/folio",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:minesokim/child-docket",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:joukhadarco/jeeb_app",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:briangelhorn/ops-sentinel",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:bueche/ros2_robot_arm",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:0poiu789/llm-access-gateway",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:leedongjin9705/ai-api",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:laeteth/advanced-anti-sandbox-virtual-machine",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     }
@@ -274,5 +239,5 @@ ValueError: 未发现 compose、Dockerfile、可识别的前端应用或 release
   },
   "post_acceptance": [],
   "selected": "github:jsierra87/engram",
-  "started_at": "2026-05-08T00:42:15Z"
+  "started_at": "2026-05-08T01:22:37Z"
 }
