@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "app": "resumeai",
+  "source_version": "c809e47",
+  "build_version": "1.0.1",
+  "head_sha": "ea4afc823cc4",
+  "build_recipe_hash": "acc3014c7a7df2efee843c3c74434e0ea4d3acec0fe4f53c4dc09fb1fd2b2a38",
+  "updated_at": "2026-05-08T07:54:39.975231+00:00",
+  "images": {
+    "mongo": "registry.lazycat.cloud/invokerlaw/library/mongo:f9dc3c49b06bf845",
+    "web": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:fd3e1ddc10c1b3ac"
+  },
+  "source_images": {
+    "mongo": "mongo:7",
+    "web": "ghcr.io/codeeagle/lazycatimages:resumeai_ea4afc823cc4"
+  },
+  "source_digests": {
+    "_primary": "468df3ad0ed13f4a591be6be7c93a4fbd007865df729d2ae57a93ef44b826e95"
+  },
+  "copy_image_events": [
+    {
+      "source_image": "ghcr.io/codeeagle/lazycatimages:resumeai_ea4afc823cc4",
+      "target_image": "registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:fd3e1ddc10c1b3ac",
+      "elapsed_seconds": 28.813,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": false,
+      "kind": "primary"
+    },
+    {
+      "source_image": "mongo:7",
+      "target_image": "registry.lazycat.cloud/invokerlaw/library/mongo:f9dc3c49b06bf845",
+      "elapsed_seconds": 0.0,
+      "saw_waiting": false,
+      "saw_upload_started": false,
+      "reused_existing": true,
+      "service": "mongo",
+      "kind": "dependency"
+    }
+  ]
+}
