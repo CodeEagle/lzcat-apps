@@ -4962,7 +4962,126 @@ def main() -> int:
         ms.mark_step_completed(state, 1, conclusion=f"已识别输入类型为 `{normalized.kind}`")
 
         step_state.current_step = 2
-        analysis = analyze_source(normalized, source_dir, gh_token)
+        # Planner-template short-circuit. analyze_source only inspects the
+        # upstream tree and raises ValueError when it finds no compose /
+        # Dockerfile / recognized frontend / release binary. But when the
+        # planner phase has already written apps/<slug>/Dockerfile.template
+        # — claude's read of the README + source tree — that's authoritative
+        # ground truth and the analyze step's "I don't see a Dockerfile in
+        # the upstream root" objection is moot. Without this fallback,
+        # analyze_source raises and aborts the migration before the
+        # post-analyze override block (below) gets to consult the planner
+        # template at all. Observed in resumeai run 25531579892: TypeScript
+        # repo with only Next.js source in the upstream root, no
+        # Dockerfile/compose; planner had written a perfectly working
+        # multi-stage Dockerfile.template; analyze_source raised
+        # `未发现 compose、Dockerfile、可识别的前端应用或 release binary`
+        # → entire migration aborted, attempts incremented to 2,
+        # state stuck at build_failed.
+        preempted_slug = bm.normalize_slug(
+            (normalized.upstream_repo.split("/", 1)[1] if normalized.upstream_repo else "")
+            or Path(normalized.source).stem
+            or normalized.source.split("/")[-1]
+        )
+        preempted_template = repo_root / "apps" / preempted_slug / "Dockerfile.template"
+        try:
+            analysis = analyze_source(normalized, source_dir, gh_token)
+        except ValueError as exc:
+            if not preempted_template.exists():
+                raise
+            upstream_repo = normalized.upstream_repo
+            meta = (
+                bm.fetch_upstream_metadata(upstream_repo, "github_release", gh_token)
+                if upstream_repo
+                else {}
+            )
+            is_fork = bool(meta.get("is_fork"))
+            has_releases = bool(meta.get("version") or meta.get("source_version"))
+            check_strategy = "commit_sha" if (is_fork or not has_releases) else "github_release"
+            project_name = bm.titleize_slug(preempted_slug)
+            # Reflect planner-written manifest's service topology when present.
+            # The planner often writes a multi-service manifest (e.g. resumeai
+            # = web + mongo); image_targets must point to the services whose
+            # image is the bootstrap placeholder so run_build's
+            # apply_image_overrides can swap them. Defaulting image_targets
+            # to [slug] makes run_build crash with "failed to update service
+            # image: <slug>" when the planner manifest doesn't have a
+            # service named after the slug.
+            planner_manifest_path = repo_root / "apps" / preempted_slug / "lzc-manifest.yml"
+            planner_image_targets: list[str] = []
+            planner_services: dict[str, dict[str, Any]] = {}
+            if planner_manifest_path.exists():
+                try:
+                    planner_text = planner_manifest_path.read_text(encoding="utf-8")
+                    services_match = re.search(
+                        r"^services:\s*\n((?:\s{2}\S.*\n(?:\s{4,}.*\n)*)+)",
+                        planner_text,
+                        re.MULTILINE,
+                    )
+                    if services_match:
+                        body = services_match.group(1)
+                        for svc_match in re.finditer(
+                            r"^\s{2}([A-Za-z0-9_.-]+):\s*\n((?:\s{4,}.*\n)*)",
+                            body,
+                            re.MULTILINE,
+                        ):
+                            svc_name = svc_match.group(1)
+                            svc_body = svc_match.group(2)
+                            image_match = re.search(
+                                r"^\s+image:\s*([^\n]+)",
+                                svc_body,
+                                re.MULTILINE,
+                            )
+                            image_value = (image_match.group(1).strip() if image_match else "")
+                            planner_services[svc_name] = {"image": image_value}
+                            if image_value.startswith("registry.lazycat.cloud/placeholder/"):
+                                planner_image_targets.append(svc_name)
+                except OSError:
+                    pass
+            image_targets = planner_image_targets or [preempted_slug]
+            services_map = planner_services or {
+                preempted_slug: {
+                    "image": f"registry.lazycat.cloud/placeholder/{preempted_slug}:bootstrap",
+                }
+            }
+            spec = {
+                "slug": preempted_slug,
+                "project_name": project_name,
+                "description": str(meta.get("description") or f"{preempted_slug} on LazyCat"),
+                "description_zh": f"（迁移初稿）{project_name} 的懒猫微服版本",
+                "upstream_repo": str(upstream_repo or ""),
+                "homepage": str(meta.get("homepage") or normalized.homepage or ""),
+                "license": str(meta.get("license") or ""),
+                "author": str(meta.get("author") or "TODO"),
+                "version": str(meta.get("version") or "0.1.0"),
+                "check_strategy": check_strategy,
+                "build_strategy": "upstream_with_target_template",
+                "dockerfile_path": "Dockerfile.template",
+                "service_port": 8080,
+                "image_targets": image_targets,
+                "services": services_map,
+                "application": {
+                    "subdomain": preempted_slug,
+                    "public_path": ["/"],
+                    "upstreams": [
+                        {"location": "/", "backend": f"http://{(image_targets[0] if image_targets else preempted_slug)}:8080/"}
+                    ],
+                },
+                "env_vars": [],
+                "data_paths": [],
+                "startup_notes": [
+                    f"analyze_source raised ({exc}); apps/{preempted_slug}/Dockerfile.template "
+                    "already written by planner — using upstream_with_target_template route.",
+                    f"image_targets derived from planner manifest: {image_targets}.",
+                ],
+                "_risks": [f"analyze_source raised before planner override: {exc}"],
+            }
+            analysis = AnalysisResult(
+                slug=preempted_slug,
+                route="upstream_with_target_template",
+                spec=spec,
+                risks=list(spec["_risks"]),
+            )
         # Planner override: if apps/<slug>/Dockerfile.template exists in the
         # target repo (claude's planner phase wrote it before this step ran),
         # the route MUST be `upstream_with_target_template` so run_build.py
@@ -4976,7 +5095,7 @@ def main() -> int:
         # output without requiring claude to remember to also tweak
         # lzc-build.yml's build_strategy field.
         target_template_path = repo_root / "apps" / analysis.slug / "Dockerfile.template"
-        if target_template_path.exists():
+        if target_template_path.exists() and analysis.route != "upstream_with_target_template":
             analysis.spec["build_strategy"] = "upstream_with_target_template"
             analysis.spec["dockerfile_path"] = "Dockerfile.template"
             analysis.route = "upstream_with_target_template"

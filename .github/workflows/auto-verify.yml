@@ -217,6 +217,7 @@ jobs:
           set -euo pipefail
           ART=(
             "apps/${SLUG}/.browser-acceptance-plan.json"
+            "apps/${SLUG}/.browser-acceptance.json"
             "apps/${SLUG}/.functional-check.json"
             "apps/${SLUG}/.claude-verify-review.json"
             "apps/${SLUG}/acceptance/"

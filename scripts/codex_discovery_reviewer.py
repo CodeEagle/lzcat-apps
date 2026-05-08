@@ -598,6 +598,16 @@ Decision rules (only when Step 0 says COMMERCIAL-OK):
   (f) someone's personal homepage / résumé / blog content (not a deployable app)
   (g) blatant SaaS wrapper that ONLY works against a paid third-party API with no self-host path
   (h) the candidate is JUST a programming-language standard library, web framework (React, Vue, Express), or developer SDK, with literally NOTHING runnable as an end-user service. Caveat: many real apps' descriptions mention they're "built on Django" or "a CTF framework" or "an X framework for Y" — those are END-USER APPS that USE/PROVIDE a framework, NOT naked frameworks. dpaste (pasteboard app built on Django), ctfd (CTF competition platform), nuclio (serverless platform with dashboard) are all `migrate`. Only fire (h) when the repo is purely a library imported by other code with no service / web UI / dashboard at all.
+  (i) backend-only "agent host" / "sync server" / "chat backend" whose ONLY HTTP surface is a token-gated programmatic API meant for a SEPARATE non-browser client (Electron desktop, Tauri, native iOS/Android, Telegram bot, IDE/editor extension, MCP/LSP/DAP-style protocol server). LazyCat App Store users open `https://<slug>.<box>.lazycat.cloud` in a browser — if that URL only serves a token-gated REST/WS API for a sibling desktop client, the migration produces a domain that "doesn't open" even when the container is healthy. Fire this disqualifier only when ALL of these hold (use the source-code signals block above):
+    - README / description explicitly positions this repo as the SERVER side of a client/server pair, with phrases like "agent host", "sync server", "host server", "agent server", "language-server-style", "Telegram bot host", "MCP server", or an Architecture/Layers section showing client → THIS REPO → workspace
+    - The user-facing surface is named as a SEPARATE artifact: a sibling `apps/<name>/electron/` / `desktop/` / `tauri/` / `clients/electron/` directory in the root tree, an external Telegram bot, an IDE extension, or a CLI shipped elsewhere
+    - Repo bundles NO web SPA: no `index.html` at root, no `public/` / `dist/` / `static/` / `web/` / `frontend/` / `ui/` directory containing browser assets, and `package.json` (if any) has NO web framework dep (no react / vue / next / svelte / @sveltejs/kit / nuxt / angular)
+    - Auth model in the configured HTTP surface is bearer-token / API-key / WebSocket protocol, not session-cookie web app
+    Caveats:
+    * If the repo bundles BOTH a server AND a web SPA / admin UI / landing page → choose `migrate`. The worker can package the web part. The disqualifier ONLY fires when there is NO browser-facing UI at all.
+    * Apps that have an Electron wrapper but ALSO serve the same SPA over web (Slack/Mattermost/VS-Code-server-style) → choose `migrate`.
+    * MCP servers / LSP servers / DAP servers / SSH servers / pure-API microservices → fire this disqualifier (no browser-facing UI by design).
+    Use `filtered_reason = "non_browser_client_surface"`. Real cite: `JeremyGuo/StellaClaw` — Rust agent host (`stellaclaw` + `agent_server` crates) + `apps/stellacodeX/electron` desktop client + Telegram channel; built and installed cleanly but the LazyCat subdomain served no useful page because the only HTTP surface was the token-gated Web channel meant for the Electron client.
 - `needs_human`: ambiguous app-store match where the upstream MIGHT already be listed (operator should confirm). Do NOT use `needs_human` just because you're unsure about quality; default to `migrate` and let the worker confirm by attempting a build. (License-driven `needs_human` is handled in Step 0 above.)
 
 LazyCat app-store search review:
@@ -621,7 +631,7 @@ Required queue update:
 - For `migrate`, set `state` to `ready`, clear `last_error` and `filtered_reason`, and write:
   `discovery_review.status = "migrate"`, `discovery_review.reviewed_at`, `discovery_review.reviewer = "claude"`,
   `discovery_review.reason`, `discovery_review.evidence` as a short list, and `discovery_review.score`.
-- For `skip`, set `state` to `filtered_out`, set `filtered_reason` to `ai_discovery_skip` (override to `non_commercial_license` if the skip was driven by Step 0's license check), set `last_error` to a concise reason, and write:
+- For `skip`, set `state` to `filtered_out`, set `filtered_reason` to `ai_discovery_skip` (override to `non_commercial_license` when Step 0's license check was the driver, or `non_browser_client_surface` when disqualifier (i) was the driver), set `last_error` to a concise reason, and write:
   `discovery_review.status = "skip"`, `discovery_review.reviewed_at`, `discovery_review.reviewer = "claude"`,
   `discovery_review.reason`, `discovery_review.evidence`, and `discovery_review.score`.
 - For `needs_human`, set `state` to `waiting_for_human` and write:
