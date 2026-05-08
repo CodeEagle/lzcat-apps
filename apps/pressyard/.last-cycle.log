@@ -23,3 +23,266 @@ migration/pressyard
   "status": "completed",
   "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260508T024815Z-github-codemasters999-pressyard"
 }
+[migration/pressyard 0744d7a] chore(planner): pressyard ok
+ 4 files changed, 46 insertions(+), 280 deletions(-)
+[1/10] 收集上游信息
+
+- 当前结论：已识别输入类型为 `github_repo`，并准备好可分析的上游材料。
+- 当前产出：source=CodeMasters999/PressYard; kind=github_repo; build_mode=reinstall; gh_token_source=GH_TOKEN; lzc_token_source=env:LZC_CLI_TOKEN; image_owner=CodeEagle; /tmp/lzcat-full-migrate-1786zhgc/PressYard-main
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; git clone
+- 阻塞/风险：无
+- 下一步：进入 [2/10] 选择移植路线
+
+[2/10] 自动迁移失败
+
+- 当前结论：自动流程在当前步骤抛出异常。
+- 当前产出：未发现 compose、Dockerfile、可识别的前端应用或 release binary
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py
+- 阻塞/风险：未发现 compose、Dockerfile、可识别的前端应用或 release binary
+- 下一步：停止
+
+Traceback (most recent call last):
+  File "/__w/lzcat-apps/lzcat-apps/scripts/full_migrate.py", line 4966, in main
+    analysis = analyze_source(normalized, source_dir, gh_token)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/__w/lzcat-apps/lzcat-apps/scripts/full_migrate.py", line 3001, in analyze_source
+    raise ValueError("未发现 compose、Dockerfile、可识别的前端应用或 release binary")
+ValueError: 未发现 compose、Dockerfile、可识别的前端应用或 release binary
+{
+  "browser_recheck": [],
+  "codex_worker": [
+    {
+      "id": "github:jsierra87/engram",
+      "returncode": 1,
+      "status": "codex_failed"
+    }
+  ],
+  "commands": [
+    {
+      "command": [
+        "python3",
+        "scripts/status_sync.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps"
+      ],
+      "returncode": 1
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/scout.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "scan",
+        "--limit",
+        "50"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/codex_migration_worker.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "--queue-path",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/queue.json",
+        "--task-root",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks",
+        "--outbox-dir",
+        "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications",
+        "--item-json",
+        "{\"attempts\": 1, \"branch\": \"migration/pressyard\", \"candidate\": {\"description\": \"Create local WordPress setups with isolated containers, automatic installs, and project-based hostnames for easy development and testing.\", \"external_signal\": \"\", \"external_url\": \"\", \"full_name\": \"CodeMasters999/PressYard\", \"language\": \"\", \"last_checked_at\": \"2026-05-06T17:24:32Z\", \"lazycat_hits\": [], \"owner\": \"CodeMasters999\", \"repo\": \"PressYard\", \"repo_url\": \"https://github.com/CodeMasters999/PressYard\", \"searches\": [{\"result_count\": 0, \"search_url\": \"https://lazycat.cloud/appstore/search?keyword=PressYard\", \"term\": \"PressYard\"}], \"source_labels\": [\"GitHub Search Self-hosted\"], \"sources\": [\"github_search_self_hosted_recent\"], \"stars_today\": 0, \"status\": \"portable\", \"status_reason\": \"No matching app found in LazyCat app store search.\", \"total_stars\": 0}, \"candidate_status\": \"portable\", \"codex\": {\"attempts\": 1, \"last_returncode\": 1, \"last_run_at\": \"2026-05-06T18:03:25Z\", \"last_status\": \"codex_failed\", \"last_task_dir\": \"/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260506T180329Z-github-codemasters999-pressyard\", \"session_id\": \"8dba1c43-8ab2-4264-8f3a-3bfe5c2bbf64\"}, \"created_at\": \"2026-05-06T17:24:31Z\", \"id\": \"github:codemasters999/pressyard\", \"last_error\": \"claude repair worker exited 1\", \"slug\": \"pressyard\", \"source\": \"CodeMasters999/PressYard\", \"state\": \"build_failed\", \"updated_at\": \"2026-05-06T18:03:25Z\", \"workspace_path\": \"/__w/lzcat-apps/lzcat-apps\"}",
+        "--mode",
+        "planning",
+        "--model",
+        "claude-sonnet-4-6"
+      ],
+      "phase": "planning",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/auto_migrate.py",
+        "CodeMasters999/PressYard",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "--build-mode",
+        "reinstall",
+        "--resume",
+        "--commit-scaffold",
+        "--allow-existing"
+      ],
+      "phase": "build",
+      "returncode": 1
+    }
+  ],
+  "discord_replies": [],
+  "discovery_gate": [
+    {
+      "id": "github:vibz28xo/glance",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:guillermovzq/alchemical-agent-ecosystem",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:chadbyte/clay",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:christegbe/file-processor-1771917204-2",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:chharithoeun/final-fantasy-xi",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:antonylu0826/zenku-v2",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:ahmadqatato2-maker/openclaw_vulnerabilities_and_solutions",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:tomevault-io/gemini-extensions",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:fxlipepp/felbotc-",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:x7yxpksk72-maker/maker-tyggotwjhn-coding",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:julienlerosty/julienlerosty.ai",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:muxammadsodiq778/muxammadsodiq.github.io",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:matbeedotcom/affect-avatar-toolchain",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:justinandersencsd/csdtv-team-hub",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:mist145/img_rup_2026",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:coledalton10-create/pool-power-rankings",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:mounika5207/codealpha-task2.0",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:scollins055/drone_motor_catalog_llm_parser",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:aydiniyom/gooseman",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:krot4u/public_scripts",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:nicolasalbani/desgrava.ar",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:yoshino2357-rgb/slide-iryou",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:static-web-apps-testing-org/synthetics-swa-test-20260508024005",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:thomassophiea/aura",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:gunrock/loops",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:ingeluckie/busy-server",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:thiago12097/gluetun-webui",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:vishalnayakkushals/iris",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:dyniepro/cve-2026-25643",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:claw-army/awesome-claude-code",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    }
+  ],
+  "discovery_reviewer": [],
+  "local_agent": {
+    "status": "disabled"
+  },
+  "local_agent_commands": [],
+  "migration": {
+    "returncode": 1,
+    "status": "build_failed"
+  },
+  "post_acceptance": [],
+  "selected": "github:codemasters999/pressyard",
+  "started_at": "2026-05-08T02:40:08Z"
+}
