@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "source_input": "Doomish77/ResumeAI",
+  "created_at": "2026-05-08T07:51:08.850157+00:00",
+  "updated_at": "2026-05-08T07:51:10.793827+00:00",
+  "context": {
+    "source": {
+      "kind": "github_repo",
+      "url": "Doomish77/ResumeAI",
+      "upstream_repo": "Doomish77/ResumeAI",
+      "homepage": "https://github.com/Doomish77/ResumeAI"
+    },
+    "environment": {
+      "gh_token_source": "GH_TOKEN",
+      "lzc_cli_token_source": "env:LZC_CLI_TOKEN",
+      "container_runtime": "podman",
+      "image_owner": "CodeEagle"
+    },
+    "route_decision": {
+      "route": "upstream_with_target_template",
+      "build_strategy": "upstream_with_target_template",
+      "check_strategy": "commit_sha",
+      "risks": [
+        "analyze_source raised before planner override: 未发现 compose、Dockerfile、可识别的前端应用或 release binary"
+      ]
+    },
+    "version": {
+      "upstream": "",
+      "normalized": "0.1.0"
+    },
+    "finalized": {
+      "slug": "resumeai",
+      "project_name": "Resumeai",
+      "description": "Generate ATS-friendly resumes quickly using AI for tailored content, keyword optimization, and real-time editing with customizable templates",
+      "description_zh": "（迁移初稿）Resumeai 的懒猫微服版本",
+      "upstream_repo": "Doomish77/ResumeAI",
+      "homepage": "https://github.com/Doomish77/ResumeAI",
+      "license": "MIT",
+      "author": "Doomish77",
+      "version": "0.1.0",
+      "package": "fun.selfstudio.app.migration.resumeai",
+      "min_os_version": "1.3.8",
+      "check_strategy": "commit_sha",
+      "build_strategy": "upstream_with_target_template",
+      "official_image_registry": "",
+      "official_image_fallback_tag": "",
+      "precompiled_binary_url": "",
+      "dockerfile_type": "custom",
+      "dockerfile_path": "Dockerfile.template",
+      "build_context": ".",
+      "docker_platform": "linux/amd64",
+      "image_owner": "CodeEagle",
+      "overlay_paths": [],
+      "upstream_submodules": [],
+      "image_targets": [
+        "web"
+      ],
+      "dependencies": [
+        {
+          "target_service": "mongo",
+          "source_image": "mongo:7"
+        }
+      ],
+      "service_builds": [],
+      "build_args": {},
+      "service_cmd": [],
+      "service_port": 8080,
+      "services": {
+        "mongo": {
+          "image": "mongo:7"
+        },
+        "web": {
+          "image": "registry.lazycat.cloud/placeholder/resumeai:bootstrap"
+        }
+      },
+      "application": {
+        "subdomain": "resumeai",
+        "public_path": [
+          "/"
+        ],
+        "upstreams": [
+          {
+            "location": "/",
+            "backend": "http://web:8080/"
+          }
+        ]
+      },
+      "env_vars": [],
+      "data_paths": [],
+      "startup_notes": [
+        "analyze_source raised (未发现 compose、Dockerfile、可识别的前端应用或 release binary); apps/resumeai/Dockerfile.template already written by planner — using upstream_with_target_template route.",
+        "image_targets derived from planner manifest: ['web'].",
+        "sidecar dependencies derived from planner manifest: ['mongo']"
+      ],
+      "include_content": false,
+      "ai_pod_service": "",
+      "ai_pod_service_name": "resumeai",
+      "ai_pod_service_port": 8080,
+      "ai_pod_image": "registry.lazycat.cloud/placeholder/resumeai-ai:bootstrap",
+      "aipod": {},
+      "usage": "",
+      "icon_path": "/tmp/lzcat-full-migrate-vp5atrp3/ResumeAI-main/public/img/logo.png",
+      "source_version": "",
+      "default_branch": "",
+      "_risks": [
+        "目标 app 已存在，自动覆盖当前托管文件后继续"
+      ]
+    },
+    "registration": {
+      "slug": "resumeai",
+      "monorepo_path": "apps/resumeai",
+      "config_path": "registry/repos/resumeai.json"
+    }
+  },
+  "steps": {
+    "1": {
+      "completed": true,
+      "completed_at": "2026-05-08T07:51:09.282246+00:00",
+      "conclusion": "已识别输入类型为 `github_repo`"
+    },
+    "2": {
+      "completed": true,
+      "completed_at": "2026-05-08T07:51:10.648708+00:00",
+      "conclusion": "已自动推断构建路线为 `upstream_with_target_template`"
+    },
+    "3": {
+      "completed": true,
+      "completed_at": "2026-05-08T07:51:10.649845+00:00",
+      "conclusion": "已完成 monorepo 注册"
+    },
+    "4": {
+      "completed": true,
+      "completed_at": "2026-05-08T07:51:10.792815+00:00",
+      "conclusion": "骨架文件已生成",
+      "files_written": [
+        "/__w/lzcat-apps/lzcat-apps/apps/resumeai/lzc-manifest.yml",
+        "/__w/lzcat-apps/lzcat-apps/apps/resumeai/lzc-build.yml",
+        "/__w/lzcat-apps/lzcat-apps/apps/resumeai/README.md",
+        "/__w/lzcat-apps/lzcat-apps/apps/resumeai/UPSTREAM_DEPLOYMENT_CHECKLIST.md",
+        "/__w/lzcat-apps/lzcat-apps/apps/resumeai/icon.png",
+        "/__w/lzcat-apps/lzcat-apps/registry/repos/resumeai.json"
+      ]
+    },
+    "5": {
+      "completed": true,
+      "completed_at": "2026-05-08T07:51:10.793335+00:00",
+      "conclusion": "manifest 初稿已生成"
+    },
+    "6": {
+      "completed": true,
+      "completed_at": "2026-05-08T07:51:10.793816+00:00",
+      "conclusion": "剩余文件已补齐"
+    }
+  },
+  "problems": [],
+  "verification": {}
+}

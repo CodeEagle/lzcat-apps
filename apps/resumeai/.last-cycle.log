@@ -23,3 +23,15 @@ migration/resumeai
   "status": "completed",
   "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260508T073847Z-github-doomish77-resumeai"
 }
+[migration/resumeai feeed98] chore(planner): resumeai ok
+ 10 files changed, 262 insertions(+)
+ create mode 100644 apps/resumeai/.last-claude-planning.stderr.log
+ create mode 100644 apps/resumeai/.last-claude-planning.stdout.log
+ create mode 100644 apps/resumeai/.last-cycle.log
+ create mode 100644 apps/resumeai/Dockerfile.template
+ create mode 100644 apps/resumeai/README.md
+ create mode 100644 apps/resumeai/icon.png
+ create mode 100644 apps/resumeai/lzc-build.yml
+ create mode 100644 apps/resumeai/lzc-deploy-params.yml
+ create mode 100644 apps/resumeai/lzc-manifest.yml
+ create mode 100644 registry/repos/resumeai.json
