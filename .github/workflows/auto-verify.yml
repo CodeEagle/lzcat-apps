@@ -221,8 +221,16 @@ jobs:
             "apps/${SLUG}/.claude-verify-review.json"
             "apps/${SLUG}/acceptance/"
           )
+          # -f forces add through .gitignore: these paths are
+          # gitignored in apps/*/ to keep operator-local validation
+          # runs from polluting the branch, but auto-verify's whole
+          # purpose is to commit them as verification evidence
+          # (SKILL.md rule 13 — real screenshots from running install).
+          # Without -f, git refuses with "paths are ignored by one of
+          # your .gitignore files" — observed in stellaclaw runs
+          # 25530354890 and 25530458232.
           for path in "${ART[@]}"; do
-            if [ -e "$path" ]; then git add "$path"; fi
+            if [ -e "$path" ]; then git add -f "$path"; fi
           done
           if git diff --cached --quiet; then
             echo "auto-verify: no artifacts changed"
