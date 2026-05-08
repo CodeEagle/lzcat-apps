@@ -71,6 +71,16 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Bootstrap project board (idempotent)
+        # The "Map check + AI verdict -> Project Status" step at the end
+        # of this workflow calls `project_board.py update` which requires
+        # the project-cache.json to exist (mapping slugs to project item
+        # ids). Without bootstrap, that step fails with "Project not
+        # bootstrapped" and the verify run ends in failure even when
+        # bb-browser + AI verdict both succeeded. Observed in stellaclaw
+        # runs 25526203429 + 25529932498.
+        run: python3 scripts/project_board.py bootstrap
+
       - name: Resolve entry URL
         id: url
         run: |
