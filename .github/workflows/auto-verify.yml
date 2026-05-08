@@ -59,6 +59,38 @@ jobs:
               ;;
           esac
 
+      - name: Ensure migration/${{ inputs.slug }} branch is up-to-date with template
+        # Mirrors auto-migrate-worker.yml's same step. Without this, auto-verify
+        # checks out a stale migration/<slug> sha from before recent script
+        # fixes and breaks at import time. Specifically: stellaclaw run
+        # 25530354890 still hit `ImportError: cannot import name 'UTC'`
+        # after b34809b (UTC compat fix) had landed on template, because
+        # migration/stellaclaw had been reset to a pre-fix sha and auto-verify
+        # had no FF logic.
+        run: |
+          set -euo pipefail
+          ref="migration/${SLUG}"
+          repo="${{ github.repository }}"
+          template_sha=$(gh api "/repos/${repo}/branches/template" --jq .commit.sha)
+          if ! gh api "/repos/${repo}/branches/${ref}" >/dev/null 2>&1; then
+            echo "::warning::${ref} does not exist — auto-verify needs the worker to have run first"
+            exit 0
+          fi
+          status=$(gh api "/repos/${repo}/compare/${ref}...template" --jq .status)
+          echo "compare ${ref}...template: status=${status}"
+          case "$status" in
+            identical) echo "${ref} already at template@${template_sha}" ;;
+            ahead)
+              gh api -X PATCH "/repos/${repo}/git/refs/heads/${ref}" \
+                -f "sha=${template_sha}" -F force=false
+              echo "fast-forwarded ${ref} to template@${template_sha}"
+              ;;
+            behind|diverged)
+              echo "::warning::${ref} has slug-specific commits (status=${status}); not auto-updating"
+              ;;
+            *) echo "::warning::unexpected compare status ${status}; leaving ${ref} alone" ;;
+          esac
+
       - name: Checkout migration/${{ inputs.slug }}
         uses: actions/checkout@v4
         with:
