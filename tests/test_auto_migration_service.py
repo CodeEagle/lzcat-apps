@@ -45,6 +45,7 @@ class AutoMigrationServiceTest(unittest.TestCase):
             skip_awesome_selfhosted=False,
             dry_run=False,
             enable_build_install=False,
+            lpk_only=False,
             functional_check=False,
             box_domain="",
             developer_url="",

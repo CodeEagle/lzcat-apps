@@ -256,7 +256,7 @@ class ComposeProxyFrontendInfo:
     backend_services: tuple[str, ...]
     locations: tuple[str, ...]
 
-BUILD_MODES = ("auto", "build", "install", "reinstall", "validate-only")
+BUILD_MODES = ("auto", "build", "release", "install", "reinstall", "validate-only")
 
 
 def sh(
@@ -5639,16 +5639,24 @@ def main() -> int:
             lpk_sha256=file_sha256(lpk_path), lpk_size_bytes=lpk_path.stat().st_size)
         ms.save_state(app_dir, state)
 
-        if effective_build_mode == "build":
+        if effective_build_mode in {"build", "release"}:
             step_state.current_step = 10
+            if effective_build_mode == "release":
+                conclusion = "release 模式：已产出真实 .lpk 与 LazyCat 镜像，按要求跳过 install 步骤。"
+                risks = ["release 模式刻意跳过 lzc-cli app install；后续由可访问 box 的 self-hosted runner / 操作员完成实际安装。"]
+                next_step = "停止；交付物已就绪 (dist/<slug>.lpk + .lazycat-images.json)。"
+            else:
+                conclusion = "当前环境没有进入自动安装验收链路，流程停在本地产物阶段。"
+                risks = ["缺少 LZC_CLI_TOKEN，未执行 `lzc-cli app install` 和后续状态验证"]
+                next_step = "停止，补齐 LZC_CLI_TOKEN 后重跑即可继续安装验收"
             step_report(
                 10,
                 "安装验收并复盘",
-                conclusion="当前环境没有进入自动安装验收链路，流程停在本地产物阶段。",
+                conclusion=conclusion,
                 outputs=[str(lpk_path)],
                 scripts=["scripts/full_migrate.py"],
-                risks=["缺少 LZC_CLI_TOKEN，未执行 `lzc-cli app install` 和后续状态验证"],
-                next_step="停止，补齐 LZC_CLI_TOKEN 后重跑即可继续安装验收",
+                risks=risks,
+                next_step=next_step,
             )
             pending = ms.get_pending_backports(state)
             if pending:

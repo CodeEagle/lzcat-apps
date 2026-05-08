@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 
-BUILD_MODES = ("auto", "build", "install", "reinstall", "validate-only")
+BUILD_MODES = ("auto", "build", "release", "install", "reinstall", "validate-only")
 DEFAULT_CANDIDATE_SNAPSHOT = "registry/candidates/latest.json"
 DEFAULT_CANDIDATE_STATUSES = ("portable",)
 GITHUB_SOURCE_RE = re.compile(
