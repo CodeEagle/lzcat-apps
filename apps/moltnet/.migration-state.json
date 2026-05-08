@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_input": "noopolis/moltnet",
   "created_at": "2026-05-08T01:18:51.186116+00:00",
-  "updated_at": "2026-05-08T06:19:55.238343+00:00",
+  "updated_at": "2026-05-08T06:26:23.117268+00:00",
   "context": {
     "source": {
       "kind": "github_repo",
@@ -148,7 +148,7 @@
     },
     "7": {
       "completed": true,
-      "completed_at": "2026-05-08T05:27:34.840407+00:00",
+      "completed_at": "2026-05-08T06:19:55.417725+00:00",
       "conclusion": "预检通过",
       "all_passed": true
     }
@@ -193,6 +193,14 @@
       "category": "build",
       "status": "open",
       "created_at": "2026-05-08T05:31:30.217442+00:00"
+    },
+    {
+      "id": "p6",
+      "step": 8,
+      "description": "WARN:: 读取不到以下路径中的文件，无法连接客户端自动判读盒子名称和盒子用户，\n/github/home/.config/hportal-client/shellapi_addr 盒子的连接地址\n/github/home/.config/hportal-client/shellapi_cred 盒子的连接凭证\n但可使用环境变量指定:\n  - BOX_NAME=foo 指定盒子的名称\n  - BOX_UID=bar 指定盒子的用户\nNOTE：在指定环境变量的模式下，有些接口依旧不能访问，为了更好的开发体验，建议尽量在同主机的环境下启动客户端\nWARN:: 读取不到以下路径中的文件，无法连接客户端自动判读盒子名称和盒子用户，\n/github/home/.config/hportal-client/shellapi_addr 盒子的连接地址\n/github/home/.config/hportal-client/shellapi_cred 盒子的连接凭证\n但可使用环境变量指定:\n  - BOX_NAME=foo 指定盒子的名称\n  - BOX_UID=bar 指定盒子的用户\nNOTE：在指定环境变量的模式下，有些接口依旧不能访问，为了更好的开发体验，建议尽量在同主机的环境下启动客户端",
+      "category": "build",
+      "status": "open",
+      "created_at": "2026-05-08T06:26:23.117248+00:00"
     }
   ],
   "verification": {}
