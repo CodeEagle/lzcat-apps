@@ -99,6 +99,49 @@ RUN python3 -m playwright install --with-deps chromium \
     && bb-browser --version \
     && command -v bb-browser-mcp >/dev/null
 
+# ---- developer toolchains (rust + go + bun + openjdk) -----------------------
+# Pre-bake the common compiled-language toolchains so claude planner /
+# codex repair can `cargo check`, `go build -n`, `npm install --dry-run`,
+# etc. directly on the runner before writing a Dockerfile.template.
+# Without these, the canonical build container (FROM rust:1-slim /
+# golang:1.22-alpine / etc.) is the only place these tools exist —
+# fine for the actual build, but locks the AI repair worker out of
+# any quick local validation.
+#
+# Total bloat: ~1.2 GB. Acceptable for a pre-built shared runner.
+#
+#   rust       — rustup w/ stable toolchain (cargo, rustc)
+#   go 1.22    — official release tarball
+#   bun        — JS runtime/package manager (used by oven/bun:1
+#                style upstream Dockerfiles, e.g. heym)
+#   openjdk-17 — Java ecosystem fallback (rare but cheap to include)
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:/usr/local/go/bin:/root/.bun/bin:${PATH}
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y --default-toolchain stable --profile minimal --no-modify-path \
+    && cargo --version && rustc --version
+
+ARG GO_VERSION=1.22.7
+RUN ARCH="$(dpkg --print-architecture)" \
+    && case "$ARCH" in \
+         amd64) GO_ARCH=amd64 ;; \
+         arm64) GO_ARCH=arm64 ;; \
+         *) echo "unsupported arch: $ARCH" >&2; exit 1 ;; \
+       esac \
+    && curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz" \
+        | tar -C /usr/local -xz \
+    && go version
+
+RUN curl -fsSL https://bun.sh/install | bash \
+    && bun --version
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        openjdk-17-jdk-headless \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && java -version
+
 # ---- runtime config ---------------------------------------------------------
 WORKDIR /repo
 ENV LZCAT_RUNNER=1
