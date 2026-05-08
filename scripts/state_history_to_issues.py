@@ -36,6 +36,16 @@ Per-item bookkeeping (saved back into queue.json):
   * ``last_error_posted_hash``      — sha1 of last posted ``last_error``
   * ``ai_reviews_posted_count``     — how many ai-reviews.jsonl entries
                                       for this slug have been posted
+  * ``github_issue_closed_at``      — UTC ts when a previously-created
+                                      tracker was closed because the item
+                                      was filtered as already-migrated /
+                                      excluded; presence skips re-close.
+
+Items filtered_out with ``filtered_reason`` in
+``NO_TRACKING_FILTER_REASONS`` (e.g. ``candidate_already_migrated_by_other``,
+``slug_excluded``) never get a fresh tracker created. If one already
+exists from a pre-fix run, it's auto-closed with a reason comment so it
+leaves the operator's "No Status" backlog.
 
 Title format:        ``[migration] <slug>``
 Label:               ``migration`` (auto-created if missing — the
@@ -62,6 +72,19 @@ from typing import Any
 ISSUE_TITLE_PREFIX = "[migration]"
 ISSUE_LABEL = "migration"
 DEFAULT_AI_REVIEWS_PATH = Path("registry/auto-migration/ai-reviews.jsonl")
+
+# filtered_reason values that mean "no migration work will ever happen for
+# this item" — purely mechanical / pre-emptive filters set by
+# discovery_gate. We never want a tracking issue for these (and if one was
+# previously created, we close it). ai_discovery_skip is intentionally
+# excluded: that one carries an AI verdict + evidence worth auditing.
+NO_TRACKING_FILTER_REASONS = {
+    "candidate_already_migrated",
+    "candidate_already_migrated_by_other",
+    "published_upstream",
+    "slug_excluded",
+    "candidate_excluded",
+}
 
 
 def utc_now_iso() -> str:
@@ -376,6 +399,34 @@ def add_comment(repo: str, issue_number: int, body: str) -> bool:
     return True
 
 
+def close_issue(repo: str, issue_number: int, comment: str) -> bool:
+    """Close an issue with a closing comment. Idempotent at the gh level
+    (closing an already-closed issue exits 0 with a no-op message)."""
+    rc, _, stderr = _gh([
+        "issue", "close", str(issue_number),
+        "--repo", repo,
+        "--reason", "not planned",
+        "--comment", comment,
+    ])
+    if rc != 0:
+        print(f"warn: close #{issue_number} failed (rc={rc}): {stderr.strip()}", file=sys.stderr)
+        return False
+    return True
+
+
+def _no_tracking_needed(item: dict[str, Any]) -> bool:
+    """True when the item is in a terminal-filtered state for which a
+    per-slug tracking issue is pure noise (no migration work will happen,
+    no AI verdict to audit). Catches the LocalAgent-imported items that
+    arrive pre-marked as already_migrated_by_other and the operator-curated
+    exclude-list entries — both of which used to spawn `[migration] <slug>`
+    issues that landed in "No Status" forever.
+    """
+    if str(item.get("state") or "").strip() != "filtered_out":
+        return False
+    return str(item.get("filtered_reason") or "").strip() in NO_TRACKING_FILTER_REASONS
+
+
 def _collect_unposted_artifacts(
     item: dict[str, Any],
     ai_reviews_for_slug: list[dict[str, Any]],
@@ -484,6 +535,29 @@ def process_item(
     slug = str(item.get("slug", "")).strip()
     ai_reviews_for_slug = ai_reviews_for_slug or []
 
+    # Pre-emptive filter: items that discovery_gate filtered out as
+    # already-migrated / excluded should not get a tracking issue. If one
+    # was already created (back when the script blindly mirrored
+    # last_error), close it now with an explanatory comment so it leaves
+    # the "No Status" backlog. Idempotent — once github_issue_closed_at
+    # is set we don't re-close.
+    if _no_tracking_needed(item):
+        existing = item.get("github_issue_number")
+        reason = str(item.get("filtered_reason") or "").strip() or "unknown"
+        if isinstance(existing, int) and not str(item.get("github_issue_closed_at") or "").strip():
+            if dry_run:
+                return {"slug": slug, "would_close": existing, "reason": reason}
+            comment = (
+                f"Closing tracker — slug filtered as `{reason}`. "
+                "No migration work will happen for this candidate "
+                "(see `registry/auto-migration/queue.json` for the filter evidence)."
+            )
+            if close_issue(repo, existing, comment):
+                item["github_issue_closed_at"] = utc_now_iso()
+                return {"slug": slug, "closed": existing, "reason": reason}
+            return {"slug": slug, "error": f"close issue #{existing} failed"}
+        return {"slug": slug, "skipped": f"filter:{reason}"}
+
     # Preserve original "no history" skip semantics: when the item has
     # *literally nothing* worth mirroring yet (no state_history, no
     # discovery_review, no codex run, no error, no ai-reviews row), we
@@ -575,11 +649,24 @@ def main() -> int:
             continue
         slug = str(item.get("slug") or "").strip()
         ai_reviews_for_slug = ai_reviews_index.get(slug, [])
-        if not _has_any_known_artifact(item, ai_reviews_for_slug):
-            continue
-        artifacts = _collect_unposted_artifacts(item, ai_reviews_for_slug)
-        if not artifacts:
-            continue
+
+        # Items filtered as already-migrated / excluded need a quick pass
+        # so process_item can close any previously-created tracker. Skip
+        # the artifact pre-checks below for them; otherwise apply the
+        # original "must have artifacts" gate.
+        if _no_tracking_needed(item):
+            # Nothing to do unless there's an open tracker to clean up.
+            if not isinstance(item.get("github_issue_number"), int):
+                continue
+            if str(item.get("github_issue_closed_at") or "").strip():
+                continue
+        else:
+            if not _has_any_known_artifact(item, ai_reviews_for_slug):
+                continue
+            artifacts = _collect_unposted_artifacts(item, ai_reviews_for_slug)
+            if not artifacts:
+                continue
+
         result = process_item(
             args.repo, item,
             dry_run=args.dry_run,
@@ -587,7 +674,7 @@ def main() -> int:
         )
         summary.append(result)
         processed += 1
-        if not args.dry_run and result.get("posted"):
+        if not args.dry_run and (result.get("posted") or result.get("closed")):
             queue_dirty = True
         if not args.dry_run and "github_issue_number" in item:
             queue_dirty = True

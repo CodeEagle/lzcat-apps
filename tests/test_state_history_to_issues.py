@@ -508,6 +508,172 @@ def test_process_item_no_artifacts_skips_with_no_history_message() -> None:
     assert out == {"slug": "empty", "skipped": "no history"}
 
 
+def test_no_tracking_needed_detects_already_migrated_filter() -> None:
+    item = {
+        "slug": "openclaw",
+        "state": "filtered_out",
+        "filtered_reason": "candidate_already_migrated_by_other",
+        "last_error": "Strong app-store match found for repository name.",
+    }
+    assert mod._no_tracking_needed(item) is True
+
+
+def test_no_tracking_needed_false_for_active_items() -> None:
+    # ai_discovery_skip is intentionally NOT in the no-tracking set —
+    # it carries an AI verdict worth auditing.
+    assert mod._no_tracking_needed({"state": "ready", "filtered_reason": ""}) is False
+    assert mod._no_tracking_needed({"state": "filtered_out", "filtered_reason": "ai_discovery_skip"}) is False
+    assert mod._no_tracking_needed({"state": "build_failed", "filtered_reason": "candidate_excluded"}) is False
+
+
+def test_process_item_skips_already_migrated_with_no_existing_issue() -> None:
+    item = {
+        "slug": "openclaw",
+        "state": "filtered_out",
+        "filtered_reason": "candidate_already_migrated_by_other",
+        "last_error": "Strong app-store match found for repository name.",
+    }
+    out = mod.process_item("CodeEagle/lzcat-apps", item, dry_run=True)
+    assert out == {"slug": "openclaw", "skipped": "filter:candidate_already_migrated_by_other"}
+
+
+def test_process_item_closes_stale_tracker_for_already_migrated_item() -> None:
+    item = {
+        "slug": "openclaw",
+        "state": "filtered_out",
+        "filtered_reason": "candidate_already_migrated_by_other",
+        "last_error": "Strong app-store match found for repository name.",
+        "github_issue_number": 305,
+    }
+    calls: list[list[str]] = []
+
+    def fake_gh(args, *, input=None):  # noqa: ANN001
+        calls.append(args)
+        return 0, "", ""
+
+    with patch.object(mod, "_gh", side_effect=fake_gh):
+        result = mod.process_item("CodeEagle/lzcat-apps", item, dry_run=False)
+
+    assert result["closed"] == 305
+    assert result["reason"] == "candidate_already_migrated_by_other"
+    assert "github_issue_closed_at" in item
+
+    # Exactly one gh call: issue close.
+    assert len(calls) == 1
+    assert calls[0][0:3] == ["issue", "close", "305"]
+    assert "--reason" in calls[0]
+    # The closing comment surfaces the filter reason.
+    comment_idx = calls[0].index("--comment") + 1
+    assert "candidate_already_migrated_by_other" in calls[0][comment_idx]
+
+    # Idempotent re-run does nothing.
+    calls.clear()
+    with patch.object(mod, "_gh", side_effect=fake_gh):
+        again = mod.process_item("CodeEagle/lzcat-apps", item, dry_run=False)
+    assert again["skipped"].startswith("filter:")
+    assert calls == []
+
+
+def test_process_item_dry_run_close_is_reported() -> None:
+    item = {
+        "slug": "ollama",
+        "state": "filtered_out",
+        "filtered_reason": "candidate_already_migrated_by_other",
+        "github_issue_number": 306,
+    }
+    out = mod.process_item("CodeEagle/lzcat-apps", item, dry_run=True)
+    assert out == {"slug": "ollama", "would_close": 306, "reason": "candidate_already_migrated_by_other"}
+    # Dry-run never sets the marker.
+    assert "github_issue_closed_at" not in item
+
+
+def test_main_closes_existing_tracker_for_filtered_out_item(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reproduces the openclaw/ollama/opencode situation: a previously
+    created `[migration] <slug>` tracker exists for an item that the
+    discovery_gate has filtered as already_migrated_by_other. Main
+    should close the issue and persist the closed-at marker."""
+    queue_path = tmp_path / "registry" / "auto-migration" / "queue.json"
+    queue_path.parent.mkdir(parents=True)
+    item = {
+        "slug": "openclaw",
+        "id": "github:openclaw/openclaw",
+        "state": "filtered_out",
+        "filtered_reason": "candidate_already_migrated_by_other",
+        "candidate_status": "already_migrated_by_other",
+        "last_error": "Strong app-store match found for repository name.",
+        "candidate": {"repo_url": "https://github.com/openclaw/openclaw"},
+        "github_issue_number": 305,
+    }
+    queue_path.write_text(json.dumps({"items": [item]}), encoding="utf-8")
+
+    closed: list[list[str]] = []
+
+    def fake_gh(args, *, input=None):  # noqa: ANN001
+        if args[0:2] == ["issue", "close"]:
+            closed.append(args)
+            return 0, "", ""
+        if args[0:2] == ["label", "create"]:
+            return 0, "", ""
+        # Any other gh call would be a regression — fail loudly.
+        raise AssertionError(f"unexpected gh call: {args}")
+
+    monkeypatch.setattr(sys, "argv", [
+        "state_history_to_issues",
+        "--repo-root", str(tmp_path),
+        "--repo", "CodeEagle/lzcat-apps",
+        "--queue-path", "registry/auto-migration/queue.json",
+    ])
+    with patch.object(mod, "_gh", side_effect=fake_gh):
+        rc = mod.main()
+    assert rc == 0
+    assert len(closed) == 1
+    after = json.loads(queue_path.read_text(encoding="utf-8"))
+    saved = after["items"][0]
+    assert saved["github_issue_number"] == 305  # preserved
+    assert saved["github_issue_closed_at"]  # marker persisted
+
+
+def test_main_skips_already_filtered_item_without_existing_tracker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A filtered-out already_migrated item with no github_issue_number
+    must NOT spawn a fresh tracker (this was the original bug)."""
+    queue_path = tmp_path / "registry" / "auto-migration" / "queue.json"
+    queue_path.parent.mkdir(parents=True)
+    item = {
+        "slug": "freshly-imported",
+        "id": "github:owner/freshly-imported",
+        "state": "filtered_out",
+        "filtered_reason": "candidate_already_migrated_by_other",
+        "candidate_status": "already_migrated_by_other",
+        "last_error": "Strong app-store match found for repository name.",
+        "candidate": {"repo_url": "https://github.com/owner/freshly-imported"},
+    }
+    queue_path.write_text(json.dumps({"items": [item]}), encoding="utf-8")
+
+    def fake_gh(args, *, input=None):  # noqa: ANN001
+        if args[0:2] == ["label", "create"]:
+            return 0, "", ""
+        # No issue list / create / comment / close should happen.
+        raise AssertionError(f"unexpected gh call: {args}")
+
+    monkeypatch.setattr(sys, "argv", [
+        "state_history_to_issues",
+        "--repo-root", str(tmp_path),
+        "--repo", "CodeEagle/lzcat-apps",
+        "--queue-path", "registry/auto-migration/queue.json",
+    ])
+    with patch.object(mod, "_gh", side_effect=fake_gh):
+        rc = mod.main()
+    assert rc == 0
+    after = json.loads(queue_path.read_text(encoding="utf-8"))
+    saved = after["items"][0]
+    assert "github_issue_number" not in saved
+    assert "github_issue_closed_at" not in saved
+
+
 def test_main_picks_up_items_without_state_history(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
