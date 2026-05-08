@@ -11,6 +11,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.codex_discovery_reviewer import (
     DiscoveryReviewerConfig,
+    _load_auto_approve_threshold,
+    _normalize_discovery_verdict,
     build_codex_command,
     build_codex_prompt,
     fetch_license_info,
@@ -514,6 +516,139 @@ class BuildCodexPromptRepoSignalsInjectionTest(unittest.TestCase):
         self.assertIn("source-code signals", prompt)
         # naked-framework guidance updated to reference the signals
         self.assertIn("naked framework", prompt)
+
+
+class BuildCodexPromptScoreScaleTest(unittest.TestCase):
+    """Issue #247 A.1: rubric must not say 0.55 is BOTH below and above the 0.65 threshold."""
+
+    def _build_prompt(self) -> str:
+        repo_root = Path(tempfile.mkdtemp(prefix="codex-prompt-score-"))
+        queue_path = repo_root / "queue.json"
+        item = {"id": "x", "slug": "x", "candidate": {"full_name": "owner/demo"}}
+        return build_codex_prompt(
+            repo_root, queue_path, item,
+            license_info={"fetch_status": "skip"},
+            repo_signals={"fetch_status": "skip"},
+        )
+
+    def test_score_scale_is_internally_consistent(self) -> None:
+        prompt = self._build_prompt()
+        self.assertNotIn("STILL ABOVE threshold", prompt)
+        self.assertIn("0.65", prompt)
+        self.assertIn("BELOW the 0.65 threshold", prompt)
+
+    def test_invariant_block_pins_status_to_score(self) -> None:
+        prompt = self._build_prompt()
+        self.assertIn("INVARIANT", prompt)
+        self.assertIn('status = "migrate"', prompt)
+        self.assertIn('status = "skip"', prompt)
+        self.assertIn("clamp", prompt)
+
+
+class LoadAutoApproveThresholdTest(unittest.TestCase):
+    """Issue #247 A.2: threshold must come from project-config.json::migration."""
+
+    def _make_repo(self, config) -> Path:
+        repo_root = Path(tempfile.mkdtemp(prefix="codex-threshold-"))
+        if config is not None:
+            (repo_root / "project-config.json").write_text(
+                json.dumps(config), encoding="utf-8"
+            )
+        return repo_root
+
+    def test_reads_migration_threshold(self) -> None:
+        repo_root = self._make_repo({"migration": {"auto_approve_score_threshold": 0.65}})
+        self.assertEqual(_load_auto_approve_threshold(repo_root), 0.65)
+
+    def test_falls_back_when_config_missing(self) -> None:
+        repo_root = Path(tempfile.mkdtemp(prefix="codex-threshold-missing-"))
+        # 0.8 mirrors project_board.DEFAULT_AUTO_APPROVE_THRESHOLD.
+        self.assertEqual(_load_auto_approve_threshold(repo_root), 0.8)
+
+    def test_falls_back_when_threshold_unparseable(self) -> None:
+        repo_root = self._make_repo({"migration": {"auto_approve_score_threshold": "not-a-number"}})
+        self.assertEqual(_load_auto_approve_threshold(repo_root), 0.8)
+
+    def test_falls_back_when_migration_section_missing(self) -> None:
+        repo_root = self._make_repo({"project_board": {"owner": "x"}})
+        self.assertEqual(_load_auto_approve_threshold(repo_root), 0.8)
+
+
+class NormalizeDiscoveryVerdictTest(unittest.TestCase):
+    """Issue #247 A.2: enforce status<->score invariant before audit log + Inbox gate."""
+
+    def _make_queue(self, review: dict) -> tuple[Path, str]:
+        repo_root = Path(tempfile.mkdtemp(prefix="codex-normalize-"))
+        queue_path = repo_root / "queue.json"
+        item_id = "github:owner/demo"
+        queue_path.write_text(
+            json.dumps({"items": [{"id": item_id, "slug": "demo", "discovery_review": review}]}),
+            encoding="utf-8",
+        )
+        return queue_path, item_id
+
+    def _read_review(self, queue_path: Path) -> dict:
+        payload = json.loads(queue_path.read_text(encoding="utf-8"))
+        return payload["items"][0]["discovery_review"]
+
+    def test_migrate_below_threshold_is_clamped_up(self) -> None:
+        # firetower scenario from issue #247: AI says migrate, score 0.60,
+        # threshold 0.65 — without normalization the Inbox gate drops it.
+        queue_path, item_id = self._make_queue({"status": "migrate", "score": 0.60})
+        review = _normalize_discovery_verdict(queue_path, item_id, 0.65, now="2026-05-08T12:00:00Z")
+        self.assertEqual(review["score"], 0.65)
+        self.assertEqual(review["score_original"], 0.60)
+        self.assertEqual(review["score_normalized_at"], "2026-05-08T12:00:00Z")
+        self.assertIn("verdict=migrate", review["score_normalized_reason"])
+        # Mutation must persist back to disk for project_board sync to see it.
+        persisted = self._read_review(queue_path)
+        self.assertEqual(persisted["score"], 0.65)
+
+    def test_skip_at_or_above_threshold_is_clamped_down(self) -> None:
+        queue_path, item_id = self._make_queue({"status": "skip", "score": 0.92})
+        review = _normalize_discovery_verdict(queue_path, item_id, 0.65, now="2026-05-08T12:00:00Z")
+        # Drop just below the threshold so the gate sees a skip.
+        self.assertAlmostEqual(review["score"], 0.64, places=6)
+        self.assertEqual(review["score_original"], 0.92)
+        persisted = self._read_review(queue_path)
+        self.assertAlmostEqual(persisted["score"], 0.64, places=6)
+
+    def test_migrate_at_or_above_threshold_is_left_alone(self) -> None:
+        queue_path, item_id = self._make_queue({"status": "migrate", "score": 0.85})
+        review = _normalize_discovery_verdict(queue_path, item_id, 0.65, now="2026-05-08T12:00:00Z")
+        self.assertEqual(review["score"], 0.85)
+        self.assertNotIn("score_original", review)
+        self.assertNotIn("score_normalized_at", review)
+
+    def test_skip_below_threshold_is_left_alone(self) -> None:
+        queue_path, item_id = self._make_queue({"status": "skip", "score": 0.10})
+        review = _normalize_discovery_verdict(queue_path, item_id, 0.65, now="2026-05-08T12:00:00Z")
+        self.assertEqual(review["score"], 0.10)
+        self.assertNotIn("score_original", review)
+
+    def test_needs_human_is_left_alone(self) -> None:
+        # needs_human score is informational only; don't touch it.
+        queue_path, item_id = self._make_queue({"status": "needs_human", "score": 0.50})
+        review = _normalize_discovery_verdict(queue_path, item_id, 0.65, now="2026-05-08T12:00:00Z")
+        self.assertEqual(review["score"], 0.50)
+        self.assertNotIn("score_original", review)
+
+    def test_missing_score_is_left_alone(self) -> None:
+        queue_path, item_id = self._make_queue({"status": "migrate"})
+        review = _normalize_discovery_verdict(queue_path, item_id, 0.65, now="2026-05-08T12:00:00Z")
+        self.assertEqual(review.get("status"), "migrate")
+        self.assertNotIn("score", review)
+
+    def test_missing_item_returns_empty(self) -> None:
+        queue_path, _ = self._make_queue({"status": "migrate", "score": 0.7})
+        review = _normalize_discovery_verdict(queue_path, "github:not/here", 0.65, now="2026-05-08T12:00:00Z")
+        self.assertEqual(review, {})
+
+    def test_missing_queue_returns_empty(self) -> None:
+        repo_root = Path(tempfile.mkdtemp(prefix="codex-normalize-missing-"))
+        queue_path = repo_root / "queue.json"
+        review = _normalize_discovery_verdict(queue_path, "x", 0.65, now="2026-05-08T12:00:00Z")
+        self.assertEqual(review, {})
 
 
 if __name__ == "__main__":

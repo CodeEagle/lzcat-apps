@@ -29,6 +29,11 @@ DEFAULT_TASK_ROOT = "registry/auto-migration/discovery-review-tasks"
 DEFAULT_OUTBOX = "registry/auto-migration/notifications"
 DEFAULT_CODEX_WORKER_MODEL = "claude-sonnet-4-6"
 
+# Mirrors scripts/project_board.py::DEFAULT_AUTO_APPROVE_THRESHOLD. Used as
+# the fallback when project-config.json is missing or unreadable, so the
+# normalizer here and the Inbox->Approved gate there agree.
+_NORMALIZER_DEFAULT_THRESHOLD = 0.8
+
 
 @dataclass(frozen=True)
 class DiscoveryReviewerConfig:
@@ -656,12 +661,26 @@ Required queue update:
   the pipeline isn't starved of work; almost every real software project
   should land above it:
     * 0.90+   confident migrate (clear app/service/wiki with active users)
-    * 0.70    healthy candidate, multiple positive signals
-    * 0.65    threshold for AI auto-approve (Inbox → Approved)
-    * 0.55    leans migrate (has utility, partial signals) — STILL ABOVE threshold
-    * 0.40    lean skip — needs an explicit disqualifier
-    * 0.15-   confident skip (clear coursework / template / personal homepage / web framework)
+    * 0.80    strong positive signal (e.g. frontend/display project per
+              the section above) — auto-approve
+    * 0.70    healthy candidate, multiple positive signals — auto-approve
+    * 0.65    minimum auto-approve threshold (Inbox → Approved). Any
+              `migrate` verdict MUST score at or above this floor.
+    * 0.55    leans migrate, partial signals — BELOW the 0.65 threshold,
+              so it will sit in Inbox awaiting human review. Use this
+              ONLY when you also pick `verdict = "needs_human"`; if you
+              picked `migrate`, raise to >= 0.65.
+    * 0.40    lean skip — partial disqualifier signals
+    * 0.15-   confident skip (clear coursework / template / personal homepage / unwrapped framework)
   The score MUST be a JSON number (not a string).
+
+INVARIANTS — your `discovery_review.status` and `discovery_review.score`
+MUST agree. Pick the verdict first, then choose a score consistent with it:
+  * `status = "migrate"`     ⇒  `score >= 0.65`  (or the script will clamp it up)
+  * `status = "skip"`        ⇒  `score <  0.65`  (or the script will clamp it down)
+  * `status = "needs_human"` ⇒  any score; treat as a confidence hint for the operator
+A migrate verdict scored below the threshold is contradictory and gets
+auto-corrected by the queue writer; the audit log will flag it.
 - For `migrate`, set `state` to `ready`, clear `last_error` and `filtered_reason`, and write:
   `discovery_review.status = "migrate"`, `discovery_review.reviewed_at`, `discovery_review.reviewer = "claude"`,
   `discovery_review.reason`, `discovery_review.evidence` as a short list, and `discovery_review.score`.
@@ -875,7 +894,10 @@ def main() -> int:
         from ai_review_log import append_review
     except ImportError:  # pragma: no cover
         from .ai_review_log import append_review  # type: ignore[no-redef]
-    review = _read_back_discovery_verdict(queue_path, args.item_id)
+    threshold = _load_auto_approve_threshold(repo_root)
+    review = _normalize_discovery_verdict(
+        queue_path, args.item_id, threshold, now=now
+    )
     append_review(
         repo_root,
         reviewer="discovery",
@@ -896,21 +918,107 @@ def main() -> int:
     return returncode
 
 
-def _read_back_discovery_verdict(queue_path: Path, item_id: str) -> dict[str, Any]:
-    """Pull the discovery_review object Claude wrote back for this item."""
+def _load_auto_approve_threshold(repo_root: Path) -> float:
+    """Resolve migration.auto_approve_score_threshold from project-config.json.
+
+    Mirrors scripts/project_board.py::auto_approve_threshold so the normalizer
+    here and the Inbox->Approved gate there agree on which scores pass.
+    """
+    config_path = repo_root / "project-config.json"
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return _NORMALIZER_DEFAULT_THRESHOLD
+    if not isinstance(config, dict):
+        return _NORMALIZER_DEFAULT_THRESHOLD
+    migration = config.get("migration")
+    if not isinstance(migration, dict):
+        return _NORMALIZER_DEFAULT_THRESHOLD
+    raw = migration.get("auto_approve_score_threshold", _NORMALIZER_DEFAULT_THRESHOLD)
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return _NORMALIZER_DEFAULT_THRESHOLD
+
+
+def _normalize_discovery_verdict(
+    queue_path: Path,
+    item_id: str,
+    threshold: float,
+    *,
+    now: str,
+) -> dict[str, Any]:
+    """Enforce the status<->score invariant on the queue item.
+
+    The reviewer prompt asks Claude to keep `discovery_review.status` and
+    `discovery_review.score` consistent (`migrate` => score >= threshold,
+    `skip` => score < threshold). When the model contradicts itself — e.g.
+    verdict `migrate` with score 0.6 against a 0.65 threshold — the
+    Inbox -> Approved gate in project_board.py silently drops the item,
+    which is the dominant source of "AI said migrate but nothing happened"
+    losses (see issue #247: firetower verdict=migrate score=0.60 stuck in
+    Inbox under threshold=0.65).
+
+    Clamp the score back into the half-plane that matches the verdict so
+    the gate sees what the reviewer meant, and stash the original score
+    on the review for audit. `needs_human` is left untouched (its score
+    is informational only). Returns the (possibly normalized)
+    discovery_review dict so the caller can pass it on to the audit log.
+    """
     try:
         payload = json.loads(queue_path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
-    items = payload.get("items") if isinstance(payload, dict) else None
+    if not isinstance(payload, dict):
+        return {}
+    items = payload.get("items")
     if not isinstance(items, list):
         return {}
     target = item_id.strip()
+    target_review: dict[str, Any] = {}
+    dirty = False
     for entry in items:
-        if isinstance(entry, dict) and str(entry.get("id", "")).strip() == target:
-            review = entry.get("discovery_review")
-            return review if isinstance(review, dict) else {}
-    return {}
+        if not isinstance(entry, dict) or str(entry.get("id", "")).strip() != target:
+            continue
+        review = entry.get("discovery_review")
+        if not isinstance(review, dict):
+            break
+        target_review = review
+        status = str(review.get("status") or "").strip().lower()
+        raw_score = review.get("score")
+        try:
+            score = float(raw_score) if raw_score is not None else None
+        except (TypeError, ValueError):
+            score = None
+        if score is None or status in ("", "needs_human"):
+            break
+
+        new_score: float | None = None
+        if status == "migrate" and score < threshold:
+            new_score = threshold
+        elif status == "skip" and score >= threshold:
+            new_score = max(0.0, threshold - 0.01)
+
+        if new_score is not None and new_score != score:
+            review["score"] = new_score
+            review["score_original"] = score
+            review["score_normalized_at"] = now
+            review["score_normalized_reason"] = (
+                f"verdict={status} contradicted score={score}; "
+                f"clamped against threshold={threshold}"
+            )
+            dirty = True
+        break
+
+    if dirty:
+        queue_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = queue_path.with_suffix(queue_path.suffix + ".tmp")
+        tmp.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(tmp, queue_path)
+    return target_review
 
 
 if __name__ == "__main__":
