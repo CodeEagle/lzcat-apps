@@ -15,3 +15,523 @@ obscura binary not found in PATH
 /__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260508T040227Z.jsonl
 {"already_migrated_count": 5, "candidate_count": 50, "counts_by_status": {"already_migrated": 5, "excluded": 6, "needs_review": 24, "portable": 15}, "excluded_count": 6, "generated_at": "2026-05-08T04:02:27Z", "needs_review_count": 24, "portable_count": 15}
 migration/moltnet
+[1/10] 收集上游信息
+
+- 当前结论：已识别输入类型为 `github_repo`，并准备好可分析的上游材料。
+- 当前产出：source=noopolis/moltnet; kind=github_repo; build_mode=reinstall; gh_token_source=GH_TOKEN; lzc_token_source=env:LZC_CLI_TOKEN; image_owner=CodeEagle; /tmp/lzcat-full-migrate-ogbfskyd/moltnet-main
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; git clone
+- 阻塞/风险：无
+- 下一步：进入 [2/10] 选择移植路线
+
+[2/10] 选择移植路线
+
+- 当前结论：已自动推断构建路线为 `upstream_with_target_template`。
+- 当前产出：slug=moltnet; route=upstream_with_target_template; 扫描到上游图标：website/public/apple-touch-icon.png
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py
+- 阻塞/风险：planner override: apps/moltnet/Dockerfile.template already exists — using upstream_with_target_template instead of analyzed route
+- 下一步：进入 [3/10] 注册目标 app
+
+  [3/10] ⏭ Restored finalized spec from state
+[git] committed: chore(moltnet): scaffold app via full_migrate
+[7/10] 运行预检
+
+- 当前结论：预检通过，骨架和 registry 注册已满足进入构建阶段的最低条件。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/apps/moltnet/lzc-manifest.yml; /__w/lzcat-apps/lzcat-apps/registry/repos/moltnet.json
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py
+- 阻塞/风险：无
+- 下一步：进入 [8/10] 触发并监听构建
+
+{"repo": "moltnet", "source_version": "v0.1.3", "build_version": "0.1.3", "update_needed": true, "check_only": false}
+[04:07:50] [moltnet] Update needed: 0.1.3 -> 0.1.3 (source: v0.1.3)
+[04:07:50] [moltnet] Phase: build_image
+[04:07:50] Cloning upstream: noopolis/moltnet
+Cloning into '/tmp/lzcat-upstream-fcgxftig'...
+[04:07:51] Building Docker image: ghcr.io/codeeagle/lazycatimages:moltnet_8970b44609df
+[1/3] STEP 1/6: FROM node:20-alpine AS console-builder
+Resolved "node" as an alias (/etc/containers/registries.conf.d/shortnames.conf)
+Trying to pull docker.io/library/node:20-alpine...
+Getting image source signatures
+Copying blob sha256:fff4e2c1b189bf87d63ad8bd07f7f4eb288d6f2b6a07a8bb44c60e8c075d2096
+Copying blob sha256:6a0ac1617861a677b045b7ff88545213ec31c0ff08763195a70a4a5adda577bb
+Copying blob sha256:4feea04c154301db6f4a496efa397b3db96603b1c009c797cfdde77bea8b3287
+Copying blob sha256:b2cbbfe903b0821005780971ddc5892edcc4ce74c5a48d82e1d2b382edac3122
+Copying config sha256:11cedc39e663e7c5d5cb9cc77a461a0d2adc25537b94e6831a6108f09cb2001b
+Writing manifest to image destination
+[1/3] STEP 2/6: WORKDIR /src
+--> ec2a5f06574d
+[1/3] STEP 3/6: COPY web/package*.json web/
+--> 1b6ba65ee7eb
+[1/3] STEP 4/6: RUN cd web && npm ci
+
+added 128 packages, and audited 129 packages in 3s
+
+21 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.14.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.14.0
+npm notice To update run: npm install -g npm@11.14.0
+npm notice
+--> 40068f708a57
+[1/3] STEP 5/6: COPY web/ web/
+--> e190606906fa
+[1/3] STEP 6/6: RUN cd web && npm run build
+
+> @noopolis/moltnet-console@0.1.0 build
+> tsc -b && vite build
+
+vite v6.4.2 building for production...
+transforming...
+✓ 175 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.49 kB │ gzip:   0.30 kB
+dist/assets/index-BImXgHS9.css   18.96 kB │ gzip:   4.61 kB
+dist/assets/index-U4LJYcrB.js   413.07 kB │ gzip: 131.71 kB
+✓ built in 2.29s
+--> f5d9285fb3bd
+[2/3] STEP 1/8: FROM golang:1.24-alpine AS go-builder
+Resolved "golang" as an alias (/etc/containers/registries.conf.d/shortnames.conf)
+Trying to pull docker.io/library/golang:1.24-alpine...
+Getting image source signatures
+Copying blob sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1
+Copying blob sha256:589002ba0eaed121a1dbf42f6648f29e5be55d5c8a6ee0f8eaa0285cc21ac153
+Copying blob sha256:f7bdfd728ac2ad72d43b82689890dc698260d3a1049845f48fb3fb942df6c581
+Copying blob sha256:8f78851c25d251496dd39ebce311b4d914a4a97c0ba1983039165a05fd96b925
+Copying blob sha256:c95d909b2488ff78a51d01ca745429e6d281e314006f231fe6e9f219cf5432ca
+Copying config sha256:ebe4e0721205a049b6806724e1ccb05c99e334b1dc1f59e0729b31130bce3aed
+Writing manifest to image destination
+[2/3] STEP 2/8: ARG SOURCE_VERSION
+--> 0ba8628620bf
+[2/3] STEP 3/8: WORKDIR /src
+--> 859b25608860
+[2/3] STEP 4/8: COPY go.mod go.sum ./
+--> c3c842b12d47
+[2/3] STEP 5/8: RUN go mod download
+--> a791393cd638
+[2/3] STEP 6/8: COPY . .
+[04:08:52] [heartbeat] docker build ghcr.io/codeeagle/lazycatimages:moltnet_8970b44609df still running after 60s (idle=4s, 499       01:00 47.0  0.4 S podman build --platform linux/amd64 -f /tmp/lzcat-upstream-fcgxftig/Dockerfile -t ghcr.io/codeeagle/lazycatimages:moltnet_8970b44609df --label org.opencontainers.image.source=https://github.com/CodeEagle/lzcat-apps --build-arg SOURCE_VERSION=v0.1.3 --build-arg BUILD_VERSION=0.1.3 /tmp/lzcat-upstream-fcgxftig)
+--> 8813ad2047e8
+[2/3] STEP 7/8: COPY --from=console-builder /src/web/dist ./web/dist
+--> 798ff1cca42e
+[2/3] STEP 8/8: RUN CGO_ENABLED=0 GOOS=linux go build     -ldflags "-s -w"     -o /moltnet     ./cmd/moltnet
+--> c951f5308834
+[3/3] STEP 1/7: FROM alpine:3.20
+Resolved "alpine" as an alias (/etc/containers/registries.conf.d/shortnames.conf)
+Trying to pull docker.io/library/alpine:3.20...
+Getting image source signatures
+Copying blob sha256:25f1d6b1951ac8eb3740558fe94cb83d377bdadf95fd9f98b50d2e1b96130471
+Copying config sha256:bf8527eb54c3680e728d5b4b383a8ba730d72dae7236fbc8dff97ed6b224a731
+Writing manifest to image destination
+[3/3] STEP 2/7: RUN apk add --no-cache ca-certificates wget &&     mkdir -p /var/lib/moltnet &&     printf 'version: moltnet.v1\n' > /etc/Moltnet
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/APKINDEX.tar.gz
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/APKINDEX.tar.gz
+(1/5) Installing ca-certificates (20260413-r0)
+(2/5) Installing libunistring (1.2-r0)
+(3/5) Installing libidn2 (2.3.7-r0)
+(4/5) Installing pcre2 (10.43-r0)
+(5/5) Installing wget (1.24.5-r0)
+Executing busybox-1.36.1-r31.trigger
+Executing ca-certificates-20260413-r0.trigger
+OK: 11 MiB in 19 packages
+--> 348db8b305ee
+[3/3] STEP 3/7: COPY --from=go-builder /moltnet /moltnet
+--> b759ab4f53df
+[3/3] STEP 4/7: EXPOSE 8787
+--> 37814e92195f
+[3/3] STEP 5/7: ENV MOLTNET_CONFIG=/etc/Moltnet
+--> 52dcf51c49bc
+[3/3] STEP 6/7: CMD ["/moltnet", "start"]
+--> f0980e2c2c0c
+[3/3] STEP 7/7: LABEL "org.opencontainers.image.source"="https://github.com/CodeEagle/lzcat-apps"
+[3/3] COMMIT ghcr.io/codeeagle/lazycatimages:moltnet_8970b44609df
+--> 6030f13c4637
+[Warning] one or more build args were not consumed: [BUILD_VERSION]
+Successfully tagged ghcr.io/codeeagle/lazycatimages:moltnet_8970b44609df
+[04:09:52] [heartbeat] docker build ghcr.io/codeeagle/lazycatimages:moltnet_8970b44609df still running after 120s (idle=1s, 499       02:00 35.6  0.4 S podman build --platform linux/amd64 -f /tmp/lzcat-upstream-fcgxftig/Dockerfile -t ghcr.io/codeeagle/lazycatimages:moltnet_8970b44609df --label org.opencontainers.image.source=https://github.com/CodeEagle/lzcat-apps --build-arg SOURCE_VERSION=v0.1.3 --build-arg BUILD_VERSION=0.1.3 /tmp/lzcat-upstream-fcgxftig)
+6030f13c4637565b0051d997fa8c222ac0b0a11e0b30ee54dbdfcfa0f1413641
+[04:09:52] Pushing Docker image: ghcr.io/codeeagle/lazycatimages:moltnet_8970b44609df
+Getting image source signatures
+Copying blob sha256:95b9a7515aca9138aa1449c7bfac2423b68a1e0ab3b2010a0e32982922dfb5c2
+Copying blob sha256:08bc4e534116aa76b16015484b82eac51f9a593416feae9296c8a2d4bb7aa4a2
+Copying blob sha256:3dd237e8da0891ca0109b9640c19fa6ebee66f1cf7ae1ba50d127e598902bd47
+Copying config sha256:6030f13c4637565b0051d997fa8c222ac0b0a11e0b30ee54dbdfcfa0f1413641
+Writing manifest to image destination
+[04:09:55] [moltnet] Phase: copy_image
+[04:09:57] Copying image to LazyCat registry: ghcr.io/codeeagle/lazycatimages:moltnet_8970b44609df
+registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:386ddbaa16fb1d91
+[04:10:18] [copy-image] Completed in 21.3s: ghcr.io/codeeagle/lazycatimages:moltnet_8970b44609df -> registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:386ddbaa16fb1d91
+[04:10:18] [moltnet] Phase: package (lzc-cli project build from temporary manifest)
+Build config: /tmp/lzcat-artifacts-c6ukyxh9/package-workspace/lzc-build.yml
+[lint] Unknown manifest fields detected: `lzc-sdk-version`. Please confirm whether they take effect.
+[lint] Top-level static package fields in lzc-manifest.yml are a legacy LPK v1 layout. Move `package`, `version`, `name`, `description`, `author`, `license`, `homepage`, `min_os_version`, `locales` to package.yml for LPK v2.
+跳过执行 buildscript
+跳过拷贝 contentdir 内容
+Building legacy LPK v1 metadata layout. Run "lzc-cli migrate" to move static package fields into package.yml.
+输出lpk包 /tmp/lzcat-artifacts-c6ukyxh9/moltnet.lpk
+[04:10:19] [moltnet] lpk saved to: /__w/lzcat-apps/lzcat-apps/dist/moltnet.lpk
+[04:10:19] [moltnet] Phase: publish_artifact -> CodeEagle/lzcat-artifacts
+[04:10:21] [moltnet] Phase: commit_target_repo
+[04:10:21] [moltnet] Working tree is dirty; skipping git pull/push
+[04:10:21] [moltnet] Build completed successfully: v0.1.3
+[build-fallback] 尝试回退构建策略 -> upstream_with_target_template
+{"repo": "moltnet", "source_version": "v0.1.3", "build_version": "0.1.3", "update_needed": true, "check_only": false}
+[04:10:23] [moltnet] Update needed: 0.1.3 -> 0.1.3 (source: v0.1.3)
+[04:10:23] [moltnet] Phase: build_image
+[04:10:23] Cloning upstream: noopolis/moltnet
+Cloning into '/tmp/lzcat-upstream-8k76f_hy'...
+[04:10:24] Building Docker image: ghcr.io/codeeagle/lazycatimages:moltnet_9577afe785e8
+[1/3] STEP 1/6: FROM node:20-alpine AS console-builder
+[1/3] STEP 2/6: WORKDIR /src
+--> Using cache ec2a5f06574da9c9c93228efd98924340723494c6bb7cddc01cb6a0e7469a193
+--> ec2a5f06574d
+[1/3] STEP 3/6: COPY web/package*.json web/
+--> Using cache 1b6ba65ee7eb28cdfe75f1a24d555bfd88a9975adfa5b5b7c1e3e819098b0398
+--> 1b6ba65ee7eb
+[1/3] STEP 4/6: RUN cd web && npm ci
+--> Using cache 40068f708a57680ecaded20f46590a47b73a7fd0a18a00fc53683f468cb1f761
+--> 40068f708a57
+[1/3] STEP 5/6: COPY web/ web/
+--> Using cache e190606906fa934dd0b0649e6939fb023885fdc5ea8ca38582d056769d070550
+--> e190606906fa
+[1/3] STEP 6/6: RUN cd web && npm run build
+--> Using cache f5d9285fb3bdd6dfe2a0dd92431821fe7e256b60cf18473f9cb71e65d3363020
+--> f5d9285fb3bd
+[2/3] STEP 1/8: FROM golang:1.24-alpine AS go-builder
+[2/3] STEP 2/8: ARG SOURCE_VERSION
+--> Using cache 0ba8628620bfa3b315f8b7db832abfe1f57b8937f1a228b7df731f8d6e9b23f5
+--> 0ba8628620bf
+[2/3] STEP 3/8: WORKDIR /src
+--> Using cache 859b25608860c9dc531042d8b9008c44f818369598955c6125ac98ff8b8b38cf
+--> 859b25608860
+[2/3] STEP 4/8: COPY go.mod go.sum ./
+--> Using cache c3c842b12d4790ee7be44678c661e96ef72f3483c18fb61cae75b223def52efe
+--> c3c842b12d47
+[2/3] STEP 5/8: RUN go mod download
+--> Using cache a791393cd638d7c8d9dffe5e03a0c0dd920b70f6f26d6433536ac77a0413cb78
+--> a791393cd638
+[2/3] STEP 6/8: COPY . .
+--> 933db7087901
+[2/3] STEP 7/8: COPY --from=console-builder /src/web/dist ./web/dist
+--> 4399c38ceab6
+[2/3] STEP 8/8: RUN CGO_ENABLED=0 GOOS=linux go build     -ldflags "-s -w"     -o /moltnet     ./cmd/moltnet
+[04:11:24] [heartbeat] docker build ghcr.io/codeeagle/lazycatimages:moltnet_9577afe785e8 still running after 60s (idle=39s, 6658       01:00 22.8  0.3 S podman build --platform linux/amd64 -f /tmp/lzcat-upstream-8k76f_hy/Dockerfile -t ghcr.io/codeeagle/lazycatimages:moltnet_9577afe785e8 --label org.opencontainers.image.source=https://github.com/CodeEagle/lzcat-apps --build-arg SOURCE_VERSION=v0.1.3 --build-arg BUILD_VERSION=0.1.3 /tmp/lzcat-upstream-8k76f_hy)
+--> 4581bca0af97
+[3/3] STEP 1/7: FROM alpine:3.20
+[3/3] STEP 2/7: RUN apk add --no-cache ca-certificates wget &&     mkdir -p /var/lib/moltnet &&     printf 'version: moltnet.v1\n' > /etc/Moltnet
+--> Using cache 348db8b305ee5a60a5ceabb3ea715991932766dcc7501e2b07a23cdb41e767e1
+--> 348db8b305ee
+[3/3] STEP 3/7: COPY --from=go-builder /moltnet /moltnet
+--> Using cache b759ab4f53dfc85d746d502591509c8b30b7083f5f2d0f755c384850c9dba490
+--> b759ab4f53df
+[3/3] STEP 4/7: EXPOSE 8787
+--> Using cache 37814e92195fda637a6ebf8b97e9258ea68bfd3a3ae1d41456821cc336fd31e0
+--> 37814e92195f
+[3/3] STEP 5/7: ENV MOLTNET_CONFIG=/etc/Moltnet
+--> Using cache 52dcf51c49bc4263be39f0548a7455ee31580fc4c3634feb828fde22498ad417
+--> 52dcf51c49bc
+[3/3] STEP 6/7: CMD ["/moltnet", "start"]
+--> Using cache f0980e2c2c0cd932894920ce9f1379966fd346daddc1556e01bf3d5d18b1b6c9
+--> f0980e2c2c0c
+[3/3] STEP 7/7: LABEL "org.opencontainers.image.source"="https://github.com/CodeEagle/lzcat-apps"
+--> Using cache 6030f13c4637565b0051d997fa8c222ac0b0a11e0b30ee54dbdfcfa0f1413641
+[3/3] COMMIT ghcr.io/codeeagle/lazycatimages:moltnet_9577afe785e8
+--> 6030f13c4637
+[Warning] one or more build args were not consumed: [BUILD_VERSION]
+Successfully tagged ghcr.io/codeeagle/lazycatimages:moltnet_9577afe785e8
+Successfully tagged ghcr.io/codeeagle/lazycatimages:moltnet_8970b44609df
+6030f13c4637565b0051d997fa8c222ac0b0a11e0b30ee54dbdfcfa0f1413641
+[04:11:26] Pushing Docker image: ghcr.io/codeeagle/lazycatimages:moltnet_9577afe785e8
+Getting image source signatures
+Copying blob sha256:95b9a7515aca9138aa1449c7bfac2423b68a1e0ab3b2010a0e32982922dfb5c2
+Copying blob sha256:08bc4e534116aa76b16015484b82eac51f9a593416feae9296c8a2d4bb7aa4a2
+Copying blob sha256:3dd237e8da0891ca0109b9640c19fa6ebee66f1cf7ae1ba50d127e598902bd47
+Copying config sha256:6030f13c4637565b0051d997fa8c222ac0b0a11e0b30ee54dbdfcfa0f1413641
+Writing manifest to image destination
+[04:11:26] [moltnet] [DIGEST MATCH] primary image unchanged, reusing registry.lazycat.cloud/invokerlaw/codeeagle/lazycatimages:386ddbaa16fb1d91
+[04:11:26] [moltnet] Phase: package (lzc-cli project build from temporary manifest)
+Build config: /tmp/lzcat-artifacts-65q9oeo1/package-workspace/lzc-build.yml
+[lint] Unknown manifest fields detected: `lzc-sdk-version`. Please confirm whether they take effect.
+[lint] Top-level static package fields in lzc-manifest.yml are a legacy LPK v1 layout. Move `package`, `version`, `name`, `description`, `author`, `license`, `homepage`, `min_os_version`, `locales` to package.yml for LPK v2.
+跳过执行 buildscript
+跳过拷贝 contentdir 内容
+Building legacy LPK v1 metadata layout. Run "lzc-cli migrate" to move static package fields into package.yml.
+输出lpk包 /tmp/lzcat-artifacts-65q9oeo1/moltnet.lpk
+[04:11:27] [moltnet] lpk saved to: /__w/lzcat-apps/lzcat-apps/dist/moltnet.lpk
+[04:11:27] [moltnet] Phase: publish_artifact -> CodeEagle/lzcat-artifacts
+[04:11:29] [moltnet] Phase: commit_target_repo
+[04:11:29] [moltnet] Working tree is dirty; skipping git pull/push
+[04:11:29] [moltnet] Build completed successfully: v0.1.3
+[build-fallback] 尝试回退构建策略 -> upstream_dockerfile
+{"repo": "moltnet", "source_version": "v0.1.3", "build_version": "0.1.3", "update_needed": true, "check_only": false}
+[04:11:31] [moltnet] Update needed: 0.1.3 -> 0.1.3 (source: v0.1.3)
+[04:11:31] [moltnet] Phase: build_image
+[04:11:31] Cloning upstream: noopolis/moltnet
+Cloning into '/tmp/lzcat-upstream-_c72_r1_'...
+[04:11:32] [moltnet] Failure artifacts preserved at: /tmp/lzcat-artifacts-x7g6xxbq
+Traceback (most recent call last):
+  File "/__w/lzcat-apps/lzcat-apps/scripts/run_build.py", line 2419, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/__w/lzcat-apps/lzcat-apps/scripts/run_build.py", line 2121, in main
+    target_image = build_target_image(repo_dir, config, env, source_version, build_version, head_sha, app_name, dry_run=args.dry_run)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/__w/lzcat-apps/lzcat-apps/scripts/run_build.py", line 1729, in build_target_image
+    raise RuntimeError("No Dockerfile found in upstream repository")
+RuntimeError: No Dockerfile found in upstream repository
+[8/10] 触发并监听构建
+
+- 当前结论：本地构建失败，自动流程停在构建阶段。
+- 当前产出：/__w/lzcat-apps/lzcat-apps/apps/moltnet; /__w/lzcat-apps/lzcat-apps/dist/moltnet.lpk
+- 镜像缓存：无
+- 调用脚本：scripts/full_migrate.py; scripts/run_build.py
+- 阻塞/风险：WARN:: 读取不到以下路径中的文件，无法连接客户端自动判读盒子名称和盒子用户，
+/github/home/.config/hportal-client/shellapi_addr 盒子的连接地址
+/github/home/.config/hportal-client/shellapi_cred 盒子的连接凭证
+但可使用环境变量指定:
+  - BOX_NAME=foo 指定盒子的名称
+  - BOX_UID=bar 指定盒子的用户
+NOTE：在指定环境变量的模式下，有些接口依旧不能访问，为了更好的开发体验，建议尽量在同主机的环境下启动客户端
+WARN:: 读取不到以下路径中的文件，无法连接客户端自动判读盒子名称和盒子用户，
+/github/home/.config/hportal-client/shellapi_addr 盒子的连接地址
+/github/home/.config/hportal-client/shellapi_cred 盒子的连接凭证
+但可使用环境变量指定:
+  - BOX_NAME=foo 指定盒子的名称
+  - BOX_UID=bar 指定盒子的用户
+NOTE：在指定环境变量的模式下，有些接口依旧不能访问，为了更好的开发体验，建议尽量在同主机的环境下启动客户端
+- 下一步：停止，修复构建错误后重跑同一命令即可继续
+
+{
+  "browser_recheck": [],
+  "codex_worker": [
+    {
+      "id": "github:jsierra87/engram",
+      "returncode": 1,
+      "status": "codex_failed"
+    }
+  ],
+  "commands": [
+    {
+      "command": [
+        "python3",
+        "scripts/status_sync.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps"
+      ],
+      "returncode": 1
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/scout.py",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "scan",
+        "--limit",
+        "50"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/auto_migrate.py",
+        "noopolis/moltnet",
+        "--repo-root",
+        "/__w/lzcat-apps/lzcat-apps",
+        "--build-mode",
+        "reinstall",
+        "--resume",
+        "--commit-scaffold",
+        "--allow-existing"
+      ],
+      "phase": "build",
+      "returncode": 1
+    }
+  ],
+  "discord_replies": [],
+  "discovery_gate": [
+    {
+      "id": "github:miles990/mini-agent",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:jeffvli/feishin",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:pocket-id/pocket-id",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:m00grin/ph-intercept",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:xyver/daedal-map",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:sharzyl/pastebin-worker",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:koonweee/splice-mono",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:perpetualsoftware/pad",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:butialabs/pingflare",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:flyny/bike-site",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:miguel-star525/miguel-star525",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:mauricegift/free-proxies",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:localkinai/localkin-service-audio",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:garsonn/crypto-trend-analysis",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:eyayq/eliv",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:fabeehaqureshi18-coder/furniture-store",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:chremildo/calculator-projectos",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:andersnbe/kereby-scraper",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:jshute96/seewhatisee",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:tiwariankit651/toolbox",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:lpmerlo/pre-entrega-automation-testing-luciana-merlo",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:sshideler-oss/jsa_host",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:docking666/finhack-pro",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:beomqbear0313-blip/0508-2",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:caojg125/openspec-zh-hans",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:tbdavid2019/888box",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:davidag2/copiloto-pyme",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:n24q02m/mcp-core",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:reverie89/caddy",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:sagirauwal/transaction-fraud-detector",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:depaseoenfincas06-maker/depaseoenfincas-agent-v2",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:tulu-openclaw/tulu-openclaw-v2",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:say-5/agentic-runner",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    }
+  ],
+  "discovery_reviewer": [],
+  "local_agent": {
+    "status": "disabled"
+  },
+  "local_agent_commands": [],
+  "migration": {
+    "returncode": 1,
+    "status": "build_failed"
+  },
+  "post_acceptance": [],
+  "selected": "github:noopolis/moltnet",
+  "started_at": "2026-05-08T04:02:25Z"
+}
