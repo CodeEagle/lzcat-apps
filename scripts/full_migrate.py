@@ -5010,6 +5010,7 @@ def main() -> int:
             planner_manifest_path = repo_root / "apps" / preempted_slug / "lzc-manifest.yml"
             planner_image_targets: list[str] = []
             planner_services: dict[str, dict[str, Any]] = {}
+            planner_dependencies: list[dict[str, str]] = []
             if planner_manifest_path.exists():
                 try:
                     planner_text = planner_manifest_path.read_text(encoding="utf-8")
@@ -5036,6 +5037,30 @@ def main() -> int:
                             planner_services[svc_name] = {"image": image_value}
                             if image_value.startswith("registry.lazycat.cloud/placeholder/"):
                                 planner_image_targets.append(svc_name)
+                            elif image_value and not image_value.startswith("registry.lazycat.cloud/"):
+                                # Sidecar pointing at a public registry image
+                                # (mongo:7, postgres:16-alpine, redis:7-alpine,
+                                # ghcr.io/foo/bar:tag, etc.). LazyCat boxes can
+                                # only pull from registry.lazycat.cloud, so the
+                                # mechanical pipeline mirrors these via
+                                # `dependencies` in registry/repos/<slug>.json:
+                                # run_build.copy_image_to_lazycat copies each
+                                # source_image to
+                                # registry.lazycat.cloud/<owner>/library/<name>:<digest>
+                                # and rewrites the manifest service to point at
+                                # the mirror at packaging time. Without this,
+                                # the lzc-cli install tries to pull mongo:7
+                                # from Docker Hub on the box, fails, and the
+                                # whole worker run lands at build_failed even
+                                # though docker build itself succeeded —
+                                # observed in resumeai run 25534286890 (lint
+                                # warned: "App Store submission requires
+                                # services.mongo.image to start with
+                                # registry.lazycat.cloud").
+                                planner_dependencies.append({
+                                    "target_service": svc_name,
+                                    "source_image": image_value,
+                                })
                 except OSError:
                     pass
             image_targets = planner_image_targets or [preempted_slug]
@@ -5060,6 +5085,7 @@ def main() -> int:
                 "service_port": 8080,
                 "image_targets": image_targets,
                 "services": services_map,
+                "dependencies": planner_dependencies,
                 "application": {
                     "subdomain": preempted_slug,
                     "public_path": ["/"],
@@ -5073,6 +5099,11 @@ def main() -> int:
                     f"analyze_source raised ({exc}); apps/{preempted_slug}/Dockerfile.template "
                     "already written by planner — using upstream_with_target_template route.",
                     f"image_targets derived from planner manifest: {image_targets}.",
+                    (
+                        f"sidecar dependencies derived from planner manifest: "
+                        f"{[d['target_service'] for d in planner_dependencies]}"
+                        if planner_dependencies else "no sidecar dependencies detected"
+                    ),
                 ],
                 "_risks": [f"analyze_source raised before planner override: {exc}"],
             }
