@@ -1,0 +1,63 @@
+lzc-sdk-version: '0.1'
+package: fun.selfstudio.app.migration.resumeai
+version: 1.0.0
+name: ResumeAI
+description: Generate ATS-friendly resumes quickly using AI for tailored content, keyword optimization, and real-time editing with customizable templates.
+license: MIT
+homepage: https://github.com/Doomish77/ResumeAI
+author: Doomish77
+
+application:
+  subdomain: resumeai
+  upstreams:
+    - location: /
+      backend: http://web:3000/
+  injects:
+    - builtin://simple-inject-password
+
+locales:
+  en:
+    name: ResumeAI
+    description: Build ATS-friendly resumes fast with AI-powered content suggestions, real-time editing, and customizable templates.
+  zh:
+    name: ResumeAI
+    description: 使用 AI 快速生成 ATS 友好的简历，支持智能内容建议、实时编辑和可定制模板。
+
+services:
+  web:
+    image: registry.lazycat.cloud/placeholder/resumeai:bootstrap
+    depends_on:
+      - mongo
+    environment:
+      # Clerk auth — requires a Clerk application at https://clerk.com
+      # NEXT_PUBLIC_ vars are read by Next.js App Router server components at runtime.
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY={{ index .U "clerk_publishable_key" }}
+      - CLERK_SECRET_KEY={{ index .U "clerk_secret_key" }}
+      - NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+      - NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+      # Google Gemini API key for AI resume suggestions
+      - GEMINI_API_KEY={{ index .U "gemini_api_key" }}
+      # MongoDB connection — points to the co-located mongo sidecar
+      - MONGODB_URL=mongodb://mongo:27017/resumeai
+      # Set to the public HTTPS URL of this app after installation
+      - BASE_URL=
+      - NODE_ENV=production
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO /dev/null http://localhost:3000/ || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  mongo:
+    image: mongo:7
+    binds:
+      - /lzcapp/var/db/resumeai/mongo:/data/db
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mongosh --eval "db.adminCommand('ping')" --quiet || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5

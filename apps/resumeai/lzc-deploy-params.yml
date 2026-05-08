@@ -1,0 +1,22 @@
+params:
+  - id: clerk_publishable_key
+    type: string
+    name: Clerk Publishable Key
+    description: "Your Clerk application's publishable key (starts with pk_live_ or pk_test_). Create an app at https://clerk.com and copy the key from the API Keys page. Also add your LazyCat box domain to Clerk's allowed redirect URLs."
+  - id: clerk_secret_key
+    type: secret
+    name: Clerk Secret Key
+    description: "Your Clerk application's secret key (starts with sk_live_ or sk_test_). Found on the same API Keys page in your Clerk dashboard."
+  - id: gemini_api_key
+    type: secret
+    name: Google Gemini API Key
+    description: "API key for Google Gemini AI (powers resume content suggestions). Get a free key at https://aistudio.google.com."
+  - id: login_user
+    type: string
+    name: Login Email
+    description: "Email address of the Clerk account used to access ResumeAI. Create the account at the /sign-up page after first launch."
+  - id: login_password
+    type: secret
+    name: Login Password
+    description: "Password for the Clerk account above."
+    default_value: ""
