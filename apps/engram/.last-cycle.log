@@ -1,21 +1,21 @@
 migration/engram
 {
-  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260508T034949Z-github-jsierra87-engram.md",
+  "notification_path": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/notifications/20260508T040113Z-github-jsierra87-engram.md",
   "resumed": true,
   "returncode": 1,
-  "session_id": "28319201-7dbb-4249-85c5-3ff7e582719b",
+  "session_id": "b0c30b89-80e6-4269-b211-779b31a7357d",
   "status": "failed",
-  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260508T034949Z-github-jsierra87-engram"
+  "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260508T040113Z-github-jsierra87-engram"
 }
 obscura binary not found in PATH
 /__w/lzcat-apps/lzcat-apps/registry/candidates/latest.json
-/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260508T034950Z.jsonl
-{"already_migrated_count": 5, "candidate_count": 50, "counts_by_status": {"already_migrated": 5, "excluded": 2, "needs_review": 25, "portable": 18}, "excluded_count": 2, "generated_at": "2026-05-08T03:49:50Z", "needs_review_count": 25, "portable_count": 18}
+/__w/lzcat-apps/lzcat-apps/registry/auto-migration/logs/discovery-runs/20260508T040114Z.jsonl
+{"already_migrated_count": 4, "candidate_count": 50, "counts_by_status": {"already_migrated": 4, "excluded": 6, "needs_review": 20, "portable": 20}, "excluded_count": 6, "generated_at": "2026-05-08T04:01:14Z", "needs_review_count": 20, "portable_count": 20}
 migration/engram
 [1/10] 收集上游信息
 
 - 当前结论：已识别输入类型为 `github_repo`，并准备好可分析的上游材料。
-- 当前产出：source=jsierra87/engram; kind=github_repo; build_mode=reinstall; gh_token_source=GH_TOKEN; lzc_token_source=env:LZC_CLI_TOKEN; image_owner=CodeEagle; /tmp/lzcat-full-migrate-vp9moefw/engram-main
+- 当前产出：source=jsierra87/engram; kind=github_repo; build_mode=reinstall; gh_token_source=GH_TOKEN; lzc_token_source=env:LZC_CLI_TOKEN; image_owner=CodeEagle; /tmp/lzcat-full-migrate-b_5wmtsg/engram-main
 - 镜像缓存：无
 - 调用脚本：scripts/full_migrate.py; git clone
 - 阻塞/风险：无
@@ -88,13 +88,8 @@ ValueError: 未发现 compose、Dockerfile、可识别的前端应用或 release
   "discord_replies": [],
   "discovery_gate": [
     {
-      "id": "github:immich-app/immich",
-      "reason": "candidate_already_migrated",
-      "status": "filtered_out"
-    },
-    {
-      "id": "github:go-gitea/gitea",
-      "reason": "candidate_already_migrated",
+      "id": "github:miles990/mini-agent",
+      "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
@@ -103,7 +98,22 @@ ValueError: 未发现 compose、Dockerfile、可识别的前端应用或 release
       "status": "filtered_out"
     },
     {
-      "id": "github:hwdsl2/docker-ai-stack",
+      "id": "github:m00grin/ph-intercept",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:xyver/daedal-map",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:sharzyl/pastebin-worker",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:koonweee/splice-mono",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
@@ -113,132 +123,107 @@ ValueError: 未发现 compose、Dockerfile、可识别的前端应用或 release
       "status": "filtered_out"
     },
     {
-      "id": "github:altyaerau/keytoss-passwords-manager-secure-encrypted",
+      "id": "github:sidcorp-co/forge",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:ironmist45/tg-vps-bot",
+      "id": "github:acciojob/welcome-to-acciojob-omkar3364",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:vavallee/bindery",
-      "reason": "candidate_excluded",
-      "status": "filtered_out"
+      "id": "github:mrsbynum8/n8n-backups",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
     },
     {
-      "id": "github:memtensor/memos",
+      "id": "github:wang7567657-crypto/my-chinese-assets",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:beautifullionroywxqmg/remix-environment-switcher",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:yurusei/brand-voice-guideline-gpt",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:xywang84/xywang84.github.io",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:roger21/ranked",
+      "reason": "needs_ai_review",
+      "status": "discovery_review"
+    },
+    {
+      "id": "github:monitoramentov3lan/patrol",
       "reason": "candidate_already_migrated",
       "status": "filtered_out"
     },
     {
-      "id": "github:gosuda/portal-tunnel",
+      "id": "github:tommyyow/test",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:pandadefi/lido-exit-queue",
+      "id": "github:ysm-dev/hn-scored",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:thejony36/kreative-transfer",
+      "id": "github:arup-kumar-maiti/launchpad",
+      "reason": "candidate_already_migrated",
+      "status": "filtered_out"
+    },
+    {
+      "id": "github:jacao010706/sgm-ferroviario",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:kisman271128/onesheet-kalimantan",
+      "id": "github:rtcoms/awesome-stars",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:vecordev/dati-finanziari",
+      "id": "github:michael-rowe/path",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:ratandanush/snapshot",
+      "id": "github:dr460nf1r3/awesome-starred",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:minjung0311/seoul_weather",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:thanhthaonguyen680/task-management",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:aaaraafaat/runway-viz",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:jouanetano-png/gest-palm",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:pmaitri01/medi-track-frontend",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:dj3660/graph_rag_poc",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:daverichards0319-ui/mslearn-genaiops",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:anldr/problem-list-java",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:stef-vvv/claudecode_self_repo",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:yemireddy/satish-investments",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:sankahchan/atomic-ui",
+      "id": "github:masterdarren23/mrmemory",
       "reason": "candidate_excluded",
       "status": "filtered_out"
     },
     {
-      "id": "github:aaric/claw-test-gen",
+      "id": "github:rikiza89/localforge_web",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:haofei/mail-canvas",
+      "id": "github:atineose/coding-model-seeks-gpu",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     },
     {
-      "id": "github:byte92/finance_sys",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
+      "id": "github:wangjiezhe/awesome-stars",
+      "reason": "candidate_excluded",
+      "status": "filtered_out"
     },
     {
-      "id": "github:otolab/search-docs",
-      "reason": "needs_ai_review",
-      "status": "discovery_review"
-    },
-    {
-      "id": "github:dapravith/microservices-docker-k8s",
+      "id": "github:tonehq/tone",
       "reason": "needs_ai_review",
       "status": "discovery_review"
     }
@@ -254,5 +239,5 @@ ValueError: 未发现 compose、Dockerfile、可识别的前端应用或 release
   },
   "post_acceptance": [],
   "selected": "github:jsierra87/engram",
-  "started_at": "2026-05-08T03:49:49Z"
+  "started_at": "2026-05-08T04:01:12Z"
 }
