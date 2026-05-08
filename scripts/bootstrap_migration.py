@@ -1374,11 +1374,64 @@ def write_files(repo_root: Path, spec: dict[str, Any], force: bool) -> list[Path
 
     (repo_root / "apps").mkdir(parents=True, exist_ok=True)
     manifest_path = app_dir / "lzc-manifest.yml"
-    manifest_path.write_text(render_manifest(spec), encoding="utf-8")
+    # Preserve planner-written lzc-manifest.yml. The planner phase
+    # (codex_migration_worker --mode planning) reads the upstream README +
+    # docker-compose + source tree and produces a multi-service manifest
+    # that captures real deployment topology (e.g. resumeai's Next.js +
+    # MongoDB sidecar). render_manifest() only sees spec["services"], which
+    # the auto-synthesized spec from full_migrate's planner-template
+    # short-circuit defaults to a single-service shape — overwriting the
+    # planner manifest with that throws away mongo/redis/postgres sidecars
+    # and produces a single-service install that crashes at runtime.
+    # Observed in resumeai run 25531579892: planner wrote a 2-service
+    # manifest (web + mongo); bootstrap clobbered it back to single-service.
+    # Mirrors the Dockerfile.template preservation logic below.
+    existing_manifest_is_template = False
+    if manifest_path.exists():
+        try:
+            existing_text = manifest_path.read_text(encoding="utf-8", errors="ignore")
+            # Heuristic: render_manifest's output uses the slug as the only
+            # service name and writes the placeholder pattern. A planner
+            # manifest typically has either multiple services OR a
+            # service named differently than the slug (e.g. `web` for a
+            # Next.js project named `resumeai`).
+            template_token = "registry.lazycat.cloud/placeholder/"
+            if template_token not in existing_text:
+                existing_manifest_is_template = False  # planner used real images
+            else:
+                # Single-service manifest with service_name == slug =
+                # auto-synthesized template. Multi-service or named
+                # differently = planner output.
+                services_section = re.search(
+                    r"^services:\s*\n((?:\s{2}\S.*\n(?:\s{4,}.*\n)*)+)",
+                    existing_text,
+                    re.MULTILINE,
+                )
+                if services_section:
+                    service_names = re.findall(
+                        r"^\s{2}([A-Za-z0-9_.-]+):\s*$",
+                        services_section.group(1),
+                        re.MULTILINE,
+                    )
+                    existing_manifest_is_template = (
+                        len(service_names) == 1
+                        and service_names[0] == spec["slug"]
+                    )
+                else:
+                    existing_manifest_is_template = True
+        except OSError:
+            existing_manifest_is_template = True
+    if not manifest_path.exists() or existing_manifest_is_template:
+        manifest_path.write_text(render_manifest(spec), encoding="utf-8")
     written.append(manifest_path)
 
     build_path = app_dir / "lzc-build.yml"
-    build_path.write_text(render_build_yml(spec), encoding="utf-8")
+    # Same preservation rule: planner-written lzc-build.yml may carry
+    # custom contentdir / lzc-sdk-version / ai-pod-service settings the
+    # synthesized spec doesn't know about. render_build_yml emits a
+    # minimal default. Only overwrite when the file is missing.
+    if not build_path.exists():
+        build_path.write_text(render_build_yml(spec), encoding="utf-8")
     written.append(build_path)
 
     readme_path = app_dir / "README.md"

@@ -157,6 +157,23 @@ phase needs:
   * `lzc-manifest.yml` — real ports / services / data paths / env
     vars / login route — NO placeholders. Per SKILL.md `[5/10]`,
     must be filled in one pass after producing the "上游部署清单".
+    **Service image rules** (critical for multi-service apps):
+      - For services WE BUILD from upstream source (the primary app),
+        use `image: registry.lazycat.cloud/placeholder/{slug}:bootstrap`.
+        run_build.py swaps this with the real built image at packaging
+        time and writes `image_targets` accordingly.
+      - For SIDECAR services WE DO NOT BUILD (databases, caches, queue
+        backends — mongo / postgres / redis / mariadb / mysql /
+        rabbitmq / minio / elasticsearch / etc.), use the official
+        registry image directly (e.g. `image: mongo:7`,
+        `image: postgres:16-alpine`, `image: redis:7-alpine`,
+        `image: mariadb:10.11`). NEVER point a sidecar at the
+        `placeholder/{slug}:bootstrap` URI — apply_image_overrides
+        will then try to swap mongo with our built app image and
+        the install crashes. Observed in resumeai run 25531579892:
+        planner pointed both `mongo` and `web` at the placeholder;
+        even with manifest preserved, image_targets ended up with
+        a mongo entry that has no Dockerfile to build.
   * `lzc-build.yml` — set the right `build_strategy` (one of
     `official_image` / `upstream_dockerfile` /
     `upstream_with_target_template` / `precompiled_binary`).
