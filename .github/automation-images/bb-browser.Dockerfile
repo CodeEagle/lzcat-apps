@@ -54,9 +54,21 @@ RUN BB_PKG="bb-browser$([ "${BB_BROWSER_VERSION}" = "latest" ] || echo @${BB_BRO
     && bb-browser --version \
     && command -v bb-browser-mcp >/dev/null
 
+# ---- claude CLI -------------------------------------------------------------
+# auto-verify.yml's "AI verify review (Claude)" step shells out to the
+# `claude` binary via scripts/claude_verify_reviewer.py. Without it the
+# subprocess raises FileNotFoundError, the reviewer step (continue-on-error)
+# fails silently, .claude-verify-review.json is never written, and the Map
+# step falls back to mechanical mapping with no AI verdict — observed in
+# stellaclaw run 25530542349.
+RUN npm install -g @anthropic-ai/claude-code \
+    && npm cache clean --force \
+    && claude --version
+
 # ---- python deps ------------------------------------------------------------
 COPY scripts/requirements-browser.txt /tmp/requirements-browser.txt
-RUN pip install --no-cache-dir -r /tmp/requirements-browser.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-browser.txt \
+    && python3 -m playwright install chromium
 
 WORKDIR /repo
 ENV LZCAT_BROWSER=1
