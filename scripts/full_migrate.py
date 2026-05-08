@@ -5031,31 +5031,27 @@ def main() -> int:
             planner_services: dict[str, dict[str, Any]] = {}
             planner_dependencies: list[dict[str, str]] = []
             if planner_manifest_path.exists():
+                # Use the project's load_yaml helper instead of a regex —
+                # the prior `^\s{2}\S.*\n(?:\s{4,}.*\n)*` services regex
+                # stopped at any blank line between services. resumeai run
+                # 25540643236 had a blank line between `resumeai-web:` and
+                # `resumeai-mongo:`, so only the first service's body was
+                # captured; planner_dependencies came back empty, mongo:7
+                # never mirrored, and the eventual install (whenever it
+                # runs) would still fail to pull mongo from Docker Hub.
                 try:
-                    planner_text = planner_manifest_path.read_text(encoding="utf-8")
-                    services_match = re.search(
-                        r"^services:\s*\n((?:\s{2}\S.*\n(?:\s{4,}.*\n)*)+)",
-                        planner_text,
-                        re.MULTILINE,
+                    parsed = load_yaml(planner_manifest_path)
+                    services = (
+                        parsed.get("services") if isinstance(parsed, dict) else None
                     )
-                    if services_match:
-                        body = services_match.group(1)
-                        for svc_match in re.finditer(
-                            r"^\s{2}([A-Za-z0-9_.-]+):\s*\n((?:\s{4,}.*\n)*)",
-                            body,
-                            re.MULTILINE,
-                        ):
-                            svc_name = svc_match.group(1)
-                            svc_body = svc_match.group(2)
-                            image_match = re.search(
-                                r"^\s+image:\s*([^\n]+)",
-                                svc_body,
-                                re.MULTILINE,
-                            )
-                            image_value = (image_match.group(1).strip() if image_match else "")
-                            planner_services[svc_name] = {"image": image_value}
+                    if isinstance(services, dict):
+                        for svc_name, svc_payload in services.items():
+                            if not isinstance(svc_payload, dict):
+                                continue
+                            image_value = str(svc_payload.get("image") or "").strip()
+                            planner_services[str(svc_name)] = {"image": image_value}
                             if image_value.startswith("registry.lazycat.cloud/placeholder/"):
-                                planner_image_targets.append(svc_name)
+                                planner_image_targets.append(str(svc_name))
                             elif image_value and not image_value.startswith("registry.lazycat.cloud/"):
                                 # Sidecar pointing at a public registry image
                                 # (mongo:7, postgres:16-alpine, redis:7-alpine,
@@ -5067,20 +5063,16 @@ def main() -> int:
                                 # source_image to
                                 # registry.lazycat.cloud/<owner>/library/<name>:<digest>
                                 # and rewrites the manifest service to point at
-                                # the mirror at packaging time. Without this,
-                                # the lzc-cli install tries to pull mongo:7
-                                # from Docker Hub on the box, fails, and the
-                                # whole worker run lands at build_failed even
-                                # though docker build itself succeeded —
-                                # observed in resumeai run 25534286890 (lint
+                                # the mirror at packaging time. Observed need
+                                # in resumeai run 25534286890 (lzc-cli lint
                                 # warned: "App Store submission requires
                                 # services.mongo.image to start with
                                 # registry.lazycat.cloud").
                                 planner_dependencies.append({
-                                    "target_service": svc_name,
+                                    "target_service": str(svc_name),
                                     "source_image": image_value,
                                 })
-                except OSError:
+                except (OSError, ValueError):
                     pass
             image_targets = planner_image_targets or [preempted_slug]
             services_map = planner_services or {
