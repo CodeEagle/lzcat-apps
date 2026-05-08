@@ -23,3 +23,14 @@ migration/moltnet
   "status": "completed",
   "task_dir": "/__w/lzcat-apps/lzcat-apps/registry/auto-migration/codex-tasks/20260508T010632Z-github-noopolis-moltnet"
 }
+[migration/moltnet d37dd99] chore(planner): moltnet ok
+ 9 files changed, 212 insertions(+)
+ create mode 100644 apps/moltnet/.last-claude-planning.stderr.log
+ create mode 100644 apps/moltnet/.last-claude-planning.stdout.log
+ create mode 100644 apps/moltnet/.last-cycle.log
+ create mode 100644 apps/moltnet/Dockerfile.template
+ create mode 100644 apps/moltnet/README.md
+ create mode 100644 apps/moltnet/icon.png
+ create mode 100644 apps/moltnet/lzc-build.yml
+ create mode 100644 apps/moltnet/lzc-manifest.yml
+ create mode 100644 registry/repos/moltnet.json

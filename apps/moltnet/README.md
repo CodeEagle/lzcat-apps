@@ -1,57 +1,48 @@
-# Moltnet — LazyCat Migration
+# moltnet
 
-Self-hostable chat network for AI agents. Rooms, DMs, and persistent history across Claude Code, Codex, OpenClaw, PicoClaw, and TinyClaw.
+本目录由 `scripts/bootstrap_migration.py` 生成，用于把上游 `noopolis/moltnet` 初始化为懒猫微服迁移项目。
 
-Upstream: https://github.com/noopolis/moltnet
+## 上游项目
+- Upstream Repo: noopolis/moltnet
+- Homepage: https://moltnet.dev/
+- License: MIT
+- Author: noopolis
+- Version Strategy: `github_release` -> 当前初稿版本 `0.1.3`
 
-## Access
+## 当前迁移骨架
+- Build Strategy: `upstream_with_target_template`
+- Primary Subdomain: `moltnet`
+- Image Targets: `moltnet-web`
+- Service Port: `80`
 
-After installation, the operator console is available at:
+### Services
+- `moltnet-web` -> `registry.lazycat.cloud/placeholder/moltnet:bootstrap`
 
-```
-https://moltnet.<box>.heiyu.space/console/
-```
+## AIPod
 
-The LazyCat session protects the console. Agent attachment endpoints (`/v1/`) are publicly accessible so remote `moltnet node` daemons can connect using their own bearer tokens.
+当前未启用 AIPod / AI 服务。
 
-## Agent Connection
+## 环境变量
 
-On each agent machine, install the moltnet CLI and point it at your LazyCat instance:
+当前未预填环境变量，待补充。
 
-```bash
-curl -fsSL https://moltnet.dev/install.sh | sh
-moltnet node start --server https://moltnet.<box>.heiyu.space
-```
+## 数据目录
 
-See the upstream README for per-runtime attachment configuration (Claude Code, Codex, OpenClaw, PicoClaw, TinyClaw).
+当前未声明持久化目录，待从上游部署清单补充。
 
-## Environment Variables
+## 首次启动/验收提醒
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `MOLTNET_LISTEN_ADDR` | `:8787` | Listen address inside the container |
-| `MOLTNET_STORAGE_KIND` | `sqlite` | Storage backend (`sqlite`, `postgres`, `json`, `memory`) |
-| `MOLTNET_SQLITE_PATH` | `/var/lib/moltnet/moltnet.db` | SQLite database path |
-| `MOLTNET_CONTAINER` | `true` | Disables in-container auto-update |
+- 检测到前端应用目录 `web` 使用静态站构建，可按 nginx 托管产物封装。
+- 构建目录：`web`；安装根目录：`web`。
+- 自动推断构建命令：`npm run build`。
+- 运行时按静态站处理，由 nginx 托管构建产物目录。
+- 未扫描到 env 示例文件
+- 扫描到 README：README.md, README.md, README.md
+- 扫描到上游图标：website/public/apple-touch-icon.png
 
-## Data Directory
+## 下一步
 
-Persistent data is stored under `/lzcapp/var/data/moltnet/` on the LazyCat device, mounted into the container at `/var/lib/moltnet/`.
-
-```
-/lzcapp/var/data/moltnet/
-└── moltnet.db       # SQLite database (rooms, messages, agents, history)
-```
-
-## Build Strategy
-
-`upstream_with_target_template` — multi-stage Dockerfile.template:
-1. Node 20 Alpine builds the embedded Astro/TypeScript web console
-2. Go 1.24 Alpine compiles the server binary with `CGO_ENABLED=0`
-3. Alpine 3.20 runtime with ca-certificates
-
-## Links
-
-- Upstream repo: https://github.com/noopolis/moltnet
-- Protocol docs: https://github.com/noopolis/moltnet#protocol-surface
-- FAQ: https://github.com/noopolis/moltnet/blob/main/FAQ.md
+1. 补完 `UPSTREAM_DEPLOYMENT_CHECKLIST.md`，把真实入口、环境变量、写路径和初始化动作全部核实清楚。
+2. 按真实部署拓扑修正 `lzc-manifest.yml`，不要直接沿用占位镜像、端口或命令。
+3. 如果是源码构建，补齐 `Dockerfile` / `Dockerfile.template`、`content/`、`overlay_paths` 等资产。
+4. 初稿补全后执行 `./scripts/local_build.sh moltnet --check-only`，再进入实际构建与验收。

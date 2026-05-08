@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "source_input": "noopolis/moltnet",
+  "created_at": "2026-05-08T01:18:51.186116+00:00",
+  "updated_at": "2026-05-08T01:18:52.132387+00:00",
+  "context": {
+    "source": {
+      "kind": "github_repo",
+      "url": "noopolis/moltnet",
+      "upstream_repo": "noopolis/moltnet",
+      "homepage": "https://github.com/noopolis/moltnet"
+    },
+    "environment": {
+      "gh_token_source": "GH_TOKEN",
+      "lzc_cli_token_source": "env:LZC_CLI_TOKEN",
+      "container_runtime": "podman",
+      "image_owner": "CodeEagle"
+    },
+    "route_decision": {
+      "route": "upstream_with_target_template",
+      "build_strategy": "upstream_with_target_template",
+      "check_strategy": "github_release",
+      "risks": [
+        "planner override: apps/moltnet/Dockerfile.template already exists — using upstream_with_target_template instead of analyzed route"
+      ]
+    },
+    "version": {
+      "upstream": "",
+      "normalized": "0.1.3"
+    },
+    "finalized": {
+      "slug": "moltnet",
+      "project_name": "moltnet",
+      "description": "Self-hostable chat network for AI agents",
+      "description_zh": "（迁移初稿）moltnet 的懒猫微服前端版本",
+      "upstream_repo": "noopolis/moltnet",
+      "homepage": "https://moltnet.dev/",
+      "license": "MIT",
+      "author": "noopolis",
+      "version": "0.1.3",
+      "package": "fun.selfstudio.app.migration.moltnet",
+      "min_os_version": "1.3.8",
+      "check_strategy": "github_release",
+      "build_strategy": "upstream_with_target_template",
+      "official_image_registry": "",
+      "precompiled_binary_url": "",
+      "dockerfile_type": "custom",
+      "dockerfile_path": "Dockerfile.template",
+      "build_context": ".",
+      "docker_platform": "linux/amd64",
+      "image_owner": "CodeEagle",
+      "overlay_paths": [],
+      "upstream_submodules": [],
+      "image_targets": [
+        "moltnet-web"
+      ],
+      "dependencies": [],
+      "service_builds": [],
+      "build_args": {},
+      "service_cmd": [],
+      "service_port": 80,
+      "services": {
+        "moltnet-web": {
+          "image": "registry.lazycat.cloud/placeholder/moltnet:bootstrap"
+        }
+      },
+      "application": {
+        "subdomain": "moltnet",
+        "public_path": [
+          "/"
+        ],
+        "upstreams": [
+          {
+            "location": "/",
+            "backend": "http://moltnet-web:80/"
+          }
+        ]
+      },
+      "env_vars": [],
+      "data_paths": [],
+      "startup_notes": [
+        "检测到前端应用目录 `web` 使用静态站构建，可按 nginx 托管产物封装。",
+        "构建目录：`web`；安装根目录：`web`。",
+        "自动推断构建命令：`npm run build`。",
+        "运行时按静态站处理，由 nginx 托管构建产物目录。",
+        "未扫描到 env 示例文件",
+        "扫描到 README：README.md, README.md, README.md",
+        "扫描到上游图标：website/public/apple-touch-icon.png"
+      ],
+      "include_content": false,
+      "ai_pod_service": "",
+      "ai_pod_service_name": "moltnet",
+      "ai_pod_service_port": 80,
+      "ai_pod_image": "registry.lazycat.cloud/placeholder/moltnet-ai:bootstrap",
+      "aipod": {},
+      "usage": "",
+      "icon_path": "/tmp/lzcat-full-migrate-3r_s39rn/moltnet-main/website/public/apple-touch-icon.png",
+      "source_version": "",
+      "default_branch": "",
+      "_risks": [
+        "目标 app 已存在，自动覆盖当前托管文件后继续"
+      ]
+    },
+    "registration": {
+      "slug": "moltnet",
+      "monorepo_path": "apps/moltnet",
+      "config_path": "registry/repos/moltnet.json"
+    }
+  },
+  "steps": {
+    "1": {
+      "completed": true,
+      "completed_at": "2026-05-08T01:18:51.543881+00:00",
+      "conclusion": "已识别输入类型为 `github_repo`"
+    },
+    "2": {
+      "completed": true,
+      "completed_at": "2026-05-08T01:18:51.991497+00:00",
+      "conclusion": "已自动推断构建路线为 `upstream_with_target_template`"
+    },
+    "3": {
+      "completed": true,
+      "completed_at": "2026-05-08T01:18:51.992439+00:00",
+      "conclusion": "已完成 monorepo 注册"
+    },
+    "4": {
+      "completed": true,
+      "completed_at": "2026-05-08T01:18:52.131418+00:00",
+      "conclusion": "骨架文件已生成",
+      "files_written": [
+        "/__w/lzcat-apps/lzcat-apps/apps/moltnet/lzc-manifest.yml",
+        "/__w/lzcat-apps/lzcat-apps/apps/moltnet/lzc-build.yml",
+        "/__w/lzcat-apps/lzcat-apps/apps/moltnet/README.md",
+        "/__w/lzcat-apps/lzcat-apps/apps/moltnet/UPSTREAM_DEPLOYMENT_CHECKLIST.md",
+        "/__w/lzcat-apps/lzcat-apps/apps/moltnet/icon.png",
+        "/__w/lzcat-apps/lzcat-apps/registry/repos/moltnet.json"
+      ]
+    },
+    "5": {
+      "completed": true,
+      "completed_at": "2026-05-08T01:18:52.131903+00:00",
+      "conclusion": "manifest 初稿已生成"
+    },
+    "6": {
+      "completed": true,
+      "completed_at": "2026-05-08T01:18:52.132379+00:00",
+      "conclusion": "剩余文件已补齐"
+    }
+  },
+  "problems": [],
+  "verification": {}
+}
