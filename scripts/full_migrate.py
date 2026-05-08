@@ -4729,6 +4729,7 @@ def run_local_build(
         package_id = manifest_package_id(repo_root, slug)
         uninstall_output = ""
         if build_mode == "reinstall" and package_id:
+            print(f"[install] running: lzc-cli app uninstall {package_id}", flush=True)
             uninstall_result = subprocess.run(
                 ["lzc-cli", "app", "uninstall", package_id],
                 cwd=str(repo_root),
@@ -4738,6 +4739,9 @@ def run_local_build(
                 check=False,
             )
             uninstall_output = (uninstall_result.stdout or "") + (uninstall_result.stderr or "")
+            print(f"[install] uninstall rc={uninstall_result.returncode}; output:", flush=True)
+            print(uninstall_output or "(empty)", flush=True)
+        print(f"[install] running: lzc-cli app install {lpk_output}", flush=True)
         install_result = subprocess.run(
             install_cmd,
             cwd=str(repo_root),
@@ -4747,6 +4751,21 @@ def run_local_build(
             check=False,
         )
         install_output = uninstall_output + (install_result.stdout or "") + (install_result.stderr or "")
+        # Print install output regardless of returncode so the cycle log
+        # shows what lzc-cli actually did. Without this, install failures
+        # are silent — run_local_build returns non-zero, full_migrate
+        # falls back to a different strategy, and we only see the WARN
+        # tail in the step report (because tail_text grabs the last 40
+        # lines, which under typical lzc-cli output are dominated by the
+        # repeated hportal-client WARN that obscures the real cause).
+        # Observed in resumeai run 25535927984: build + .lpk + sidecar
+        # mirror all succeeded, but install_result.returncode != 0 and
+        # the only visible signal was the WARN — actual error never
+        # reached the operator.
+        print(f"[install] install rc={install_result.returncode}; stdout:", flush=True)
+        print((install_result.stdout or "(empty)"), flush=True)
+        print(f"[install] install stderr:", flush=True)
+        print((install_result.stderr or "(empty)"), flush=True)
         combined = output + install_output
         return BuildExecutionResult(
             command=install_cmd,
